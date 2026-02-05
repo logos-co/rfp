@@ -1,10 +1,10 @@
 name: 🚀 RFP Proposal
 description: Submit a proposal for an open Logos RFP
-title: "[PROPOSAL] RFP-XXX — Project Name"
-labels: ["proposal"]
+title: "[PROPOSAL] RFP-XXX — Give a cool name for your project"
+labels: ["proposal", "under-review"]
+assignees: ["hackyguru"]
 
 body:
-
   - type: input
     id: rfp-id
     attributes:
@@ -15,21 +15,82 @@ body:
       required: true
 
   - type: input
-    id: team-name
+    id: project-name
     attributes:
-      label: Team / Organization Name
-      placeholder: Acme Labs
+      label: Project Name
+      placeholder: Project name used in this proposal
     validations:
       required: true
 
   - type: input
-    id: contact
+    id: team-name
     attributes:
-      label: Primary Contact
-      description: Email, Telegram, or Discord
-      placeholder: founder@acme.xyz
+      label: Team / Organization Name
+      placeholder: Acme Labs (or "Independent")
     validations:
       required: true
+
+  - type: input
+    id: primary-contact
+    attributes:
+      label: Primary Contact
+      description: Email, Telegram, or Discord handle (we will use this to contact you).
+      placeholder: founder@acme.xyz / @handle / user#0000
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 👥 Team Profile
+        Provide details for your team members. Member 1 is required; add more members if applicable.
+
+  - type: textarea
+    id: team-member-1
+    attributes:
+      label: Team Member 1 (required)
+      description: Name/pseudonym, socials, preferred contact, role, and status.
+      placeholder: |
+        Name / Pseudonym:
+        Socials (GitHub, Twitter/X, LinkedIn, website):
+        Contact (email/telegram/discord):
+        Role in the project:
+        Status (full-time/part-time/contractor):
+    validations:
+      required: true
+
+  - type: textarea
+    id: team-member-2
+    attributes:
+      label: Team Member 2 (optional)
+      placeholder: |
+        Name / Pseudonym:
+        Socials (GitHub, Twitter/X, LinkedIn, website):
+        Contact (email/telegram/discord):
+        Role in the project:
+        Status (full-time/part-time/contractor):
+
+  - type: textarea
+    id: team-member-3
+    attributes:
+      label: Team Member 3 (optional)
+      placeholder: |
+        Name / Pseudonym:
+        Socials (GitHub, Twitter/X, LinkedIn, website):
+        Contact (email/telegram/discord):
+        Role in the project:
+        Status (full-time/part-time/contractor):
+
+  - type: textarea
+    id: team-member-4
+    attributes:
+      label: Team Member 4 (optional)
+      placeholder: |
+        Name / Pseudonym:
+        Socials (GitHub, Twitter/X, LinkedIn, website):
+        Contact (email/telegram/discord):
+        Role in the project:
+        Status (full-time/part-time/contractor):
 
   - type: textarea
     id: summary
@@ -82,12 +143,22 @@ body:
     attributes:
       label: Post-Delivery Plan
       description: Who maintains this project after completion?
-      placeholder: Describe your long-term support intentions.
+
+  - type: checkboxes
+    id: permissions
+    attributes:
+      label: Permissions & Consent
+      description: Please confirm the following.
+      options:
+        - label: I confirm Logos may contact me using the primary contact information provided above for follow-ups and next steps.
+          required: true
+        - label: I consent to Logos using information from this proposal publicly (e.g., in blogs, case studies, social posts) and/or for analytical reporting. (You can request redactions at any time.)
+          required: false
 
   - type: checkboxes
     id: terms
     attributes:
-      label: Confirmation
+      label: Program Requirements
       options:
         - label: We understand this project must be open-sourced under the MIT License unless otherwise approved.
           required: true
