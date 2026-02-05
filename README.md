@@ -1,3 +1,5 @@
+![Banner](/public/logos-rfps.png)
+
 # Logos RFP Program
 
 The Logos RFP Program funds and accelerates production-ready applications built by external teams that showcase the capabilities of the Logos Stack.
