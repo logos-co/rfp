@@ -1,0 +1,95 @@
+name: 🚀 RFP Proposal
+description: Submit a proposal for an open Logos RFP
+title: "[PROPOSAL] RFP-XXX — Project Name"
+labels: ["proposal"]
+
+body:
+
+  - type: input
+    id: rfp-id
+    attributes:
+      label: RFP ID
+      description: Which RFP are you applying for?
+      placeholder: RFP-001
+    validations:
+      required: true
+
+  - type: input
+    id: team-name
+    attributes:
+      label: Team / Organization Name
+      placeholder: Acme Labs
+    validations:
+      required: true
+
+  - type: input
+    id: contact
+    attributes:
+      label: Primary Contact
+      description: Email, Telegram, or Discord
+      placeholder: founder@acme.xyz
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Project Summary
+      description: What are you building and why does it matter?
+      placeholder: A 2–4 paragraph overview.
+    validations:
+      required: true
+
+  - type: textarea
+    id: approach
+    attributes:
+      label: Technical Approach
+      description: Architecture, stack, integrations, and any anticipated challenges.
+    validations:
+      required: true
+
+  - type: textarea
+    id: milestones
+    attributes:
+      label: Milestones & Timeline
+      description: Break the project into clear milestones with estimated timelines.
+      placeholder: |
+        Milestone 1 — Design (2 weeks)
+        Milestone 2 — Core build (3 weeks)
+        Milestone 3 — Testing & docs (2 weeks)
+    validations:
+      required: true
+
+  - type: input
+    id: budget
+    attributes:
+      label: Requested Budget (USD)
+      placeholder: $10,000
+    validations:
+      required: true
+
+  - type: textarea
+    id: experience
+    attributes:
+      label: Relevant Experience
+      description: Links to shipped products, GitHub repos, or prior work.
+      placeholder: URLs preferred over resumes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: maintenance
+    attributes:
+      label: Post-Delivery Plan
+      description: Who maintains this project after completion?
+      placeholder: Describe your long-term support intentions.
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmation
+      options:
+        - label: We understand this project must be open-sourced under the MIT License unless otherwise approved.
+          required: true
+        - label: We are prepared to deliver milestone-based outcomes.
+          required: true
