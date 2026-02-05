@@ -1,7 +1,7 @@
 name: 🚀 RFP Proposal
 description: Submit a proposal for an open Logos RFP
-title: "[PROPOSAL] RFP-XXX — Give a cool name for your project"
-labels: ["proposal", "under-review"]
+title: "[PROPOSAL] RFP-XXX — Project Name"
+labels: ["proposal", "in-review"]
 assignees: ["hackyguru"]
 
 body:
@@ -25,8 +25,8 @@ body:
   - type: input
     id: team-name
     attributes:
-      label: Team / Organization Name
-      placeholder: Acme Labs (or "Independent")
+      label: Team or Organization Name
+      placeholder: Acme Labs or Independent
     validations:
       required: true
 
@@ -34,8 +34,8 @@ body:
     id: primary-contact
     attributes:
       label: Primary Contact
-      description: Email, Telegram, or Discord handle (we will use this to contact you).
-      placeholder: founder@acme.xyz / @handle / user#0000
+      description: Email Telegram or Discord handle that we can use to contact you
+      placeholder: founder@acme.xyz or @telegram or discordUser
     validations:
       required: true
 
@@ -43,61 +43,39 @@ body:
     attributes:
       value: |
         ## 👥 Team Profile
-        Provide details for your team members. Member 1 is required; add more members if applicable.
+        Provide details for all team members in one place.
+
+        Include:
+        • Name or pseudonym  
+        • Social links (GitHub Twitter LinkedIn website)  
+        • Role in the project  
+        • Status (full-time part-time contractor)  
 
   - type: textarea
-    id: team-member-1
+    id: team-profile
     attributes:
-      label: Team Member 1 (required)
-      description: Name/pseudonym, socials, preferred contact, role, and status.
+      label: Team Members
       placeholder: |
-        Name / Pseudonym:
-        Socials (GitHub, Twitter/X, LinkedIn, website):
-        Contact (email/telegram/discord):
-        Role in the project:
-        Status (full-time/part-time/contractor):
+        Member 1  
+        Name or pseudonym:  
+        Social links:  
+        Role:  
+        Status:
+
+        Member 2  
+        Name or pseudonym:  
+        Social links:  
+        Role:  
+        Status:
     validations:
       required: true
-
-  - type: textarea
-    id: team-member-2
-    attributes:
-      label: Team Member 2 (optional)
-      placeholder: |
-        Name / Pseudonym:
-        Socials (GitHub, Twitter/X, LinkedIn, website):
-        Contact (email/telegram/discord):
-        Role in the project:
-        Status (full-time/part-time/contractor):
-
-  - type: textarea
-    id: team-member-3
-    attributes:
-      label: Team Member 3 (optional)
-      placeholder: |
-        Name / Pseudonym:
-        Socials (GitHub, Twitter/X, LinkedIn, website):
-        Contact (email/telegram/discord):
-        Role in the project:
-        Status (full-time/part-time/contractor):
-
-  - type: textarea
-    id: team-member-4
-    attributes:
-      label: Team Member 4 (optional)
-      placeholder: |
-        Name / Pseudonym:
-        Socials (GitHub, Twitter/X, LinkedIn, website):
-        Contact (email/telegram/discord):
-        Role in the project:
-        Status (full-time/part-time/contractor):
 
   - type: textarea
     id: summary
     attributes:
       label: Project Summary
       description: What are you building and why does it matter?
-      placeholder: A 2–4 paragraph overview.
+      placeholder: Provide a clear 2–4 paragraph overview.
     validations:
       required: true
 
@@ -105,19 +83,19 @@ body:
     id: approach
     attributes:
       label: Technical Approach
-      description: Architecture, stack, integrations, and any anticipated challenges.
+      description: Describe architecture stack integrations and anticipated challenges.
     validations:
       required: true
 
   - type: textarea
     id: milestones
     attributes:
-      label: Milestones & Timeline
+      label: Milestones and Timeline
       description: Break the project into clear milestones with estimated timelines.
       placeholder: |
-        Milestone 1 — Design (2 weeks)
-        Milestone 2 — Core build (3 weeks)
-        Milestone 3 — Testing & docs (2 weeks)
+        Milestone 1 — Design (2 weeks)  
+        Milestone 2 — Core build (3 weeks)  
+        Milestone 3 — Testing and documentation (2 weeks)
     validations:
       required: true
 
@@ -133,8 +111,8 @@ body:
     id: experience
     attributes:
       label: Relevant Experience
-      description: Links to shipped products, GitHub repos, or prior work.
-      placeholder: URLs preferred over resumes.
+      description: Share links to shipped products GitHub repositories or prior work.
+      placeholder: URLs are preferred over resumes.
     validations:
       required: true
 
@@ -142,17 +120,17 @@ body:
     id: maintenance
     attributes:
       label: Post-Delivery Plan
-      description: Who maintains this project after completion?
+      description: Who maintains this project after completion and how will support be handled?
 
   - type: checkboxes
     id: permissions
     attributes:
-      label: Permissions & Consent
+      label: Permissions and Consent
       description: Please confirm the following.
       options:
         - label: I confirm Logos may contact me using the primary contact information provided above for follow-ups and next steps.
           required: true
-        - label: I consent to Logos using information from this proposal publicly (e.g., in blogs, case studies, social posts) and/or for analytical reporting. (You can request redactions at any time.)
+        - label: I consent to Logos using information from this proposal publicly such as blogs case studies social posts or analytical reporting. Redactions can be requested at any time.
           required: false
 
   - type: checkboxes
@@ -160,7 +138,7 @@ body:
     attributes:
       label: Program Requirements
       options:
-        - label: We understand this project must be open-sourced under the MIT License unless otherwise approved.
+        - label: We understand this project must be open-sourced under the MIT License unless explicitly approved otherwise.
           required: true
         - label: We are prepared to deliver milestone-based outcomes.
           required: true
