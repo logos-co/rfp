@@ -12,7 +12,7 @@ The Logos RFP Program funds and accelerates production-ready applications built 
 3. Submit a proposal by [creating a new issue](https://github.com/logos-co/rfp/issues/new?template=proposal.yml)
 4. We review proposals weekly and typically respond within **14 days**
 
-Use GitHub issue pertaining to your proposal for any questionsn or clarifications. Updates regarding the decision of your proposal will be made on your issue / contact information provided in the proposal.
+Use GitHub issue pertaining to your proposal for any questions or clarifications. Updates regarding the decision of your proposal will be made on your issue / contact information provided in the proposal.
 
 
 ## What we fund
