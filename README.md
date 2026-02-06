@@ -30,9 +30,9 @@ Click an RFP to view details. Use the Submit Proposal button to apply.
 
 <!-- RFP_TABLE_START -->
 <!-- This table is auto-generated from frontmatter in /rfps. Do not edit manually. -->
-| ID | Title | Tier | Funding | Status | Category | Submit Proposal |
-| --- | --- | --- | --- | --- | --- | --- |
-| RFP-000 | Template | XS/S/M/L/XL | $XXXXX | open/closed | Developer Tooling and Infrastructure / Applications and Integrations / Ecosystem and Community Enablement | [Submit Proposal](https://github.com/<OWNER>/<REPO>/issues/new?template=proposal.yml) |
+| ID      | Title    | Tier        | Funding | Status      | Category                                                                                                  | Submit Proposal                                                                       |
+|---------|----------|-------------|---------|-------------|-----------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| RFP-000 | Template | XS/S/M/L/XL | $XXXXX  | open/closed | Developer Tooling and Infrastructure / Applications and Integrations / Ecosystem and Community Enablement | [Submit Proposal](https://github.com/<OWNER>/<REPO>/issues/new?template=proposal.yml) |
 <!-- RFP_TABLE_END -->
 
 
