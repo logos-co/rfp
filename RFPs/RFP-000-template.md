@@ -70,13 +70,13 @@ All code must be released under the **MIT License**.
 
 ## Resources
 
-List all the relavent resources that can be useful to understand more about the RFP/related work.
+List all the relevant resources that can be useful to understand more about the RFP/related work.
 
 
 ## ✏️ How to Apply
 
 👉 Submit a proposal using the Issue form:
 
-**[Submit Proposal](../../issues/new?template=proposal.yml)**
+**[Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml)**
 
 We typically respond within **14 days**. For clarification questions, please use **Discussions**.
