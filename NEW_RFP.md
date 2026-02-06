@@ -7,7 +7,7 @@
 ---
 id: RFP-001
 title: Example Title
-tier: M
+tier: XS/S/M/L/XL
 funding: $5,000–$15,000
 status: open
 category: Applications and Integrations
