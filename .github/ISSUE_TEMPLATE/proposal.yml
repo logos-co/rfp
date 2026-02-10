@@ -1,6 +1,6 @@
 name: 🚀 RFP Proposal
 description: Submit a proposal for an open Logos RFP
-title: "[PROPOSAL] RFP-XXX — Project Name"
+title: "[PROPOSAL] RFP-XXX — Your Project Name"
 labels: ["proposal", "in-review"]
 assignees: ["hackyguru"]
 
@@ -17,8 +17,8 @@ body:
   - type: input
     id: project-name
     attributes:
-      label: Project Name
-      placeholder: Project name used in this proposal
+      label: Your Project Name
+      placeholder: The name of project that will implement the RFP
     validations:
       required: true
 
@@ -34,7 +34,7 @@ body:
     id: primary-contact
     attributes:
       label: Primary Contact
-      description: Email Telegram or Discord handle that we can use to contact you
+      description: Email, Telegram, Discord or Signal handle that we can use to contact you
       placeholder: founder@acme.xyz or @telegram or discordUser
     validations:
       required: true
@@ -74,7 +74,7 @@ body:
     id: summary
     attributes:
       label: Project Summary
-      description: What are you building and why does it matter?
+      description: Your take on the RF and why does it matter?
       placeholder: Provide a clear 2–4 paragraph overview.
     validations:
       required: true
