@@ -1,10 +1,10 @@
 ---
-id: RFP-000
-title: Project Title
-tier: XS/S/M/L/XL
+id: RFP-001
+title: Program Authority - Access Control & Freeze
+tier: XS
 funding: $XXXXX
-status: open/closed
-category: Developer Tooling & Infrastructure / Applications & Integrations / Ecosystem & Community Enablement
+status: open
+category: Developer Tooling & Infrastructure
 ---
 
 
