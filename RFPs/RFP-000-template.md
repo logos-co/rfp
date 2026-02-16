@@ -65,7 +65,7 @@ Provide a realistic range aligned with tier. Example: Estimated duration: **3–
 
 ## 🌍 Open Source Requirement
 
-All code must be released under the **MIT License**.
+All code must be released under the **MIT+Apache2.0 License**.
 
 
 ## Resources
