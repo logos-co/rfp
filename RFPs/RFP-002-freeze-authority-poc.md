@@ -67,6 +67,9 @@ If possible.
 1. Freeze authority can only be set to a valid new signer (on-curve key
   or deployed PDA), when set or initialised.
 
+### Out-of-scope
+
+Note that due to the privacy properties of LEE, it is not possible to freeze actions for a given signer/account. Hence, such a feature is not expected. Freezing is expected to be agnostic to the signers or initiators of a transaction.
 ## 👤 Recommended Team Profile
 
 Developer experienced with:
