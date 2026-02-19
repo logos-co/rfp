@@ -29,10 +29,10 @@ Proposals should align with one of the below focus categories:
 Click an RFP to view details. Use the Submit Proposal button to apply.
 
 <!-- RFP_TABLE_START -->
-<!-- This table is auto-generated from frontmatter in /rfps. Do not edit manually. -->
-| ID      | Title    | Tier        | Funding | Status      | Category                                                                                                  | Submit Proposal                                                                       |
-|---------|----------|-------------|---------|-------------|-----------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
-| RFP-000 | Template | XS/S/M/L/XL | $XXXXX  | open/closed | Developer Tooling and Infrastructure / Applications and Integrations / Ecosystem and Community Enablement | [Submit Proposal](https://github.com/<OWNER>/<REPO>/issues/new?template=proposal.yml) |
+| ID      | Title                                                    | Tier | Funding | Status | Category                           | Submit Proposal                                                                     |
+|---------|----------------------------------------------------------|------|---------|--------|------------------------------------|-------------------------------------------------------------------------------------|
+| RFP-001 | [Admin Authority](RFPs/RFP-001-admin-authority-poc.md)   | XS   | $XXXXX  | open   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
+| RFP-002 | [Freeze Authority](RFPs/RFP-002-freeze-authority-poc.md) | XS   | $XXXXX  | open   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
 <!-- RFP_TABLE_END -->
 
 
