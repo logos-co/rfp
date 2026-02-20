@@ -33,6 +33,7 @@ Click an RFP to view details. Use the Submit Proposal button to apply.
 |---------|----------------------------------------------------------|------|---------|--------|------------------------------------|-------------------------------------------------------------------------------------|
 | RFP-001 | [Admin Authority](RFPs/RFP-001-admin-authority-poc.md)   | XS   | $XXXXX  | open   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
 | RFP-002 | [Freeze Authority](RFPs/RFP-002-freeze-authority-poc.md) | XS   | $XXXXX  | open   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
+| RFP-003 | [Merkle Airdrop](RFPs/RFP-003-merkle-airdrop-poc.md)     | S    | $XXXXX  | open   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
 <!-- RFP_TABLE_END -->
 
 
