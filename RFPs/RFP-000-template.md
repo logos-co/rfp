@@ -57,7 +57,10 @@ Standard requirements for Logos apps (adapt as needed):
 2. Provide a Logos mini-app GUI with local build instructions,
    downloadable assets, and loadable in Logos app (Basecamp) via
    git repo.
-3. Provide an IDL for the LEZ program, preferably using the
+3. Provide a CLI that covers core functionality of the program.
+   The CLI may have fewer features than the GUI mini-app but must
+   support all essential operations.
+4. Provide an IDL for the LEZ program, preferably using the
    [SPEL framework](https://github.com/logos-co/spel).
 
 Add RFP-specific usability requirements here.
