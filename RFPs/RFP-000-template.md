@@ -7,6 +7,7 @@ status: open/closed
 category: Developer Tooling & Infrastructure / Applications & Integrations / Ecosystem & Community Enablement
 ---
 
+<!-- Don't forget to add this RFP to the table in README.md (between RFP_TABLE_START / RFP_TABLE_END markers) -->
 
 # RFP-000 — Project Title
 
@@ -39,11 +40,57 @@ Builders want to understand the impact of th RFP towards the success of Logos ec
 
 ## ✅ Scope of Work
 
-#### Hard Requirements
+### Hard Requirements
 
-Explain all the hard requirements of the RFP in points.
+Use FURPS framework. Each numbered item should be a testable statement.
 
-#### Soft Requirements
+#### Functionality
+
+List what the program/application must do.
+
+#### Usability
+
+Standard requirements for Logos apps (adapt as needed):
+
+1. Provide an SDK that can be used to build Logos modules for
+   interacting with the program.
+2. Provide a Logos mini-app GUI with local build instructions,
+   downloadable assets, and loadable in Logos app (Basecamp) via
+   git repo.
+3. Provide a CLI that covers core functionality of the program.
+   The CLI may have fewer features than the GUI mini-app but must
+   support all essential operations.
+4. Provide an IDL for the LEZ program, preferably using the
+   [SPEL framework](https://github.com/logos-co/spel).
+
+Add RFP-specific usability requirements here.
+
+#### Reliability
+
+List reliability guarantees (consistency, fault tolerance, graceful
+degradation, etc.).
+
+#### Performance
+
+List performance requirements. Document compute unit usage of each
+operation (LEZ's per-transaction compute budget may change during
+testnet).
+
+#### Supportability
+
+Standard requirements (adapt as needed):
+
+1. The program is deployed and tested on LEZ devnet/testnet.
+2. End-to-end integration tests run against a LEZ sequencer (standalone
+   mode) and are included in CI
+3. CI must be green on the default branch.
+4. Every hard requirement in Functionality, Usability, Reliability,
+   and Performance has at least one corresponding test.
+5. A README documents end-to-end usage: deployment steps, program
+   addresses, and step-by-step instructions for interacting with the
+   program via CLI and mini-app.
+
+### Soft Requirements
 
 Explain all the optional soft requirements of the RFP in points.
 
