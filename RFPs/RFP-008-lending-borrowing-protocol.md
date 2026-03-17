@@ -1,0 +1,456 @@
+---
+id: RFP-008
+title: Lending & Borrowing Protocol
+tier: XL
+funding: $XXXXX
+status: draft
+dependencies: See Platform Dependencies section
+category: Applications & Integrations
+---
+
+
+# RFP-008 — Lending & Borrowing Protocol
+
+## 🧭 Overview
+
+Build a lending and borrowing protocol on LEZ that allows users to supply
+assets to liquidity pools, earn interest, and borrow against
+over-collateralised positions. The protocol must include algorithmic
+interest rates, a permissionless liquidation engine, oracle-fed price
+data, and composable receipt tokens — the core primitives that every
+major lending protocol (Aave, Compound, Morpho, Kamino, etc.) depends on.
+
+Lending is the capital-efficiency engine of any DeFi ecosystem. It unlocks
+idle assets by letting holders earn yield and borrowers access liquidity
+without selling. For the Logos ecosystem, a lending protocol creates
+demand for assets deployed on LEZ, drives TVL, and provides a
+composability surface that other programs can build on.
+
+This RFP targets a production-ready protocol. The applying team should
+have experience building or contributing to on-chain lending protocols
+and be comfortable with interest rate modelling, liquidation mechanics,
+and oracle integration.
+
+## 🔥 Why This Matters
+
+Lending protocols are proven ecosystem catalysts. Aave's deployment on
+Polygon catalysed over $1B in TVL and bootstrapped the entire Polygon
+DeFi ecosystem. On Solana, Kamino grew to $2.8B TVL and became the
+backbone for leveraged yield strategies across the chain.
+
+Without lending, assets on LEZ sit idle. Holders have no way to earn
+yield, builders have no liquidity primitive to compose with, and the
+ecosystem lacks the capital-efficiency layer needed to attract serious
+DeFi activity. A lending protocol is the single highest-leverage
+application for growing the Logos ecosystem.
+
+Beyond TVL, lending creates downstream demand: it establishes a
+borrowing market for stablecoins, generates liquidation volume for DEXs,
+and provides the collateral infrastructure needed for synthetic assets
+and structured products. Every major DeFi ecosystem was built on this
+foundation.
+
+## ✅ Scope of Work
+
+### Hard Requirements
+
+#### Functionality
+
+1. Users can supply supported assets to liquidity pools and receive
+   interest-bearing receipt tokens representing their pool share.
+   Receipt tokens must be standard SPL tokens, freely transferable
+   and composable with other LEZ programs.
+2. Users can borrow supported assets against deposited collateral.
+   All borrow positions must be over-collateralised, governed by
+   per-asset LTV ratios.
+3. Users can repay borrowed assets in full or partially.
+4. Users can withdraw supplied assets at any time, subject to
+   available pool liquidity.
+5. Interest rates are determined by a utilisation-based model that
+   increases rates as pool utilisation rises, incentivising repayment
+   and maintaining withdrawal liquidity. The specific model design
+   is left to the implementer. Parameters must be configurable per
+   asset.
+6. Interest accrues continuously. Supply APY and borrow APR are
+   deterministic functions of pool utilisation, queryable on-chain.
+7. When a borrower's health factor drops below 1, any account can
+   permissionlessly liquidate the position by repaying a portion of
+   the debt and receiving equivalent collateral at a discount.
+   Liquidation is partial (configurable close factor per transaction).
+8. Each asset has independently configurable risk parameters: LTV,
+   liquidation threshold, liquidation bonus, reserve factor, and
+   supply/borrow caps.
+9. A reserve factor diverts a percentage of borrow interest into
+   protocol reserves as a buffer against bad debt.
+10. Price feeds from at least one oracle provider are integrated for
+    collateral valuation and liquidation triggers.
+11. An emergency pause mechanism (freeze authority) can halt all
+    lending operations, following the patterns from RFP-001 and
+    RFP-002.
+12. Per-asset supply and borrow caps are enforced and adjustable
+    without program upgrade.
+13. A liquidator bot that continuously monitors all borrower
+    positions and executes liquidations when health factors drop
+    below 1. The bot is the protocol's solvency mechanism — without
+    it, bad debt accumulates and the protocol becomes insolvent.
+    Must be runnable by any third party.
+14. A risk monitoring service that tracks protocol health metrics:
+    per-asset utilisation, aggregate collateral ratios, positions
+    approaching liquidation thresholds, and oracle feed status.
+    Must expose metrics via an API or dashboard.
+
+#### Usability
+
+1. Build the program using the [SPEL framework](https://github.com/logos-co/spel), which
+   generates the IDL and client code from the program definition.
+2. Provide a Logos mini-app GUI with local build instructions,
+   downloadable assets, and loadable in Logos app (Basecamp) via
+   git repo.
+3. Provide a CLI that covers core functionality of the program.
+   The CLI may have fewer features than the GUI mini-app but must
+   support all essential operations.
+4. Liquidator bot and risk monitoring services are implemented as Logos modules, accompanied with Logos core headless CLIs/daemons.
+5. The mini-app supports depositing, borrowing, repaying,
+   withdrawing, and viewing position health.
+6. A single health factor metric is displayed per borrower position,
+   queryable on-chain and surfaced in both CLI and mini-app.
+7. Current supply APY, borrow APR, and pool utilisation are displayed
+   per asset in the mini-app and CLI.
+
+#### Reliability
+
+1. The program rejects borrow and liquidation operations when the
+   oracle price feed is older than a configurable staleness threshold.
+2. Liquidation triggers use a time-weighted or confidence-adjusted
+   price, not raw spot price, to resist single-transaction price
+   manipulation.
+3. The program does not enter an unrecoverable state if an asset's
+   oracle feed becomes permanently unavailable; the freeze authority
+   can pause operations for affected assets independently.
+4. Bad debt remaining after a liquidation exhausts available
+   collateral is tracked and socialised across the reserve fund.
+
+#### Performance
+
+1. Document compute-unit usage of each operation (supply, borrow,
+   repay, withdraw, liquidate) on LEZ.
+2. Interest accrual is lazy (computed on interaction), not via a
+   separate crank transaction per block.
+3. The program supports at least 5 distinct asset markets
+   simultaneously without exceeding LEZ compute limits on any
+   single user operation.
+
+#### Supportability
+
+1. The program is deployed and tested on LEZ devnet/testnet.
+2. End-to-end integration tests run against a LEZ sequencer
+   (standalone mode) and are included in CI.
+3. CI must be green on the default branch.
+4. Every hard requirement in Functionality, Usability, Reliability,
+   and Performance has at least one corresponding test.
+5. A README documents end-to-end usage: deployment steps, program
+   addresses, and step-by-step instructions for interacting with
+   the program via CLI and mini-app.
+
+### Soft Requirements
+
+If possible.
+
+#### Functionality
+1. Flash loans: uncollateralised loans borrowed and repaid within a
+   single transaction, reverting atomically on failure.
+2. Efficiency mode (eMode): correlated asset groups (e.g. stablecoin
+   pairs, LST/underlying) with elevated LTV ratios.
+3. Isolated markets: higher-risk assets listed in isolated pools with
+   independent debt ceilings; bad debt does not propagate to other
+   markets.
+4. Multiple collateral per position: a single borrower deposits
+   multiple distinct assets, with aggregate borrowing power from the
+   weighted sum.
+5. All risk parameters adjustable by a designated authority without
+   requiring a program upgrade.
+
+#### Usability
+1. Curated vault abstraction: single-asset deposit vaults that
+   allocate across multiple lending markets via a curator-defined
+   strategy.
+
+#### Reliability
+1. Multi-oracle redundancy: at least two independent oracle providers,
+   with fallback when the primary is stale or unavailable.
+2. Formal verification of critical invariants: (a) a healthy position
+   cannot be liquidated, (b) receipt token supply equals total
+   supplied assets plus accrued interest, (c) interest rate output is
+   monotonically increasing with utilisation.
+
+### Out of Scope
+
+The following are explicitly excluded. They may be addressed in
+follow-up RFPs:
+
+- Native stablecoin issuance (CDP-style minting against collateral)
+- Governance token design and distribution
+- Cross-chain liquidity or bridging
+- Leveraged looping / one-click multiply products
+
+### Private Account Compatibility
+
+Logos Execution Environment provides a dual account model: public
+accounts (visible on-chain state) and private accounts (commitment +
+nullifier model, never stored in raw form). Programs are identical for
+both — the same RISC-V bytecode runs in public execution
+(on-chain) or private execution (client-side ZKP, validators verify
+proof only). From the program's perspective, all accounts are
+indistinguishable.
+
+Since programs are account-type agnostic, this RFP does not
+distinguish between public and private accounts — the protocol must
+work with both. However, certain features face open research
+challenges when users choose to use private accounts. The
+classification below identifies these.
+
+#### 1. Expected to work with private accounts
+
+These features operate on a single user's own accounts without needing
+to read other users' state or aggregate pool state.
+
+- **Repay** (F3) — user reduces their own debt. Touches only the
+  user's position and the pool's aggregate counters.
+- **Withdraw** (F4) — user redeems receipt tokens for underlying
+  assets. Same as repay: single-user operation.
+- **Receipt token transfers** — transferring receipt tokens between
+  accounts is a standard token transfer. The LEZ token program
+  already supports private transfers.
+- **Emergency pause / freeze authority** (F11) — a global flag read
+  by the program. No per-user state visibility needed.
+- **Per-asset risk parameters** (F8) — protocol configuration, stored
+  in public accounts. Programs read these identically regardless of
+  execution mode.
+
+#### 2. Further research needed
+
+These features require the program to read or update **aggregate
+pool state** (total supplied, total borrowed) while keeping individual
+positions private. The LEZ model executes the program locally and
+submits a ZKP, but the program still needs correct inputs for the
+pool's current totals.
+
+- **Supply** (F1) — user deposits assets and receives receipt tokens.
+  The pool's total supply must increase, which means the aggregate
+  account is updated. A private user's deposit amount is hidden, but
+  the aggregate public account must reflect the change. How a private
+  execution atomically updates a shared public aggregate without
+  revealing the individual amount requires further research
+  (e.g. homomorphic commitments on the aggregate, or batched
+  settlement).
+- **Borrow** (F2) — same challenge as supply, but for total borrows.
+  Additionally, the protocol must verify that the user's collateral
+  exceeds the borrow amount (LTV check). In private execution, this
+  check happens in the ZKP, but the aggregate borrow counter still
+  needs updating.
+- **Interest rate calculation** (F5, F6) — rates are a function of
+  pool utilisation (total borrowed / total supplied). If individual
+  supplies and borrows are private, the aggregates must still be
+  computable. This may work if aggregates are maintained as public
+  counters updated by each private transaction's ZKP, but the
+  interaction between concurrent private transactions updating the
+  same aggregate is an open question.
+- **Health factor computation** (U6) — a user's own health factor
+  can be computed privately (they know their own collateral and debt).
+  Displaying it to the user works. But the protocol also needs to
+  know when a position is unhealthy for liquidation — see below.
+- **Supply and borrow caps** (F12) — enforcing a global cap requires
+  knowing the current aggregate. Same challenge as interest rates.
+- **Reserve fund accounting** (F9) — reserves accumulate from
+  interest, which requires aggregate state.
+- **Efficiency mode / eMode** (soft F2) — correlated asset grouping
+  is protocol config (public), but verifying a user's position
+  qualifies for eMode requires reading their collateral composition
+  in the ZKP.
+- **Multiple collateral per position** (soft F4) — works privately
+  in principle (the ZKP can verify aggregate collateral value), but
+  increases proof complexity.
+
+#### 3. Definitely cannot work with private accounts (without new primitives)
+
+These features fundamentally require one party to observe or act on
+another party's private state.
+
+- **Permissionless liquidation** (F7) — the core challenge. A
+  liquidator must identify that *someone else's* position is
+  unhealthy (collateral value < debt). If positions are private,
+  no external party can see another user's health factor. The
+  liquidator cannot know which positions to liquidate, what
+  collateral is available, or how much debt to repay. This breaks
+  the fundamental liquidation model used by all 10 protocols
+  analysed. Possible research directions:
+  - Users self-liquidate (but misaligned incentives — underwater
+    borrowers may not act)
+  - A keeper network with viewing keys (but centralises trust)
+  - Protocol-level liquidation triggered by aggregate metrics
+    (but cannot target individual positions)
+  - ZK proof that a position is unhealthy without revealing which
+    one (but the liquidator still needs to know the collateral
+    to seize)
+- **Oracle staleness checks** (R1) and **price manipulation
+  resistance** (R2) — oracle feeds are public by nature (external
+  price data). The reliability requirements themselves are
+  compatible with privacy, but the *use* of oracle data in
+  liquidation triggers circles back to the liquidation problem:
+  someone must compare a public price against a private position.
+- **Bad debt socialisation** (R4) — detecting bad debt requires
+  knowing that a liquidation was incomplete, which requires
+  visibility into position state.
+- **Liquidator bot** (S6) — cannot monitor private positions.
+
+## ⚠ Platform Dependencies
+
+This RFP remains in **draft** until the dependencies below are resolved.
+LEZ has similar programming capabilities to Solana but several
+primitives required by a lending protocol are not yet available.
+
+### Hard blockers
+
+These must be available on LEZ before this RFP can open.
+
+#### Oracle provider
+
+No oracle provider is available on LEZ. The lending protocol requires
+external price feeds for collateral valuation and liquidation triggers.
+Every hard requirement related to liquidation (F7), oracle integration
+(F10), and reliability (R1–R3) depends on this.
+
+#### On-chain clock / timestamp
+
+LEZ does not yet have on-chain block time. Interest accrual — the
+core economic mechanic of a lending protocol — requires knowing how
+much time has elapsed between interactions. Without a reliable on-chain
+timestamp, interest rates, supply APY, and borrow APR cannot be
+computed.
+
+#### General cross-program calls (LP-0015)
+
+LEZ uses a tail-call execution model rather than Solana's CPI
+(Cross-Program Invocation). In Solana's model, a program can call
+another program mid-execution and resume when the call returns. In
+LEZ's model, a tail call hands off control entirely — there is no
+return.
+
+A lending operation like "supply" needs to: (1) call the token
+program to transfer assets into the pool, then (2) continue executing
+to update interest indices, mint receipt tokens, and write position
+state. Without general cross-program calls, step 2 cannot happen after
+step 1. Each continuation would need to be a separate externally
+callable entrypoint, which is fragile and insecure (anyone could call
+the continuation directly, bypassing the token transfer).
+
+[LP-0015](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0015.md)
+(General cross-program calls via tail calls) solves this by introducing
+internal-only entrypoints protected by an unforgeable capability, so
+the lending program can tail-call the token program and have control
+return to a protected continuation. This prize is currently **open**.
+
+### Soft blockers
+
+Desirable but the RFP can open without them.
+
+#### Event emission (LP-0012)
+
+Liquidator bots and indexers need to monitor positions and react to
+on-chain state changes. Without structured events, off-chain services
+must poll all accounts, which is expensive and unreliable.
+
+[LP-0012](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)
+(Structured events for LEZ program execution) is currently **open**.
+
+#### Transaction introspection (flash loans)
+
+On Solana, flash loans rely on three features:
+
+1. **Multi-instruction transactions** — a transaction contains
+   multiple instructions that execute sequentially and atomically.
+   On LEZ, this should be covered by LP-0015 (general cross-program
+   calls via tail calls) once resolved.
+2. **Instructions sysvar** (`sysvar::instructions`) — the lending
+   program reads ahead into the transaction to verify a matching
+   repay instruction exists before releasing funds. This sysvar is
+   not yet available on LEZ.
+3. **Atomic rollback** — if any instruction fails, the entire
+   transaction reverts including the borrow.
+
+Without the Instructions sysvar, the lending program cannot verify
+upfront that repayment is structurally guaranteed. Flash loans (a soft
+requirement) depend on this sysvar or an equivalent mechanism being
+available on LEZ.
+
+### Risks
+
+#### Compute budget
+
+LEZ currently processes one private transaction per block. Liquidation
+is the most compute-intensive lending operation: it reads the
+borrower's position, multiple collateral balances, multiple oracle
+prices, interest indices, and risk parameters, then writes updated
+state. On Solana, a liquidation can consume 200–400K compute units.
+If LEZ's per-transaction compute budget is insufficient, liquidations
+will fail and the protocol risks insolvency. This needs benchmarking
+once the protocol is under development.
+
+#### Private accounts and permissionless liquidation
+
+Permissionless liquidation — where any third party can identify and
+liquidate unhealthy positions — is the solvency mechanism used by
+every major lending protocol. In LEZ's private account model,
+individual positions (collateral, debt, health factor) are hidden
+behind commitments. No external party can determine which positions
+are underwater.
+
+This creates a fundamental tension: the protocol's safety depends on
+liquidation, but privacy prevents anyone from knowing *what* to
+liquidate. Solving this may require new cryptographic primitives or a
+fundamentally different liquidation model. See the Private Account
+Compatibility section under Scope of Work for research directions.
+
+## 👤 Recommended Team Profile
+
+Team experienced with:
+
+- DeFi lending protocol design (Aave, Compound, Kamino, Morpho, or
+  similar)
+- Solana or SVM program development (Anchor or native)
+- Interest rate modelling and utilisation curve design
+- Liquidation mechanism design and MEV considerations
+- Oracle integration and price feed security
+- Writing and running on-chain tests (e.g. Bankrun, Anchor tests)
+- Front-end development for DeFi applications
+
+## ⏱ Timeline Expectations
+
+Estimated duration: **16–24 weeks**
+
+
+## 🌍 Open Source Requirement
+
+All code must be released under the **MIT+Apache2.0 dual License**.
+
+
+## Resources
+
+- [Lending Protocol FURPS+ Research](/research/lending-protocols-furps-analysis.md) —
+  Comparative analysis of the 10 largest lending protocols that
+  informed this RFP
+- [RFP-001 — Admin Authority](/RFPs/RFP-001-admin-authority-poc.md)
+- [RFP-002 — Freeze Authority](/RFPs/RFP-002-freeze-authority-poc.md)
+- TODO: LEE official doc
+- TODO: Oracle integration guide for LEZ
+- TODO: SPEL framework documentation
+
+
+## ✏️ How to Apply
+
+👉 Submit a proposal using the Issue form:
+
+**[Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml)**
+
+We typically respond within **14 days**. For clarification questions,
+please use **Discussions**.
