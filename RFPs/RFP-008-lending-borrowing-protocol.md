@@ -26,10 +26,15 @@ without selling. For the Logos ecosystem, a lending protocol creates
 demand for assets deployed on LEZ, drives TVL, and provides a
 composability surface that other programs can build on.
 
-This RFP targets a production-ready protocol. The applying team should
-have experience building or contributing to on-chain lending protocols
-and be comfortable with interest rate modelling, liquidation mechanics,
-and oracle integration.
+This RFP targets Aave v2 core equivalence — the foundational lending
+primitives (supply, borrow, repay, withdraw, liquidation, interest
+accrual, oracle integration). Advanced features such as eMode, flash
+loans, isolated markets, and multiple collateral per position (Aave v3
+territory) are out of scope here and addressed in
+[RFP-012](./RFP-012-advanced-lending-features.md). The applying team
+should have experience building or contributing to on-chain lending
+protocols and be comfortable with interest rate modelling, liquidation
+mechanics, and oracle integration.
 
 ## 🔥 Why This Matters
 
@@ -116,6 +121,13 @@ foundation.
    queryable on-chain and surfaced in both CLI and mini-app.
 7. Current supply APY, borrow APR, and pool utilisation are displayed
    per asset in the mini-app and CLI.
+8. The SDK must handle the atomic deshield (deposit token + native gas)
+   as a single indivisible user action, preventing accidental privacy
+   leaks from externally funding the intermediate account.
+9. The mini-app and documentation must clearly communicate what is
+   public vs. private per operation (e.g., "supply amount and pool are
+   visible on-chain; which private account deposited is not
+   traceable").
 
 #### Reliability
 
@@ -132,8 +144,9 @@ foundation.
 
 #### Performance
 
-1. Document compute-unit usage of each operation (supply, borrow,
-   repay, withdraw, liquidate) on LEZ.
+1. Document the transaction size of each operation (supply, borrow,
+   repay, withdraw, liquidate) on LEZ. LEZ's block size is limited
+   and this budget may change during testnet.
 2. Interest accrual is lazy (computed on interaction), not via a
    separate crank transaction per block.
 3. The program supports at least 5 distinct asset markets
@@ -156,25 +169,6 @@ foundation.
 
 If possible.
 
-#### Functionality
-1. Flash loans: uncollateralised loans borrowed and repaid within a
-   single transaction, reverting atomically on failure.
-2. Efficiency mode (eMode): correlated asset groups (e.g. stablecoin
-   pairs, LST/underlying) with elevated LTV ratios.
-3. Isolated markets: higher-risk assets listed in isolated pools with
-   independent debt ceilings; bad debt does not propagate to other
-   markets.
-4. Multiple collateral per position: a single borrower deposits
-   multiple distinct assets, with aggregate borrowing power from the
-   weighted sum.
-5. All risk parameters adjustable by a designated authority without
-   requiring a program upgrade.
-
-#### Usability
-1. Curated vault abstraction: single-asset deposit vaults that
-   allocate across multiple lending markets via a curator-defined
-   strategy.
-
 #### Reliability
 1. Multi-oracle redundancy: at least two independent oracle providers,
    with fallback when the primary is stale or unavailable.
@@ -185,8 +179,18 @@ If possible.
 
 ### Out of Scope
 
-The following are explicitly excluded. They may be addressed in
-follow-up RFPs:
+The following are explicitly excluded from this RFP.
+
+Advanced lending features — deferred to [RFP-012](./RFP-012-advanced-lending-features.md):
+
+- eMode (efficiency mode): correlated asset groups with elevated LTV ratios
+- Isolated markets: higher-risk assets in isolated pools with independent debt ceilings
+- Flash loans: uncollateralised single-transaction loans
+- Multiple collateral per position: aggregate borrowing power from a weighted collateral sum
+- Curated vault abstraction: single-asset deposit vaults allocating across multiple markets
+- All risk parameters adjustable without program upgrade
+
+Other exclusions:
 
 - Native stablecoin issuance (CDP-style minting against collateral)
 - Governance token design and distribution
@@ -208,6 +212,44 @@ distinguish between public and private accounts — the protocol must
 work with both. However, certain features face open research
 challenges when users choose to use private accounts. The
 classification below identifies these.
+
+#### Privacy flow for a private supply
+
+**Privacy flow for a private supply:**
+1. User deshields from their private account to a **fresh, single-use**
+   public account (account A) with no prior on-chain history. The
+   deshield atomically transfers both the deposit token **and** a small
+   amount of native token for gas so that account A never needs to be
+   funded from any external source.
+2. Account A supplies assets to the lending pool and receives receipt
+   tokens.
+3. Account A shields the receipt tokens back to the user's private
+   account. Account A is never reused after this point.
+
+> **Gas Consideration:** Both the deposit token and the native token
+> for transaction fees must come exclusively from the deshield in
+> step 1. Funding account A from any external source — such as a CEX
+> withdrawal or a known wallet — would create an on-chain link between
+> account A and an existing identity, breaking the privacy guarantee.
+> The SDK must abstract this so that users cannot accidentally fund
+> account A externally; the atomic deshield (deposit token + native
+> token for gas) must be a single, indivisible user action.
+
+**What is always public (observable on-chain):**
+- Existence of lending markets (asset type, interest rate parameters).
+- Aggregate pool state: total supplied, total borrowed, current
+  utilisation, supply APY, borrow APR.
+- All supply and borrow transactions: amounts and the public account
+  address used (the ephemeral deshield intermediary).
+- Oracle price feeds and liquidation events.
+
+**What is private (when using the deshield→supply→re-shield pattern):**
+- Which private account originated the funds for a supply or borrow.
+- Where the output receipt tokens go after re-shielding.
+- The connection between multiple protocol interactions performed by
+  the same private account (no on-chain linkability).
+- The connection between account A and any prior on-chain identity
+  (account A is single-use and never funded from any external source).
 
 #### 1. Expected to work with private accounts
 
@@ -263,13 +305,6 @@ pool's current totals.
   knowing the current aggregate. Same challenge as interest rates.
 - **Reserve fund accounting** (F9) — reserves accumulate from
   interest, which requires aggregate state.
-- **Efficiency mode / eMode** (soft F2) — correlated asset grouping
-  is protocol config (public), but verifying a user's position
-  qualifies for eMode requires reading their collateral composition
-  in the ZKP.
-- **Multiple collateral per position** (soft F4) — works privately
-  in principle (the ZKP can verify aggregate collateral value), but
-  increases proof complexity.
 
 #### 3. Definitely cannot work with private accounts (without new primitives)
 
@@ -363,26 +398,6 @@ must poll all accounts, which is expensive and unreliable.
 [LP-0012](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)
 (Structured events for LEZ program execution) is currently **open**.
 
-#### Transaction introspection (flash loans)
-
-On Solana, flash loans rely on three features:
-
-1. **Multi-instruction transactions** — a transaction contains
-   multiple instructions that execute sequentially and atomically.
-   On LEZ, this should be covered by LP-0015 (general cross-program
-   calls via tail calls) once resolved.
-2. **Instructions sysvar** (`sysvar::instructions`) — the lending
-   program reads ahead into the transaction to verify a matching
-   repay instruction exists before releasing funds. This sysvar is
-   not yet available on LEZ.
-3. **Atomic rollback** — if any instruction fails, the entire
-   transaction reverts including the borrow.
-
-Without the Instructions sysvar, the lending program cannot verify
-upfront that repayment is structurally guaranteed. Flash loans (a soft
-requirement) depend on this sysvar or an equivalent mechanism being
-available on LEZ.
-
 ### Risks
 
 #### Compute budget
@@ -426,7 +441,7 @@ Team experienced with:
 
 ## ⏱ Timeline Expectations
 
-Estimated duration: **16–24 weeks**
+Estimated duration: **16 weeks**
 
 
 ## 🌍 Open Source Requirement
