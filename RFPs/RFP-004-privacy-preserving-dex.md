@@ -144,19 +144,6 @@ participants.
    DEX via CLI and front-end (pool creation, swapping, LP management,
    emergency pause).
 
-### Soft Requirements
-
-1. **Concentrated liquidity (v2)**: After delivering a Uniswap V2
-   equivalent AMM, teams may extend it to support concentrated
-   liquidity positions (Uniswap V3 / Orca Whirlpool style) where LPs
-   select specific price ranges, improving capital efficiency. This is
-   a follow-up milestone, not a v1 requirement.
-2. **Multi-hop routing**: Router functionality for multi-hop swaps
-   across pools when a direct pair does not exist.
-3. **Protocol fee**: An admin-configurable protocol fee that redirects
-   a fraction of trading fees to a designated account (e.g., for
-   ecosystem funding or governance treasury).
-
 ### Public vs. Private Interaction Model
 
 All DEX liquidity pools are public on-chain state. Privacy is achieved
@@ -220,9 +207,8 @@ Team experienced with:
 
 ## ⏱ Timeline Expectations
 
-Estimated duration: **14 weeks** (v1 — Uniswap V2 equivalent with
-deshield→swap→re-shield support). Additional features such as
-concentrated liquidity will be scoped as follow-up RFPs.
+Estimated duration: **14 weeks** (Uniswap V2 equivalent with
+deshield→swap→re-shield support).
 
 
 ## 🌍 Open Source Requirement
