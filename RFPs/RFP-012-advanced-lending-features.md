@@ -4,7 +4,7 @@ title: Advanced Lending Features
 tier: L
 funding: $XXXXX
 status: draft
-dependencies: RFP-008, Instructions sysvar on LEZ
+dependencies: RFP-008
 category: Applications & Integrations
 ---
 
@@ -48,10 +48,12 @@ alternative to established chains for advanced lending use cases.
 #### Functionality
 
 1. **Flash loans** — uncollateralised loans borrowed and repaid within
-   a single transaction. If any step of the borrower's callback fails,
-   the entire transaction reverts atomically and no funds leave the
-   pool. Borrowers pay a configurable flash loan fee.
-   _Dependency: Instructions sysvar on LEZ (see Platform Dependencies)._
+   a single transaction. The lending program releases funds, tail-calls
+   the borrower's callback (via LP-0015's capability-protected
+   continuation model), and the callback must invoke `repay` before
+   returning control. If the callback fails or does not repay, the
+   transaction reverts atomically and no funds leave the pool. Borrowers
+   pay a configurable flash loan fee.
 
 2. **Efficiency mode (eMode)** — define correlated asset groups
    (e.g. stablecoin pairs, LST/underlying) with elevated LTV and
@@ -91,9 +93,9 @@ alternative to established chains for advanced lending use cases.
 
 #### Reliability
 
-1. Flash loans revert atomically if the repayment instruction is
-   missing or the repaid amount (principal + fee) does not match
-   the borrowed amount.
+1. Flash loans revert atomically if the borrower's callback fails to
+   invoke `repay` or the repaid amount (principal + fee) does not
+   match the borrowed amount.
 2. eMode LTV parameters cannot be set above a hard-coded maximum
    (configurable at deploy time, not upgradeable) to prevent
    governance from enabling 100% LTV positions.
@@ -155,19 +157,15 @@ If possible.
 
 ## ⚠ Platform Dependencies
 
-This RFP remains in **draft** until both of the following are satisfied:
+This RFP remains in **draft** until the following is satisfied:
 
 1. **RFP-008 is live on LEZ mainnet/testnet** — this RFP extends the
    deployed protocol; it cannot proceed without the base layer.
 
-2. **Instructions sysvar is available on LEZ** — flash loans (Hard
-   Requirement F1) require the lending program to read ahead in the
-   transaction and verify a repay instruction exists before releasing
-   funds. The `sysvar::instructions` mechanism (or an equivalent) is
-   not yet available on LEZ. Until it is, flash loans cannot be
-   implemented safely. See the Platform Dependencies section of
-   [RFP-008](./RFP-008-lending-borrowing-protocol.md) for context on
-   the existing transaction introspection blocker.
+All other platform primitives required by this RFP (including
+LP-0015 general cross-program calls, oracle provider, and on-chain
+clock) are hard blockers for RFP-008 and will therefore be resolved
+before this RFP opens.
 
 ### Private Account Complexity
 
@@ -192,7 +190,7 @@ Team experienced with:
 - Solana or SVM program development (Anchor or native)
 - ZKP circuit design (for private account compatibility of multi-asset
   positions)
-- Transaction introspection mechanisms (flash loan safety patterns)
+- Capability-based cross-program call patterns (flash loan callback model)
 - DeFi governance and parameter management
 
 Ideally the same team that delivered RFP-008.
@@ -213,7 +211,6 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [RFP-008 — Lending & Borrowing Protocol](./RFP-008-lending-borrowing-protocol.md)
 - [RFP-001 — Admin Authority](./RFP-001-admin-authority-poc.md)
 - [RFP-002 — Freeze Authority](./RFP-002-freeze-authority-poc.md)
-- TODO: Instructions sysvar LEZ tracking issue
 - TODO: Oracle integration guide for LEZ
 - TODO: SPEL framework documentation
 
