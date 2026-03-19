@@ -60,6 +60,7 @@ Click an RFP to view details. Use the Submit Proposal button to apply.
 |---------|------------------------------------------------------------------|------|---------|--------|------------------------------------|-------------------------------------------------------------------------------------|
 | RFP-001 | [Admin Authority](RFPs/RFP-001-admin-authority-poc.md)           | XS   | $XXXXX  | open   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
 | RFP-002 | [Freeze Authority](RFPs/RFP-002-freeze-authority-poc.md)         | XS   | $XXXXX  | open   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
+| RFP-003 | [Atomic Swaps with LEZ](RFPs/RFP-003-atomic-swaps.md)            | XL   | $TBD    | draft  | Applications & Integrations        | —                                                                                   |
 | RFP-004 | [Privacy-Preserving DEX](RFPs/RFP-004-privacy-preserving-dex.md) | XL   | $XXXXX  | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
 <!-- RFP_TABLE_END -->
 
