@@ -124,10 +124,15 @@ foundation.
 8. The SDK must handle the atomic deshield (deposit token + native gas)
    as a single indivisible user action, preventing accidental privacy
    leaks from externally funding the intermediate account.
-9. The mini-app and documentation must clearly communicate what is
-   public vs. private per operation (e.g., "supply amount and pool are
-   visible on-chain; which private account deposited is not
-   traceable").
+9. Before each operation, the mini-app must show the estimated
+   transaction fee and confirm that the user's shielded balance covers
+   both the operation amount and fees within the single deshield action.
+   If the balance is insufficient, a clear, actionable error must be
+   shown before any transaction is submitted — preventing partial
+   deshields that could leave funds stranded in an ephemeral account.
+10. The mini-app must preview the health factor impact of a borrow or
+    withdrawal before the user confirms: displaying both the current
+    health factor and the projected health factor after the operation.
 
 #### Reliability
 
@@ -165,6 +170,23 @@ foundation.
    addresses, and step-by-step instructions for interacting with
    the program via CLI and mini-app.
 
+#### + Privacy
+
+1. The mini-app and SDK must enforce the deshield→interact→reshield
+   pattern as the only available interaction path. Direct interaction
+   from a persistent public account must not be possible through the
+   UI or the SDK's public API.
+2. The mini-app must display a pre-confirmation summary for each
+   operation that clearly identifies what will be visible on-chain
+   (amounts, asset type, pool address, ephemeral intermediary account)
+   and what will remain private (the originating private account, the
+   destination of re-shielded tokens, and any link between separate
+   interactions by the same user).
+3. The SDK must validate that the target receipt token account for
+   re-shielding is a private (shielded) account before submitting the
+   transaction, and reject the operation with an explicit error if it
+   is not.
+
 ### Soft Requirements
 
 If possible.
@@ -197,146 +219,58 @@ Other exclusions:
 - Cross-chain liquidity or bridging
 - Leveraged looping / one-click multiply products
 
-### Private Account Compatibility
+### Privacy Architecture
 
-Logos Execution Environment provides a dual account model: public
-accounts (visible on-chain state) and private accounts (commitment +
-nullifier model, never stored in raw form). Programs are identical for
-both — the same RISC-V bytecode runs in public execution
-(on-chain) or private execution (client-side ZKP, validators verify
-proof only). From the program's perspective, all accounts are
-indistinguishable.
+The protocol state — lending pools, positions, interest indices, and
+receipt token accounts — lives in **public (on-chain) state**. This
+is a deliberate architectural choice: public state enables
+permissionless liquidation, oracle integration, and composability
+without open cryptographic research challenges.
 
-Since programs are account-type agnostic, this RFP does not
-distinguish between public and private accounts — the protocol must
-work with both. However, certain features face open research
-challenges when users choose to use private accounts. The
-classification below identifies these.
+User privacy is enforced at the UX layer. The SDK and mini-app must
+ensure that all user interactions go through the
+deshield→interact→reshield pattern described below. Bypassing this
+pattern — for example, by interacting directly from a persistent
+public account — must not be possible through the SDK's public API
+or the mini-app.
 
-#### Privacy flow for a private supply
+#### Interaction flow
 
-**Privacy flow for a private supply:**
-1. User deshields from their private account to a **fresh, single-use**
-   public account (account A) with no prior on-chain history. The
-   deshield atomically transfers both the deposit token **and** a small
-   amount of native token for gas so that account A never needs to be
-   funded from any external source.
-2. Account A supplies assets to the lending pool and receives receipt
-   tokens.
-3. Account A shields the receipt tokens back to the user's private
-   account. Account A is never reused after this point.
+For every protocol operation (supply, borrow, repay, withdraw):
 
-> **Gas Consideration:** Both the deposit token and the native token
-> for transaction fees must come exclusively from the deshield in
-> step 1. Funding account A from any external source — such as a CEX
-> withdrawal or a known wallet — would create an on-chain link between
-> account A and an existing identity, breaking the privacy guarantee.
-> The SDK must abstract this so that users cannot accidentally fund
-> account A externally; the atomic deshield (deposit token + native
-> token for gas) must be a single, indivisible user action.
+1. The user initiates the action from their private account. The SDK
+   deshields to a **fresh, single-use** public account (account A)
+   with no prior on-chain history. The deshield atomically transfers
+   both the operation token **and** enough native token for gas in a
+   single indivisible action.
+2. Account A executes the protocol operation (e.g. supplies assets,
+   receives receipt tokens).
+3. Account A shields any outputs (receipt tokens, withdrawn assets)
+   back to the user's private account. Account A is never reused.
 
-**What is always public (observable on-chain):**
-- Existence of lending markets (asset type, interest rate parameters).
-- Aggregate pool state: total supplied, total borrowed, current
-  utilisation, supply APY, borrow APR.
-- All supply and borrow transactions: amounts and the public account
-  address used (the ephemeral deshield intermediary).
+> **Gas:** Both the operation token and gas must come exclusively from
+> the deshield in step 1. Funding account A from any external source
+> — such as a CEX withdrawal or a known wallet — creates an on-chain
+> link to an existing identity and breaks the privacy guarantee. The
+> SDK must make this impossible; the atomic deshield is a single,
+> indivisible user action.
+
+#### What is public (observable on-chain)
+
+- All pool state: asset type, interest rate parameters, total
+  supplied, total borrowed, utilisation, supply APY, borrow APR.
+- All positions: collateral amounts, debt amounts, health factor
+  — attributed to the ephemeral intermediary account, not the
+  private user.
+- All protocol operations and their amounts.
 - Oracle price feeds and liquidation events.
 
-**What is private (when using the deshield→supply→re-shield pattern):**
-- Which private account originated the funds for a supply or borrow.
-- Where the output receipt tokens go after re-shielding.
-- The connection between multiple protocol interactions performed by
-  the same private account (no on-chain linkability).
-- The connection between account A and any prior on-chain identity
-  (account A is single-use and never funded from any external source).
+#### What is private
 
-#### 1. Expected to work with private accounts
-
-These features operate on a single user's own accounts without needing
-to read other users' state or aggregate pool state.
-
-- **Repay** (F3) — user reduces their own debt. Touches only the
-  user's position and the pool's aggregate counters.
-- **Withdraw** (F4) — user redeems receipt tokens for underlying
-  assets. Same as repay: single-user operation.
-- **Receipt token transfers** — transferring receipt tokens between
-  accounts is a standard token transfer. The LEZ token program
-  already supports private transfers.
-- **Emergency pause / freeze authority** (F11) — a global flag read
-  by the program. No per-user state visibility needed.
-- **Per-asset risk parameters** (F8) — protocol configuration, stored
-  in public accounts. Programs read these identically regardless of
-  execution mode.
-
-#### 2. Further research needed
-
-These features require the program to read or update **aggregate
-pool state** (total supplied, total borrowed) while keeping individual
-positions private. The LEZ model executes the program locally and
-submits a ZKP, but the program still needs correct inputs for the
-pool's current totals.
-
-- **Supply** (F1) — user deposits assets and receives receipt tokens.
-  The pool's total supply must increase, which means the aggregate
-  account is updated. A private user's deposit amount is hidden, but
-  the aggregate public account must reflect the change. How a private
-  execution atomically updates a shared public aggregate without
-  revealing the individual amount requires further research
-  (e.g. homomorphic commitments on the aggregate, or batched
-  settlement).
-- **Borrow** (F2) — same challenge as supply, but for total borrows.
-  Additionally, the protocol must verify that the user's collateral
-  exceeds the borrow amount (LTV check). In private execution, this
-  check happens in the ZKP, but the aggregate borrow counter still
-  needs updating.
-- **Interest rate calculation** (F5, F6) — rates are a function of
-  pool utilisation (total borrowed / total supplied). If individual
-  supplies and borrows are private, the aggregates must still be
-  computable. This may work if aggregates are maintained as public
-  counters updated by each private transaction's ZKP, but the
-  interaction between concurrent private transactions updating the
-  same aggregate is an open question.
-- **Health factor computation** (U6) — a user's own health factor
-  can be computed privately (they know their own collateral and debt).
-  Displaying it to the user works. But the protocol also needs to
-  know when a position is unhealthy for liquidation — see below.
-- **Supply and borrow caps** (F12) — enforcing a global cap requires
-  knowing the current aggregate. Same challenge as interest rates.
-- **Reserve fund accounting** (F9) — reserves accumulate from
-  interest, which requires aggregate state.
-
-#### 3. Definitely cannot work with private accounts (without new primitives)
-
-These features fundamentally require one party to observe or act on
-another party's private state.
-
-- **Permissionless liquidation** (F7) — the core challenge. A
-  liquidator must identify that *someone else's* position is
-  unhealthy (collateral value < debt). If positions are private,
-  no external party can see another user's health factor. The
-  liquidator cannot know which positions to liquidate, what
-  collateral is available, or how much debt to repay. This breaks
-  the fundamental liquidation model used by all 10 protocols
-  analysed. Possible research directions:
-  - Users self-liquidate (but misaligned incentives — underwater
-    borrowers may not act)
-  - A keeper network with viewing keys (but centralises trust)
-  - Protocol-level liquidation triggered by aggregate metrics
-    (but cannot target individual positions)
-  - ZK proof that a position is unhealthy without revealing which
-    one (but the liquidator still needs to know the collateral
-    to seize)
-- **Oracle staleness checks** (R1) and **price manipulation
-  resistance** (R2) — oracle feeds are public by nature (external
-  price data). The reliability requirements themselves are
-  compatible with privacy, but the *use* of oracle data in
-  liquidation triggers circles back to the liquidation problem:
-  someone must compare a public price against a private position.
-- **Bad debt socialisation** (R4) — detecting bad debt requires
-  knowing that a liquidation was incomplete, which requires
-  visibility into position state.
-- **Liquidator bot** (S6) — cannot monitor private positions.
+- Which private account funded any supply or borrow.
+- Where receipt tokens or withdrawn assets go after re-shielding.
+- Any link between multiple protocol interactions by the same user
+  (no on-chain linkability across ephemeral accounts).
 
 ## ⚠ Platform Dependencies
 
@@ -410,21 +344,6 @@ state. On Solana, a liquidation can consume 200–400K compute units.
 If LEZ's per-transaction compute budget is insufficient, liquidations
 will fail and the protocol risks insolvency. This needs benchmarking
 once the protocol is under development.
-
-#### Private accounts and permissionless liquidation
-
-Permissionless liquidation — where any third party can identify and
-liquidate unhealthy positions — is the solvency mechanism used by
-every major lending protocol. In LEZ's private account model,
-individual positions (collateral, debt, health factor) are hidden
-behind commitments. No external party can determine which positions
-are underwater.
-
-This creates a fundamental tension: the protocol's safety depends on
-liquidation, but privacy prevents anyone from knowing *what* to
-liquidate. Solving this may require new cryptographic primitives or a
-fundamentally different liquidation model. See the Private Account
-Compatibility section under Scope of Work for research directions.
 
 ## 👤 Recommended Team Profile
 
