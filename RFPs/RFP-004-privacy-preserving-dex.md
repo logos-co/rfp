@@ -106,13 +106,23 @@ participants.
    git repo.
 3. Provide a pool analytics view showing aggregate volume, TVL, and
    fee revenue without revealing individual positions.
-4. The swap interface and documentation must clearly communicate to the
-   user what information is public vs. private for each action (e.g.,
-   "trade size and pool used are visible on-chain; the private account
-   that originated or receives the funds is not traceable").
+4. Documentation must clearly explain what information is public vs.
+   private for each action (trade size and pool used are visible
+   on-chain; the private account that originated or receives the funds
+   is not traceable).
 5. Failed or rejected swaps must return clear, actionable error messages.
 6. Provide an IDL for the DEX program, preferably using the
    [SPEL framework](https://github.com/logos-co/spel).
+7. Before each swap or liquidity operation, the mini-app must show the
+   estimated transaction fee and confirm that the user's shielded
+   balance covers both the operation amount and fees within the single
+   deshield action. A clear, actionable error must be shown if the
+   balance is insufficient — preventing partial deshields that could
+   leave funds stranded in an ephemeral account.
+8. The mini-app must display a swap preview before the user confirms:
+   estimated output amount, effective price, price impact, and fee
+   taken — so the user can evaluate the trade before the deshield is
+   executed.
 
 #### Reliability
 
@@ -144,50 +154,66 @@ participants.
    DEX via CLI and front-end (pool creation, swapping, LP management,
    emergency pause).
 
-### Public vs. Private Interaction Model
+#### + Privacy
 
-All DEX liquidity pools are public on-chain state. Privacy is achieved
-at the user interaction level via the deshield→swap→re-shield pattern,
-leveraging LEZ's private account primitives.
+1. The mini-app and SDK must enforce the deshield→swap→re-shield
+   pattern as the only available interaction path. Direct interaction
+   from a persistent public account must not be possible through the
+   UI or the SDK's public API.
+2. The mini-app must display a pre-confirmation summary for each
+   operation that clearly identifies what will be visible on-chain
+   (trade size, direction, pool address, ephemeral intermediary
+   account) and what will remain private (the originating private
+   account, the destination of re-shielded tokens, and any link
+   between separate swaps by the same user).
+3. The SDK must validate that the target account for re-shielding
+   swap output is a private (shielded) account before submitting the
+   transaction, and reject the operation with an explicit error if it
+   is not.
 
-**Privacy flow for a private swap:**
-1. User deshields from a private account to a **fresh, single-use**
-   public account (account A) with no prior on-chain history. The
-   deshield atomically transfers both the swap token **and** a small
-   amount of native token (to cover transaction fees) so that account
-   A never needs to be funded from any external source.
-2. Account A performs the swap in a public pool.
-3. After the swap, account A performs a shielded transfer back into a
-   private account. Account A is never reused after this point.
+### Privacy Architecture
 
-The result: the private account's identity is not exposed on-chain,
-and the link between the origin of funds and the destination after
-re-shielding is not traceable.
+All DEX liquidity pools are public on-chain state. Privacy is enforced
+at the UX layer: the SDK and mini-app must ensure that all user
+interactions go through the deshield→swap→re-shield pattern. Bypassing
+this pattern — for example, by swapping directly from a persistent
+public account — must not be possible through the SDK's public API or
+the mini-app.
 
-> **Gas Consideration:** Both the swap token and the native token for
-> transaction fees must come exclusively from the deshield in step 1.
-> Funding account A from any external source — such as a CEX withdrawal
-> or a known wallet — would create an on-chain link between account A
-> and an existing identity, breaking the privacy guarantee. The SDK
-> must abstract this so that users cannot accidentally fund account A
-> externally; the atomic deshield (tokens + native token for gas) must
-> be a single, indivisible user action.
+#### Interaction flow
 
-**What is always public (observable on-chain):**
-- Existence of liquidity pools (token pair, fee tier).
-- Aggregate pool state: total TVL, cumulative volume, current price
-  (derived from pool reserves ratio).
+For every protocol operation (swap, add/remove liquidity):
+
+1. The user initiates the action from their private account. The SDK
+   deshields to a **fresh, single-use** public account (account A)
+   with no prior on-chain history. The deshield atomically transfers
+   both the operation token **and** enough native token for gas in a
+   single indivisible action.
+2. Account A executes the operation in a public pool.
+3. Account A shields any outputs (swap proceeds, withdrawn liquidity)
+   back to the user's private account. Account A is never reused.
+
+> **Gas:** Both the operation token and gas must come exclusively from
+> the deshield in step 1. Funding account A from any external source
+> — such as a CEX withdrawal or a known wallet — creates an on-chain
+> link to an existing identity and breaks the privacy guarantee. The
+> SDK must make this impossible; the atomic deshield is a single,
+> indivisible user action.
+
+#### What is public (observable on-chain)
+
+- All pool state: token pair, fee tier, total TVL, cumulative volume,
+  current price.
 - All swap and liquidity transactions: trade size, direction, and the
-  public account address used (the ephemeral deshield intermediary).
+  ephemeral intermediary account address.
 - LP position sizes and fee earnings.
 
-**What is private (when using the deshield→swap→re-shield pattern):**
+#### What is private
+
 - Which private account originated the funds for a swap or LP deposit.
-- Where the output tokens go after re-shielding.
-- The connection between multiple swaps performed by the same private
-  account (no on-chain linkability).
-- The connection between account A and any prior on-chain identity
-  (account A is single-use and never funded from any external source).
+- Where output tokens go after re-shielding.
+- Any link between multiple operations by the same user (no on-chain
+  linkability across ephemeral accounts).
 
 **Design Constraint:** Because only public accounts interact directly
 with pools, per-account features like freezing a specific trader's
