@@ -87,22 +87,50 @@ body:
     validations:
       required: true
 
+  - type: markdown
+    attributes:
+      value: |
+        ## ⏱ Milestones
+        Break the project into clear milestones. For each milestone, specify:
+        • A short description of deliverables
+        • The payout amount (in USD) upon completion
+        • The estimated duration or deadline
+
+        Include an **Audit milestone** if your project handles user funds, implements cryptographic primitives, or requires a security review before mainnet deployment.
+
   - type: textarea
     id: milestones
     attributes:
-      label: Milestones and Timeline
-      description: Break the project into clear milestones with estimated timelines.
+      label: Milestones, Payout and Timeline
+      description: One milestone per block. Include payout and duration for each. Add an audit milestone if applicable.
       placeholder: |
-        Milestone 1 — Design (2 weeks)  
-        Milestone 2 — Core build (3 weeks)  
-        Milestone 3 — Testing and documentation (2 weeks)
+        Milestone 1 — Design and specification
+        Payout: $2,000
+        Duration: 2 weeks
+        Deliverables: architecture doc, API spec, UX wireframes
+
+        Milestone 2 — Core implementation
+        Payout: $5,000
+        Duration: 3 weeks
+        Deliverables: smart contract / program deployed on devnet, CLI
+
+        Milestone 3 — Testing and documentation
+        Payout: $2,000
+        Duration: 2 weeks
+        Deliverables: test suite, README, mini-app
+
+        Milestone 4 — Audit (if applicable)
+        Payout: $1,000
+        Duration: 2 weeks
+        Deliverables: audit report, remediation of findings
     validations:
       required: true
 
   - type: input
     id: budget
     attributes:
-      label: Requested Budget (USD)
+      label: Total Requested Budget (USD)
+      description: Must equal the sum of all milestone payouts above.
       placeholder: $10,000
     validations:
       required: true
