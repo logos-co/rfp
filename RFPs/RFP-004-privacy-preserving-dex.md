@@ -32,8 +32,11 @@ from ordinary users. On LEZ, the deshield→swap→re-shield pattern means
 a user's private account identity is never linked to a swap on-chain —
 observers see a trade from an ephemeral public account with no prior
 history, making identity-based front-running and wallet-profiling
-impossible. This is a meaningful privacy improvement and a key
-differentiator for the Logos ecosystem.
+impossible. Sandwich attacks, back-running, and CEX-DEX arbitrage
+remain possible as they depend on trade size and pool state rather than
+user identity; mitigating these is out of scope for this RFP. This is a
+meaningful privacy improvement and a key differentiator for the Logos
+ecosystem.
 
 The team building this should have deep experience in AMM or order-book
 design, SVM program development, and MEV-resistant trading mechanisms.
@@ -83,12 +86,7 @@ participants.
    to LPs.
 7. Implement slippage protection with user-configurable tolerance and
    minimum output guarantees.
-8. Include a freeze/emergency-pause mechanism for individual pools
-   (see [RFP-002](./RFP-002-freeze-authority-poc.md)). The freeze
-   authority should be held by the pool creator or program deployer;
-   the exact authority model is to be finalised once RFP-002 scope
-   is confirmed.
-9. Use Associated Token Accounts (ATAs) for all token interactions —
+8. Use Associated Token Accounts (ATAs) for all token interactions —
    pool token accounts, LP token accounts, and trader token accounts
    must use the deterministic ATA derivation per `(owner, mint)` pair
    (see [LP-0014](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0014.md)).
@@ -128,8 +126,6 @@ participants.
 
 1. Pool state must remain consistent under concurrent swap submissions;
    no double-spend or incorrect pool balance.
-2. If the DEX program is frozen via the emergency-pause mechanism,
-   liquidity withdrawal remains functional so that LPs can exit.
 
 #### Performance
 
@@ -151,8 +147,7 @@ participants.
    and Performance has at least one corresponding test.
 4. A README documents end-to-end usage: deployment steps, program
    addresses, and step-by-step instructions for interacting with the
-   DEX via CLI and front-end (pool creation, swapping, LP management,
-   emergency pause).
+   DEX via CLI and front-end (pool creation, swapping, LP management).
 
 #### + Privacy
 
@@ -215,10 +210,6 @@ For every protocol operation (swap, add/remove liquidity):
 - Any link between multiple operations by the same user (no on-chain
   linkability across ephemeral accounts).
 
-**Design Constraint:** Because only public accounts interact directly
-with pools, per-account features like freezing a specific trader's
-access are not feasible. Any freeze mechanism must operate at the pool
-or program level, not the account level.
 
 ## 👤 Recommended Team Profile
 
