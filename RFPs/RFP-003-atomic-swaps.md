@@ -16,7 +16,7 @@ category: Applications & Integrations
 
 Build a unified atomic swap application that enables trustless, non-custodial exchanges
 between LEZ and three major chains: **Bitcoin**, **Monero**, and **Ethereum**. The LEZ
-side is implemented as a Risc0 guest program that locks funds contingent on the appropriate cryptographic proof for each chain. A reference implementation for ETH–LEZ swaps already exists ([eth-lez-atomic-swaps](https://github.com/logos-blockchain/eth-lez-atomic-swaps));
+side is implemented as a Risc0 guest program that locks funds contingent on the appropriate cryptographic proof for each chain. A reference implementation for ETH–LEZ swaps already exists ([eth-lez-atomic-swaps](https://github.com/logos-co/eth-lez-atomic-swaps));
 this RFP extends the work to Bitcoin and Monero, and delivers a complete, production-ready
 swap application.
 
@@ -122,7 +122,7 @@ for the maturity of those modules and a high-visibility proof point for ecosyste
    stagenet node options.
 10. Provide step-by-step documentation for configuring an **Ethereum Web3 RPC
     provider** for Sepolia testnet. All Ethereum interactions in the application must
-    use the existing [Logos Ethereum module](https://github.com/logos-blockchain/logos-execution-zone/);
+    use the existing Logos Ethereum module;
     the documentation must explain how to point the module at a chosen RPC endpoint
     (self-hosted or third-party provider).
 
@@ -223,7 +223,7 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 
 ### General
 
-- [eth-lez-atomic-swaps](https://github.com/logos-blockchain/eth-lez-atomic-swaps) — ETH–LEZ HTLC-based swap (reference implementation and LEZ program structure)
+- [eth-lez-atomic-swaps](https://github.com/logos-co/eth-lez-atomic-swaps) — ETH–LEZ HTLC-based swap (reference implementation and LEZ program structure)
 - [Logos Execution Zone](https://github.com/logos-blockchain/logos-execution-zone/)
 - [Risc0 proving system](https://dev.risczero.com/)
 
@@ -246,7 +246,7 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 
 ### Ethereum
 
-- [Logos Ethereum module](https://github.com/logos-blockchain/logos-execution-zone/) — use for all Ethereum interactions
+- Logos Ethereum module — use for all Ethereum interactions
 
 
 ## ✏️ How to Apply
