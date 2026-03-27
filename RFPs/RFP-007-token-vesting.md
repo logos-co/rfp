@@ -25,8 +25,8 @@ Token vesting is a prerequisite for credible token launches. Every protocol
 that issues a token must lock some allocation for founders, early
 contributors, or ecosystem reserves. The team building this should have
 experience with SVM program development and DeFi token mechanics. Familiarity
-with the deshield→action→re-shield privacy pattern (see
-[RFP-004](./RFP-004-privacy-preserving-dex.md)) is strongly recommended.
+with the optional public/private account interaction pattern (see
+[RFP-008](./RFP-008-lending-borrowing-protocol.md)) is strongly recommended.
 
 ## 🔥 Why This Matters
 
@@ -250,7 +250,7 @@ Team experienced with:
 - DeFi smart contract security and testing
 - Front-end development for wallet/DeFi applications
 - Familiarity with privacy interaction patterns (shielded accounts,
-  deshield/re-shield — see RFP-004)
+  deshield/re-shield — see RFP-008)
 
 ## ⏱ Timeline Expectations
 
@@ -265,8 +265,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 ## Resources
 
 - [Logos Documentation](https://github.com/logos-co/logos-docs)
-- [RFP-004 — Privacy-Preserving DEX](./RFP-004-privacy-preserving-dex.md)
-  (canonical reference for the deshield→action→re-shield pattern)
+- [RFP-008 — Lending & Borrowing Protocol](./RFP-008-lending-borrowing-protocol.md)
+  (reference for the optional public/private account interaction pattern)
 - [LP-0012 — Event/Log mechanism for LEZ](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)
 - [LP-0013 — Token program improvements: mint authorities](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0013.md)
 - [Sablier v2 — streaming vesting reference](https://github.com/sablier-labs/v2-core)

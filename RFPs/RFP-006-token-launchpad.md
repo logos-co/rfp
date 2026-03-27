@@ -14,11 +14,12 @@ category: Applications & Integrations
 
 Build a token launchpad on LEZ using a Liquidity Bootstrapping Pool (LBP)
 mechanism — a time-limited, weight-shifting AMM that enables fair,
-bot-resistant price discovery for new token launches. Participants buy
-tokens via a deshield→buy→re-shield pattern identical to the DEX (see
-[RFP-004](./RFP-004-privacy-preserving-dex.md)): each purchase is executed
-through a fresh, single-use public account, hiding the link between the
-buyer's private identity and their participation in the sale. An optional
+bot-resistant price discovery for new token launches. Participants can buy tokens directly from a public account or, for
+privacy, via a deshield→buy→re-shield pattern (see
+[RFP-008](./RFP-008-lending-borrowing-protocol.md)): when the private path
+is used, each purchase is routed through a fresh, single-use public
+account, hiding the link between the buyer's private identity and their
+participation in the sale. An optional
 private allowlist gate enables projects to restrict participation without
 exposing the eligibility set on-chain.
 
@@ -76,12 +77,11 @@ guarantee than anything available on existing launchpad platforms.
    - Optional: per-wallet buy limit (maximum collateral a single
      public account may contribute).
    - Optional: private allowlist gate (see item 7 below).
-3. Participants buy project tokens from the pool via the
-   deshield→buy→re-shield pattern. The interaction flow is identical
-   to the DEX (see [RFP-004](./RFP-004-privacy-preserving-dex.md)):
-   the buyer deshields to a fresh, single-use public account funded with
-   both collateral and gas in one atomic action, executes the buy, and
-   immediately re-shields the purchased tokens to their private account.
+3. Participants buy project tokens from the pool using either a public
+   account directly, or via the deshield→buy→re-shield pattern for
+   private account interaction (see
+   [RFP-008](./RFP-008-lending-borrowing-protocol.md)). Both paths must be
+   supported by the program and SDK.
 4. Pool weights shift deterministically according to the configured
    schedule. Any account can submit a weight-update ("poke") transaction
    to advance the current weights to the value dictated by the elapsed
@@ -115,7 +115,7 @@ guarantee than anything available on existing launchpad platforms.
 9. Use Associated Token Accounts (ATAs) for all token interactions,
    consistent with
    [LP-0014](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0014.md)
-   and [RFP-004](./RFP-004-privacy-preserving-dex.md).
+   and [RFP-008](./RFP-008-lending-borrowing-protocol.md).
 
 #### Usability
 
@@ -316,9 +316,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 ## Resources
 
 - [Logos Documentation](https://github.com/logos-co/logos-docs)
-- [RFP-004 — Privacy-Preserving DEX](./RFP-004-privacy-preserving-dex.md)
-  (canonical reference for the deshield→action→re-shield pattern and
-  ATA usage requirements)
+- [RFP-008 — Lending & Borrowing Protocol](./RFP-008-lending-borrowing-protocol.md)
+  (reference for the optional public/private account interaction pattern)
 - [RFP-007 — Privacy-Preserving Token Vesting](./RFP-007-token-vesting.md)
   (soft requirement: post-sale vesting integration)
 - [LP-0003 — Private Allowlist / Airdrop Distributor](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0003.md)
