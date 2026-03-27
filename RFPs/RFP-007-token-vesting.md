@@ -96,8 +96,11 @@ economy on LEZ.
 
 1. Provide an SDK that can be used to build Logos modules interacting with
    the vesting program. The SDK must expose the full lifecycle: create
-   schedule, query claimable amount, claim (including the atomic
-   deshield), cancel, signal milestone, and transfer beneficiary.
+   schedule, query claimable amount, claim, cancel, signal milestone, and
+   transfer beneficiary. The SDK must support both direct public account
+   interaction and the deshield→claim→re-shield pattern for private
+   account interaction. When the private account path is used, the SDK
+   must handle the gas-only deshield as a single indivisible action.
 2. Provide a Logos mini-app GUI with local build instructions, downloadable
    assets, and loadable in Logos app (Basecamp) via git repo. The mini-app
    must cover at minimum:
@@ -106,14 +109,16 @@ economy on LEZ.
    - **Creator view**: create a new schedule (all parameters), list active
      schedules, cancel a schedule, signal a milestone.
 3. The mini-app must display a pre-claim confirmation summary: claimable
-   amount, estimated transaction fee, and confirmation that the recipient's
-   shielded balance covers the gas-only deshield needed to fund the claim. A clear error must
-   be shown if the shielded balance is insufficient.
-4. The mini-app must display a privacy disclosure before each claim,
-   identifying what will be visible on-chain (claim amount, ephemeral
-   public account address, vesting schedule program address) and what
-   will not be traceable (the recipient's private account and the
-   subsequent destination of claimed tokens).
+   amount and estimated transaction fee. When using the private account
+   path, it must also confirm that the recipient's shielded balance covers
+   the gas-only deshield; a clear, actionable error must be shown if the
+   balance is insufficient.
+4. When using the private account path, the mini-app must display a
+   privacy disclosure before each claim, identifying what will be visible
+   on-chain (claim amount, ephemeral public account address, vesting
+   schedule program address) and what will not be traceable (the
+   recipient's private account and the subsequent destination of claimed
+   tokens).
 5. Provide an IDL for the vesting program using the
    [SPEL framework](https://github.com/logos-co/spel).
 6. Failed claims must return clear, actionable error messages — including
@@ -153,26 +158,37 @@ economy on LEZ.
 
 #### + Privacy
 
-1. The SDK must enforce the deshield→claim→re-shield interaction pattern
-   as the only available path for recipients. Accumulating vested tokens
-   directly into a persistent public account must not be possible via
-   the SDK's public API.
-2. The SDK must validate that the re-shield target is a private (shielded)
-   account before submitting the transaction, and reject with an explicit
-   error if it is not.
-3. The mini-app must not offer a "claim to public account" option. The
-   only claim flow available to the user must route through the
-   deshield→claim→re-shield pattern.
+1. The mini-app and SDK must support both direct public account
+   interaction and the deshield→claim→re-shield pattern for private
+   account interaction. When a user chooses the private account path,
+   the SDK must enforce the complete deshield→claim→re-shield pattern —
+   the re-shield step must not be skippable.
+2. When using the private account path, the mini-app must display the
+   pre-confirmation privacy disclosure described in the Usability section
+   before each claim, identifying what is visible on-chain (claim amount,
+   ephemeral intermediary account) and what remains private (the
+   originating private account, the destination of re-shielded tokens,
+   and any link between separate claims by the same recipient).
+3. When using the private account path, the SDK must validate that the
+   re-shield target is a private (shielded) account before submitting
+   the transaction, and reject with an explicit error if it is not.
+4. The ephemeral public account created during the deshield step must
+   never be reused across operations. Each claim from a private account
+   must use a freshly generated account with no prior on-chain history.
 
 ### Privacy Architecture
 
 Vesting schedule parameters (token, total amount, schedule type, cliff
 date, end date, beneficiary public address) are public on-chain state.
-Privacy is enforced at the SDK and mini-app layer: when a recipient claims,
-they deshield to a fresh, single-use public account that has no prior
-on-chain history, execute the claim from that account, and immediately
-re-shield the output to their private account. This is the same pattern
-used by the DEX (see [RFP-004](./RFP-004-privacy-preserving-dex.md)).
+This is a deliberate architectural choice: public state enables
+permissionless observability of schedule terms and composability with
+other programs.
+
+User privacy is optionally enforced at the UX layer. The mini-app and
+SDK support both direct public account interaction and private account
+interaction via the deshield→claim→re-shield pattern. When users opt to
+interact from a private account, the SDK must enforce the complete
+pattern as described below.
 
 #### Why public accounts are required
 
@@ -184,7 +200,7 @@ constraint as the DEX and lending protocol.
 
 #### Interaction flow
 
-For every claim:
+For every claim from a private account:
 
 1. The recipient initiates the action from their private account. The SDK
    deshields a small amount of native token for gas to a **fresh,
@@ -209,7 +225,7 @@ For every claim:
   and timestamp.
 - Cancellations and milestone signals.
 
-#### What is private
+#### What is private (when using the private account path)
 
 - Which private account the claimed tokens are re-shielded into.
 - Any link between multiple claims by the same recipient (no on-chain

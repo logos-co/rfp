@@ -122,7 +122,10 @@ guarantee than anything available on existing launchpad platforms.
 1. Provide an SDK for building Logos modules that interact with the
    launchpad program. The SDK must expose the full lifecycle for both
    participants (discover active sales, buy, query position) and creators
-   (create sale, pause/resume, close, withdraw). The SDK must handle the
+   (create sale, pause/resume, close, withdraw). The SDK must support
+   both direct public account interaction and the
+   deshield→buy→re-shield pattern for private account interaction.
+   When the private account path is used, the SDK must handle the
    atomic deshield — both collateral and gas — as a single indivisible
    user action.
 2. Provide a Logos mini-app GUI with local build instructions, downloadable
@@ -137,19 +140,21 @@ guarantee than anything available on existing launchpad platforms.
 3. The mini-app must display a pre-buy confirmation summary before each
    purchase: current token price, estimated tokens to be received, price
    impact, collateral spent, and fee.
-4. The mini-app must display a privacy disclosure before each buy,
-   identifying what will be visible on-chain (buy transaction, collateral
-   amount, tokens received, pool address, ephemeral account) and what will
-   not be traceable (the buyer's private account and the subsequent
-   destination of purchased tokens).
-5. The mini-app must enforce the atomic deshield — preventing a buyer from
-   funding the ephemeral account from any external source, which would
-   create an on-chain link to an existing identity.
-6. Before each buy, the mini-app must confirm that the buyer's shielded
-   balance covers both the collateral amount and the gas fee within the
-   single deshield action. A clear, actionable error must be shown if the
-   balance is insufficient, preventing a partial deshield that could leave
-   funds stranded.
+4. When using the private account path, the mini-app must display a
+   privacy disclosure before each buy, identifying what will be visible
+   on-chain (buy transaction, collateral amount, tokens received, pool
+   address, ephemeral account) and what will not be traceable (the
+   buyer's private account and the subsequent destination of purchased
+   tokens).
+5. When using the private account path, the mini-app must enforce the
+   atomic deshield — preventing a buyer from funding the ephemeral
+   account from any external source, which would create an on-chain
+   link to an existing identity.
+6. When using the private account path, the mini-app must confirm before
+   each buy that the buyer's shielded balance covers both the collateral
+   amount and the gas fee within the single deshield action. A clear,
+   actionable error must be shown if the balance is insufficient,
+   preventing a partial deshield that could leave funds stranded.
 7. Provide a sale analytics view showing, for each active or completed
    sale: total collateral raised, token price over time (price chart),
    number of buy transactions, and current pool composition. Analytics
@@ -200,31 +205,43 @@ guarantee than anything available on existing launchpad platforms.
 
 #### + Privacy
 
-1. The SDK must enforce the deshield→buy→re-shield pattern as the only
-   available interaction path for participants. Direct purchase from a
-   persistent public account must not be possible via the SDK's public
-   API.
-2. The SDK must validate that the re-shield target for purchased tokens
-   is a private (shielded) account before submitting the transaction,
-   and reject with an explicit error if it is not.
-3. The mini-app must not offer a "buy to public account" option. The
-   only purchase flow available to users must route through the
-   deshield→buy→re-shield pattern.
-4. The mini-app must display the pre-confirmation privacy summary
-   described in the Usability section before any buy or creator
-   withdrawal operation.
+1. The mini-app and SDK must support both direct public account
+   interaction and the deshield→buy→re-shield pattern for private
+   account interaction. When a user chooses the private account path,
+   the SDK must enforce the complete deshield→buy→re-shield pattern —
+   the re-shield step must not be skippable.
+2. When using the private account path, the mini-app must display the
+   pre-confirmation privacy summary described in the Usability section
+   before each buy operation, identifying what is visible on-chain
+   (buy amount, pool address, ephemeral intermediary account) and what
+   remains private (the originating private account, the destination of
+   re-shielded tokens, and any link between separate buys by the same
+   user).
+3. When using the private account path, the SDK must validate that the
+   re-shield target for purchased tokens is a private (shielded) account
+   before submitting the transaction, and reject with an explicit error
+   if it is not.
+4. The ephemeral public account created during the deshield step must
+   never be reused across operations. Each buy from a private account
+   must use a freshly generated account with no prior on-chain history.
 
 ### Privacy Architecture
 
 All LBP pool state is public on-chain (token pair, weights, price,
-cumulative volume, total collateral raised). Privacy is enforced at
-the UX and SDK layer. This is the same model as the DEX in RFP-004:
-the pools themselves are transparent; privacy comes from ensuring that
-all user interactions go through a fresh, unlinkable intermediary account.
+cumulative volume, total collateral raised). This is a deliberate
+architectural choice: public state enables permissionless price
+discovery, composability, and sale analytics without cryptographic
+complexity in the pool itself.
+
+User privacy is optionally enforced at the UX layer. The mini-app and
+SDK support both direct public account interaction and private account
+interaction via the deshield→buy→re-shield pattern. When users opt to
+interact from a private account, the SDK must enforce the complete
+pattern as described below.
 
 #### Interaction flow
 
-For every buy:
+For every buy from a private account:
 
 1. The buyer initiates from their private account. The SDK deshields to
    a **fresh, single-use** public account (account A) with no prior
@@ -237,21 +254,24 @@ For every buy:
 
 > **Gas:** Both collateral and gas must come exclusively from the
 > deshield in step 1. Funding account A from any external source
-> creates an on-chain link to an existing identity and breaks the
-> privacy guarantee. The SDK must make this impossible.
+> — such as a CEX withdrawal or a known wallet — creates an on-chain
+> link to an existing identity and breaks the privacy guarantee. The
+> SDK must make this impossible; the atomic deshield is a single,
+> indivisible user action.
 
 #### What is public (observable on-chain)
 
 - All pool state: token pair, current weights, price, total collateral
   raised, total tokens sold, sale start/end timestamps.
-- All buy transactions: collateral spent, tokens received, the ephemeral
-  intermediary account address, and timestamp.
+- All buy transactions: collateral spent, tokens received, and timestamp.
+  When using the private account path, the buyer's address is an
+  ephemeral intermediary account with no prior on-chain history.
 - Allowlist gate configuration (Merkle root or ZK accumulator commitment)
   and whether the gate is enabled — but not the list of eligible
   addresses.
-- Sale close, creator withdrawal transactions.
+- Sale close and creator withdrawal transactions.
 
-#### What is private
+#### What is private (when using the private account path)
 
 - Which private account originated the collateral for a buy.
 - Where purchased tokens go after re-shielding.
