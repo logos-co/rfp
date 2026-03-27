@@ -120,15 +120,17 @@ foundation.
    queryable on-chain and surfaced in both CLI and mini-app.
 7. Current supply APY, borrow APR, and pool utilisation are displayed
    per asset in the mini-app and CLI.
-8. The SDK must handle the atomic deshield (deposit token + native gas)
-   as a single indivisible user action, preventing accidental privacy
-   leaks from externally funding the intermediate account.
-9. Before each operation, the mini-app must show the estimated
-   transaction fee and confirm that the user's shielded balance covers
-   both the operation amount and fees within the single deshield action.
-   If the balance is insufficient, a clear, actionable error must be
-   shown before any transaction is submitted — preventing partial
-   deshields that could leave funds stranded in an ephemeral account.
+8. When interacting via a private account, the SDK must handle the
+   atomic deshield (deposit token + native gas) as a single indivisible
+   user action, preventing accidental privacy leaks from externally
+   funding the intermediate account.
+9. When interacting via a private account, before each operation the
+   mini-app must show the estimated transaction fee and confirm that the
+   user's shielded balance covers both the operation amount and fees
+   within the single deshield action. If the balance is insufficient, a
+   clear, actionable error must be shown before any transaction is
+   submitted — preventing partial deshields that could leave funds
+   stranded in an ephemeral account.
 10. The mini-app must preview the health factor impact of a borrow or
     withdrawal before the user confirms: displaying both the current
     health factor and the projected health factor after the operation.
@@ -172,20 +174,25 @@ foundation.
 
 #### + Privacy
 
-1. The mini-app and SDK must enforce the deshield→interact→reshield
-   pattern as the only available interaction path. Direct interaction
-   from a persistent public account must not be possible through the
-   UI or the SDK's public API.
-2. The mini-app must display a pre-confirmation summary for each
-   operation that clearly identifies what will be visible on-chain
-   (amounts, asset type, pool address, ephemeral intermediary account)
-   and what will remain private (the originating private account, the
-   destination of re-shielded tokens, and any link between separate
-   interactions by the same user).
-3. The SDK must validate that the target receipt token account for
-   re-shielding is a private (shielded) account before submitting the
-   transaction, and reject the operation with an explicit error if it
-   is not.
+1. The mini-app and SDK must support both direct public account
+   interaction and the deshield→interact→reshield pattern for private
+   account interaction. When a user chooses the private account path,
+   the SDK must enforce the complete deshield→interact→reshield
+   pattern — the reshield step must not be skippable.
+2. When using the private account path, the mini-app must display a
+   pre-confirmation summary for each operation that clearly identifies
+   what will be visible on-chain (amounts, asset type, pool address,
+   ephemeral intermediary account) and what will remain private (the
+   originating private account, the destination of re-shielded tokens,
+   and any link between separate interactions by the same user).
+3. When using the private account path, the SDK must validate that the
+   target receipt token account for re-shielding is a private
+   (shielded) account before submitting the transaction, and reject the
+   operation with an explicit error if it is not.
+4. The ephemeral public account (account A) created during the deshield
+   step must never be reused across operations. Each protocol
+   interaction from a private account must use a freshly generated
+   account with no prior on-chain history.
 
 ### Soft Requirements
 
@@ -227,12 +234,11 @@ is a deliberate architectural choice: public state enables
 permissionless liquidation, oracle integration, and composability
 without open cryptographic research challenges.
 
-User privacy is enforced at the UX layer. The SDK and mini-app must
-ensure that all user interactions go through the
-deshield→interact→reshield pattern described below. Bypassing this
-pattern — for example, by interacting directly from a persistent
-public account — must not be possible through the SDK's public API
-or the mini-app.
+User privacy is optionally enforced at the UX layer. The mini-app and
+SDK support both direct public account interaction and private account
+interaction via the deshield→interact→reshield pattern. When users opt
+to interact from a private account, the SDK must enforce the complete
+pattern as described below.
 
 #### Interaction flow
 

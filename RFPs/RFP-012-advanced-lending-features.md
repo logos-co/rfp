@@ -70,8 +70,8 @@ alternative to established chains for advanced lending use cases.
 4. **Multiple collateral per position** — a single borrower can
    deposit multiple distinct assets as collateral. Aggregate borrowing
    power is the weighted sum of each collateral asset's contribution
-   (LTV × USD value). The ZKP for private positions must verify the
-   aggregate collateral constraint.
+   (LTV × USD value). When interacting via a private account, the ZKP
+   must verify the aggregate collateral constraint.
 
 5. **All risk parameters adjustable without program upgrade** — every
    configurable parameter (interest rate model slope, eMode LTV,
