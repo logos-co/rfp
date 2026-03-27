@@ -78,7 +78,9 @@ foundation.
    asset.
 6. Interest accrues continuously. Supply APY and borrow APR are
    deterministic functions of pool utilisation, queryable on-chain.
-7. When a borrower's health factor drops below 1, any account can
+7. When a borrower's health factor (the ratio of weighted collateral
+   value to outstanding debt; HF ≥ 1 means solvent, HF < 1 means
+   eligible for liquidation) drops below 1, any account can
    permissionlessly liquidate the position by repaying a portion of
    the debt and receiving equivalent collateral at a discount.
    Liquidation is partial (configurable close factor per transaction).
@@ -89,17 +91,14 @@ foundation.
    protocol reserves as a buffer against bad debt.
 10. Price feeds from at least one oracle provider are integrated for
     collateral valuation and liquidation triggers.
-11. An emergency pause mechanism (freeze authority) can halt all
-    lending operations, following the patterns from RFP-001 and
-    RFP-002.
-12. Per-asset supply and borrow caps are enforced and adjustable
+11. Per-asset supply and borrow caps are enforced and adjustable
     without program upgrade.
-13. A liquidator bot that continuously monitors all borrower
+12. A liquidator bot that continuously monitors all borrower
     positions and executes liquidations when health factors drop
     below 1. The bot is the protocol's solvency mechanism — without
     it, bad debt accumulates and the protocol becomes insolvent.
     Must be runnable by any third party.
-14. A risk monitoring service that tracks protocol health metrics:
+13. A risk monitoring service that tracks protocol health metrics:
     per-asset utilisation, aggregate collateral ratios, positions
     approaching liquidation thresholds, and oracle feed status.
     Must expose metrics via an API or dashboard.
@@ -141,9 +140,10 @@ foundation.
 2. Liquidation triggers use a time-weighted or confidence-adjusted
    price, not raw spot price, to resist single-transaction price
    manipulation.
-3. The program does not enter an unrecoverable state if an asset's
-   oracle feed becomes permanently unavailable; the freeze authority
-   can pause operations for affected assets independently.
+3. If an asset's oracle feed becomes permanently unavailable, the
+   program rejects only operations that depend on that feed (borrows,
+   liquidations) for the affected asset. All other assets and
+   operations continue unaffected.
 4. Bad debt remaining after a liquidation exhausts available
    collateral is tracked and socialised across the reserve fund.
 
@@ -370,9 +370,6 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 
 ## Resources
 
-- [Lending Protocol FURPS+ Research](/research/lending-protocols-furps-analysis.md) —
-  Comparative analysis of the 10 largest lending protocols that
-  informed this RFP
 - [RFP-001 — Admin Authority](/RFPs/RFP-001-admin-authority-poc.md)
 - [RFP-002 — Freeze Authority](/RFPs/RFP-002-freeze-authority-poc.md)
 - TODO: LEE official doc
