@@ -16,9 +16,9 @@ Build a reusable library that provides standardised access control for LEE
 programs, where privileged functions, including the ability to transfer or
 renounce authority, can only be called by an admin authority.
 
-The library must be importable as a dependency by any LEE program and ship
-with documentation and usage examples so teams can integrate the pattern
-without re-implementing it from scratch.
+The library must be integrated into the SPEL framework and ship with
+documentation and usage examples so teams can enable the pattern with
+minimal boilerplate.
 
 ## 🔥 Why This Matters
 
@@ -34,29 +34,49 @@ authority patterns, accelerating the pace at which new programs ship.
 ## ✅ Scope of Work
 
 ### Hard Requirements
+
 #### Functionality
+
 1. Admin authority is set at program initialisation.
 2. Admin authority can transfer admin authority to a new signer.
 3. Admin authority can revoke admin authority, effectively renouncing
-  admin control.
+   admin control.
 4. Admin authority is the only one that can call privileged instructions
-  exposed by the library (demonstrated via a gated `config` PDA update).
+   exposed by the library (demonstrated via a gated `config` PDA update).
+
 #### Usability
-1. There can only be one admin authority (signer) at a time.
-2. The library is integrated into the [SPEL framework](https://github.com/logos-co/spel)
-  so that programs using SPEL can enable admin authority with minimal
-  boilerplate — ideally a single annotation or configuration flag.
+
+1. The library is integrated into the [SPEL framework](https://github.com/logos-co/spel)
+   so that programs using SPEL can enable admin authority with minimal
+   boilerplate — ideally a single annotation or configuration flag.
+2. There can only be one admin authority (signer) at a time.
 3. Documentation includes at least one end-to-end usage example showing
-  how a SPEL program gates its own instructions behind the admin authority.
+   how a SPEL program gates its own instructions behind the admin authority.
+
+#### Performance
+
+No compute budget constraints are expected for this library. Document the
+additional transaction size overhead introduced by the admin authority
+check on any gated instruction.
+
 #### Supportability
-1. Unit and integration tests cover all hard requirements and run in CI.
-2. A sample program that imports the library is included to validate the
-  integration path and serve as a reference for consumers.
+
+1. CI must be green on the default branch.
+2. Every hard requirement in Functionality, Usability, and Reliability has
+   at least one corresponding test.
+3. A README documents how to add the library as a dependency and integrate
+   it into a SPEL program, including a step-by-step example.
+4. A sample program that imports the library is included to validate the
+   integration path and serve as a reference for consumers.
+
 ### Soft Requirements
+
 If possible.
+
 #### Reliability
+
 1. Admin authority can only be set to a valid new signer (on-curve key
-  or deployed PDA), when set or initialised.
+   or deployed PDA), when set or initialised.
 
 ## 👤 Recommended Team Profile
 
@@ -75,7 +95,7 @@ Estimated duration: **4 weeks**
 
 ## 🌍 Open Source Requirement
 
-All code must be released under the **MIT+Apache2.0 dual License**.
+All code must be released under the **MIT+Apache2.0 License**.
 
 
 ## Resources
