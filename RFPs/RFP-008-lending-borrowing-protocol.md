@@ -3,7 +3,7 @@ id: RFP-008
 title: Lending & Borrowing Protocol
 tier: XL
 funding: $XXXXX
-status: draft
+status: open
 dependencies: See Platform Dependencies section
 category: Applications & Integrations
 ---
@@ -280,7 +280,7 @@ For every protocol operation (supply, borrow, repay, withdraw):
 
 ## ⚠ Platform Dependencies
 
-This RFP remains in **draft** until the dependencies below are resolved.
+This RFP is open for proposal submission. However, development is blocked until the dependencies below are resolved.
 LEZ has similar programming capabilities to Solana but several
 primitives required by a lending protocol are not yet available.
 

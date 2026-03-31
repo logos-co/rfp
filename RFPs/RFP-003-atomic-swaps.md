@@ -3,14 +3,13 @@ id: RFP-003
 title: Atomic Swaps with LEZ
 tier: XL
 funding: $TBD
-status: draft
+status: open
 category: Applications & Integrations
 ---
 
 # RFP-003 — Atomic Swaps with LEZ
 
-> **Draft — not yet open for proposals.**
-> This RFP will be published once **LEZ timelock support** is available.
+> **Note:** This RFP is open for proposal submission. However, development is blocked pending **LEZ timelock support** being available on LEZ.
 
 ## 🧭 Overview
 
