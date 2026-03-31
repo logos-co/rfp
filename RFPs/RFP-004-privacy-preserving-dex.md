@@ -13,11 +13,13 @@ category: Applications & Integrations
 ## 🧭 Overview
 
 Build a decentralized exchange on LEZ with public AMM liquidity pools.
-Privacy is achieved through a deshield→swap→re-shield pattern: a user
-deshields tokens from their private account to a fresh public account,
-swaps in a public pool, and re-shields the output back to a private
-account. The origin and destination of funds are not traceable
-on-chain, protecting user identity without requiring private pool state.
+Users with public accounts interact with the DEX directly. Users with
+private accounts interact via the deshield→swap→re-shield pattern: the
+SDK deshields tokens to a fresh ephemeral public account, executes the
+swap in a public pool, and re-shields the output back to the user's
+private account. When interacting from a private account, the origin
+and destination of funds are not traceable on-chain, protecting user
+identity without requiring private pool state.
 
 A DEX is the most critical application for any new chain ecosystem.
 On Ethereum, Uniswap has processed over $3.4 trillion in cumulative
@@ -28,15 +30,14 @@ activity on any chain.
 
 On transparent chains, this trading comes with severe downsides:
 front-running and sandwich attacks extract hundreds of millions in MEV
-from ordinary users. On LEZ, the deshield→swap→re-shield pattern means
-a user's private account identity is never linked to a swap on-chain —
-observers see a trade from an ephemeral public account with no prior
-history, making identity-based front-running and wallet-profiling
-impossible. Sandwich attacks, back-running, and CEX-DEX arbitrage
-remain possible as they depend on trade size and pool state rather than
-user identity; mitigating these is out of scope for this RFP. This is a
-meaningful privacy improvement and a key differentiator for the Logos
-ecosystem.
+from ordinary users. On LEZ, when users interact from a private account, their identity is
+never linked to a swap on-chain — observers see a trade from an
+ephemeral public account with no prior history, making identity-based
+front-running and wallet-profiling impossible. Sandwich attacks,
+back-running, and CEX-DEX arbitrage remain possible as they depend on
+trade size and pool state rather than user identity; mitigating these
+is out of scope for this RFP. This is a meaningful privacy improvement
+and a key differentiator for the Logos ecosystem.
 
 The team building this should have deep experience in AMM or order-book
 design, SVM program development, and MEV-resistant trading mechanisms.
@@ -67,15 +68,16 @@ participants.
    public liquidity pools supporting the deshield→swap→re-shield
    interaction pattern for privacy-preserving trading.
 2. Support creation of liquidity pools for arbitrary token pairs.
-3. Liquidity providers can add liquidity from a fresh public account
-   (funded by deshielding from a private account) and later withdraw
-   to a private account via re-shielding. The LP position is public
-   on-chain; what is not traceable is which private account originated
-   or received the funds.
-4. Traders can swap tokens via the deshield→swap→re-shield pattern.
-   Trade size and direction are visible on-chain; what is not
-   traceable is which private account originated the funds or where
-   they go after re-shielding.
+3. Liquidity providers can add and withdraw liquidity directly from a
+   public account, or via the deshield→interact→reshield pattern from
+   a private account. The LP position is public on-chain; when using a
+   private account, which private account originated or received the
+   funds is not traceable.
+4. Traders can swap tokens directly from a public account, or via the
+   deshield→swap→re-shield pattern from a private account. Trade size
+   and direction are visible on-chain; when using a private account,
+   which private account originated the funds or where they go after
+   re-shielding is not traceable.
 5. Traders and LPs using public accounts can interact with the same
    pools; their transactions are executed transparently on-chain
    (standard public account behaviour).
@@ -95,9 +97,10 @@ participants.
 
 1. Provide an SDK that can be used to build Logos modules for
    interacting with the DEX (swapping, pool creation, liquidity
-   management). The SDK must handle the atomic deshield — transferring
-   both the swap token and a small amount of native token for gas — as
-   a single user action, preventing accidental privacy leaks from
+   management). When the user interacts from a private account, the
+   SDK must handle the atomic deshield — transferring both the swap
+   token and a small amount of native token for gas — as a single
+   indivisible action, preventing accidental privacy leaks from
    externally funding account A.
 2. Provide a Logos mini-app GUI with local build instructions,
    downloadable assets, and loadable in Logos app (Basecamp) via
@@ -112,15 +115,15 @@ participants.
 6. Provide an IDL for the DEX program, preferably using the
    [SPEL framework](https://github.com/logos-co/spel).
 7. Before each swap or liquidity operation, the mini-app must show the
-   estimated transaction fee and confirm that the user's shielded
-   balance covers both the operation amount and fees within the single
-   deshield action. A clear, actionable error must be shown if the
-   balance is insufficient — preventing partial deshields that could
-   leave funds stranded in an ephemeral account.
+   estimated transaction fee. When the user interacts from a private
+   account, it must also confirm that the shielded balance covers both
+   the operation amount and fees within the single deshield action; a
+   clear, actionable error must be shown if the balance is insufficient
+   — preventing partial deshields that could leave funds stranded in
+   an ephemeral account.
 8. The mini-app must display a swap preview before the user confirms:
    estimated output amount, effective price, price impact, and fee
-   taken — so the user can evaluate the trade before the deshield is
-   executed.
+   taken — so the user can evaluate the trade before confirming.
 
 #### Reliability
 
@@ -151,33 +154,39 @@ participants.
 
 #### + Privacy
 
-1. The mini-app and SDK must enforce the deshield→swap→re-shield
-   pattern as the only available interaction path. Direct interaction
-   from a persistent public account must not be possible through the
-   UI or the SDK's public API.
-2. The mini-app must display a pre-confirmation summary for each
-   operation that clearly identifies what will be visible on-chain
-   (trade size, direction, pool address, ephemeral intermediary
-   account) and what will remain private (the originating private
-   account, the destination of re-shielded tokens, and any link
-   between separate swaps by the same user).
-3. The SDK must validate that the target account for re-shielding
-   swap output is a private (shielded) account before submitting the
-   transaction, and reject the operation with an explicit error if it
-   is not.
+1. The mini-app and SDK must support both direct public account
+   interaction and the deshield→swap→re-shield pattern for private
+   account interaction. When a user interacts from a private account,
+   the SDK must enforce the complete deshield→swap→re-shield pattern
+   — the re-shield step must not be skippable.
+2. When interacting from a private account, the mini-app must display
+   a pre-confirmation summary for each operation that clearly
+   identifies what will be visible on-chain (trade size, direction,
+   pool address, ephemeral intermediary account) and what will remain
+   private (the originating private account, the destination of
+   re-shielded tokens, and any link between separate swaps by the
+   same user).
+3. When interacting from a private account, the SDK must validate
+   that the target account for re-shielding swap output is a private
+   (shielded) account before submitting the transaction, and reject
+   the operation with an explicit error if it is not.
+4. The ephemeral public account (account A) created during the
+   deshield step must never be reused across operations. Each swap
+   or liquidity operation from a private account must use a freshly
+   generated account with no prior on-chain history.
 
 ### Privacy Architecture
 
-All DEX liquidity pools are public on-chain state. Privacy is enforced
-at the UX layer: the SDK and mini-app must ensure that all user
-interactions go through the deshield→swap→re-shield pattern. Bypassing
-this pattern — for example, by swapping directly from a persistent
-public account — must not be possible through the SDK's public API or
-the mini-app.
+All DEX liquidity pools are public on-chain state. User privacy is
+enforced at the UX layer for private account users. The mini-app and
+SDK support both direct public account interaction and private account
+interaction via the deshield→swap→re-shield pattern. When a user
+interacts from a private account, the SDK must enforce the complete
+pattern as described below.
 
 #### Interaction flow
 
-For every protocol operation (swap, add/remove liquidity):
+For every protocol operation initiated from a private account (swap, add/remove liquidity):
 
 1. The user initiates the action from their private account. The SDK
    deshields to a **fresh, single-use** public account (account A)
@@ -200,7 +209,8 @@ For every protocol operation (swap, add/remove liquidity):
 - All pool state: token pair, fee tier, total TVL, cumulative volume,
   current price.
 - All swap and liquidity transactions: trade size, direction, and the
-  ephemeral intermediary account address.
+  originating account address (the ephemeral intermediary account for
+  private account interactions, the user's public account otherwise).
 - LP position sizes and fee earnings.
 
 #### What is private
