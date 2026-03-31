@@ -59,13 +59,14 @@ alternative to established chains for advanced lending use cases.
    (e.g. stablecoin pairs, LST/underlying) with elevated LTV and
    liquidation threshold ratios. Borrowers automatically receive eMode
    parameters when all collateral and debt assets belong to the same
-   eMode category. eMode categories are configurable by the protocol
+   eMode category. eMode categories are configurable by an admin
    authority.
 
-3. **Isolated markets** — list higher-risk assets in isolated pools
-   with independent debt ceilings. Bad debt from an isolated market
-   does not propagate to cross-market pools. Each isolated asset has
-   its own debt ceiling enforced on-chain.
+3. **Isolated markets** — an admin authority can list higher-risk
+   assets in isolated pools with independent debt ceilings. Bad debt
+   from an isolated market does not propagate to cross-market pools.
+   Each isolated asset has its own debt ceiling set and enforced
+   on-chain by an admin authority.
 
 4. **Multiple collateral per position** — a single borrower can
    deposit multiple distinct assets as collateral. Aggregate borrowing
@@ -76,8 +77,8 @@ alternative to established chains for advanced lending use cases.
 5. **All risk parameters adjustable without program upgrade** — every
    configurable parameter (interest rate model slope, eMode LTV,
    isolated market debt ceiling, flash loan fee, reserve factor, etc.)
-   must be updatable by the protocol authority via a governance
-   instruction without redeploying the program.
+   must be updatable by an admin authority without redeploying the
+   program.
 
 #### Usability
 
@@ -209,8 +210,7 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 ## Resources
 
 - [RFP-008 — Lending & Borrowing Protocol](./RFP-008-lending-borrowing-protocol.md)
-- [RFP-001 — Admin Authority](./RFP-001-admin-authority-poc.md)
-- [RFP-002 — Freeze Authority](./RFP-002-freeze-authority-poc.md)
+- [RFP-001 — Admin Authority](./RFP-001-admin-authority-poc.md) — reference pattern for admin-gated operations (F2, F3, F5)
 - TODO: Oracle integration guide for LEZ
 - TODO: SPEL framework documentation
 
