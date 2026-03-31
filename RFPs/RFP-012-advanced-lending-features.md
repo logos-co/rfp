@@ -3,7 +3,7 @@ id: RFP-012
 title: Advanced Lending Features
 tier: L
 funding: $XXXXX
-status: draft
+status: open
 dependencies: RFP-008
 category: Applications & Integrations
 ---
@@ -158,7 +158,7 @@ If possible.
 
 ## ⚠ Platform Dependencies
 
-This RFP remains in **draft** until the following is satisfied:
+This RFP is open for proposal submission. However, development is blocked until the following is satisfied:
 
 1. **RFP-008 is live on LEZ mainnet/testnet** — this RFP extends the
    deployed protocol; it cannot proceed without the base layer.
