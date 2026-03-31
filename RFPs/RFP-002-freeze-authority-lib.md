@@ -16,9 +16,9 @@ Build a reusable library that provides a standardised freeze mechanism for
 LEE programs, allowing an authorised account to disable all (or selected)
 interactions as a circuit breaker when an issue is discovered.
 
-The library must be importable as a dependency by any LEE program and ship
-with documentation and usage examples so teams can integrate the pattern
-without re-implementing it from scratch.
+The library must be integrated into the SPEL framework and ship with
+documentation and usage examples so teams can enable the pattern with
+minimal boilerplate.
 
 ## 🔥 Why This Matters
 
@@ -31,41 +31,58 @@ vulnerabilities.
 Delivering this as a shared library lowers the barrier for developers
 building on LEE. Teams can focus on application logic rather than
 re-inventing freeze patterns, accelerating the pace at which new programs
-ship.
-
-As more programs are deployed and begin handling real value, the ability
-for an authority to freeze a compromised program is the difference between
-a contained incident and a catastrophic loss.
+ship. As more programs begin handling real value, the ability to freeze a
+compromised program is the difference between a contained incident and a
+catastrophic loss.
 
 ## ✅ Scope of Work
 
 ### Hard Requirements
+
 #### Functionality
+
 1. Freeze authority can be set at program initialisation.
 2. Freeze authority can be changed by admin authority.
 3. Freeze authority can freeze the program, rejecting any attempt to interact
-  with it; apart from unfreezing or changing the freeze authority.
+   with it; apart from unfreezing or changing the freeze authority.
 4. Freeze authority can un-freeze the program, re-enabling interactions.
 5. Freeze authority can be revoked by admin authority.
+
 #### Usability
-1. There can only be one freeze authority (signer) at a time.
-2. The library is integrated into the [SPEL framework](https://github.com/logos-co/spel)
-  so that programs using SPEL can enable freeze authority with minimal
-  boilerplate — ideally a single annotation or configuration flag.
+
+1. The library is integrated into the [SPEL framework](https://github.com/logos-co/spel)
+   so that programs using SPEL can enable freeze authority with minimal
+   boilerplate — ideally a single annotation or configuration flag.
+2. There can only be one freeze authority (signer) at a time.
 3. Documentation includes at least one end-to-end usage example showing
-  how a SPEL program integrates the freeze check.
+   how a SPEL program integrates the freeze check.
+
+#### Performance
+
+No compute budget constraints are expected for this library. Document the
+additional transaction size overhead introduced by the freeze check on any
+gated instruction.
+
 #### Supportability
-1. Unit and integration tests cover all hard requirements and run in CI.
-2. A sample program that imports the library is included to validate the
-  integration path and serve as a reference for consumers.
+
+1. CI must be green on the default branch.
+2. Every hard requirement in Functionality, Usability, and Reliability has
+   at least one corresponding test.
+3. A README documents how to add the library as a dependency and integrate
+   it into a SPEL program, including a step-by-step example.
+4. A sample program that imports the library is included to validate the
+   integration path and serve as a reference for consumers.
 
 ### Soft Requirements
-If possible.
-#### Reliability
-1. Freeze authority can only be set to a valid new signer (on-curve key
-  or deployed PDA), when set or initialised.
 
-### Out-of-scope
+If possible.
+
+#### Reliability
+
+1. Freeze authority can only be set to a valid new signer (on-curve key
+   or deployed PDA), when set or initialised.
+
+### Out of Scope
 
 Note that due to the privacy properties of LEE, it is not possible to freeze
 actions for a given signer/account. Hence, such a feature is not expected.
@@ -89,7 +106,7 @@ Estimated duration: **4 weeks**
 
 ## 🌍 Open Source Requirement
 
-All code must be released under the **MIT+Apache2.0 dual License**.
+All code must be released under the **MIT+Apache2.0 License**.
 
 
 ## Resources
