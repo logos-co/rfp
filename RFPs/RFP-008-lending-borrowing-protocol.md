@@ -84,15 +84,15 @@ foundation.
    permissionlessly liquidate the position by repaying a portion of
    the debt and receiving equivalent collateral at a discount.
    Liquidation is partial (configurable close factor per transaction).
-8. Each asset has independently configurable risk parameters: LTV,
-   liquidation threshold, liquidation bonus, reserve factor, and
-   supply/borrow caps.
+8. An admin authority can independently configure risk parameters per
+   asset: LTV, liquidation threshold, liquidation bonus, reserve
+   factor, and supply/borrow caps.
 9. A reserve factor diverts a percentage of borrow interest into
    protocol reserves as a buffer against bad debt.
 10. Price feeds from at least one oracle provider are integrated for
     collateral valuation and liquidation triggers.
-11. Per-asset supply and borrow caps are enforced and adjustable
-    without program upgrade.
+11. Per-asset supply and borrow caps are enforced and adjustable by
+    an admin authority without program upgrade.
 12. A liquidator bot that continuously monitors all borrower
     positions and executes liquidations when health factors drop
     below 1. The bot is the protocol's solvency mechanism — without
@@ -376,8 +376,7 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 
 ## Resources
 
-- [RFP-001 — Admin Authority](/RFPs/RFP-001-admin-authority-poc.md)
-- [RFP-002 — Freeze Authority](/RFPs/RFP-002-freeze-authority-poc.md)
+- [RFP-001 — Admin Authority](/RFPs/RFP-001-admin-authority-poc.md) — reference pattern for admin-gated operations (F8, F11)
 - TODO: LEE official doc
 - TODO: Oracle integration guide for LEZ
 - TODO: SPEL framework documentation
