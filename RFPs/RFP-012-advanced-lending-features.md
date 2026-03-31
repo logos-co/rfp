@@ -210,7 +210,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 ## Resources
 
 - [RFP-008 — Lending & Borrowing Protocol](./RFP-008-lending-borrowing-protocol.md)
-- [RFP-001 — Admin Authority](./RFP-001-admin-authority-poc.md) — reference pattern for admin-gated operations (F2, F3, F5)
+- [RFP-001 — Admin Authority Library](./RFP-001-admin-authority-lib.md)
+- [RFP-002 — Freeze Authority Library](./RFP-002-freeze-authority-lib.md)
 - TODO: Oracle integration guide for LEZ
 - TODO: SPEL framework documentation
 

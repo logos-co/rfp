@@ -1,6 +1,6 @@
 ---
 id: RFP-001
-title: Admin Authority
+title: Admin Authority Library
 tier: XS
 funding: $XXXXX
 status: open
@@ -8,21 +8,17 @@ category: Developer Tooling & Infrastructure
 ---
 
 
-# RFP-001 — Admin Authority
+# RFP-001 — Admin Authority Library
 
 ## 🧭 Overview
 
-Build a proof-of-concept that demonstrates access control on an LEE program,
-where privileged functions, including the ability to transfer or renounce
-authority, can only be called by an admin authority.
+Build a reusable library that provides standardised access control for LEE
+programs, where privileged functions, including the ability to transfer or
+renounce authority, can only be called by an admin authority.
 
-This is particularly useful during early-stage program development and testing,
-where the ability to change specific parameters can help iterate on the program,
-and potentially prevent exploits from causing lasting damage.
-
-This RFP targets a standalone PoC to validate the approach. A follow-up RFP
-will be issued to package the pattern into a reusable developer library for
-the Logos ecosystem.
+The library must be importable as a dependency by any LEE program and ship
+with documentation and usage examples so teams can integrate the pattern
+without re-implementing it from scratch.
 
 ## 🔥 Why This Matters
 
@@ -31,13 +27,9 @@ security primitives from day one. Without standardised access control,
 every team must design their own — leading to inconsistent implementations,
 duplicated effort, and a higher risk of critical vulnerabilities.
 
-Establishing these patterns early lowers the barrier for developers building
+Delivering this as a shared library lowers the barrier for developers building
 on LEE. Teams can focus on application logic rather than re-inventing admin
-authority patterns, accelerating the pace at which new programs ship. A proven
-PoC also gives the ecosystem a reference implementation that builds confidence
-among developers and users alike — demonstrating that LEE programs can be
-managed and secured with the same rigour expected in mature smart contract
-environments.
+authority patterns, accelerating the pace at which new programs ship.
 
 ## ✅ Scope of Work
 
@@ -47,14 +39,19 @@ environments.
 2. Admin authority can transfer admin authority to a new signer.
 3. Admin authority can revoke admin authority, effectively renouncing
   admin control.
-4. Admin authority is the only one that can set a specific value on the
-  unique `config` PDA used by the program (sample value to demonstrate
-  gated access).
+4. Admin authority is the only one that can call privileged instructions
+  exposed by the library (demonstrated via a gated `config` PDA update).
 #### Usability
 1. There can only be one admin authority (signer) at a time.
+2. The library is integrated into the [SPEL framework](https://github.com/logos-co/spel)
+  so that programs using SPEL can enable admin authority with minimal
+  boilerplate — ideally a single annotation or configuration flag.
+3. Documentation includes at least one end-to-end usage example showing
+  how a SPEL program gates its own instructions behind the admin authority.
 #### Supportability
-1. Demonstrated as a sample app; the program's core functionality does
-  not matter — the focus is on the admin authority pattern.
+1. Unit and integration tests cover all hard requirements and run in CI.
+2. A sample program that imports the library is included to validate the
+  integration path and serve as a reference for consumers.
 ### Soft Requirements
 If possible.
 #### Reliability
@@ -69,10 +66,11 @@ Developer experienced with:
 - Access control and authority patterns in on-chain programs
 - PDA derivation and account validation
 - Writing and running on-chain tests (e.g. Bankrun, Anchor tests)
+- Library/crate packaging and documentation
 
 ## ⏱ Timeline Expectations
 
-Estimated duration: **2 weeks**
+Estimated duration: **4 weeks**
 
 
 ## 🌍 Open Source Requirement
@@ -82,7 +80,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 
 ## Resources
 
-TODO: LEE official doc
+- [SPEL framework](https://github.com/logos-co/spel)
+- TODO: LEE official doc
 
 ## ✏️ How to Apply
 
