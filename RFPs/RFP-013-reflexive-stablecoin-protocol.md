@@ -54,7 +54,7 @@ Stablecoins enable lending, trading, and payments without the volatility of nati
 
 5. Users can view current redemption rate, redemption price, and projected debt growth from stability fees.
 
-6. The SDK supports both public account operations and private account operations via the standard deshield-interact-reshield pattern.
+6. Provide an SDK that can be used to build Logos modules for interacting with the program. The SDK must support both public account operations and private account operations via the standard deshield-interact-reshield pattern.
 
 7. Failed operations return clear, actionable error messages indicating why the operation was rejected.
 
