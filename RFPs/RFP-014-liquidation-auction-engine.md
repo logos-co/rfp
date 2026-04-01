@@ -54,7 +54,7 @@ Building this as a reusable program has ecosystem-wide benefits. Each CDP produc
 
 5. Active auctions display collateral type, amount, current discount, raised amount vs target, and time remaining. Users can bid with clear previews of received collateral and costs.
 
-6. SDK supports private account operations via the deshield-interact-reshield pattern.
+6. Provide an SDK that can be used to build Logos modules for interacting with the program. The SDK must support private account operations via the deshield-interact-reshield pattern.
 
 #### Reliability
 
