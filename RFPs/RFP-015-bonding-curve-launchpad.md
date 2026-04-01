@@ -509,11 +509,20 @@ production deployments or audits.
 - **Time-based sale end**: support an optional end timestamp in
   addition to the supply target, closing the sale at whichever
   condition is reached first.
-- **Integration with token vesting**: at sale close, purchased
-  tokens can be routed directly into a vesting schedule (see
+- **Buyer token vesting**: at sale close, purchased tokens can be
+  routed directly into a vesting schedule (see
   [RFP-017](./RFP-017-token-vesting.md)) rather than transferred
   to the buyer immediately. This enables a sale-plus-vesting flow
   in a single operation.
+- **Creator collateral vesting**: the sale creator can optionally
+  configure a vesting schedule for the raised collateral at sale
+  creation time. When configured, the close or withdraw operation
+  deposits collateral into the vesting program (see
+  [RFP-017](./RFP-017-token-vesting.md)) instead of transferring
+  it directly to the creator's account. The creator then claims
+  collateral over time per the schedule terms. This provides
+  accountability to buyers by preventing immediate lump-sum
+  withdrawal of raised funds.
 
 ## ⚠ Platform Dependencies
 
