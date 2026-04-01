@@ -78,25 +78,12 @@ poor UX. LP-0004 (sealed-bid) hides individual bids and is well-suited
 to single-item auctions, but clears at one moment rather than over days,
 making it unsuitable for broad community distribution.
 
-### LBPs and bonding curves as complementary mechanisms
-
-The Logos ecosystem provides both an LBP launchpad (this RFP) and a
-bonding curve launchpad
-([RFP-015](./RFP-015-bonding-curve-launchpad.md)). The two mechanisms
-are not redundant: they suit different project profiles and together
-provide a complete token launch toolkit.
-
-An LBP opens above estimated fair value and lets the market discover
-price over the sale duration. It does not require the project to
-pre-set a valuation, and it discourages bots by making early entry the
-most expensive. This suits projects that want broad, patient
-participation and market-driven price discovery.
-
-A bonding curve opens at its lowest price and rewards early
-participation: price rises deterministically with each purchase. This
-suits projects where early-entry incentives are intentional, rewarding
-founding community members with a lower entry price and providing a
-fully predictable, supply-driven raise trajectory.
+The Logos ecosystem also provides a bonding curve launchpad
+([RFP-015](./RFP-015-bonding-curve-launchpad.md)) for projects where
+early-entry incentives are intentional: price rises deterministically
+with each purchase, rewarding early believers with a lower entry price.
+The two mechanisms suit different project profiles and together provide
+a complete token launch toolkit.
 
 Fixed-price mode is retained as a soft requirement for projects that
 have an existing community with a known clearing price and prefer
