@@ -47,6 +47,11 @@ catastrophic loss.
    with it; apart from unfreezing or changing the freeze authority.
 4. Freeze authority can un-freeze the program, re-enabling interactions.
 5. Freeze authority can be revoked by admin authority.
+6. Freeze authority can freeze a specific account by `AccountId`, preventing
+   it from interacting with the program while leaving the rest of the program
+   operational.
+7. Freeze authority can un-freeze a specific account, re-enabling its
+   interactions with the program.
 
 #### Usability
 
@@ -82,12 +87,6 @@ If possible.
 1. Freeze authority can only be set to a valid new signer (on-curve key
    or deployed PDA), when set or initialised.
 
-### Out of Scope
-
-Note that due to the privacy properties of LEE, it is not possible to freeze
-actions for a given signer/account. Hence, such a feature is not expected.
-Freezing is expected to be agnostic to the signers or initiators of a
-transaction.
 
 ## 👤 Recommended Team Profile
 
