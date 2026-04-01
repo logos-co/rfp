@@ -73,8 +73,9 @@ project a predictable raise range.
 
 A time-based close creates a weaker invariant: if buying stops early,
 the sale ends with unsold supply and no clear clearing price.
-Supply-based close avoids this. Time-based end is retained as a soft
-requirement for projects that need a hard deadline.
+Supply-based close avoids this. An optional end timestamp is
+supported for projects that need a hard deadline, preventing
+zombie sales that sit open indefinitely if demand is low.
 
 ### One-directional sale
 
@@ -201,8 +202,15 @@ RFP-016 instead.
    this interaction model for LEZ applications). Both paths must be
    supported by the program and SDK.
 4. The sale closes automatically when the real token reserve reaches
-   zero (supply target `D` reached). The creator can also close the
-   sale manually at any time before the target is reached.
+   zero (supply target `D` reached), or when an optional end
+   timestamp configured at creation time is reached, whichever
+   comes first. The creator can also close the sale manually at
+   any time before either condition is met. When an end timestamp
+   is configured, the program must enforce a minimum sale duration
+   at creation time, long enough that latency in the
+   deshield→buy→re-shield privacy path does not systematically
+   disadvantage private-path buyers on price relative to
+   public-path buyers.
 5. After the sale closes, the creator can withdraw:
    - The real collateral raised (net of fees).
    - The reserved `Vt − D` tokens (if not used for auto-graduation).
@@ -306,7 +314,6 @@ RFP-016 instead.
     messages (e.g., insufficient balance, supply target already
     reached, sale paused, allowlist gate rejected, slippage
     exceeded, per-transaction buy limit exceeded).
-
 #### Reliability
 
 1. Curve state (`Vt`, `Vc`, `k`, real reserves) must remain
@@ -521,9 +528,6 @@ production deployments or audits.
   [RFP-004](./RFP-004-privacy-preserving-dex.md) and LP-0015 to
   be available). This eliminates manual post-sale liquidity seeding
   and provides immediate post-graduation tradability.
-- **Time-based sale end**: support an optional end timestamp in
-  addition to the supply target, closing the sale at whichever
-  condition is reached first.
 - **Buyer token vesting**: at sale close, purchased tokens can be
   routed directly into a vesting schedule (see
   [RFP-017](./RFP-017-token-vesting.md)) rather than transferred
