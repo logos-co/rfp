@@ -80,7 +80,7 @@ Stablecoins enable lending, trading, and payments without the volatility of nati
 
 1. The program is deployed and tested on LEZ devnet/testnet.
 
-2. End-to-end integration tests run against a LEZ sequencer (standalone mode) and are included in CI.
+2. End-to-end integration tests run against a LEZ sequencer (standalone mode) with `RISC0_DEV_MODE=0` and are included in CI.
 
 3. CI must be green on the default branch.
 
