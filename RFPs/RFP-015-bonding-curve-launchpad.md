@@ -198,11 +198,13 @@ RFP-016 instead.
    at creation time. If the creator closes the sale manually before
    the supply target is reached, and the real collateral reserve is
    below this threshold, the sale enters a **refund state**: no
-   further withdrawals are permitted by the creator, and buyers who
-   purchased via a public account may submit a refund claim to
-   recover their collateral (see Reliability requirement 4). Refunds
-   for buyers who used the private account path are not supported
-   (see Known Limitations). If the supply target is reached
+   further withdrawals are permitted by the creator, and buyers may
+   submit a refund claim to recover their collateral (see Reliability
+   requirement 4). For buyers who used the private account path,
+   the refund is credited to the ephemeral public account used during
+   the buy; the SDK must persist the ephemeral account keypair, or
+   delegate that persistence to the wallet module, so the buyer can
+   submit the refund claim. If the supply target is reached
    automatically (full sell-through), the minimum raise check is
    skipped; a complete sell-through always succeeds.
 7. Slippage protection: buyers specify the collateral amount to spend
@@ -296,7 +298,8 @@ RFP-016 instead.
    after close.
 4. If a sale enters refund state (minimum raise not met after manual
    close), the program must maintain per-buyer purchase records for
-   all public-account purchases, enabling each buyer to claim their
+   all public-account purchases, including ephemeral accounts used
+   in private account buys, enabling each buyer to claim their
    collateral refund independently. Refund claims must be
    idempotent: a buyer cannot claim the same purchase twice.
 5. The creator cannot withdraw collateral while the sale is in
@@ -314,8 +317,10 @@ RFP-016 instead.
 
 #### Supportability
 
-1. The bonding curve program is deployed and tested on LEZ
-   devnet/testnet.
+Proposals must include separate milestones for testnet 0.2, testnet 0.3,
+and mainnet deployment.
+
+1. The bonding curve program is deployed and tested on LEZ testnet 0.2.
 2. End-to-end integration tests run against a LEZ sequencer
    (standalone mode) and are included in CI. CI must be green on
    the default branch.
@@ -330,6 +335,8 @@ RFP-016 instead.
 4. A README documents end-to-end usage: deployment steps, program
    addresses, and step-by-step instructions for both creators and
    participants via CLI and mini-app.
+5. The program is updated and verified on LEZ testnet 0.3.
+6. The program is deployed to LEZ mainnet.
 
 #### + Privacy
 
@@ -422,14 +429,15 @@ but it does not prevent a single participant from submitting many
 transactions. Projects that need strong concentration limits should
 use the allowlist gate to restrict the eligible set.
 
-**Refunds are not supported for the private account path.** If a sale
-enters refund state (minimum raise not met after a manual close),
-collateral refunds can only be processed for buyers who transacted via
-a public account. Buyers who used the private account path have no
-on-chain link between their private account and their purchase, so
-the program cannot route a refund to them. The mini-app must display
-a disclosure when buying via the private path if a minimum raise is
-configured.
+**Refunds on the private account path require local keypair retention.**
+If a sale enters refund state, the refund is credited to the ephemeral
+public account used during the original buy. The buyer can reclaim their
+collateral by signing the refund claim with that ephemeral account's
+keypair. The SDK must persist all ephemeral keypairs used in buy
+transactions, or delegate that persistence to the wallet module. If the keypair is lost, the refund
+cannot be claimed. The mini-app must clearly communicate this dependency
+when a minimum raise is configured and the buyer is using the private
+account path.
 
 **Front-running at sale open.** Unlike the LBP mechanism, which opens
 at a price above estimated fair value and declines over time, a bonding
