@@ -396,11 +396,6 @@ gate to restrict the eligible set instead.
 
 ## ⚠ Platform Dependencies
 
-This RFP remains in **draft** until the dependencies below are
-resolved. LEZ has similar programming capabilities to Solana but
-several primitives required by a token launchpad are not yet
-available.
-
 ### Hard blockers
 
 These must be available on LEZ before this RFP can open.
