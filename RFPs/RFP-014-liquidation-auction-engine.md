@@ -64,9 +64,11 @@ Building this as a reusable program has ecosystem-wide benefits. Each CDP produc
 
 3. Multiple liquidations and auctions can occur simultaneously without interference. Each auction maintains isolated state.
 
-4. If a price feed fails for one collateral type, only that type's liquidations pause. Other operations continue unaffected.
+4. If a price feed fails for one collateral type, only that type's liquidations pause.
 
-5. Critical invariants: seized collateral equals collateral in auction; debt shortfalls are properly accounted; surplus and debt auctions maintain system balance.
+5. Other collateral types and non-liquidation operations continue unaffected.
+
+6. Critical invariants: seized collateral equals collateral in auction; debt shortfalls are properly accounted; surplus and debt auctions maintain system balance.
 
 #### Performance
 
