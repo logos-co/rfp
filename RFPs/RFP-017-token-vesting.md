@@ -249,7 +249,10 @@ document.
 
 #### Supportability
 
-1. The vesting program is deployed and tested on LEZ devnet/testnet.
+Proposals must include separate milestones for testnet 0.2, testnet 0.3,
+and mainnet deployment.
+
+1. The vesting program is deployed and tested on LEZ testnet 0.2.
 2. End-to-end integration tests run against a LEZ sequencer
    (standalone mode) and are included in CI. CI must be green on
    the default branch.
@@ -258,6 +261,8 @@ document.
 4. A README documents end-to-end usage: deployment steps, program
    addresses, and step-by-step instructions for creating a
    schedule, claiming, and cancelling via CLI and mini-app.
+5. The program is updated and verified on LEZ testnet 0.3.
+6. The program is deployed to LEZ mainnet.
 
 #### + Privacy
 
