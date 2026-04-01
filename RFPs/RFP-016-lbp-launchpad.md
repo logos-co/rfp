@@ -3,7 +3,7 @@ id: RFP-016
 title: "Privacy-Preserving Token Launchpad: LBP"
 tier: XL
 funding: $XXXXX
-status: draft
+status: open
 category: Applications & Integrations
 ---
 
