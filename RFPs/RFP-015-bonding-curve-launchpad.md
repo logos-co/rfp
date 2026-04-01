@@ -167,8 +167,12 @@ RFP-016 instead.
    be updated to preserve the pricing invariant. The real token
    reserve decreases by `tokens_out`; the real collateral reserve
    increases by `C_in`. If the computed `tokens_out` would exceed the
-   remaining real token reserve, the transaction must revert. The
-   pricing invariant must never change after creation. See the
+   remaining real token reserve, the transaction must revert. All
+   arithmetic must use integer-only operations and round against
+   the trader: `tokens_out` rounds down, `C_in` rounds up. This
+   ensures the pool remains solvent and the pricing invariant is
+   never violated by rounding. The pricing invariant must never
+   change after creation. See the
    Reference Implementation section for the recommended formula and
    the deviation standard for alternative mechanisms.
 2. A sale creator can configure a sale with the following parameters:
