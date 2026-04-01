@@ -46,14 +46,6 @@ model underpins Uniswap, Balancer, and virtually every major AMM; the
 formula is the most audited and best-understood pricing primitive in
 DeFi.
 
-The virtual-reserve model enables automatic post-sale liquidity
-seeding: the creator deposits the full token supply `Vt` upfront, of
-which `Vt − D` tokens are held in reserve alongside the accumulated
-collateral at graduation, forming a complete AMM pool that can be
-seeded to a DEX without any post-close action from the creator. This
-removes the coordination failure risk present in manual post-sale
-liquidity provisioning.
-
 ## 🏗 Design Rationale
 
 ### Constant product AMM with virtual reserves
