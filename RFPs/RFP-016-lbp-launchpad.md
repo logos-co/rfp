@@ -187,6 +187,17 @@ low-conviction raises.
    consistent with
    [LP-0014](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0014.md)
    and [RFP-008](./RFP-008-lending-borrowing-protocol.md).
+10. The sale creator can configure an optional vesting schedule for
+    the raised collateral at sale creation time. When configured,
+    the close or withdraw operation deposits collateral into the
+    vesting program (see
+    [RFP-017](./RFP-017-token-vesting.md)) instead of transferring
+    it directly to the creator's account. The creator then claims
+    collateral over time per the schedule terms. When
+    milestone-based vesting is used, milestone authority must be
+    held by a party other than the sale creator (e.g., a governance
+    body or multisig) to prevent the creator from approving
+    milestones and draining funds unilaterally.
 
 #### Usability
 
@@ -390,15 +401,7 @@ gate to restrict the eligible set instead.
   [RFP-017](./RFP-017-token-vesting.md)) rather than returned to
   the buyer's private account. This enables sale-plus-vesting in a
   single flow.
-- **Creator collateral vesting**: the sale creator can optionally
-  configure a vesting schedule for the raised collateral at sale
-  creation time. When configured, the close or withdraw operation
-  deposits collateral into the vesting program (see
-  [RFP-017](./RFP-017-token-vesting.md)) instead of transferring
-  it directly to the creator's account. The creator then claims
-  collateral over time per the schedule terms. This provides
-  accountability to buyers by preventing immediate lump-sum
-  withdrawal of raised funds.
+
 - Support for a Dutch auction mode (price declines on a configurable
   curve over time; buyers transact at the current price as it falls,
   with earlier buyers paying more than later ones).
