@@ -66,7 +66,9 @@ Stablecoins enable lending, trading, and payments without the volatility of nati
 
 3. If the price feed is stale or unavailable, rate updates are paused. Existing positions remain operational but new debt generation may be restricted.
 
-4. Parameter updates (stability fee, controller gains, safety ratios) are gated through admin authority. Emergency circuit breaker functionality is available via freeze authority.
+4. Parameter updates (stability fee, controller gains, safety ratios) are gated through admin authority.
+
+5. Emergency circuit breaker functionality is available via freeze authority.
 
 #### Performance
 
