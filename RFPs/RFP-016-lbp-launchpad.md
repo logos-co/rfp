@@ -37,7 +37,8 @@ April 2024 ([DL News](https://www.dlnews.com/articles/defi/fjord-foundry-raises-
 described at the time as the highest LBP raise of the year. Autonolas
 raised $547k from $50k in initial USDC liquidity via an LBP on the
 same platform
-([olas.network](https://olas.network/blog/olas-public-launch)).
+([olas.network](https://olas.network/blog/olas-public-launch),
+[CryptoRank](https://cryptorank.io/ico/autonolas)).
 The mechanism deters bots and removes the need for project teams to
 pre-set a valuation for their token.
 
@@ -65,7 +66,7 @@ The LBP runs price discovery continuously over days: the token price
 starts above estimated fair value and falls unless buying pressure
 counteracts it. Bots are naturally deterred: early sniping is
 unprofitable because price is highest at the start. The mechanism has
-a strong empirical track record (Fjord Foundry, Copper, Balancer) and
+a strong empirical track record (Fjord Foundry, Balancer) and
 is well understood by the DeFi builder community.
 
 Among other token sale mechanisms, fixed-price forces a binary gamble:

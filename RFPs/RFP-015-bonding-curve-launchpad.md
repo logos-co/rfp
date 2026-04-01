@@ -37,10 +37,10 @@ toolkit.
 ## 🔥 Why This Matters
 
 Bonding curves are one of the most proven token distribution mechanisms
-in DeFi. pump.fun processed over $1B in volume on Solana using a
+in DeFi. pump.fun surpassed $1B in daily trading volume on Solana using a
 constant-product bonding curve, demonstrating that the model scales and
 attracts broad community participation. Meteora's Dynamic Bonding Curve
-is now the dominant open-source SVM launchpad primitive, used in
+is a leading open-source SVM launchpad primitive, used in
 production by multiple projects. Beyond Solana, the constant-product
 model underpins Uniswap, Balancer, and virtually every major AMM; the
 formula is the most audited and best-understood pricing primitive in
