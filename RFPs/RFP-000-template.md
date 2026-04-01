@@ -89,6 +89,11 @@ Standard requirements (adapt as needed):
 5. A README documents end-to-end usage: deployment steps, program
    addresses, and step-by-step instructions for interacting with the
    program via CLI and mini-app.
+6. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+   for the Logos module/library, covering the developer integration journey.
+7. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+   for the CLI, covering the core operator/user journey.
+8. Provide Figma designs or equivalent for all GUI artifacts.
 
 ### Soft Requirements
 
