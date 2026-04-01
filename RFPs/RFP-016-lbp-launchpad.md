@@ -27,11 +27,7 @@ eligibility set on-chain.
 
 The launchpad is the entry point for new projects into the Logos
 ecosystem. It is where token price and initial distribution are
-established. The team building this should have strong experience in
-AMM or order-book design, SVM program development, and DeFi
-application security. Familiarity with weighted AMM pool mechanics
-(Balancer-style) and the Logos privacy interaction model is strongly
-recommended.
+established.
 
 ## 🔥 Why This Matters
 
@@ -64,49 +60,43 @@ anything available on existing launchpad platforms.
 
 ## 🏗 Design Rationale
 
-### LBP over bonding curves, fixed-price, Dutch auction, and sealed-bid auction
+### LBP mechanism and its place in the ecosystem
 
-Four alternative mechanisms exist for token sales: bonding curve,
-fixed-price (set a price upfront, sell until allocation runs out),
-Dutch auction (price declines on a curve until all tokens clear), and
-sealed-bid auction
-([LP-0004](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0004.md)).
-LBP is chosen as the primary mechanism because it is the only one
-that does not require the project to pre-set a valuation.
+The LBP runs price discovery continuously over days: the token price
+starts above estimated fair value and falls unless buying pressure
+counteracts it. Bots are naturally deterred: early sniping is
+unprofitable because price is highest at the start. The mechanism has
+a strong empirical track record (Fjord Foundry, Copper, Balancer) and
+is well understood by the DeFi builder community.
 
-Fixed-price forces a binary gamble: underpricing benefits buyers and
-dilutes the project; overpricing leads to an incomplete raise and
-reputation damage. Dutch auctions clear at a single price moment,
-which creates a coordination game: buyers wait for the price to fall
-and then rush simultaneously, producing congestion and poor UX.
-LP-0004 (sealed-bid) hides individual bids and is well-suited to
-single-item auctions, but clears at one moment rather than over days,
+Among other token sale mechanisms, fixed-price forces a binary gamble:
+underpricing benefits buyers and dilutes the project; overpricing leads
+to an incomplete raise and reputation damage. Dutch auctions clear at a
+single price moment, which creates a coordination game: buyers wait for
+the price to fall and then rush simultaneously, producing congestion and
+poor UX. LP-0004 (sealed-bid) hides individual bids and is well-suited
+to single-item auctions, but clears at one moment rather than over days,
 making it unsuitable for broad community distribution.
 
-LBP addresses these problems by running price discovery continuously
-over days: the token price starts above estimated fair value and falls
-unless buying pressure counteracts it. Bots are naturally deterred:
-early sniping is unprofitable because price is highest at the start.
-The mechanism has a strong empirical track record (Fjord Foundry,
-Copper, Balancer) and is well understood by the DeFi builder
-community.
+### LBPs and bonding curves as complementary mechanisms
 
-A bonding curve (constant product AMM with virtual reserves, as used
-by pump.fun and Meteora DBC) is a proven supply-driven mechanism and
-is available as a companion launchpad in
-[RFP-015](./RFP-015-bonding-curve-launchpad.md). It is not chosen
-as the primary mechanism here for two reasons. First, a bonding curve
-opens at its lowest price: buyers who act first pay the least,
-rewarding speed over conviction and creating a strong incentive for
-bots to snipe at the first block of the sale. An LBP opens above
-estimated fair value and the price falls over time, making early
-sniping unprofitable. Second, bonding curve pricing is
-formula-driven (price is a deterministic function of supply) rather
-than market-driven: the curve cannot reflect what buyers collectively
-believe fair value to be, only where they are willing to buy relative
-to the formula. Projects where early-entry incentives are intentional
-(rewarding founding community members with a lower entry price) are a
-better fit for RFP-015.
+The Logos ecosystem provides both an LBP launchpad (this RFP) and a
+bonding curve launchpad
+([RFP-015](./RFP-015-bonding-curve-launchpad.md)). The two mechanisms
+are not redundant: they suit different project profiles and together
+provide a complete token launch toolkit.
+
+An LBP opens above estimated fair value and lets the market discover
+price over the sale duration. It does not require the project to
+pre-set a valuation, and it discourages bots by making early entry the
+most expensive. This suits projects that want broad, patient
+participation and market-driven price discovery.
+
+A bonding curve opens at its lowest price and rewards early
+participation: price rises deterministically with each purchase. This
+suits projects where early-entry incentives are intentional, rewarding
+founding community members with a lower entry price and providing a
+fully predictable, supply-driven raise trajectory.
 
 Fixed-price mode is retained as a soft requirement for projects that
 have an existing community with a known clearing price and prefer

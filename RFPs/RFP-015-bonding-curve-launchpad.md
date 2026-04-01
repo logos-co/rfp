@@ -120,6 +120,31 @@ eligibility set at creation time and restrict buys to participants who
 can prove inclusion. The implementation approach is left to the
 proposing team.
 
+### Bonding curves and LBPs as complementary mechanisms
+
+The Logos ecosystem provides both a bonding curve launchpad (this RFP)
+and an LBP launchpad ([RFP-016](./RFP-016-lbp-launchpad.md)). The two
+mechanisms are not redundant: they suit different project profiles and
+together provide a complete token launch toolkit.
+
+A bonding curve rewards early participation with a lower entry price
+and provides a fully deterministic, supply-driven price trajectory. The
+complete economic outcome is computable before the sale opens: starting
+price, price at any supply point, and total collateral at graduation
+are all known in advance. Graduation to a DEX pool is natural, since
+the virtual reserve model accumulates both token and collateral reserves
+in the correct ratio throughout the sale. This suits projects that want
+to reward early believers, need a transparent and auditable price
+formula, and value a predictable raise range.
+
+An LBP opens above estimated fair value and lets the market discover
+price over multiple days, without requiring the project to pre-set a
+valuation. It is better suited to projects that want broad, patient
+participation and market-driven price discovery. The two mechanisms
+are genuinely different tools for genuinely different launch
+strategies: teams should choose based on their community profile and
+distribution goals.
+
 ### Known limitations of bonding curves for token launches
 
 Bonding curves have weaker bot deterrence than LBPs. In an LBP, buying

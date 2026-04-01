@@ -24,12 +24,7 @@ private identity untraceable on-chain.
 
 Token vesting is a prerequisite for credible token launches. Every
 protocol that issues a token must lock some allocation for founders,
-early contributors, or ecosystem reserves. The team building this
-should have experience with SVM program development and DeFi token
-mechanics. Familiarity with the optional public/private account
-interaction pattern (see
-[RFP-008](./RFP-008-lending-borrowing-protocol.md)) is strongly
-recommended.
+early contributors, or ecosystem reserves.
 
 ## 🔥 Why This Matters
 
