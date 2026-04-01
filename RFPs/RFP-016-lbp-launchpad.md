@@ -38,9 +38,8 @@ described at the time as the highest LBP raise of the year. Autonolas
 raised $547k from $50k in initial USDC liquidity via an LBP on the
 same platform
 ([olas.network](https://olas.network/blog/olas-public-launch)).
-The mechanism deters bots (price starts above fair value and falls
-unless buying pressure counteracts it) and removes the need for
-project teams to pre-set a valuation for their token.
+The mechanism deters bots and removes the need for project teams to
+pre-set a valuation for their token.
 
 On transparent chains, participation in a token sale is immediately
 linkable to a wallet address and, by extension, to the buyer's full
