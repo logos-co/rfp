@@ -50,15 +50,16 @@ DeFi.
 
 ### Constant product AMM with virtual reserves
 
-The required pricing mechanism is the **constant product AMM with
+The recommended pricing mechanism is the **constant product AMM with
 virtual reserves**, as used by pump.fun and Meteora's Dynamic Bonding
-Curve. It is chosen over alternatives (polynomial integral curves,
+Curve. It is preferred over alternatives (polynomial integral curves,
 Bancor power function) for three reasons: it is proven at scale on
 Solana; the implementation requires only multiplication and division,
 with no fixed-point exponentiation or approximation, making it
 straightforward to audit; and correctness reduces to a single invariant
-that any reviewer can check. The full formula specification is in
-Functionality requirement 1.
+that any reviewer can check. The full formula specification is in the
+Reference Implementation section. Teams may propose alternative
+mechanisms under the deviation standard described there.
 
 ### Supply-driven close over time-driven close
 
@@ -156,30 +157,20 @@ RFP-016 instead.
 
 #### Functionality
 
-1. Implement a bonding curve program on LEZ using the constant product
-   AMM with virtual reserves. The program must maintain the invariant
-   `Vt × Vc = k` across all buy operations, where `Vt` is the virtual
-   token reserve and `Vc` is the virtual collateral reserve. The buy
-   instruction accepts a collateral input `C_in`; the token output
-   must be computed as:
-
-   ```
-   tokens_out = Vt - k / (Vc + C_in)
-   ```
-
-   The SDK must also expose the inverse: the exact collateral cost
-   for a buyer who requests a specific token quantity `Q`:
-
-   ```
-   C_in = k / (Vt - Q) - Vc
-   ```
-
-   After each buy, `Vt` and `Vc` must be updated to preserve `k`.
-   The real token reserve decreases by `tokens_out`; the real
-   collateral reserve increases by `C_in`. If the computed
-   `tokens_out` would exceed the remaining real token reserve, the
-   transaction must revert. The invariant `k` must never change after
-   creation.
+1. Implement a bonding curve program on LEZ with a deterministic,
+   supply-driven pricing mechanism that maintains a well-defined
+   invariant across all buy operations. The buy instruction accepts
+   a collateral input `C_in` and computes a deterministic token
+   output based on the current curve state. The SDK must also expose
+   the inverse: the exact collateral cost for a buyer who requests a
+   specific token quantity `Q`. After each buy, the curve state must
+   be updated to preserve the pricing invariant. The real token
+   reserve decreases by `tokens_out`; the real collateral reserve
+   increases by `C_in`. If the computed `tokens_out` would exceed the
+   remaining real token reserve, the transaction must revert. The
+   pricing invariant must never change after creation. See the
+   Reference Implementation section for the recommended formula and
+   the deviation standard for alternative mechanisms.
 2. A sale creator can configure a sale with the following parameters:
    - Token pair (project token + collateral token).
    - Virtual token reserves `Vt`: the total project token supply
@@ -270,7 +261,7 @@ RFP-016 instead.
    pause/resume, close, withdraw).
 4. The mini-app must display a pre-buy confirmation summary before
    each purchase: collateral to spend, exact tokens to be received
-   (computed using the constant product formula), current spot price
+   (computed using the pricing formula), current spot price
    (`Vc / Vt`), price impact (percentage increase in spot price
    after the buy), and fee.
 5. When using the private account path, the mini-app must display a
@@ -380,8 +371,8 @@ All bonding curve state is public on-chain (virtual reserve values
 `Vt` and `Vc`, invariant `k`, real reserve balances, current spot
 price, open/closed status). This is a deliberate architectural
 choice: public state enables permissionless price verification (any
-participant can verify `tokens_out` against the constant product
-formula independently), composability, and sale analytics without
+participant can verify `tokens_out` against the pricing formula
+independently), composability, and sale analytics without
 cryptographic complexity in the curve program itself.
 
 User privacy is optionally enforced at the UX layer. The mini-app and
@@ -465,17 +456,41 @@ per-transaction buy limit reduce the impact but do not eliminate it.
 Projects requiring stronger bot deterrence should use
 [RFP-016](./RFP-016-lbp-launchpad.md) instead.
 
+### Reference Implementation
+
+The recommended pricing mechanism is the **constant product AMM with
+virtual reserves**, as described in the Design Rationale. Proposals
+that use this formula require no additional justification beyond the
+hard requirements above.
+
+The constant product invariant is `Vt × Vc = k`, where `Vt` is the
+virtual token reserve and `Vc` is the virtual collateral reserve. The
+buy formula computes token output as:
+
+```
+tokens_out = Vt - k / (Vc + C_in)
+```
+
+The inverse (exact collateral cost for a requested token quantity `Q`):
+
+```
+C_in = k / (Vt - Q) - Vc
+```
+
+After each buy, `Vt` and `Vc` are updated to preserve `k`. `k` is
+computed at creation as `Vt × Vc` and must never change.
+
+**Deviation standard.** Teams may propose an alternative pricing
+mechanism (such as a polynomial integral, the Bancor power function,
+a piecewise constant product as used in Meteora DBC, a batch auction,
+or a commit-reveal scheme) provided the proposal includes: (1) a
+formal specification equivalent in detail to the formulas above,
+(2) a security argument that the mechanism's core invariant is
+preserved under all operations, and (3) citations to existing
+production deployments or audits.
+
 ### Soft Requirements
 
-- **Alternative curve formula**: teams may propose a different
-  pricing model (such as a polynomial integral, the Bancor power
-  function, or a piecewise constant product as used in Meteora
-  DBC) in their application. Alternative formulas must be
-  accompanied by a formal specification, a security argument for
-  the invariant being preserved, and citations to existing
-  production implementations or audits. Proposals using the
-  specified constant product model require no additional
-  justification.
 - **Two-way (sell-back) curve**: after purchasing tokens, holders
   can sell them back to the curve, receiving collateral from the
   real reserve. The sell formula is the inverse of the buy formula:
