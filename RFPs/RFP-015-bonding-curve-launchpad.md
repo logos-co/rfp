@@ -199,16 +199,15 @@ RFP-016 instead.
    and a **DEX seed reserve** (starts at `R`, untouched until
    close). `D` is the supply target: the sale auto-closes when
    the sale reserve is exhausted.
-   6. Optional: minimum raise threshold (see item 6 below).
-   7. Optional: per-transaction buy limit (maximum collateral amount
+   6. Optional: per-transaction buy limit (maximum collateral amount
       spendable in a single buy transaction).
-   8. Optional: per-block token allocation ceiling (maximum number
+   7. Optional: per-block token allocation ceiling (maximum number
       of tokens that can be sold across all buy transactions within
       a single block). When set, any buy that would exceed the
       block ceiling is rejected. This limits the rate at which any
       participant (or set of participants) can accumulate supply,
       regardless of how many accounts they use.
-   9. Optional: private allowlist gate (see item 8 below).
+   8. Optional: private allowlist gate (see item 7 below).
 3. Participants buy project tokens from the curve using either a
    public account directly, or via the deshield→buy→re-shield
    pattern for private account interaction (see
@@ -229,39 +228,23 @@ RFP-016 instead.
    - The real collateral raised (net of fees).
    - The DEX seed reserve `R` tokens (if not used for
      auto-graduation).
-6. The sale creator may configure an optional minimum raise threshold
-   at creation time. If the creator closes the sale manually before
-   the supply target is reached, and the real collateral reserve is
-   below this threshold, the sale enters a **refund state**: no
-   further withdrawals are permitted by the creator, and buyers may
-   submit a refund claim to recover their collateral (see Reliability
-   requirement 4). For buyers who used the private account path,
-   the buyer submits a refund claim by signing with the ephemeral
-   account keypair used during the original buy (as proof of
-   purchase) and specifying a refund destination address. The
-   refund is sent to the specified destination, not to the
-   ephemeral account itself. The SDK must persist ephemeral
-   keypairs, or delegate that persistence to the wallet module,
-   so the buyer can submit the claim. If the supply target is reached
-   automatically (full sell-through), the minimum raise check is
-   skipped; a complete sell-through always succeeds.
-7. Slippage protection: buyers specify the collateral amount to spend
+6. Slippage protection: buyers specify the collateral amount to spend
    and a minimum token quantity they are willing to accept. The
    transaction reverts if the computed `tokens_out` is below this
    minimum.
-8. The sale creator can enable an optional allowlist gate. When
+7. The sale creator can enable an optional allowlist gate. When
    enabled, only participants who can prove inclusion in the
    committed eligibility set may buy from the curve. The proposing
    team must specify and justify their allowlist mechanism in their
    application.
-9. The sale creator can pause buying at any time during the sale
+8. The sale creator can pause buying at any time during the sale
    (emergency stop). Pausing does not affect the curve state, the
    virtual reserves, or the invariant `k`.
-10. Use Associated Token Accounts (ATAs) for all token interactions,
+9. Use Associated Token Accounts (ATAs) for all token interactions,
     consistent with
     [LP-0014](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0014.md)
     and [RFP-008](./RFP-008-lending-borrowing-protocol.md).
-11. The sale creator can configure an optional vesting schedule for
+10. The sale creator can configure an optional vesting schedule for
     the raised collateral at sale creation time. When configured,
     the close or withdraw operation deposits collateral into the
     vesting program (see
@@ -344,14 +327,6 @@ RFP-016 instead.
    atomically in the same transaction. No additional close
    instruction should be required; no further buys must be accepted
    after close.
-4. If a sale enters refund state (minimum raise not met after manual
-   close), the program must maintain per-buyer purchase records for
-   all public-account purchases, including ephemeral accounts used
-   in private account buys, enabling each buyer to claim their
-   collateral refund independently. Refund claims must be
-   idempotent: a buyer cannot claim the same purchase twice.
-5. The creator cannot withdraw collateral while the sale is in
-   refund state.
 
 #### Performance
 
@@ -359,7 +334,7 @@ RFP-016 instead.
 2. A close transaction (manual or auto-triggered by final buy)
    completes within one LEZ transaction.
 3. Document the compute unit (CU) cost of each operation: create
-   sale, buy, close sale, withdraw, refund claim (if applicable).
+   sale, buy, close sale, withdraw.
    Note the LEZ testnet version against which measurements were
    taken.
 
@@ -377,9 +352,8 @@ and mainnet deployment.
    coverage must include: invariant preservation across multiple
    buys, happy-path buy, slippage revert (tokens_out below
    minimum), allowlist gate accept and reject, auto-close on supply
-   target, manual close with minimum raise met, manual close with
-   minimum raise not met (refund path), refund claim by buyer,
-   pause/resume, per-transaction buy limit enforcement.
+   target, manual close, pause/resume, per-transaction buy limit
+   enforcement.
 4. A README documents end-to-end usage: deployment steps, program
    addresses, and step-by-step instructions for both creators and
    participants via CLI and mini-app.
@@ -498,17 +472,6 @@ but it does not prevent a single participant from submitting many
 transactions. Projects that need strong concentration limits should
 use the allowlist gate to restrict the eligible set.
 
-**Refunds on the private account path require local keypair retention.**
-If a sale enters refund state, the buyer submits a refund claim by
-signing with the ephemeral account keypair used during the original
-buy (as proof of purchase) and specifying a refund destination. The
-ephemeral keypair is used only for authentication, not as the refund
-recipient. The SDK must persist all ephemeral keypairs used in buy
-transactions, or delegate that persistence to the wallet module. If
-the keypair is lost, the refund cannot be claimed. The mini-app must
-clearly communicate this dependency when a minimum raise is
-configured and the buyer is using the private account path.
-
 **Front-running at sale open.** Unlike the LBP mechanism, which opens
 at a price above estimated fair value and declines over time, a bonding
 curve opens at its lowest price (`p₀ = Vc / Vt`). Bots that execute
@@ -559,13 +522,8 @@ production deployments or audits.
   `C_out = Vc - k / (Vt + tokens_in)`. This transforms the bonding
   curve from a one-time sale vehicle into a continuous liquidity
   source, but introduces reflexive sell pressure during the sale
-  window. A two-way curve may be incompatible with other sale
-  properties, particularly the minimum raise mechanism (sell-backs
-  can drain the collateral reserve below the threshold) and the
-  refund path (buyers could sell back instead of claiming refunds).
-  Proposals including this feature must explicitly address these
-  interactions and specify which properties are disabled or
-  modified.
+  window. Proposals including this feature must address the
+  interaction between sell-backs and the collateral reserve.
 - **Auto-graduation to DEX**: when the supply target is reached and
   the sale auto-closes, the program can automatically deploy the
   accumulated real collateral reserve and the DEX seed reserve `R`
@@ -609,7 +567,7 @@ is currently **open**.
 #### Event emission (LP-0012)
 
 Analytics dashboards and monitoring services need to react to curve
-events (buy executed, sale closed, refund claimed). Without structured
+events (buy executed, sale closed). Without structured
 events, off-chain services must poll all accounts.
 
 [LP-0012](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md)
@@ -648,6 +606,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   (soft requirement: post-sale vesting integration)
 - [RFP-004: Privacy-Preserving DEX](./RFP-004-privacy-preserving-dex.md)
   (soft requirement: auto-graduation target)
+- [Appendix: Token Launchpad Ecosystem](../appendix/token-launchpad-ecosystem.md)
+  (survey of existing launchpad protocols, scale data, and refund mechanisms)
 
 - [LP-0013: Token program improvements: mint authorities](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md)
 - [LP-0014: Token program improvements: ATAs + wallet tooling](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0014.md)
