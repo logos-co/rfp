@@ -148,15 +148,21 @@ low-conviction raises.
    weight to the end weight over the sale duration, causing the token
    price to decline over time unless buying pressure counteracts it.
 2. A sale creator can configure a sale with the following parameters:
-   - Token pair (project token + collateral token).
-   - Start and end weights (e.g., 99/1 → 1/99 for the
-     token/collateral ratio).
-   - Sale start and end timestamps.
-   - Initial token deposit amount.
-   - Optional: minimum raise (sale is considered failed and
-     collateral is refunded to the creator if the minimum is not
-     reached by close).
-   - Optional: private allowlist gate (see item 7 below).
+   1. Token pair (project token + collateral token).
+   2. Start and end weights (e.g., 99/1 → 1/99 for the
+      token/collateral ratio).
+   3. Sale start and end timestamps.
+   4. Initial token deposit amount.
+   5. Optional: minimum raise (sale is considered failed and
+      collateral is refunded to the creator if the minimum is not
+      reached by close).
+   6. Optional: per-block token allocation ceiling (maximum number
+      of tokens that can be sold across all buy transactions within
+      a single block). When set, any buy that would exceed the
+      block ceiling is rejected. This limits the rate at which any
+      participant (or set of participants) can accumulate supply,
+      regardless of how many accounts they use.
+   7. Optional: private allowlist gate (see item 7 below).
 3. Participants buy project tokens from the pool using either a
    public account directly, or via the deshield→buy→re-shield
    pattern for private account interaction (see
