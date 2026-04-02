@@ -236,10 +236,13 @@ RFP-016 instead.
    further withdrawals are permitted by the creator, and buyers may
    submit a refund claim to recover their collateral (see Reliability
    requirement 4). For buyers who used the private account path,
-   the refund is credited to the ephemeral public account used during
-   the buy; the SDK must persist the ephemeral account keypair, or
-   delegate that persistence to the wallet module, so the buyer can
-   submit the refund claim. If the supply target is reached
+   the buyer submits a refund claim by signing with the ephemeral
+   account keypair used during the original buy (as proof of
+   purchase) and specifying a refund destination address. The
+   refund is sent to the specified destination, not to the
+   ephemeral account itself. The SDK must persist ephemeral
+   keypairs, or delegate that persistence to the wallet module,
+   so the buyer can submit the claim. If the supply target is reached
    automatically (full sell-through), the minimum raise check is
    skipped; a complete sell-through always succeeds.
 7. Slippage protection: buyers specify the collateral amount to spend
@@ -496,14 +499,15 @@ transactions. Projects that need strong concentration limits should
 use the allowlist gate to restrict the eligible set.
 
 **Refunds on the private account path require local keypair retention.**
-If a sale enters refund state, the refund is credited to the ephemeral
-public account used during the original buy. The buyer can reclaim their
-collateral by signing the refund claim with that ephemeral account's
-keypair. The SDK must persist all ephemeral keypairs used in buy
-transactions, or delegate that persistence to the wallet module. If the keypair is lost, the refund
-cannot be claimed. The mini-app must clearly communicate this dependency
-when a minimum raise is configured and the buyer is using the private
-account path.
+If a sale enters refund state, the buyer submits a refund claim by
+signing with the ephemeral account keypair used during the original
+buy (as proof of purchase) and specifying a refund destination. The
+ephemeral keypair is used only for authentication, not as the refund
+recipient. The SDK must persist all ephemeral keypairs used in buy
+transactions, or delegate that persistence to the wallet module. If
+the keypair is lost, the refund cannot be claimed. The mini-app must
+clearly communicate this dependency when a minimum raise is
+configured and the buyer is using the private account path.
 
 **Front-running at sale open.** Unlike the LBP mechanism, which opens
 at a price above estimated fair value and declines over time, a bonding
@@ -555,8 +559,13 @@ production deployments or audits.
   `C_out = Vc - k / (Vt + tokens_in)`. This transforms the bonding
   curve from a one-time sale vehicle into a continuous liquidity
   source, but introduces reflexive sell pressure during the sale
-  window; proposals including this feature must address the
-  implications for the minimum raise mechanism.
+  window. A two-way curve may be incompatible with other sale
+  properties, particularly the minimum raise mechanism (sell-backs
+  can drain the collateral reserve below the threshold) and the
+  refund path (buyers could sell back instead of claiming refunds).
+  Proposals including this feature must explicitly address these
+  interactions and specify which properties are disabled or
+  modified.
 - **Auto-graduation to DEX**: when the supply target is reached and
   the sale auto-closes, the program can automatically deploy the
   accumulated real collateral reserve and the DEX seed reserve `R`

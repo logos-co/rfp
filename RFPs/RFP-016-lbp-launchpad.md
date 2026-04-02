@@ -130,8 +130,8 @@ they detect large buy orders.
 ### Minimum raise as an optional parameter
 
 The minimum raise threshold protects buyers: if a sale fails to reach
-the floor, all collateral is returned and the project does not receive
-funds from a failed launch. This mirrors standard crowdfunding
+the floor, all collateral is refundable to the buyers who deposited it,
+and the project does not receive funds from a failed launch. This mirrors standard crowdfunding
 protections and prevents projects from extracting liquidity from
 low-conviction raises.
 
@@ -153,9 +153,11 @@ low-conviction raises.
       token/collateral ratio).
    3. Sale start and end timestamps.
    4. Initial token deposit amount.
-   5. Optional: minimum raise (sale is considered failed and
-      collateral is refunded to the creator if the minimum is not
-      reached by close).
+   5. Optional: minimum raise threshold. If the sale closes
+      (manually or by end timestamp) and the collateral raised is
+      below this threshold, the sale enters a **refund state**: no
+      withdrawals are permitted by the creator, and buyers may
+      submit refund claims to recover their collateral.
    6. Optional: per-block token allocation ceiling (maximum number
       of tokens that can be sold across all buy transactions within
       a single block). When set, any buy that would exceed the
@@ -272,8 +274,22 @@ low-conviction raises.
    pool state.
 4. The minimum raise check at close time must be evaluated against
    final pool state, not an intermediate snapshot. If the minimum
-   is not met, all collateral is returned to the creator and all
-   project tokens are returned to the creator (not burned).
+   is not met, the sale enters refund state: the program must
+   maintain per-buyer purchase records for all public-account
+   purchases, including ephemeral accounts used in private account
+   buys, enabling each buyer to claim their collateral refund
+   independently. Refund claims must be idempotent: a buyer cannot
+   claim the same purchase twice. The creator cannot withdraw
+   collateral while the sale is in refund state. Unsold project
+   tokens are returned to the creator.
+5. For refund claims on the private account path, the buyer submits
+   a refund claim by signing with the ephemeral account keypair
+   used during the original buy (as proof of purchase) and
+   specifying a refund destination address. The refund is sent to
+   the specified destination, not to the ephemeral account itself.
+   The SDK must persist ephemeral keypairs, or delegate that
+   persistence to the wallet module, so the buyer can submit the
+   claim.
 
 #### Performance
 
@@ -416,6 +432,18 @@ this feature would either require breaking the privacy guarantee or
 introducing off-chain coordination that reintroduces centralisation.
 Projects that need whale concentration limits should use the allowlist
 gate to restrict the eligible set instead.
+
+**Refunds on the private account path require local keypair
+retention.** If a sale enters refund state, the buyer submits a
+refund claim by signing with the ephemeral account keypair used
+during the original buy (as proof of purchase) and specifying a
+refund destination. The ephemeral keypair is used only for
+authentication, not as the refund recipient. The SDK must persist
+all ephemeral keypairs used in buy transactions, or delegate that
+persistence to the wallet module. If the keypair is lost, the
+refund cannot be claimed. The mini-app must clearly communicate
+this dependency when a minimum raise is configured and the buyer
+is using the private account path.
 
 ### Soft Requirements
 
