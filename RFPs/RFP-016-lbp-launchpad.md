@@ -127,14 +127,6 @@ during a pause. This prevents a creator from gaming the mechanism by
 pausing at a weight that is artificially favourable and resuming once
 they detect large buy orders.
 
-### Minimum raise as an optional parameter
-
-The minimum raise threshold protects buyers: if a sale fails to reach
-the floor, all collateral is refundable to the buyers who deposited it,
-and the project does not receive funds from a failed launch. This mirrors standard crowdfunding
-protections and prevents projects from extracting liquidity from
-low-conviction raises.
-
 ## ✅ Scope of Work
 
 ### Hard Requirements
@@ -153,18 +145,13 @@ low-conviction raises.
       token/collateral ratio).
    3. Sale start and end timestamps.
    4. Initial token deposit amount.
-   5. Optional: minimum raise threshold. If the sale closes
-      (manually or by end timestamp) and the collateral raised is
-      below this threshold, the sale enters a **refund state**: no
-      withdrawals are permitted by the creator, and buyers may
-      submit refund claims to recover their collateral.
-   6. Optional: per-block token allocation ceiling (maximum number
+   5. Optional: per-block token allocation ceiling (maximum number
       of tokens that can be sold across all buy transactions within
       a single block). When set, any buy that would exceed the
       block ceiling is rejected. This limits the rate at which any
       participant (or set of participants) can accumulate supply,
       regardless of how many accounts they use.
-   7. Optional: private allowlist gate (see item 7 below).
+   6. Optional: private allowlist gate (see item 7 below).
 3. Participants buy project tokens from the pool using either a
    public account directly, or via the deshield→buy→re-shield
    pattern for private account interaction (see
@@ -272,24 +259,6 @@ low-conviction raises.
 3. Weight updates (pokes) must be idempotent: submitting multiple
    pokes within the same block or timestamp window must not corrupt
    pool state.
-4. The minimum raise check at close time must be evaluated against
-   final pool state, not an intermediate snapshot. If the minimum
-   is not met, the sale enters refund state: the program must
-   maintain per-buyer purchase records for all public-account
-   purchases, including ephemeral accounts used in private account
-   buys, enabling each buyer to claim their collateral refund
-   independently. Refund claims must be idempotent: a buyer cannot
-   claim the same purchase twice. The creator cannot withdraw
-   collateral while the sale is in refund state. Unsold project
-   tokens are returned to the creator.
-5. For refund claims on the private account path, the buyer submits
-   a refund claim by signing with the ephemeral account keypair
-   used during the original buy (as proof of purchase) and
-   specifying a refund destination address. The refund is sent to
-   the specified destination, not to the ephemeral account itself.
-   The SDK must persist ephemeral keypairs, or delegate that
-   persistence to the wallet module, so the buyer can submit the
-   claim.
 
 #### Performance
 
@@ -312,9 +281,8 @@ and mainnet deployment.
 3. Every hard requirement in Functionality, Usability, Reliability,
    and Performance has at least one corresponding test. Test
    coverage must include: happy-path buy, slippage revert, allowlist
-   gate accept and reject, sale close before end time, minimum raise
-   not met refund path, weight poke at multiple points in the
-   schedule.
+   gate accept and reject, sale close before end time, weight poke
+   at multiple points in the schedule.
 4. A README documents end-to-end usage: deployment steps, program
    addresses, and step-by-step instructions for both creators and
    participants via CLI and mini-app.
@@ -433,18 +401,6 @@ introducing off-chain coordination that reintroduces centralisation.
 Projects that need whale concentration limits should use the allowlist
 gate to restrict the eligible set instead.
 
-**Refunds on the private account path require local keypair
-retention.** If a sale enters refund state, the buyer submits a
-refund claim by signing with the ephemeral account keypair used
-during the original buy (as proof of purchase) and specifying a
-refund destination. The ephemeral keypair is used only for
-authentication, not as the refund recipient. The SDK must persist
-all ephemeral keypairs used in buy transactions, or delegate that
-persistence to the wallet module. If the keypair is lost, the
-refund cannot be claimed. The mini-app must clearly communicate
-this dependency when a minimum raise is configured and the buyer
-is using the private account path.
-
 ### Soft Requirements
 
 - Support for a fixed-price sale mode (no weight shift; constant
@@ -535,6 +491,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   pattern)
 - [RFP-017: Privacy-Preserving Token Vesting](./RFP-017-token-vesting.md)
   (soft requirement: post-sale vesting integration)
+- [Appendix: Token Launchpad Ecosystem](../appendix/token-launchpad-ecosystem.md)
+  (survey of existing launchpad protocols, scale data, and refund mechanisms)
 
 - [LP-0013: Token program improvements: mint authorities](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md)
 - [LP-0014: Token program improvements: ATAs + wallet tooling](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0014.md)
