@@ -23,55 +23,61 @@ order is maintained throughout the document.
 | DAOs.fun         | Solana                 | Fixed-price fair launch for investment DAOs                | [daos.fun](https://daos.fun/)                     |
 ## Scale and Traction
 
-Launchpads do not hold persistent TVL the way lending or staking
-protocols do: capital flows through them during a sale and then moves
-on. The tables below use the best available scale metric for each
-protocol (cumulative protocol revenue where available, otherwise
-cumulative volume raised or AUM). TVL is shown where it applies.
+The tables below use cumulative volume (trading volume or total
+funds raised, depending on availability) and protocol revenue as
+scale metrics.
 
 DAOs.fun is omitted from this section due to insufficient
 quantitative data.
 
 ### Cumulative scale
 
-Protocols ranked by cumulative protocol revenue (or estimated
-revenue where only total raised and fee rate are available).
+Protocols ranked by cumulative volume (trading volume or total
+funds raised, depending on availability).
 
-| Protocol | Cumulative Revenue | TVL / AUM | Tokens Launched | Data as of |
+| Protocol | Cumulative Volume | Cumulative Revenue | Tokens Launched | Data as of |
 |---|---|---|---|---|
-| Pump.fun | $818M+ (protocol fees) [1][2] | $140M (Pumpswap DEX) [3] | 11.7M (H1 2025) [4] | Early 2026 |
-| Fjord Foundry | ~$55M (est.) [a] | N/A | 717 LBPs [6] | Sep 2025 |
-| Metaplex (all products) | $36M+ [7] | N/A | 20M+ fungible tokens [7] | Sep 2025 |
-| DAO Maker | ~$4.5M (est.) [b] | N/A | N/A | Undated |
-| Flaunch | $3.1M [9] | $2.03M [9] | N/A | Q1 2026 |
-| Polkastarter | ~$460K (est.) [c] | $3.31M (POLS liquidity) [10] | 105+ projects [10] | Q1 2022 |
+| Pump.fun | >$150B (trading volume) [1] | $818M+ (protocol fees) [1][2] | 11.7M (H1 2025) [4] | Early 2026 |
+| Fjord Foundry | ~$1.5B (swap volume) [22] | ~$55M (est.) [a] | 717 LBPs [6] | Sep 2025 |
+| Metaplex Genesis | ~$55-70M (est. funds raised) [d] | $36M+ (all Metaplex products) [7] | 20M+ fungible tokens [7] | Nov 2025 |
+| DAO Maker | $90M+ (total raised) [8] | ~$4.5M (est.) [b] | N/A | Undated |
+| Flaunch | N/A | $3.1M [9] | N/A | Q1 2026 |
+| Polkastarter | $46M+ (total raised) [10] | ~$460K (est.) [c] | 105+ projects [10] | Q1 2022 |
 
 \[a] Estimated as 5% fee [11] applied to $1.1B cumulative raised [5].
 \[b] Estimated as 5% fee [12] applied to $90M+ cumulative raised [8].
 \[c] Estimated as 1% fee [13] applied to $46M+ cumulative raised [10].
 Figure is from Q1 2022; no updated aggregate has been published.
+\[d] Estimated from Genesis protocol revenue ($1.1M, Jul to Nov 2025)
+divided by 2% deposit fee [16]. Genesis launched in July 2025 (alpha);
+no 2024 data exists.
 
 ### Yearly breakdown
 
 Where per-year data exists. Blank cells indicate no data available
 for that period.
 
-| Protocol         | Metric                          | 2024                                                  | 2025                       | 2026 (YTD / projected) |
-| ---------------- | ------------------------------- | ----------------------------------------------------- | -------------------------- | ---------------------- |
-| Pump.fun         | Protocol revenue                | ~$358M [14]                                           | ~$460M+ [14]               |                        |
-| Pump.fun         | Cumulative trading volume       |                                                       | >$150B (Dec 2025) [1]      |                        |
-| Metaplex         | Protocol revenue (all products) | ~$12-15M (est.) [7]                                   | ~$27-30M (est.) [7]        |                        |
-| Metaplex Genesis | Launchpad revenue               |                                                       | $422K/month (Aug 2025) [7] |                        |
-| Flaunch          | Protocol revenue                |                                                       | ~$3.1M [9]                 | $100.6K (Q1) [9]       |
-| Fjord Foundry    | Cumulative raised (all sales)   | >$1.1B (cumulative since 2021; no per-year split) [5] |                            |                        |
-| DAO Maker        | Total raised                    | $90M+ (cumulative; no per-year split) [8]             |                            |                        |
-| Polkastarter     | Total raised                    | $46M+ (cumulative as of Q1 2022; stale) [10]          |                            |                        |
+| Protocol | Metric | 2024 | 2025 | 2026 (YTD) |
+|---|---|---|---|---|
+| Pump.fun | Trading volume (est.) | ~$32B [e] | ~$58B [e] | ~$8B (Q1) [e] |
+| Pump.fun | Protocol revenue | ~$321M [14] | ~$583M [14] | ~$82M (Q1) [14] |
+| Metaplex Genesis | Funds raised (est.) | N/A (launched Jul 2025) | ~$55-70M [d] | |
+| Metaplex | Protocol revenue (all products) | ~$12-15M (est.) [7] | ~$27-30M (est.) [7] | |
+| Flaunch | Protocol revenue | | ~$3.1M [9] | $100.6K (Q1) [9] |
+| Fjord Foundry | Cumulative raised (all sales) | >$1.1B (since 2021; no per-year split) [5] | | |
+| DAO Maker | Total raised | $90M+ (cumulative; no per-year split) [8] | | |
+| Polkastarter | Total raised | $46M+ (cumulative as of Q1 2022; stale) [10] | | |
+
+\[e] Implied from quarterly protocol fees divided by 1% fee rate [14].
+Actual trading volume may differ due to fee-exempt transactions or
+variable fee tiers.
 
 **Caveats:**
 
-- Metric types differ across protocols (protocol revenue vs. AUM vs.
-  cumulative volume raised). Cross-category comparisons should account
-  for this.
+- Metric types differ across protocols (trading volume vs. funds
+  raised vs. protocol revenue). Cross-category comparisons should
+  account for this. Pump.fun's trading volume includes secondary DEX
+  trading on Pumpswap, not only bonding curve sales.
 - Fjord Foundry, DAO Maker, and Polkastarter do not publish per-year
   breakdowns.
 - Polkastarter's aggregate figure dates from Q1 2022; current
@@ -231,3 +237,5 @@ toward mandatory cooling-off periods for token sales.
     Blocmates, "Daos.fun is Shaking Up the Crypto Memecoin Space,"
     Jan 2025.
     https://www.chaincatcher.com/en/article/2149146
+22. RootData, "Fjord Foundry" project page (swap volume figure),
+    accessed Apr 2026.
