@@ -178,31 +178,37 @@ RFP-016 instead.
    the deviation standard for alternative mechanisms.
 2. A sale creator can configure a sale with the following parameters:
    1. Token pair (project token + collateral token).
-   2. Virtual token reserves `Vt`: the total project token supply
-      deposited by the creator into the curve program at creation.
-      All `Vt` tokens must be transferred from the creator at sale
-      creation.
-   3. Virtual collateral reserves `Vc`: a synthetic starting value;
-      no real collateral is deposited by the creator. Together with
-      `Vt`, determines `k = Vt × Vc` (computed and stored at
+   2. Sale quantity `D`: the number of tokens available for
+      purchase. All `D` tokens must be transferred from the creator
+      at sale creation.
+   3. Optional: DEX seed quantity `R`: tokens reserved for
+      post-graduation DEX seeding (may be zero). If set, `R`
+      tokens must also be transferred from the creator at sale
+      creation. Total real deposit is `D + R`.
+   4. Virtual token reserve `Vt`: a synthetic pricing parameter
+      that determines the shape of the bonding curve (`Vt > D`).
+      This is not the deposit amount; it is typically larger than
+      `D + R` to position the starting price on the curve.
+   5. Virtual collateral reserve `Vc`: a synthetic starting value;
+      no real collateral is deposited by the creator. Together
+      with `Vt`, determines `k = Vt × Vc` (computed and stored at
       creation) and the starting spot price `p₀ = Vc / Vt`.
-   4. Sale quantity `D`: the number of tokens made available for
-      purchase (`D < Vt`). The program must maintain two distinct
-      accounting buckets: a **sale reserve** (starts at `D`,
-      decreases with each purchase) and a **DEX seed reserve**
-      (starts at `Vt − D`, untouched until close). `D` is the
-      supply target: the sale auto-closes when the sale reserve is
-      exhausted.
-   5. Optional: minimum raise threshold (see item 6 below).
-   6. Optional: per-transaction buy limit (maximum collateral amount
+
+   The program must maintain two distinct accounting buckets: a
+   **sale reserve** (starts at `D`, decreases with each purchase)
+   and a **DEX seed reserve** (starts at `R`, untouched until
+   close). `D` is the supply target: the sale auto-closes when
+   the sale reserve is exhausted.
+   6. Optional: minimum raise threshold (see item 6 below).
+   7. Optional: per-transaction buy limit (maximum collateral amount
       spendable in a single buy transaction).
-   7. Optional: per-block token allocation ceiling (maximum number
+   8. Optional: per-block token allocation ceiling (maximum number
       of tokens that can be sold across all buy transactions within
       a single block). When set, any buy that would exceed the
       block ceiling is rejected. This limits the rate at which any
       participant (or set of participants) can accumulate supply,
       regardless of how many accounts they use.
-   8. Optional: private allowlist gate (see item 8 below).
+   9. Optional: private allowlist gate (see item 8 below).
 3. Participants buy project tokens from the curve using either a
    public account directly, or via the deshield→buy→re-shield
    pattern for private account interaction (see
@@ -221,7 +227,8 @@ RFP-016 instead.
    public-path buyers.
 5. After the sale closes, the creator can withdraw:
    - The real collateral raised (net of fees).
-   - The reserved `Vt − D` tokens (if not used for auto-graduation).
+   - The DEX seed reserve `R` tokens (if not used for
+     auto-graduation).
 6. The sale creator may configure an optional minimum raise threshold
    at creation time. If the creator closes the sale manually before
    the supply target is reached, and the real collateral reserve is
@@ -552,7 +559,7 @@ production deployments or audits.
   implications for the minimum raise mechanism.
 - **Auto-graduation to DEX**: when the supply target is reached and
   the sale auto-closes, the program can automatically deploy the
-  accumulated real collateral reserve and the reserved `Vt − D`
+  accumulated real collateral reserve and the DEX seed reserve `R`
   tokens as liquidity into a LEZ DEX pool (requires
   [RFP-004](./RFP-004-privacy-preserving-dex.md) and LP-0015 to
   be available). This eliminates manual post-sale liquidity seeding
