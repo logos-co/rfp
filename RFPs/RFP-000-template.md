@@ -89,6 +89,13 @@ Standard requirements (adapt as needed):
 5. A README documents end-to-end usage: deployment steps, program
    addresses, and step-by-step instructions for interacting with the
    program via CLI and mini-app.
+6. Provide a privacy and anonymisation properties document covering:
+   what on-chain state and transaction data is visible to observers;
+   what data is protected when the private account path is used;
+   trust assumptions, specifying which guarantees are enforced by
+   the on-chain program and which depend on correct client
+   behaviour; and what happens if a user bypasses the expected
+   interaction path.
 
 ### Soft Requirements
 

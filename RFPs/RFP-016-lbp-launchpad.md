@@ -296,8 +296,15 @@ and mainnet deployment.
 4. A README documents end-to-end usage: deployment steps, program
    addresses, and step-by-step instructions for both creators and
    participants via CLI and mini-app.
-5. The program is updated and verified on LEZ testnet 0.3.
-6. The program is deployed to LEZ mainnet.
+5. Provide a privacy and anonymisation properties document covering:
+   what on-chain state and transaction data is visible to observers;
+   what data is protected when the private account path is used;
+   trust assumptions, specifying which guarantees are enforced by
+   the on-chain program and which depend on correct client
+   behaviour; and what happens if a user bypasses the expected
+   interaction path.
+6. The program is updated and verified on LEZ testnet 0.3.
+7. The program is deployed to LEZ mainnet.
 
 #### + Privacy
 
@@ -376,6 +383,19 @@ For every buy from a private account:
   linkability across ephemeral accounts).
 - Whether a specific private account participated in the sale
   at all.
+
+#### Trust assumptions
+
+The privacy guarantees above depend on the buyer using an SDK or
+client that correctly implements the full deshield→buy→re-shield
+pattern. The LBP program itself cannot enforce the re-shield step:
+a buyer who calls the program directly or uses a non-conforming
+client could skip the re-shield, leaving purchased tokens in the
+ephemeral public account and breaking their own anonymity. The
+program enforces correctness of the buy (weight computation,
+slippage checks); the privacy pattern is enforced by the SDK, not
+by the on-chain program. Buyers who bypass the SDK accept full
+responsibility for any resulting privacy loss.
 
 ### Known Limitations
 
