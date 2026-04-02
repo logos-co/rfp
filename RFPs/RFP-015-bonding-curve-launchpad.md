@@ -177,24 +177,30 @@ RFP-016 instead.
    Reference Implementation section for the recommended formula and
    the deviation standard for alternative mechanisms.
 2. A sale creator can configure a sale with the following parameters:
-   - Token pair (project token + collateral token).
-   - Virtual token reserves `Vt`: the total project token supply
-     deposited by the creator into the curve program at creation.
-     All `Vt` tokens must be transferred from the creator at sale
-     creation.
-   - Virtual collateral reserves `Vc`: a synthetic starting value;
-     no real collateral is deposited by the creator. Together with
-     `Vt`, determines `k = Vt × Vc` (computed and stored at
-     creation) and the starting spot price `p₀ = Vc / Vt`.
-   - Sale quantity `D`: the number of tokens made available for
-     purchase (`D < Vt`). The remaining `Vt − D` tokens are held
-     in reserve within the program for post-graduation DEX seeding.
-     `D` is also the supply target: the sale auto-closes when `D`
-     tokens have been sold.
-   - Optional: minimum raise threshold (see item 6 below).
-   - Optional: per-transaction buy limit (maximum collateral amount
-     spendable in a single buy transaction).
-   - Optional: private allowlist gate (see item 8 below).
+   1. Token pair (project token + collateral token).
+   2. Virtual token reserves `Vt`: the total project token supply
+      deposited by the creator into the curve program at creation.
+      All `Vt` tokens must be transferred from the creator at sale
+      creation.
+   3. Virtual collateral reserves `Vc`: a synthetic starting value;
+      no real collateral is deposited by the creator. Together with
+      `Vt`, determines `k = Vt × Vc` (computed and stored at
+      creation) and the starting spot price `p₀ = Vc / Vt`.
+   4. Sale quantity `D`: the number of tokens made available for
+      purchase (`D < Vt`). The remaining `Vt − D` tokens are held
+      in reserve within the program for post-graduation DEX seeding.
+      `D` is also the supply target: the sale auto-closes when `D`
+      tokens have been sold.
+   5. Optional: minimum raise threshold (see item 6 below).
+   6. Optional: per-transaction buy limit (maximum collateral amount
+      spendable in a single buy transaction).
+   7. Optional: per-block token allocation ceiling (maximum number
+      of tokens that can be sold across all buy transactions within
+      a single block). When set, any buy that would exceed the
+      block ceiling is rejected. This limits the rate at which any
+      participant (or set of participants) can accumulate supply,
+      regardless of how many accounts they use.
+   8. Optional: private allowlist gate (see item 8 below).
 3. Participants buy project tokens from the curve using either a
    public account directly, or via the deshield→buy→re-shield
    pattern for private account interaction (see
