@@ -168,7 +168,7 @@ RFP-016 instead.
    be updated to preserve the pricing invariant. The real token
    reserve decreases by `tokens_out`; the real collateral reserve
    increases by `C_in`. If the computed `tokens_out` would exceed the
-   remaining real token reserve, the transaction must revert. All
+   remaining sale reserve, the transaction must revert. All
    arithmetic must use integer-only operations and round against
    the trader: `tokens_out` rounds down, `C_in` rounds up. This
    ensures the pool remains solvent and the pricing invariant is
@@ -187,10 +187,12 @@ RFP-016 instead.
       `Vt`, determines `k = Vt × Vc` (computed and stored at
       creation) and the starting spot price `p₀ = Vc / Vt`.
    4. Sale quantity `D`: the number of tokens made available for
-      purchase (`D < Vt`). The remaining `Vt − D` tokens are held
-      in reserve within the program for post-graduation DEX seeding.
-      `D` is also the supply target: the sale auto-closes when `D`
-      tokens have been sold.
+      purchase (`D < Vt`). The program must maintain two distinct
+      accounting buckets: a **sale reserve** (starts at `D`,
+      decreases with each purchase) and a **DEX seed reserve**
+      (starts at `Vt − D`, untouched until close). `D` is the
+      supply target: the sale auto-closes when the sale reserve is
+      exhausted.
    5. Optional: minimum raise threshold (see item 6 below).
    6. Optional: per-transaction buy limit (maximum collateral amount
       spendable in a single buy transaction).
@@ -207,8 +209,8 @@ RFP-016 instead.
    [RFP-008](./RFP-008-lending-borrowing-protocol.md), which defines
    this interaction model for LEZ applications). Both paths must be
    supported by the program and SDK.
-4. The sale closes automatically when the real token reserve reaches
-   zero (supply target `D` reached), or when an optional end
+4. The sale closes automatically when the sale reserve is exhausted
+   (all `D` tokens have been sold), or when an optional end
    timestamp configured at creation time is reached, whichever
    comes first. The creator can also close the sale manually at
    any time before either condition is met. When an end timestamp
@@ -276,7 +278,7 @@ RFP-016 instead.
    downloadable assets, and loadable in Logos app (Basecamp) via
    git repo. The mini-app must cover:
    - **Participant view**: browse active sales with current spot
-     price, real token reserve as a percentage of the supply
+     price, sale reserve as a percentage of the supply
      target `D`, total collateral raised, and a price-vs-supply
      chart; execute a buy; view purchase history.
    - **Creator view**: create a new sale (all parameters including
@@ -328,7 +330,7 @@ RFP-016 instead.
 2. A failed buy must revert atomically: the buyer's collateral is
    not consumed and the curve state is unchanged.
 3. Auto-close on supply target: when the final sale tokens are sold
-   and the real token reserve reaches zero, the sale must close
+   and the sale reserve is exhausted, the sale must close
    atomically in the same transaction. No additional close
    instruction should be required; no further buys must be accepted
    after close.
@@ -439,8 +441,9 @@ For every buy from a private account:
 #### What is public (observable on-chain)
 
 - All curve state: token pair, virtual reserves (`Vt`, `Vc`),
-  invariant `k`, real token reserve, real collateral reserve,
-  sale quantity `D`, current spot price, open/closed status.
+  invariant `k`, sale reserve, DEX seed reserve, real collateral
+  reserve, sale quantity `D`, current spot price, open/closed
+  status.
 - All buy transactions: collateral spent, tokens received, and
   block height. When using the private account path, the buyer's
   address is an ephemeral intermediary account with no prior
