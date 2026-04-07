@@ -24,7 +24,14 @@ observers.
 
 Token vesting is a prerequisite for credible token launches. Every
 protocol that issues a token must lock some allocation for founders,
-early contributors, or ecosystem reserves.
+early contributors, or ecosystem reserves. The scale of this market
+is substantial: Tokenomist documented $97.43B in token vesting
+unlocks during 2025 alone, and Magna (the largest vesting platform)
+reached $60B peak TVL before being acquired by Kraken. Despite this
+scale, leading protocols (Sablier, Hedgey, Jupiter Lock) charge
+zero fees, and no existing protocol offers any privacy features
+for vesting (see
+[Appendix: Token Vesting Ecosystem](../appendix/token-vesting-ecosystem.md)).
 
 ## 🔥 Why This Matters
 
@@ -32,9 +39,13 @@ On transparent chains, vesting contracts (Streamflow, Sablier,
 Team.Finance) are surveillance tools: every cliff unlock, every
 linear release, and every claim is publicly linkable to a beneficiary
 address, exposing token unlock schedules to the market and enabling
-adversarial trading against known unlock events. A Solana founder's
-vesting cliff is trivially queryable on-chain; traders index these
-events and position against them before the beneficiary can act.
+adversarial trading against known unlock events. With $97.43B in
+token unlocks during 2025 tracked by public analytics platforms
+like Tokenomist, traders routinely index upcoming unlock events and
+position against them before the beneficiary can act. The April 2025
+MANTRA ($OM) collapse (from $6 to $0.60 in hours, wiping $6B in
+market cap), while not solely caused by front-running, illustrates
+the fragility of transparent unlock mechanics at scale.
 
 On LEZ, the optional claim-and-re-shield pattern hides the
 destination of claimed tokens. Observers see that a vesting
@@ -138,6 +149,29 @@ error-prone. Batch creation is a practical necessity, not a
 nice-to-have, for any real-world launch. The batch size is bounded
 by the LEZ transaction size limit, which the implementation must
 document.
+
+### Fee structure
+
+This RFP does not mandate a specific fee rate. The ecosystem trend
+is decisively toward zero protocol fees: 7 of 10 vesting protocols
+surveyed charge nothing beyond gas (see
+[Appendix: Fee Structures](../appendix/token-vesting-ecosystem.md#fee-structures)).
+Proposals must specify:
+
+1. **Who pays:** whether fees (if any) are charged to the schedule
+   creator, the beneficiary at claim time, or both.
+2. **When fees are collected:** at schedule creation, at each claim
+   event, at cancellation, or a combination.
+3. **Fee rate:** the exact rate or range, including whether a
+   governance-activatable fee switch is included for future
+   adjustment.
+4. **Where fees are routed:** the destination account or mechanism
+   (protocol treasury, burn, staking reward pool, etc.).
+
+A governance-activatable fee switch with an initial zero rate
+(following the Sablier pattern) is the recommended baseline. An
+optional broker fee for third-party integrators (launchpads,
+distribution platforms) may be included but is not required.
 
 ## ✅ Scope of Work
 
@@ -392,6 +426,16 @@ commitment-based beneficiaries (pending LP-0003) are required.
 - The creator can nominate a separate cancellation authority
   distinct from the creator wallet (useful when vesting is managed
   by a multisig or DAO).
+- The creator can nominate a separate milestone authority distinct
+  from the creator wallet. Creator-controlled milestone authority
+  is appropriate for team vesting, but creates a conflict of
+  interest when vesting is used for buyer protection (e.g., creator
+  collateral vesting from a token launch per
+  [RFP-015](./RFP-015-bonding-curve-launchpad.md) or
+  [RFP-016](./RFP-016-lbp-launchpad.md)): the creator could
+  approve milestones and drain funds immediately. Delegating
+  milestone authority to a governance body or multisig that
+  excludes the creator prevents this.
 
 ## ⚠ Platform Dependencies
 
@@ -466,6 +510,19 @@ Estimated duration: **10–12 weeks**
 All code must be released under the **MIT+Apache2.0 dual License**.
 
 
+## 📊 Evaluation Criteria
+
+Proposals will be evaluated against the following weighted criteria.
+
+| Criterion | Weight | What we look for |
+|-----------|--------|-----------------|
+| Technical design quality | 30% | Schedule computation correctness, escrow model security, integer arithmetic strategy, audit plan |
+| Privacy architecture | 25% | Claim-and-re-shield completeness, direct private receipt investigation, post-claim unlinkability |
+| Team experience | 20% | Prior vesting or DeFi protocol work, smart contract security track record, familiarity with SVM |
+| Timeline and milestones | 15% | Realistic schedule with concrete deliverables, risk identification, dependency management (LP-0015, on-chain clock) |
+| Ecosystem alignment | 10% | Open source commitment, composability with launchpad RFPs (015/016), community engagement |
+
+
 ## Resources
 
 - [Logos Documentation](https://github.com/logos-co/logos-docs)
@@ -475,6 +532,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [LP-0012: Event/Log mechanism for LEZ](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md)
 - [LP-0013: Token program improvements: mint authorities](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md)
 - [Streamflow Finance (vesting reference)](https://streamflow.finance/)
+- [Appendix: Token Vesting Ecosystem](../appendix/token-vesting-ecosystem.md)
+  (survey of existing vesting protocols, scale data, and fee structures)
 
 ## ✏️ How to Apply
 
