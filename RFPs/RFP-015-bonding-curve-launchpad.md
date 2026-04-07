@@ -107,12 +107,42 @@ state.
 
 ### Optional allowlist
 
-The allowlist gate is optional: many projects want permissionless open
+The allowlist gate is opt-in: many projects want permissionless open
 sales. When gating is needed (geographic restrictions, community-only
 rounds, pre-selected investor lists), the creator can commit an
 eligibility set at creation time and restrict buys to participants who
 can prove inclusion. The implementation approach is left to the
 proposing team.
+
+On LEZ, the relevant anonymity set for any private account action is
+all private accounts in the zone, not the allowlist size. The
+execution environment is shielded by construction: an observer cannot
+determine which private account interacted with the sale, regardless
+of whether an allowlist is active. This means an allowlist does not
+degrade privacy in the way it would on a transparent chain, where
+the anonymity set shrinks to the allowlist size (see the
+[Allowlist Privacy in Shielded Execution Environments](../appendix/token-launchpad-ecosystem.md#allowlist-privacy-in-shielded-execution-environments)
+section of the token launchpad ecosystem appendix).
+
+The recommended approach is ZK set membership proofs (a Merkle tree
+commitment with a ZK inclusion proof) rather than a public address
+list. This avoids publishing the allowlist on-chain and preserves the
+zone-wide anonymity set regardless of allowlist size. When both the
+allowlist gate and the private account path are enabled, the proposal
+must document the resulting privacy properties and any reduction in
+anonymity set relative to a non-gated sale.
+
+### Fee structure
+
+This RFP does not mandate a specific fee rate. Proposals must
+specify: (1) who pays the fee (issuer, buyer, or both), (2) when
+fees are collected (per-transaction, at sale close, or both),
+(3) the fee rate or rate range, and (4) where fees are routed
+(protocol treasury, sale creator, burn, or other destination). See
+the [Fee Structures](../appendix/token-launchpad-ecosystem.md#fee-structures)
+section of the token launchpad ecosystem appendix for a
+cross-platform comparison of fee models across seven surveyed
+protocols.
 
 ### Bonding curves and LBPs as complementary mechanisms
 
@@ -225,7 +255,9 @@ RFP-016 instead.
    disadvantage private-path buyers on price relative to
    public-path buyers.
 5. After the sale closes, the creator can withdraw:
-   - The real collateral raised (net of fees).
+   - The real collateral raised, net of fees as defined by the
+     fee model specified in the proposal (see the Fee structure
+     subsection in Design Rationale).
    - The DEX seed reserve `R` tokens (if not used for
      auto-graduation).
 6. Slippage protection: buyers specify the collateral amount to spend
@@ -236,7 +268,10 @@ RFP-016 instead.
    enabled, only participants who can prove inclusion in the
    committed eligibility set may buy from the curve. The proposing
    team must specify and justify their allowlist mechanism in their
-   application.
+   application. When the allowlist gate is used in conjunction with
+   the private account path, the proposal must document the
+   resulting privacy properties, including any change in the
+   effective anonymity set relative to a non-gated sale.
 8. The sale creator can pause buying at any time during the sale
    (emergency stop). Pausing does not affect the curve state, the
    virtual reserves, or the invariant `k`.
@@ -592,6 +627,20 @@ Estimated duration: **10–12 weeks**
 ## 🌍 Open Source Requirement
 
 All code must be released under the **MIT+Apache2.0 dual License**.
+
+
+## Evaluation Criteria
+
+Proposals that meet all hard requirements will be ranked on the
+following criteria.
+
+| Criterion | Weight | What we look for |
+|-----------|--------|-----------------|
+| Technical design quality | 30% | Formal specification of pricing mechanism, invariant proofs or arguments, integer arithmetic strategy, audit plan |
+| Privacy architecture | 25% | Strength of anonymity properties in the private account path, completeness of the deshield→buy→re-shield flow, allowlist privacy interaction (if applicable) |
+| Team experience | 20% | Prior AMM or DeFi protocol work, smart contract security track record, familiarity with SVM or similar execution environments |
+| Timeline and milestones | 15% | Realistic schedule with concrete deliverables, risk identification, dependency management (especially LP-0015) |
+| Ecosystem alignment | 10% | Open source commitment, composability with other LEZ programs (DEX, vesting), community engagement plan |
 
 
 ## Resources

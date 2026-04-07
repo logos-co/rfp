@@ -110,12 +110,30 @@ purchase without requiring private pool state.
 
 ### Optional allowlist
 
-The allowlist gate is optional: many projects want permissionless open
+The allowlist gate is opt-in: many projects want permissionless open
 sales. When projects do need access control (e.g., geographic
 restrictions, community-only sales, pre-selected investor lists), the
 creator can commit an eligibility set at creation time and restrict
 buys to participants who can prove inclusion. The implementation
 approach is left to the proposing team.
+
+On LEZ, the relevant anonymity set for any private account action is
+all private accounts in the zone, not the allowlist size. The
+execution environment is shielded by construction: an observer cannot
+determine which private account interacted with the sale, regardless
+of whether an allowlist is active. This means an allowlist does not
+degrade privacy in the way it would on a transparent chain, where
+the anonymity set shrinks to the allowlist size (see the
+[Allowlist Privacy in Shielded Execution Environments](../appendix/token-launchpad-ecosystem.md#allowlist-privacy-in-shielded-execution-environments)
+section of the token launchpad ecosystem appendix).
+
+The recommended approach is ZK set membership proofs (a Merkle tree
+commitment with a ZK inclusion proof) rather than a public address
+list. This avoids publishing the allowlist on-chain and preserves the
+zone-wide anonymity set regardless of allowlist size. When both the
+allowlist gate and the private account path are enabled, the proposal
+must document the resulting privacy properties and any reduction in
+anonymity set relative to a non-gated sale.
 
 ### Sale pause capability
 
@@ -126,6 +144,18 @@ not halt weight progression: the weight schedule continues to advance
 during a pause. This prevents a creator from gaming the mechanism by
 pausing at a weight that is artificially favourable and resuming once
 they detect large buy orders.
+
+### Fee structure
+
+This RFP does not mandate a specific fee rate. Proposals must
+specify: (1) who pays the fee (issuer, buyer, or both), (2) when
+fees are collected (per-transaction, at sale close, or both),
+(3) the fee rate or rate range, and (4) where fees are routed
+(protocol treasury, sale creator, burn, or other destination). See
+the [Fee Structures](../appendix/token-launchpad-ecosystem.md#fee-structures)
+section of the token launchpad ecosystem appendix for a
+cross-platform comparison of fee models across seven surveyed
+protocols.
 
 ## ✅ Scope of Work
 
@@ -165,7 +195,9 @@ they detect large buy orders.
    occurred.
 5. After the sale end timestamp passes, or when the sale creator
    explicitly closes the sale, the creator can withdraw:
-   - The collateral raised (net of fees).
+   - The collateral raised, net of fees as defined by the fee
+     model specified in the proposal (see the Fee structure
+     subsection in Design Rationale).
    - Any unsold project tokens remaining in the pool.
 6. The sale creator can pause buying at any time during the sale
    period (emergency stop). Pausing does not affect weight
@@ -174,7 +206,10 @@ they detect large buy orders.
    sale. When enabled, only participants who can prove inclusion in
    the committed eligibility set may buy from the pool. The
    proposing team must specify and justify their allowlist mechanism
-   in their application.
+   in their application. When the allowlist gate is used in
+   conjunction with the private account path, the proposal must
+   document the resulting privacy properties, including any change
+   in the effective anonymity set relative to a non-gated sale.
 8. Slippage protection: buyers can specify a minimum token output
    amount. The transaction reverts if the execution price would
    produce fewer tokens than the specified minimum.
@@ -416,6 +451,98 @@ gate to restrict the eligible set instead.
   curve over time; buyers transact at the current price as it falls,
   with earlier buyers paying more than later ones).
 
+### Reference Implementation
+
+The recommended pricing mechanism is the **weight-shifting AMM**
+derived from the Balancer weighted pool formula. Proposals that use
+this formula require no additional justification beyond the hard
+requirements above.
+
+#### Weight interpolation
+
+At any point in time `t`, the token and collateral weights are
+linearly interpolated between their start and end values:
+
+```
+w_token(t) = w_start + (w_end - w_start) × (t - t_start) / (t_end - t_start)
+w_collateral(t) = 1 - w_token(t)
+```
+
+Where `w_start` is the initial token weight (e.g., 0.99),
+`w_end` is the final token weight (e.g., 0.01), `t_start` and
+`t_end` are the sale start and end timestamps, and `t` is the
+current block timestamp.
+
+#### Spot price
+
+At any reserve state, the spot price of the project token in
+terms of collateral is:
+
+```
+price = (reserve_collateral × w_token) / (reserve_token × w_collateral)
+```
+
+As weights shift (`w_token` decreases, `w_collateral` increases),
+the price naturally falls even if reserves are unchanged. This is
+the mechanism behind the LBP's declining price curve.
+
+#### Buy formula
+
+Given a collateral input `C_in`, the token output is computed
+using the Balancer weighted pool swap formula:
+
+```
+tokens_out = reserve_token × (1 - (reserve_collateral / (reserve_collateral + C_in)) ^ (w_collateral / w_token))
+```
+
+All arithmetic must use integer-only operations and round against
+the trader: `tokens_out` rounds down. After each buy,
+`reserve_token` decreases by `tokens_out` and
+`reserve_collateral` increases by `C_in`.
+
+#### Lazy weight computation
+
+Weights are computed at each swap using the block timestamp and
+the stored weight schedule (start weights, end weights, start
+time, end time). No external poke transactions are required for
+correct pricing: the program evaluates the weight interpolation
+formula at transaction time, ensuring the on-chain price always
+reflects the current weight without relying on external callers.
+The poke function (Functionality requirement 4) is an optional
+convenience that advances stored weights for off-chain consumers
+(e.g., price feeds, analytics dashboards) but does not affect
+pricing correctness.
+
+#### Weight continuity
+
+The weight function is linear and continuous over the sale
+duration. Because weights are evaluated at each transaction using
+the formula above, there is no discontinuity between poke
+intervals. Stale-weight arbitrage (exploiting a gap between the
+stored weight and the correct weight) is prevented by lazy
+computation: the program always uses the current timestamp, not
+a previously stored weight value.
+
+#### Timestamp dependency
+
+The program reads the block timestamp (or equivalent on-chain
+time source) at each buy to compute current weights. This creates
+a hard dependency on an on-chain clock primitive, noted in
+Platform Dependencies. The weight function's correctness depends
+on the timestamp advancing monotonically; if the on-chain clock
+stalls or regresses, weight computation will produce incorrect
+results.
+
+#### Deviation standard
+
+Teams may propose an alternative pricing mechanism (such as a
+constant product AMM with time-varying parameters, a piecewise
+weight function, or a batch auction overlay) provided the proposal
+includes: (1) a formal specification equivalent in detail to the
+formulas above, (2) a security argument that the mechanism's core
+invariant is preserved under all operations, and (3) citations to
+existing production deployments or audits.
+
 ## ⚠ Platform Dependencies
 
 ### Hard blockers
@@ -481,6 +608,20 @@ Estimated duration: **14–16 weeks**
 ## 🌍 Open Source Requirement
 
 All code must be released under the **MIT+Apache2.0 dual License**.
+
+
+## Evaluation Criteria
+
+Proposals that meet all hard requirements will be ranked on the
+following criteria.
+
+| Criterion | Weight | What we look for |
+|-----------|--------|-----------------|
+| Technical design quality | 30% | Formal specification of pricing mechanism (weight-shifting AMM or alternative), invariant proofs or arguments, integer arithmetic strategy, audit plan |
+| Privacy architecture | 25% | Strength of anonymity properties in the private account path, completeness of the deshield→buy→re-shield flow, allowlist privacy interaction (if applicable) |
+| Team experience | 20% | Prior AMM or DeFi protocol work, smart contract security track record, familiarity with SVM or similar execution environments |
+| Timeline and milestones | 15% | Realistic schedule with concrete deliverables, risk identification, dependency management (especially LP-0015) |
+| Ecosystem alignment | 10% | Open source commitment, composability with other LEZ programs (DEX, vesting), community engagement plan |
 
 
 ## Resources
