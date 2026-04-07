@@ -185,6 +185,65 @@ Neither framework applies directly to permissionless, non-custodial
 on-chain launchpads. However, they indicate a regulatory direction
 toward mandatory cooling-off periods for token sales.
 
+## Allowlist & Access Control
+
+Launchpad access models range from fully permissionless (any wallet
+can participate) to fully gated (mandatory KYC and token staking).
+Among the crypto-native launchpads surveyed, the majority default to
+open access; gating is either absent or optional.
+
+### Summary
+
+| Protocol | Default access | Gating method | Enforcement |
+|---|---|---|---|
+| Pump.fun | Open (permissionless) | None | N/A |
+| Fjord Foundry | Open; optional project whitelist | CSV whitelist upload by creator [11] | Off-chain (platform UI) |
+| Metaplex Genesis | Configurable per-launch | Wallet allowlist, optional KYC, geo-blocking [16] | On-chain (smart contract) |
+| DAO Maker (SHO) | $DAO stakers + KYC | Token staking (min 2,000 $DAO) + mandatory platform KYC [12] | Hybrid (on-chain staking, off-chain KYC) |
+| Flaunch | Open (permissionless) | None | N/A |
+| Polkastarter | $POLS stakers + per-project KYC | Token staking (min 1,000 POLS) + lottery + per-project KYC [10] | Hybrid (on-chain staking, off-chain KYC) |
+| DAOs.fun | Creators: invitation-only; Buyers: open | Invite codes for creators; none for buyers [21] | Platform-level |
+
+### Per-protocol detail
+
+**Pump.fun.** Fully permissionless [1]. No allowlist, KYC, or access
+restrictions. Any wallet can create or buy tokens.
+
+**Fjord Foundry.** Permissionless by default for LBPs [11]. Project
+creators can optionally upload a CSV whitelist to restrict
+participation, enforced at the platform UI level (not on-chain).
+The $FJO token is not required for participation. LBPs also provide
+structural anti-bot protection via high starting price.
+
+**Metaplex Genesis.** Most configurable access control among the
+platforms studied [16]. Creators can choose open access, wallet
+allowlist, or KYC-gated launches, all enforced on-chain at the
+smart contract level. Supports per-wallet deposit limits and
+geo-blocking. The Launch Pool's proportional distribution mechanism
+provides some natural Sybil resistance: allocation is proportional
+to deposit size, so splitting across wallets yields no advantage.
+
+**DAO Maker.** Mandatory $DAO staking (minimum 2,000 $DAO) plus
+platform-level KYC [12]. A seven-tier system based on staked amount
+(250 to 100,000 $DAO) assigns non-linear bonus multipliers (DAO
+Power). Higher tiers receive disproportionate allocation advantages.
+SHO priority rounds serve high-tier holders first, then remaining
+allocation opens as FCFS.
+
+**Flaunch.** Fully permissionless [17]. Built on Uniswap V4 hooks
+with no access restrictions. No allowlist, KYC, or token-gating.
+
+**Polkastarter.** $POLS staking (minimum 1,000 POLS Power) with a
+7-day minimum hold requirement [10]. A lottery system weighted by
+POLS Power allocates spots. KYC is delegated to individual projects
+(not centralized by the platform). Guaranteed allocation is
+available only at the highest tier (50,000+ POLS).
+
+**DAOs.fun.** Creator access is invitation-only (invite codes from
+the team) [21]. Buyer participation is open once a DAO is live,
+with no KYC or staking requirement. The 10% early redemption penalty
+serves as an economic Sybil deterrent during the fundraising window.
+
 ## References
 
 1. CoinDesk, "Most Influential: Pump.fun," Dec 2025.
