@@ -244,6 +244,212 @@ the team) [21]. Buyer participation is open once a DAO is live,
 with no KYC or staking requirement. The 10% early redemption penalty
 serves as an economic Sybil deterrent during the fundraising window.
 
+## Fee Structures
+
+Fee models vary widely across launchpad protocols, from zero-fee
+permissionless deployment to enterprise pricing tiers exceeding
+$50,000. The table below summarises fee structures for the seven
+crypto-native launchpads surveyed in this appendix.
+
+| Protocol | Issuer Fee | Buyer Fee | Setup Cost | Staking Required |
+|---|---|---|---|---|
+| Pump.fun | 0% | 1% (protocol fee on trades) [1][2] | Free | None |
+| Fjord Foundry | 5% of collateral raised [11] | Swap fee only (1–2% typical) [11] | Free | None |
+| Metaplex Genesis | 0% (fee on deposits) [16] | 2% on deposits [16] | Free | None |
+| DAO Maker | 5% of tokens [12] | 5% (DAO SHO) / 30% (Public SHO) [12] | Undisclosed | 2,000–100,000 $DAO ($28–$1,400+) [12] |
+| Flaunch | Undisclosed | Swap fee (Uniswap V4) [17] | Free (gas only) | None |
+| Polkastarter | ~1% of raised [13] | Network gas only [10] | Undisclosed | 1,000–50,000 POLS ($300–$25,000) [10] |
+| DAOs.fun | 10% early redemption penalty [21] | None during fundraise; AMM fee post-launch [21] | Free | None |
+
+### Per-protocol detail
+
+**Pump.fun.** Zero issuer fee for token creation; the protocol
+charges a 1% fee on all trades executed through its bonding curve and
+Pumpswap DEX [1][2]. This buyer-side-only model minimises friction
+for token creators and has been a primary driver of Pump.fun's scale
+(11.7M tokens launched in H1 2025). The fee is collected per
+transaction at swap time.
+
+**Fjord Foundry.** Charges issuers 5% of collateral raised at sale
+close [11]. Buyers pay only the pool swap fee, typically configured
+at 1–2% by the sale creator. No upfront setup cost and no native
+token requirement ($FJO is not needed for participation). The 5%
+issuer fee is competitive for a managed platform that provides a
+no-code UI and marketing distribution.
+
+**Metaplex Genesis.** Zero issuer fee; the protocol charges a 2%
+fee on buyer deposits [16]. Setup is free (gas costs only on
+Solana). No native token requirement. The depositor-pays model is
+unusual: it makes launches maximally cheap for issuers while
+shifting costs to participants.
+
+**DAO Maker.** Charges issuers 5% of tokens allocated to the sale
+[12]. Buyer fees depend on tier: DAO SHO participants pay 5% of
+allocated tokens; Public SHO participants pay 30% unless they hold
+at least 2,000 $DAO [12]. Setup costs are undisclosed and negotiated
+per project. The staking requirement (2,000 to 100,000 $DAO) is the
+primary access gate and functions as an additional implicit cost.
+
+**Flaunch.** Built on Uniswap V4 hooks with no disclosed
+platform-level fee beyond Uniswap swap fees [17]. Token creation
+costs only gas. No staking requirement. Revenue is generated through
+swap fee accumulation in the hook mechanism.
+
+**Polkastarter.** Charges issuers approximately 1% of funds raised
+[13]. Buyers pay only network gas. However, participation requires
+staking 1,000 to 50,000 POLS tokens ($300 to $25,000), which
+functions as a significant implicit cost [10]. Guaranteed allocation
+requires 50,000+ POLS.
+
+**DAOs.fun.** No traditional issuer or buyer fee during the
+fundraise window [21]. The 10% early redemption penalty during the
+7-day fundraise serves as both a Sybil deterrent and a revenue
+mechanism. After a successful raise, tokens trade on a virtual AMM
+with standard swap fees.
+
+### Design implications
+
+Across the seven protocols, the sustainable fee range clusters
+around 1–2% per transaction or 5% at close. Pump.fun (1% buyer
+fee) and Metaplex Genesis (2% deposit fee) represent the low end;
+Fjord Foundry (5% issuer fee) represents the upper bound for
+crypto-native platforms. Fees above 5% are found only in
+enterprise-regulated platforms (Republic, Securitize) serving
+institutional markets [23]. Staking requirements (DAO Maker,
+Polkastarter) function as hidden fees: they impose a capital lockup
+cost of $300 to $25,000+ and create plutocratic access barriers
+where participation rights scale with token holdings rather than
+genuine interest in the project.
+
+## Sale Lifecycle and Close Mechanics
+
+Sale lifecycle controls span a wide spectrum, from fully
+centralised platform management to immutable on-chain parameters
+with no admin override. The table below summarises close triggers,
+pause capabilities, and post-close behaviour for the surveyed
+protocols.
+
+| Protocol | Auto-Close Triggers | Emergency Pause | Post-Close Behaviour | Enforcement |
+|---|---|---|---|---|
+| Pump.fun | Supply target (bonding curve graduation) [1] | No | Auto-migration to Pumpswap DEX [1] | On-chain (Solana program) |
+| Fjord Foundry | Time expiry; optional hardcap [11] | Yes (creator pauses swaps) [11] | Manual claim; collateral to creator minus 5% fee [11] | Hybrid (on-chain pause + platform UI) |
+| Metaplex Genesis | Deposit window close (time-based) [16] | Not documented | Auto-distribute proportional (Launch Pool); FCFS (Presale); refund if goal not met [16] | On-chain (Solana program) |
+| DAO Maker | Time window expiry [12] | Platform-level only [12] | Manual claim; vesting per project [12] | Hybrid (off-chain allocation + on-chain claim) |
+| Flaunch | 30-minute fixed-price window expiry [17] | Not documented | Auto-graduation to Uniswap V4 AMM [17] | On-chain (Uniswap V4 hook) |
+| Polkastarter | Hardcap reached; time expiry [10] | Not documented | Atomic swap (immediate token receipt) [10] | On-chain (swap) + off-chain (allowlist) |
+| DAOs.fun | Fundraise hard cap; 7-day window expiry [21] | Not documented | Fund manager deploys capital; mandatory expiry distribution [21] | On-chain (Solana program) |
+
+### Centralisation spectrum
+
+The protocols studied fall along a spectrum from fully
+decentralised to fully centralised lifecycle control [24]:
+
+- **Permissionless immutable** (Pump.fun, Metaplex Genesis):
+  parameters locked at creation; no admin override possible. The
+  sale runs to completion or fails according to on-chain rules.
+- **Creator-controlled** (Fjord Foundry, Flaunch): smart contract
+  gives the sale creator pause and resume capability; the platform
+  adds a UI layer but does not override on-chain state.
+- **Platform-controlled** (DAO Maker, Polkastarter): the platform
+  manages the full lifecycle with off-chain allocation and
+  on-chain claim. Issuers have limited on-chain autonomy.
+
+DAOs.fun occupies a middle position: fundraise parameters are set
+at creation and enforced on-chain, but post-raise fund deployment
+is delegated to a human fund manager with discretionary authority.
+
+### Per-protocol detail
+
+**Pump.fun.** The bonding curve closes automatically when the supply
+target is reached (graduation threshold), triggering migration of
+liquidity to Pumpswap [1]. There is no pause, no manual close, and
+no admin override. Post-graduation, the token trades on the open
+DEX market.
+
+**Fjord Foundry.** The sale creator can pause swaps during an LBP
+(reversible) or cancel a Fixed Price Sale before it starts [11].
+LBPs close when the time window expires or when an optional hardcap
+is reached. After close, participants manually claim tokens through
+the platform; the creator receives collateral minus the 5% platform
+fee.
+
+**Metaplex Genesis.** Deposit windows close on a time basis [16].
+The Launch Pool distributes tokens proportionally to all depositors;
+if the funding goal is not met, depositors receive a full refund.
+No documented emergency pause or admin override exists at the
+protocol level.
+
+**DAO Maker.** Lifecycle is fully platform-controlled [12]. Sales
+open and close on a schedule managed by the DAO Maker team. Buyers
+claim tokens after the sale; vesting schedules are project-specific.
+The DYCO variant adds a 16-month refund window backed by USDC
+reserves [15].
+
+**DAOs.fun.** The 7-day fundraise window closes automatically on
+time expiry or when the hard cap is reached [21]. If the cap is
+not met, contributors receive a full refund. After a successful
+raise, the fund manager deploys capital; at the mandatory expiry
+date (3 months to 1 year), remaining assets are distributed
+proportionally to token holders.
+
+## Allowlist Privacy in Shielded Execution Environments
+
+On a transparent chain, an allowlist directly degrades participant
+privacy: if the allowlist contains 50 addresses and a purchase is
+observed on-chain, the observer knows the buyer is one of 50.
+The anonymity set equals the allowlist size, potentially reducing
+k-anonymity from millions of active wallets to a small, enumerable
+group [25][26].
+
+In a shielded execution environment such as LEZ, this framing is
+misleading. LEZ private account activity is shielded by
+construction: an observer sees that some private account performed
+an action, but cannot determine which account or what action. The
+relevant anonymity set is therefore all private accounts in the
+zone, not the allowlist [25]. The allowlist determines eligibility,
+not visibility.
+
+### Privacy-permissioning tradeoff
+
+The privacy properties of an allowlist depend on both the allowlist
+design and the execution environment.
+
+| Allowlist Design | Observer can enumerate allowlist? | Observer can link buyer to entry? | Anonymity set |
+|---|---|---|---|
+| Public address list on transparent chain | Yes | Yes (via transaction origin) | Size of allowlist |
+| Public address list on ZK private zone (LEZ) | Yes | No (shielded execution) | All private accounts in zone |
+| Private allowlist with ZK set membership | No | No | All accounts that could prove membership |
+| No allowlist on transparent chain | N/A | Yes (public transaction) | All active wallets |
+| No allowlist on ZK private zone (LEZ) | N/A | No | All private accounts in zone |
+
+In LEZ, both a public address allowlist and a private ZK
+allowlist achieve the same practical privacy level as no allowlist
+at all, because the execution environment's shielding prevents
+linking buyers to allowlist entries. The allowlist restricts
+eligibility without degrading privacy [25].
+
+### ZK set membership proofs
+
+The recommended approach for allowlist enforcement in a privacy-
+preserving context is a ZK set membership proof based on a Merkle
+tree commitment [25][27][28]:
+
+1. The sale creator builds a Merkle tree over hashed allowlist
+   entries and publishes only the Merkle root on-chain.
+2. A participant proves knowledge of a leaf and a Merkle path such
+   that `MerkleVerify(root, leaf, path) = true`, without revealing
+   which leaf they hold.
+3. A nullifier (derived from the leaf) prevents the same allowlist
+   entry from participating twice, providing Sybil resistance
+   without revealing identity.
+
+This construction is a standard cryptographic primitive, used in
+production by Tornado Cash (withdrawal proofs), Semaphore (anonymous
+group signalling), and proposed for privacy-preserving KYC in
+zk-creds [27]. For implementations on LEZ, this approach avoids
+publishing the allowlist on-chain and preserves the zone-wide
+anonymity set regardless of allowlist size.
+
 ## References
 
 1. CoinDesk, "Most Influential: Pump.fun," Dec 2025.
@@ -298,3 +504,24 @@ serves as an economic Sybil deterrent during the fundraising window.
     https://www.chaincatcher.com/en/article/2149146
 22. RootData, "Fjord Foundry" project page (swap volume figure),
     accessed Apr 2026.
+23. Fee Structure Comparison research note (internal), compiled from
+    official documentation for each platform, Apr 2026. Sources:
+    DAO Maker GitBook, Fjord Foundry LBP FAQ, Metaplex Genesis docs,
+    Balancer protocol fee docs, Republic issuer pricing, Securitize
+    fee schedule.
+24. Sale Lifecycle & Close Mechanics research note (internal),
+    compiled from official documentation and smart contract
+    repositories, Apr 2026. Sources: Balancer CRP source code,
+    Fjord Foundry LBP FAQ, Metaplex Genesis docs, Securitize DS
+    Protocol, Republic early close help, TokenSoft token contracts.
+25. Allowlist Privacy and K-Anonymity Analysis research note
+    (internal), Apr 2026.
+26. zk-X509: Practical Anonymous Credentials for X.509 Certificates,
+    arXiv:2603.25190, Mar 2026 (Merkle anonymity set analysis).
+    https://arxiv.org/html/2603.25190v1
+27. Choudhuri et al., "zk-creds: Flexible Anonymous Credentials
+    from zkSNARKs," IEEE S&P 2023.
+    https://obj.umiacs.umd.edu/ieeesp23/zk-creds.pdf
+28. Privacy-Preserving Smart Contracts using zkSNARKs,
+    arXiv:2501.03391, Jan 2025.
+    https://arxiv.org/pdf/2501.03391
