@@ -21,6 +21,17 @@ order is maintained throughout the document.
 | Flaunch          | Base (Ethereum L2)     | Bonding curve via Uniswap V4 hooks                         | [flaunch.gg](https://flaunch.gg/)                 |
 | Polkastarter     | Ethereum, BNB Chain    | Fixed-price IDO with lottery allocation                    | [polkastarter.com](https://polkastarter.com/)     |
 | DAOs.fun         | Solana                 | Fixed-price fair launch for investment DAOs                | [daos.fun](https://daos.fun/)                     |
+
+Balancer is the protocol layer that provides the weighted pool
+primitive underlying the LBP mechanism. Fjord Foundry (originally
+Copper, rebranded after merger) is the primary launchpad platform
+built on Balancer LBPs. LBPs can also be deployed directly on
+Balancer via smart contract interaction; Fjord provides the no-code
+interface used by most projects. The LBP mechanism has been in
+continuous production use since 2021, with 717 LBPs launched,
+106,762 cumulative participants, and over $1.1B in funds raised
+across the Fjord Foundry platform [5][6].
+
 ## Scale and Traction
 
 The tables below use cumulative volume (trading volume or total
@@ -38,7 +49,7 @@ funds raised, depending on availability).
 | Protocol | Cumulative Volume | Cumulative Revenue | Tokens Launched | Data as of |
 |---|---|---|---|---|
 | Pump.fun | >$150B (trading volume) [1] | $818M+ (protocol fees) [1][2] | 11.7M (H1 2025) [4] | Early 2026 |
-| Fjord Foundry | ~$1.5B (swap volume) [22] | ~$55M (est.) [a] | 717 LBPs [6] | Sep 2025 |
+| Fjord Foundry | ~$1.5B (swap volume) [22] | ~$55M (est.) [a] | 717 LBPs; 106,762 participants [6] | Sep 2025 |
 | Metaplex Genesis | ~$55-70M (est. funds raised) [d] | $36M+ (all Metaplex products) [7] | 20M+ fungible tokens [7] | Nov 2025 |
 | DAO Maker | $90M+ (total raised) [8] | ~$4.5M (est.) [b] | N/A | Undated |
 | Flaunch | N/A | $3.1M [9] | N/A | Q1 2026 |
@@ -392,6 +403,74 @@ raise, the fund manager deploys capital; at the mandatory expiry
 date (3 months to 1 year), remaining assets are distributed
 proportionally to token holders.
 
+## LBP Pricing Mechanism
+
+The Liquidity Bootstrapping Pool pricing mechanism originates from
+Balancer's weighted pool primitive. Fjord Foundry uses the same
+underlying formulas. The core components are weight interpolation,
+a spot price function, and a swap output function.
+
+### Weight interpolation
+
+At any point in time `t`, the token weight is linearly interpolated
+between its start and end values:
+
+```
+w_token(t) = w_start + (w_end - w_start) × (t - t_start) / (t_end - t_start)
+w_collateral(t) = 1 - w_token(t)
+```
+
+Where `w_start` is the initial token weight (e.g., 0.99), `w_end`
+is the final token weight (e.g., 0.01), `t_start` and `t_end` are
+the sale start and end timestamps, and `t` is the current block
+timestamp. The function is linear and continuous over the sale
+duration [29].
+
+### Spot price
+
+At any reserve state, the spot price of the project token in terms
+of collateral is:
+
+```
+price = (reserve_collateral × w_token) / (reserve_token × w_collateral)
+```
+
+As weights shift (`w_token` decreases, `w_collateral` increases),
+the price naturally falls even if reserves are unchanged. This is
+the mechanism behind the LBP's declining price curve [29].
+
+### Swap output (buy formula)
+
+Given a collateral input `C_in`, the token output is computed using
+the Balancer weighted pool swap formula:
+
+```
+tokens_out = reserve_token × (1 - (reserve_collateral / (reserve_collateral + C_in)) ^ (w_collateral / w_token))
+```
+
+After each buy, `reserve_token` decreases by `tokens_out` and
+`reserve_collateral` increases by `C_in` [29].
+
+### Lazy weight computation
+
+Modern Balancer (v2/v3) and Fjord Foundry use lazy computation:
+every swap triggers weight recalculation based on the block
+timestamp and the stored weight schedule. No external `pokeWeights`
+call is required for correct pricing; the on-chain price always
+reflects the current weight at transaction time [29]. Older Balancer
+v1 implementations required explicit poke transactions to advance
+the weight schedule, which created stale-weight arbitrage
+opportunities when pokes were delayed.
+
+### Pause and weight progression
+
+When a sale creator pauses swaps (available on Fjord Foundry and
+Balancer pools created with the `canPauseSwapping` permission),
+the weight schedule continues to advance because weights are
+time-based, not trade-based [11][29]. This prevents a creator from
+pausing at a weight that is artificially favourable and resuming
+after detecting large buy orders.
+
 ## Allowlist Privacy in Shielded Execution Environments
 
 On a transparent chain, an allowlist directly degrades participant
@@ -525,3 +604,7 @@ anonymity set regardless of allowlist size.
 28. Privacy-Preserving Smart Contracts using zkSNARKs,
     arXiv:2501.03391, Jan 2025.
     https://arxiv.org/pdf/2501.03391
+29. Balancer, "Weighted Math" and "Liquidity Bootstrapping FAQ,"
+    Balancer v2 documentation.
+    https://docs.balancer.fi/concepts/explore-available-balancer-pools/weighted-pool/weighted-math.html ;
+    https://balancer.gitbook.io/balancer/smart-contracts/smart-pools/liquidity-bootstrapping-faq
