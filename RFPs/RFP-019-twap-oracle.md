@@ -1,5 +1,5 @@
 ---
-id: RFP-018
+id: RFP-019
 title: "TWAP Oracle and Price Feed Infrastructure"
 tier: L
 funding: $XXXXX
@@ -9,7 +9,7 @@ category: Developer Tooling & Infrastructure
 ---
 
 
-# RFP-018 — TWAP Oracle and Price Feed Infrastructure
+# RFP-019 — TWAP Oracle and Price Feed Infrastructure
 
 ## 🧭 Overview
 
@@ -20,7 +20,7 @@ RedStone). Every DeFi protocol on LEZ (lending, derivatives,
 liquidations, stablecoins) requires reliable price feeds to function.
 The oracle ecosystem secures approximately $138B in total value secured
 (TVS) across chains: Chainlink alone secures $93B, Pyth $8.6B across
-81 chains, and RedStone $7.2B across 110+ chains [1][2][3]. On a new
+110+ chains, and RedStone $7.2B across 120+ chains [1][2][3]. On a new
 chain with thin liquidity, on-chain TWAP alone is insufficient because
 manipulation cost scales linearly with pool depth; external oracle feeds
 from established networks provide the safety baseline from day one. The
@@ -37,7 +37,7 @@ applications.
 On new chains, on-chain TWAP oracles are acutely vulnerable: with thin
 liquidity, a PoS validator controlling two consecutive blocks can
 manipulate the TWAP accumulator at a cost of only 2x pool fees, with
-no competition for the back-run [4]. The attack cost scales linearly
+no competition for the back-run [6]. The attack cost scales linearly
 with pool depth, so pools with $1M in liquidity offer far less
 protection than pools with $100M. Historically, 36 documented flash
 loan oracle attacks have caused over $418M in cumulative losses [5].
@@ -60,10 +60,14 @@ security depends entirely on pool liquidity depth. External oracles
 publishers across centralised and decentralised exchanges, providing
 manipulation resistance independent of on-chain liquidity. Neither
 tier is sufficient alone: TWAP fails on thin-liquidity pools, and
-external oracles introduce off-chain trust assumptions. Combining
-both tiers (with a circuit breaker that compares them) is the
-production best practice used by Aave, MakerDAO, and other major
-lending protocols [6][7].
+external oracles introduce off-chain trust assumptions. Multi-source
+price validation is the production norm: Aave V3 uses Chainlink with
+a configurable fallback oracle [15]; Compound V2 anchored Coinbase
+reporter prices against a Uniswap V2 TWAP with a 20% divergence
+tolerance [16]; MakerDAO interposes a one-hour Oracle Security
+Module (OSM) delay as a manipulation circuit breaker [15a]. No major
+lending protocol trusts a single oracle source without cross-check
+or delay [6].
 
 ### Pull model over push
 
@@ -72,7 +76,7 @@ operators to submit updates on a heartbeat or deviation threshold,
 consuming gas regardless of whether any protocol reads the price. On
 a new chain with low initial TVL, this creates the chicken-and-egg
 problem: node operators need economic incentives that only emerge with
-TVL, but DeFi needs oracles to attract TVL [8]. Pull oracles (Pyth,
+TVL, but DeFi needs oracles to attract TVL [4][8]. Pull oracles (Pyth,
 RedStone) shift the cost to consumers, who fetch and verify signed
 price data at transaction time. This model works from day one with
 zero dedicated oracle infrastructure on the chain.
@@ -97,15 +101,37 @@ days of history [9]. Protocols can trade storage cost for lookback
 depth depending on their needs: a lending protocol may need 1 to 2
 hours of history, while a governance oracle may need 7 days.
 
-### AggregatorV3Interface compatibility
+### LEZ oracle data standard
 
-Chainlink's AggregatorV3Interface (`latestRoundData()`) is the
-industry standard consumed by hundreds of DeFi protocols. Wrapping
-all oracle sources (TWAP, Pyth, RedStone) behind a unified interface
-means consuming protocols can integrate once and remain agnostic to
-the underlying data source. If a new oracle provider becomes available
-on LEZ, it can be added behind the same interface without requiring
-any change to consuming protocols.
+On EVM, Chainlink's AggregatorV3Interface (`latestRoundData()`) became
+the de facto oracle standard because Chainlink was the first mover;
+Pyth, RedStone, Switchboard, and DIA all ship compatible wrapper
+contracts so that consuming protocols need no code changes. However,
+the interface has well-known limitations: no confidence interval, no
+source identifier, confusing `answeredInRound` semantics, and variable
+`decimals()` per feed.
+
+On SVM (Solana, LEZ), no equivalent standard exists. Each oracle
+provider defines its own account data layout (Pyth's `PriceAccount`,
+Switchboard's `AggregatorAccountData`), forcing consuming programs to
+write per-provider integration code. This fragmentation is not
+architectural necessity; a shared account struct is straightforward
+on SVM.
+
+LEZ has the opportunity to define a canonical oracle price account
+structure before ecosystem fragmentation occurs. The struct should
+include fields that AggregatorV3Interface lacks: confidence interval,
+source identifier, and circuit breaker dispute status. Because account
+data structures on SVM are append-friendly (a program can add new
+fields at the end of the struct without breaking consumers that read
+only the existing fields), the standard can evolve over time without
+requiring coordinated upgrades across consuming protocols.
+
+Wrapping all oracle sources (TWAP, Pyth, RedStone) behind this shared
+data structure means consuming protocols integrate once and remain
+agnostic to the underlying data source. If a new oracle provider
+becomes available on LEZ, it populates the same struct without
+requiring any change to consuming protocols.
 
 ### Fee structure
 
@@ -139,15 +165,25 @@ ongoing subsidies once LEZ reaches moderate TVL.
 5. Implement an external oracle adaptor for RedStone: verify node
    signatures from calldata, extract price, and reject the update
    if the price is stale (configurable maxAge).
-6. Provide a unified price feed interface (AggregatorV3Interface or
-   equivalent): consuming protocols query a single interface that
-   returns price, timestamp, and source identifier, regardless of
-   the underlying oracle source.
+6. Define and implement a canonical LEZ oracle price account
+   structure as a reusable standard for the ecosystem (see Design
+   Rationale, "LEZ oracle data standard"). The struct must include
+   at minimum: price, timestamp, source identifier, confidence
+   interval (where the source provides one; zero otherwise), and
+   circuit breaker dispute flag. All oracle sources (TWAP, Pyth,
+   RedStone) must populate the same struct so that consuming
+   protocols query a single data layout regardless of the underlying
+   source. The struct must be specified as a SPEL IDL. The interface
+   must reject any price that is zero, negative, or otherwise
+   invalid before writing it to the account.
 7. Implement a circuit breaker: when both on-chain TWAP and an
    external feed are available for the same pair, the program
    compares them; if divergence exceeds a configurable threshold
-   (e.g. 5%), the program flags the price as disputed. Consuming
-   protocols can query the dispute status and act accordingly.
+   (e.g. 5%), the program flags the price as disputed. While the
+   dispute is active, the unified interface returns the most recent
+   non-disputed price (if available within maxAge) or reverts if no
+   valid non-disputed price exists. Consuming protocols can query
+   the dispute status and act accordingly.
 8. The oracle program owner can register new price feed sources (add
    a pool for TWAP, register an external oracle adaptor) and
    deregister stale or compromised sources.
@@ -167,12 +203,18 @@ ongoing subsidies once LEZ reaches moderate TVL.
    status, and observation history.
 3. Provide a CLI that covers core functionality: query price, expand
    cardinality, register and deregister feed sources.
-4. Provide an IDL for the oracle program, preferably using the
-   [SPEL framework](https://github.com/logos-co/spel).
+4. Provide an IDL for the oracle program and the oracle price
+   account standard, using the
+   [SPEL framework](https://github.com/logos-co/spel). The price
+   account IDL must be published as a standalone artefact that other
+   programs can import without depending on the oracle program
+   itself.
 5. Return clear, actionable error messages for all failure modes:
    stale price, disputed price (circuit breaker triggered), no
    observation history for the requested window, cardinality too
-   low for the requested window, and invalid cryptographic proof.
+   low for the requested window, invalid cryptographic proof,
+   zero or negative price from source, and no valid non-disputed
+   price available.
 
 #### Reliability
 
