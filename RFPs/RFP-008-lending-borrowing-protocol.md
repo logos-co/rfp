@@ -376,7 +376,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 
 ## Resources
 
-- [RFP-001 — Admin Authority](/RFPs/RFP-001-admin-authority-poc.md) — reference pattern for admin-gated operations (F8, F11)
+- [RFP-001 — Admin Authority Library](/RFPs/RFP-001-admin-authority-lib.md)
+- [RFP-002 — Freeze Authority Library](/RFPs/RFP-002-freeze-authority-lib.md)
 - TODO: LEE official doc
 - TODO: Oracle integration guide for LEZ
 - TODO: SPEL framework documentation
