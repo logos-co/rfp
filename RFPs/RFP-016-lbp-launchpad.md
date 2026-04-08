@@ -10,6 +10,8 @@ category: Applications & Integrations
 
 # RFP-016: Privacy-Preserving Token Launchpad: LBP
 
+Note that ecosystem research is available in the [appendix](appendix/token-launchpad-ecosystem).
+
 ## 🧭 Overview
 
 Build a token launchpad on LEZ using a Liquidity Bootstrapping Pool
@@ -31,8 +33,9 @@ established.
 
 ## 🔥 Why This Matters
 
-LBPs have become the dominant mechanism for fair, permissionless token
-price discovery. Fjord Foundry's own FJO token LBP raised $15.35M in
+LBPs are an established mechanism for fair, bot-resistant token price
+discovery, with over $1.5B in cumulative swap volume on Fjord Foundry
+alone. Fjord Foundry's own FJO token LBP raised $15.35M in
 April 2024 ([DL News](https://www.dlnews.com/articles/defi/fjord-foundry-raises-15-million-in-fjo-token-sale/)),
 described at the time as the highest LBP raise of the year. Autonolas
 raised $547k from $50k in initial USDC liquidity via an LBP on the
@@ -65,16 +68,16 @@ anything available on existing launchpad platforms.
 The LBP runs price discovery continuously over days: the token price
 starts above estimated fair value and falls unless buying pressure
 counteracts it. Bots are naturally deterred: early sniping is
-unprofitable because price is highest at the start. The mechanism has
-a strong empirical track record (Fjord Foundry, Balancer) and
-is well understood by the DeFi builder community.
+unprofitable because price is highest at the start. The mechanism has a multi-year track record: Fjord Foundry (built on
+Balancer's weighted pool primitive) has hosted 717 LBPs with over
+$1.1B in cumulative funds raised and 106,762 participants since 2021.
 
 Among other token sale mechanisms, fixed-price forces a binary gamble:
 underpricing benefits buyers and dilutes the project; overpricing leads
 to an incomplete raise and reputation damage. Dutch auctions clear at a
 single price moment, which creates a coordination game: buyers wait for
 the price to fall and then rush simultaneously, producing congestion and
-poor UX. LP-0004 (sealed-bid) hides individual bids and is well-suited
+poor UX. [LP-0004 (sealed-bid)](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0004.md) hides individual bids and is well-suited
 to single-item auctions, but clears at one moment rather than over days,
 making it unsuitable for broad community distribution.
 
@@ -193,8 +196,7 @@ protocols.
    by the elapsed time. The LBP program must apply the correct weight
    at transaction time regardless of how recently the last poke
    occurred.
-5. After the sale end timestamp passes, or when the sale creator
-   explicitly closes the sale, the creator can withdraw:
+5. After the sale end timestamp passes, the creator can withdraw:
    - The collateral raised, net of fees as defined by the fee
      model specified in the proposal (see the Fee structure
      subsection in Design Rationale).
@@ -217,17 +219,6 @@ protocols.
    consistent with
    [LP-0014](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0014.md)
    and [RFP-008](./RFP-008-lending-borrowing-protocol.md).
-10. The sale creator can configure an optional vesting schedule for
-    the raised collateral at sale creation time. When configured,
-    the close or withdraw operation deposits collateral into the
-    vesting program (see
-    [RFP-017](./RFP-017-token-vesting.md)) instead of transferring
-    it directly to the creator's account. The creator then claims
-    collateral over time per the schedule terms. When
-    milestone-based vesting is used, milestone authority must be
-    held by a party other than the sale creator (e.g., a governance
-    body or multisig) to prevent the creator from approving
-    milestones and draining funds unilaterally.
 
 #### Usability
 
@@ -441,15 +432,6 @@ gate to restrict the eligible set instead.
 - Support for a fixed-price sale mode (no weight shift; constant
   price over duration), as an alternative to the LBP mechanism,
   for projects that prefer a known token price.
-- **Buyer token vesting**: at sale close, purchased tokens can be
-  routed directly into a vesting schedule (see
-  [RFP-017](./RFP-017-token-vesting.md)) rather than returned to
-  the buyer's private account. This enables sale-plus-vesting in a
-  single flow.
-
-- Support for a Dutch auction mode (price declines on a configurable
-  curve over time; buyers transact at the current price as it falls,
-  with earlier buyers paying more than later ones).
 
 ### Reference Implementation
 
@@ -545,10 +527,8 @@ existing production deployments or audits.
 
 ## ⚠ Platform Dependencies
 
-### Hard blockers
 
-These must be available on LEZ before this RFP can open.
-
+These must be available on LEZ for development to start:
 #### On-chain clock / timestamp
 
 LEZ does not yet have on-chain block time. The LBP mechanism is
@@ -574,10 +554,6 @@ making it impossible to complete the full buy atomically.
 [LP-0015](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0015.md)
 (General cross-program calls via tail calls) solves this. This
 prize is currently **open**.
-
-### Soft blockers
-
-Desirable but the RFP can open without them.
 
 #### Event emission (LP-0012)
 
@@ -608,22 +584,6 @@ Estimated duration: **14–16 weeks**
 ## 🌍 Open Source Requirement
 
 All code must be released under the **MIT+Apache2.0 dual License**.
-
-
-## Evaluation Criteria
-
-Proposals that meet all hard requirements will be ranked on the
-following criteria.
-
-| Criterion | Weight | What we look for |
-|-----------|--------|-----------------|
-| Technical design quality | 30% | Formal specification of pricing mechanism (weight-shifting AMM or alternative), invariant proofs or arguments, integer arithmetic strategy, audit plan |
-| Privacy architecture | 25% | Strength of anonymity properties in the private account path, completeness of the deshield→buy→re-shield flow, allowlist privacy interaction (if applicable) |
-| Team experience | 20% | Prior AMM or DeFi protocol work, smart contract security track record, familiarity with SVM or similar execution environments |
-| Timeline and milestones | 15% | Realistic schedule with concrete deliverables, risk identification, dependency management (especially LP-0015) |
-| Ecosystem alignment | 10% | Open source commitment, composability with other LEZ programs (DEX, vesting), community engagement plan |
-
-
 ## Resources
 
 - [Logos Documentation](https://github.com/logos-co/logos-docs)
