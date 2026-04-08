@@ -3,9 +3,11 @@
 This appendix surveys existing token launchpad protocols and related
 infrastructure across the Ethereum and Solana ecosystems. It serves
 as a reference for
-[RFP-015](../RFPs/RFP-015-bonding-curve-launchpad.md) and
-[RFP-016](../RFPs/RFP-016-lbp-launchpad.md), providing context on
-current market participants, their mechanisms, and design trade-offs.
+[RFP-015](../RFPs/RFP-015-bonding-curve-launchpad.md),
+[RFP-016](../RFPs/RFP-016-lbp-launchpad.md), and
+[RFP-018](../RFPs/RFP-018-tiered-sale-launchpad.md), providing
+context on current market participants, their mechanisms, and design
+trade-offs.
 
 ## Protocols Considered
 
@@ -15,7 +17,7 @@ order is maintained throughout the document.
 | Protocol         | Ecosystem              | Mechanism                                                  | Website                                           |
 | ---------------- | ---------------------- | ---------------------------------------------------------- | ------------------------------------------------- |
 | Pump.fun         | Solana                 | Constant-product bonding curve                             | [pump.fun](https://pump.fun/)                     |
-| Fjord Foundry    | Ethereum (multi-chain) | LBP (Balancer-based)                                       | [fjordfoundry.com](https://www.fjordfoundry.com/) |
+| Fjord Foundry    | Ethereum (multi-chain) | LBP (Balancer-based), tiered sales (Seed/Private/Public)   | [fjordfoundry.com](https://www.fjordfoundry.com/) |
 | Metaplex Genesis | Solana                 | Launch Pool (proportional), presale, uniform price auction | [metaplex.com](https://www.metaplex.com/)         |
 | DAO Maker        | Ethereum               | SHO (Strong Holder Offering), DYCO                         | [daomaker.com](https://daomaker.com/)             |
 | Flaunch          | Base (Ethereum L2)     | Bonding curve via Uniswap V4 hooks                         | [flaunch.gg](https://flaunch.gg/)                 |
@@ -265,17 +267,137 @@ serves as an economic Sybil deterrent during the fundraising window.
 ### Per-buyer allocation limits
 
 Per-wallet or per-buyer allocation limits are available on platforms
-that use fixed-price or proportional distribution mechanisms:
-Metaplex Genesis supports per-wallet deposit limits enforced on-chain
-[16]; Fjord Foundry tiered sales (Seed, Private, Public rounds)
-support per-user min/max allocation per tier [33]; DAO Maker and
-Polkastarter enforce allocation limits through their staking tier
-systems [12][10].
+that use fixed-price or proportional distribution mechanisms. No
+bonding curve platform (Pump.fun, Flaunch, Meteora DBC) implements
+per-buyer limits; bonding curves are open AMM pools where any wallet
+can submit unlimited buy transactions, and the mechanism does not
+track cumulative spend per address.
 
-No bonding curve platform (Pump.fun, Flaunch, Meteora DBC) implements
-per-buyer limits. Bonding curves are open AMM pools where any wallet
-can submit unlimited buy transactions; the mechanism does not track
-cumulative spend per address.
+Among fixed-price and tiered sale platforms:
+
+- **Fjord Foundry tiered sales** support explicit per-user minimum
+  and maximum allocation limits, configurable independently per tier
+  (Seed, Private, Public) [33]. The creator sets the min/max at sale
+  creation time. Enforcement is on-chain: the smart contract tracks
+  cumulative spend per address per tier and reverts buys that would
+  exceed the maximum.
+- **Metaplex Genesis** supports per-wallet deposit limits enforced
+  on-chain at the smart contract level [16]. The Launch Pool's
+  proportional distribution also provides natural Sybil resistance:
+  allocation is proportional to deposit size, so splitting across
+  wallets yields no advantage.
+- **DAO Maker** enforces allocation limits indirectly through its
+  seven-tier staking system [12]. Allocation per participant is a
+  function of DAO Power (a non-linear multiplier derived from staked
+  $DAO amount), not an explicit min/max cap. Higher tiers receive
+  disproportionate allocation advantages; the minimum staking
+  threshold (2,000 $DAO) functions as a de facto minimum allocation
+  gate.
+- **Polkastarter** uses $POLS Power weighted lottery allocation [10].
+  Guaranteed allocation requires staking 50,000+ POLS. Below this
+  threshold, allocation is probabilistic (lottery). The staking
+  requirement functions as an implicit per-user limit, but the
+  platform does not expose explicit min/max configuration to the
+  sale creator.
+
+## Tiered Sale Mechanisms
+
+Four of the surveyed protocols support multi-round or tiered
+distribution: Fjord Foundry (Seed, Private, Public rounds), DAO
+Maker (SHO priority tranches then public), Polkastarter (fixed-price
+IDO with lottery allocation), and Metaplex Genesis (multiple inflow
+buckets per launch). The table below compares the tiered or phased
+sale features of each.
+
+| Feature | Fjord Foundry [33] | DAO Maker SHO [12] | Polkastarter [10] | Metaplex Genesis [16] |
+|---|---|---|---|---|
+| Round structure | Seed, Private, Public (sequential) | Priority tranches by tier, then FCFS public | Single round with lottery allocation | Multiple inflow buckets (presale + launch pool) |
+| Per-tier pricing | Yes (fixed price per round) | Fixed price per round | Single fixed price | Fixed price (presale); proportional (launch pool) |
+| Per-user allocation limits | Min/max per tier | Tier-weighted allocation (DAO Power multiplier) | POLS Power weighted lottery | Per-wallet deposit limits (on-chain) |
+| Minimum raise / auto-refund | Yes (minimum cap; auto-refund if unmet) | No | No | Yes (Launch Pool: refund if funding goal not met) |
+| Allowlist per round | Yes (sale-level CSV whitelist; not per-tier) | Implicit via $DAO staking tiers | Implicit via $POLS staking + lottery | Yes (per-launch: wallet allowlist, optional KYC, geo-blocking) |
+| Pause capability | Yes (creator pauses swaps) | Platform-level only | Not documented | Not documented |
+
+### Per-platform detail
+
+**Fjord Foundry tiered sales.** Fjord's tiered sale product supports
+three sequential rounds (Seed, Private, Public), each with
+independently configurable token amounts, prices, and per-user
+min/max allocation limits [33]. Wallet limits apply per tier, not
+across the entire sale: a participant can buy from multiple tiers
+up to each tier's individual cap. A minimum cap can be set for the
+entire sale; if the target is not met, contributions are
+automatically refunded [33]. The whitelist (CSV upload) applies at
+the sale level, not per tier; all whitelisted addresses have access
+to all tiers. Tiered sale volume is not broken out from Fjord's
+overall platform statistics (717 LBPs, $1.1B+ cumulative raised
+[5][6]), so the scale of tiered sales specifically is unknown.
+
+**DAO Maker SHO.** The Strong Holder Offering uses a seven-tier
+system based on staked $DAO amount (250 to 100,000 $DAO), with
+non-linear bonus multipliers (DAO Power) that determine allocation
+size [12]. Higher tiers receive priority access in early tranches;
+remaining allocation opens as first-come-first-served. Allocation
+per participant is a function of tier level, not an explicit min/max
+cap. The cumulative raised across all SHO sales is $90M+ [8]. No
+minimum raise or auto-refund mechanism exists; purchases are final.
+
+**Polkastarter IDO.** Fixed-price IDOs with a single price per sale
+and hard cap [10]. Participation requires $POLS staking (minimum
+1,000 POLS Power) and a lottery weighted by staked amount. Guaranteed
+allocation is available only at the highest tier (50,000+ POLS). The
+mechanism is effectively single-round with tiered access priority
+rather than sequential rounds with different prices. No minimum raise
+or auto-refund. Cumulative raised: $46M+ across 105+ projects [10].
+
+**Metaplex Genesis.** Supports multiple inflow buckets per launch,
+enabling a presale round (allowlisted wallets, fixed price) followed
+by a public launch pool (open, proportional distribution) [16]. The
+Launch Pool distributes tokens proportionally to all depositors
+rather than on a first-come-first-served basis, providing natural
+Sybil resistance: splitting across wallets yields no advantage.
+Per-wallet deposit limits are enforced on-chain. If the funding goal
+is not met, depositors receive a full refund [16]. Estimated total
+funds raised during the alpha period (July to November 2025):
+$55-70M [d].
+
+### Design patterns
+
+Across the four platforms, three patterns emerge that inform the
+design of a tiered sale on LEZ:
+
+1. **Sequential rounds with independent pricing.** Fjord is the only
+   platform that supports per-round fixed pricing in a multi-round
+   structure [33]. DAO Maker and Polkastarter use a single price with
+   tiered access priority. Metaplex separates presale (fixed price)
+   from launch pool (proportional), but these are different mechanisms
+   rather than sequential rounds of the same type.
+
+2. **Minimum raise with auto-refund.** Fjord tiered sales [33] and
+   Metaplex Genesis Launch Pool [16] both support a minimum raise
+   threshold with automatic refund if unmet. This is the standard
+   buyer protection for fixed-price sales. DAO Maker SHO and
+   Polkastarter do not offer this.
+
+3. **Per-user allocation enforcement.** All four platforms enforce
+   allocation limits, but through different mechanisms: explicit
+   min/max caps (Fjord [33], Metaplex [16]), staking-tier-weighted
+   allocation (DAO Maker [12], Polkastarter [10]). On a
+   privacy-preserving platform where per-wallet tracking is
+   incompatible with the private account path, the allowlist gate
+   with nullifier-based single-use entries is the closest analogue
+   to explicit per-user caps.
+
+4. **Per-tier access control.** No surveyed platform supports
+   per-tier allowlists: Fjord's CSV whitelist applies at the sale
+   level (all whitelisted addresses can access all tiers) [33],
+   and Metaplex's allowlist is per-launch rather than per-bucket
+   [16]. DAO Maker and Polkastarter gate access via staking tiers,
+   which function as implicit access control but are not
+   configurable per round. A per-tier allowlist (e.g., a seed tier
+   restricted to investors while the public tier is open) is a
+   natural extension of the tiered sale concept that none of these
+   platforms currently implement.
 
 ## Fee Structures
 
