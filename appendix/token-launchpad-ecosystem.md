@@ -100,10 +100,12 @@ variable fee tiers.
 ## Refund Mechanisms
 
 Most crypto-native launchpads treat purchases as final: once a buyer
-executes a swap or deposit, there is no platform-level refund. Two
-notable exceptions exist: DAO Maker's DYCO product offers a 16-month
-post-purchase refund window [15], and DAOs.fun allows redemption
-during the fundraising phase with a 10% penalty [21]. Regulatory frameworks are moving in
+executes a swap or deposit, there is no platform-level refund. Notable
+exceptions exist: Fjord Foundry's tiered sales (Seed, Private, Public
+rounds) support a minimum cap with automatic refunds if the target is
+not met [33]; DAO Maker's DYCO product offers a 16-month post-purchase
+refund window [15]; and DAOs.fun allows redemption during the
+fundraising phase with a 10% penalty [21]. Regulatory frameworks are moving in
 the opposite direction: EU MiCA mandates a 14-day cooling-off period
 for white paper offerings [19], and US Reg CF requires a 48-hour
 cancellation window plus a mandatory minimum raise threshold [20].
@@ -113,7 +115,8 @@ cancellation window plus a mandatory minimum raise threshold [20].
 | Protocol | Post-purchase refund | Minimum raise (soft cap) | Cancellation during sale |
 |---|---|---|---|
 | Pump.fun | No | No | No |
-| Fjord Foundry | No [11] | No [11] | Sell back at market price (buy+sell mode only) [11] |
+| Fjord Foundry (LBP) | No [11] | No [11] | Sell back at market price (buy+sell mode only) [11] |
+| Fjord Foundry (tiered sales) | No | Yes (minimum cap; auto-refund if unmet) [33] | No |
 | Metaplex Genesis | No [d] | Yes (Launch Pool only) [16] | Yes (Launch Pool: withdraw before claim window; 2% fee) [16] |
 | DAO Maker (DYCO) | Yes: 16 months, USDC-backed, burn on refund [15] | No | Yes: unconditional within window [15] |
 | DAO Maker (SHO) | No [12] | No | No |
@@ -132,12 +135,16 @@ opens and tokens are distributed, purchases are final.
 irreversible AMM swaps. Once a token graduates to Pumpswap, it trades
 on the open market with no platform-level buyer protection.
 
-**Fjord Foundry.** No refund mechanism [11]. LBP purchases are AMM
-swaps and are final once executed. In buy+sell mode, participants can
-sell tokens back into the pool during the sale at the current market
-price (not at their purchase price). After the LBP ends, tokens are
-distributed and there is no refund path. No minimum raise threshold
-exists; the sale runs regardless of demand.
+**Fjord Foundry.** Refund properties differ by sale type. For LBPs:
+no refund mechanism [11]. LBP purchases are AMM swaps and are final
+once executed. In buy+sell mode, participants can sell tokens back
+into the pool during the sale at the current market price (not at
+their purchase price). After the LBP ends, tokens are distributed
+and there is no refund path. No minimum raise threshold exists; the
+sale runs regardless of demand. For tiered sales (Seed, Private,
+Public rounds): Fjord supports a minimum cap setting; if the target
+is not met, contributions are automatically refunded [33]. This
+refund feature does not apply to LBPs.
 
 **Metaplex Genesis.** The Launch Pool mechanism provides partial buyer
 protection: depositors can withdraw during the deposit window (subject
@@ -254,6 +261,21 @@ available only at the highest tier (50,000+ POLS).
 the team) [21]. Buyer participation is open once a DAO is live,
 with no KYC or staking requirement. The 10% early redemption penalty
 serves as an economic Sybil deterrent during the fundraising window.
+
+### Per-buyer allocation limits
+
+Per-wallet or per-buyer allocation limits are available on platforms
+that use fixed-price or proportional distribution mechanisms:
+Metaplex Genesis supports per-wallet deposit limits enforced on-chain
+[16]; Fjord Foundry tiered sales (Seed, Private, Public rounds)
+support per-user min/max allocation per tier [33]; DAO Maker and
+Polkastarter enforce allocation limits through their staking tier
+systems [12][10].
+
+No bonding curve platform (Pump.fun, Flaunch, Meteora DBC) implements
+per-buyer limits. Bonding curves are open AMM pools where any wallet
+can submit unlimited buy transactions; the mechanism does not track
+cumulative spend per address.
 
 ## Fee Structures
 
@@ -373,9 +395,17 @@ is delegated to a human fund manager with discretionary authority.
 
 **Pump.fun.** The bonding curve closes automatically when the supply
 target is reached (graduation threshold), triggering migration of
-liquidity to Pumpswap [1]. There is no pause, no manual close, and
-no admin override. Post-graduation, the token trades on the open
-DEX market.
+liquidity to Pumpswap [1]. There is no pause, no manual close, no
+time-based expiry, and no admin override. Post-graduation, the token
+trades on the open DEX market. Curves that never reach the graduation
+threshold remain as dormant on-chain accounts indefinitely. The
+graduation rate is very low: approximately 1.4% historically [30],
+dropping to 0.7% to 0.8% in mid-2025 [31]. This means over 98% of
+launched tokens become zombie sales with no close mechanism and no
+way for the creator to reclaim deposited tokens. No bonding curve
+platform in the ecosystem (Pump.fun, Meteora DBC, Flaunch, Raydium
+LaunchLab) implements an optional time-based close to address this
+[32].
 
 **Fjord Foundry.** The sale creator can pause swaps during an LBP
 (reversible) or cancel a Fixed Price Sale before it starts [11].
@@ -608,3 +638,13 @@ anonymity set regardless of allowlist size.
     Balancer v2 documentation.
     https://docs.balancer.fi/concepts/explore-available-balancer-pools/weighted-pool/weighted-math.html ;
     https://balancer.gitbook.io/balancer/smart-contracts/smart-pools/liquidity-bootstrapping-faq
+30. Bitget, "Pump.fun statistics," citing Dune Analytics, Aug 2024.
+    https://www.bitget.com/news/detail/12560604442705
+31. The Defiant, "Pump.fun graduation rate drops," mid-2025.
+    https://www.thedefiant.io/news/defi/pump-fun-graduation-rate-drops
+32. Bonding Curve Time-Based Close Mechanisms research note
+    (internal), compiled from Pump.fun, Meteora DBC, Flaunch,
+    Raydium LaunchLab documentation, Apr 2026.
+33. Fjord Foundry, "Seed, Private and Public Rounds: Can I refund
+    participants if my sale doesn't hit the minimum cap?"
+    https://help.fjordfoundry.com/fjord-foundry-docs/for-sale-creators/seed-private-and-public-rounds#can-i-refund-participants-if-my-sale-doesnt-hit-the-minimum-cap

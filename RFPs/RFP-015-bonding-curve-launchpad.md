@@ -23,9 +23,7 @@ or, for privacy, via a deshield→buy→re-shield pattern (see
 interaction model for LEZ applications): when a private account is
 used, each purchase is routed through a fresh, single-use public
 account, hiding the link between the buyer's private identity and their
-participation in the sale. An optional private allowlist gate enables
-projects to restrict participation without exposing the eligibility set
-on-chain.
+participation in the sale.
 
 The bonding curve launchpad complements [RFP-016](./RFP-016-lbp-launchpad.md): where LBPs reward
 patient buyers (price falls over time unless buying pressure
@@ -73,23 +71,29 @@ project a predictable raise range.
 
 A time-based close creates a weaker invariant: if buying stops early,
 the sale ends with unsold supply and no clear clearing price.
-Supply-based close avoids this. An optional end timestamp is
-supported for projects that need a hard deadline, preventing
-zombie sales that sit open indefinitely if demand is low.
+Supply-based close avoids this. No bonding curve platform in the
+ecosystem implements time-based close; all use supply or price
+targets exclusively (see the
+[Sale Lifecycle](../appendix/token-launchpad-ecosystem.md#sale-lifecycle-and-close-mechanics)
+section of the appendix). An optional end timestamp is available as
+a soft requirement for projects that need a hard deadline.
 
-### One-directional sale
+### Two-way curve
 
-The sale is one-directional: buyers purchase tokens from the curve;
-there is no sell-back path during the sale. This is the correct choice
-for a token launch: it prevents reflexive sell pressure during the
-distribution window, simplifies pool accounting, and removes the attack
-surface of circular buy-sell cycles. The accumulated collateral reserve
-is locked until close and either withdrawn by the creator or used to
-seed a DEX pool (see auto-graduation in Soft Requirements).
+The bonding curve supports both buy and sell operations, matching
+the ecosystem standard established by Pump.fun. Participants can
+buy tokens from the curve and sell them back at the current AMM
+price. The sell formula is the inverse of the buy formula (see
+Reference Implementation). This provides continuous liquidity
+during the sale window: participants who want to exit can do so
+at market price without waiting for graduation and DEX listing.
 
-Optional sell-back (two-way curve) is a soft requirement for projects
-that want continuous liquidity from day one rather than a bounded
-sale-plus-DEX-seed model.
+The two-way design introduces reflexive sell pressure during the
+sale: if early buyers sell back into the curve, the price drops,
+potentially discouraging new participants. Projects that want to
+prevent this dynamic can use the optional one-directional mode
+(see Soft Requirements), which disables selling during the sale
+window.
 
 ### Public pool state
 
@@ -104,33 +108,6 @@ cryptographic complexity in the curve program itself. Participant
 privacy is enforced at the UX layer via the optional
 deshield→buy→re-shield pattern, which does not require private pool
 state.
-
-### Optional allowlist
-
-The allowlist gate is opt-in: many projects want permissionless open
-sales. When gating is needed (geographic restrictions, community-only
-rounds, pre-selected investor lists), the creator can commit an
-eligibility set at creation time and restrict buys to participants who
-can prove inclusion. The implementation approach is left to the
-proposing team.
-
-On LEZ, the relevant anonymity set for any private account action is
-all private accounts in the zone, not the allowlist size. The
-execution environment is shielded by construction: an observer cannot
-determine which private account interacted with the sale, regardless
-of whether an allowlist is active. This means an allowlist does not
-degrade privacy in the way it would on a transparent chain, where
-the anonymity set shrinks to the allowlist size (see the
-[Allowlist Privacy in Shielded Execution Environments](../appendix/token-launchpad-ecosystem.md#allowlist-privacy-in-shielded-execution-environments)
-section of the token launchpad ecosystem appendix).
-
-The recommended approach is ZK set membership proofs (a Merkle tree
-commitment with a ZK inclusion proof) rather than a public address
-list. This avoids publishing the allowlist on-chain and preserves the
-zone-wide anonymity set regardless of allowlist size. When both the
-allowlist gate and the private account path are enabled, the proposal
-must document the resulting privacy properties and any reduction in
-anonymity set relative to a non-gated sale.
 
 ### Fee structure
 
@@ -176,10 +153,9 @@ early is unprofitable because price is highest at the start and falls
 over time. In a bonding curve, buying early is cheapest: bots that
 execute at the first block of an open sale acquire tokens at the
 starting spot price `p₀ = Vc / Vt`, before the broader community can
-participate. The allowlist gate (restricted early access) and
-per-transaction buy limits (see Functionality requirement 2) are
-available mitigations, but neither eliminates the advantage entirely.
-Projects seeking the strongest bot-deterrence properties should use
+participate. No bonding curve platform in the ecosystem implements
+access restrictions or bot mitigation at the protocol level.
+Projects seeking stronger bot-deterrence properties should use
 RFP-016 instead.
 
 ## ✅ Scope of Work
@@ -190,22 +166,27 @@ RFP-016 instead.
 
 1. Implement a bonding curve program on LEZ with a deterministic,
    supply-driven pricing mechanism that maintains a well-defined
-   invariant across all buy operations. The buy instruction accepts
-   a collateral input `C_in` and computes a deterministic token
-   output based on the current curve state. The SDK must also expose
-   the inverse: the exact collateral cost for a buyer who requests a
-   specific token quantity `Q`. After each buy, the curve state must
-   be updated to preserve the pricing invariant. The real token
-   reserve decreases by `tokens_out`; the real collateral reserve
-   increases by `C_in`. If the computed `tokens_out` would exceed the
+   invariant across all buy and sell operations. The buy instruction
+   accepts a collateral input `C_in` and computes a deterministic
+   token output based on the current curve state. The SDK must also
+   expose the inverse: the exact collateral cost for a buyer who
+   requests a specific token quantity `Q`. The sell instruction
+   accepts a token input `tokens_in` and computes a deterministic
+   collateral output from the real collateral reserve. Sell
+   transactions must not withdraw more collateral than the real
+   reserve holds. After each buy, the real token reserve decreases
+   by `tokens_out` and the real collateral reserve increases by
+   `C_in`. After each sell, the real token reserve increases by
+   `tokens_in` and the real collateral reserve decreases by
+   `C_out`. If the computed `tokens_out` on a buy would exceed the
    remaining sale reserve, the transaction must revert. All
    arithmetic must use integer-only operations and round against
-   the trader: `tokens_out` rounds down, `C_in` rounds up. This
-   ensures the pool remains solvent and the pricing invariant is
-   never violated by rounding. The pricing invariant must never
-   change after creation. See the
-   Reference Implementation section for the recommended formula and
-   the deviation standard for alternative mechanisms.
+   the trader: on buy, `tokens_out` rounds down and `C_in` rounds
+   up; on sell, `C_out` rounds down. This ensures the pool remains
+   solvent and the pricing invariant is never violated by rounding.
+   The pricing invariant must never change after creation. See the
+   Reference Implementation section for the recommended formulas
+   and the deviation standard for alternative mechanisms.
 2. A sale creator can configure a sale with the following parameters:
    1. Token pair (project token + collateral token).
    2. Sale quantity `D`: the number of tokens available for
@@ -229,67 +210,31 @@ RFP-016 instead.
    and a **DEX seed reserve** (starts at `R`, untouched until
    close). `D` is the supply target: the sale auto-closes when
    the sale reserve is exhausted.
-   6. Optional: per-transaction buy limit (maximum collateral amount
-      spendable in a single buy transaction).
-   7. Optional: per-block token allocation ceiling (maximum number
-      of tokens that can be sold across all buy transactions within
-      a single block). When set, any buy that would exceed the
-      block ceiling is rejected. This limits the rate at which any
-      participant (or set of participants) can accumulate supply,
-      regardless of how many accounts they use.
-   8. Optional: private allowlist gate (see item 7 below).
-3. Participants buy project tokens from the curve using either a
-   public account directly, or via the deshield→buy→re-shield
-   pattern for private account interaction (see
-   [RFP-008](./RFP-008-lending-borrowing-protocol.md), which defines
-   this interaction model for LEZ applications). Both paths must be
-   supported by the program and SDK.
+3. Participants buy and sell project tokens on the curve using
+   either a public account directly, or via the
+   deshield→trade→re-shield pattern for private account interaction
+   (see [RFP-008](./RFP-008-lending-borrowing-protocol.md), which
+   defines this interaction model for LEZ applications). Both paths
+   must be supported by the program and SDK.
 4. The sale closes automatically when the sale reserve is exhausted
-   (all `D` tokens have been sold), or when an optional end
-   timestamp configured at creation time is reached, whichever
-   comes first. The creator can also close the sale manually at
-   any time before either condition is met. When an end timestamp
-   is configured, the program must enforce a minimum sale duration
-   at creation time, long enough that latency in the
-   deshield→buy→re-shield privacy path does not systematically
-   disadvantage private-path buyers on price relative to
-   public-path buyers.
+   (all `D` tokens have been sold).
 5. After the sale closes, the creator can withdraw:
    - The real collateral raised, net of fees as defined by the
      fee model specified in the proposal (see the Fee structure
      subsection in Design Rationale).
    - The DEX seed reserve `R` tokens (if not used for
      auto-graduation).
-6. Slippage protection: buyers specify the collateral amount to spend
-   and a minimum token quantity they are willing to accept. The
-   transaction reverts if the computed `tokens_out` is below this
-   minimum.
-7. The sale creator can enable an optional allowlist gate. When
-   enabled, only participants who can prove inclusion in the
-   committed eligibility set may buy from the curve. The proposing
-   team must specify and justify their allowlist mechanism in their
-   application. When the allowlist gate is used in conjunction with
-   the private account path, the proposal must document the
-   resulting privacy properties, including any change in the
-   effective anonymity set relative to a non-gated sale.
-8. The sale creator can pause buying at any time during the sale
-   (emergency stop). Pausing does not affect the curve state, the
-   virtual reserves, or the invariant `k`.
-9. Use Associated Token Accounts (ATAs) for all token interactions,
+6. Slippage protection: on buy, buyers specify the collateral
+   amount to spend and a minimum token quantity they are willing to
+   accept; the transaction reverts if the computed `tokens_out` is
+   below this minimum. On sell, sellers specify the token quantity
+   to sell and a minimum collateral amount they are willing to
+   accept; the transaction reverts if the computed `C_out` is below
+   this minimum.
+7. Use Associated Token Accounts (ATAs) for all token interactions,
     consistent with
     [LP-0014](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0014.md)
     and [RFP-008](./RFP-008-lending-borrowing-protocol.md).
-10. The sale creator can configure an optional vesting schedule for
-    the raised collateral at sale creation time. When configured,
-    the close or withdraw operation deposits collateral into the
-    vesting program (see
-    [RFP-017](./RFP-017-token-vesting.md)) instead of transferring
-    it directly to the creator's account. The creator then claims
-    collateral over time per the schedule terms. When
-    milestone-based vesting is used, milestone authority must be
-    held by a party other than the sale creator (e.g., a governance
-    body or multisig) to prevent the creator from approving
-    milestones and draining funds unilaterally.
 
 #### Usability
 
@@ -297,7 +242,7 @@ RFP-016 instead.
    bonding curve program. The SDK must expose the full lifecycle for
    both participants (discover active sales, compute price and
    impact, buy, query position) and creators (create sale,
-   pause/resume, close, withdraw). The SDK must support both direct
+   close, withdraw). The SDK must support both direct
    public account interaction and the deshield→buy→re-shield pattern
    for private account interaction. When the private account path is
    used, the SDK must handle the atomic deshield (both collateral
@@ -310,14 +255,14 @@ RFP-016 instead.
      target `D`, total collateral raised, and a price-vs-supply
      chart; execute a buy; view purchase history.
    - **Creator view**: create a new sale (all parameters including
-     `Vt`, `Vc`, sale quantity `D`, allowlist configuration),
+     `Vt`, `Vc`, sale quantity `D`),
      monitor an active sale (live supply progress, collateral
-     raised), pause/resume, close sale, and withdraw proceeds.
+     raised), close sale, and withdraw proceeds.
 3. Provide a CLI that covers core functionality of the program.
    The CLI may have fewer features than the GUI mini-app but must
    support all essential operations for both participants (buy,
    query price, check sale status) and creators (create sale,
-   pause/resume, close, withdraw).
+   close, withdraw).
 4. The mini-app must display a pre-buy confirmation summary before
    each purchase: collateral to spend, exact tokens to be received
    (computed using the pricing formula), current spot price
@@ -348,8 +293,8 @@ RFP-016 instead.
    [SPEL framework](https://github.com/logos-co/spel).
 10. Failed or rejected buys must return clear, actionable error
     messages (e.g., insufficient balance, supply target already
-    reached, sale paused, allowlist gate rejected, slippage
-    exceeded, per-transaction buy limit exceeded).
+    reached, slippage
+    exceeded).
 #### Reliability
 
 1. Curve state (`Vt`, `Vc`, `k`, real reserves) must remain
@@ -386,9 +331,8 @@ and mainnet deployment.
    and Performance has at least one corresponding test. Test
    coverage must include: invariant preservation across multiple
    buys, happy-path buy, slippage revert (tokens_out below
-   minimum), allowlist gate accept and reject, auto-close on supply
-   target, manual close, pause/resume, per-transaction buy limit
-   enforcement.
+   minimum), auto-close on supply
+   target, manual close.
 4. A README documents end-to-end usage: deployment steps, program
    addresses, and step-by-step instructions for both creators and
    participants via CLI and mini-app.
@@ -467,8 +411,6 @@ For every buy from a private account:
   block height. When using the private account path, the buyer's
   address is an ephemeral intermediary account with no prior
   on-chain history.
-- Allowlist gate configuration and whether the gate is enabled,
-  but not the list of eligible addresses.
 - Sale close and creator withdrawal transactions.
 
 #### What is private (when using the private account path)
@@ -494,27 +436,14 @@ SDK accept full responsibility for any resulting privacy loss.
 
 ### Known Limitations
 
-**Per-wallet buy limits are not supported for the private account
-path.** Enforcing a cap on cumulative spend per participant requires
-tracking spend per address. For public account interactions this is
-feasible, but is incompatible with the private account path: each buy
-from a private account uses a fresh ephemeral public address with no
-prior history, so the program cannot link multiple buys to the same
-underlying participant. The per-transaction buy limit (Functionality
-requirement 2) is a partial mitigation: it bounds the collateral
-spendable in a single buy, which raises the cost of rapid accumulation,
-but it does not prevent a single participant from submitting many
-transactions. Projects that need strong concentration limits should
-use the allowlist gate to restrict the eligible set.
-
 **Front-running at sale open.** Unlike the LBP mechanism, which opens
 at a price above estimated fair value and declines over time, a bonding
 curve opens at its lowest price (`p₀ = Vc / Vt`). Bots that execute
 at the first block of the sale acquire tokens at the cheapest possible
-price, before the community can participate. The allowlist gate and
-per-transaction buy limit reduce the impact but do not eliminate it.
-Projects requiring stronger bot deterrence should use
-[RFP-016](./RFP-016-lbp-launchpad.md) instead.
+price, before the community can participate. No bonding curve platform
+in the ecosystem implements access restrictions or bot mitigation at
+the protocol level. Projects requiring stronger bot deterrence should
+use [RFP-016](./RFP-016-lbp-launchpad.md) instead.
 
 ### Reference Implementation
 
@@ -537,8 +466,16 @@ The inverse (exact collateral cost for a requested token quantity `Q`):
 C_in = k / (Vt - Q) - Vc
 ```
 
-After each buy, `Vt` and `Vc` are updated to preserve `k`. `k` is
-computed at creation as `Vt × Vc` and must never change.
+The sell formula computes collateral output as:
+
+```
+C_out = Vc - k / (Vt + tokens_in)
+```
+
+After each buy, `Vt` decreases by `tokens_out` and `Vc` increases
+by `C_in`. After each sell, `Vt` increases by `tokens_in` and `Vc`
+decreases by `C_out`. In both cases, `k = Vt × Vc` is preserved.
+`k` is computed at creation and must never change.
 
 **Deviation standard.** Teams may propose an alternative pricing
 mechanism (such as a polynomial integral, the Bancor power function,
@@ -551,14 +488,13 @@ production deployments or audits.
 
 ### Soft Requirements
 
-- **Two-way (sell-back) curve**: after purchasing tokens, holders
-  can sell them back to the curve, receiving collateral from the
-  real reserve. The sell formula is the inverse of the buy formula:
-  `C_out = Vc - k / (Vt + tokens_in)`. This transforms the bonding
-  curve from a one-time sale vehicle into a continuous liquidity
-  source, but introduces reflexive sell pressure during the sale
-  window. Proposals including this feature must address the
-  interaction between sell-backs and the collateral reserve.
+- **One-directional mode**: a creator-configurable option that
+  disables sell-back during the sale window. When enabled, buyers
+  can only purchase tokens from the curve; the accumulated
+  collateral reserve is locked until close. This prevents reflexive
+  sell pressure during the distribution window and simplifies pool
+  accounting, at the cost of removing exit liquidity for
+  participants before graduation.
 - **Auto-graduation to DEX**: when the supply target is reached and
   the sale auto-closes, the program can automatically deploy the
   accumulated real collateral reserve and the DEX seed reserve `R`
@@ -566,11 +502,19 @@ production deployments or audits.
   [RFP-004](./RFP-004-privacy-preserving-dex.md) and LP-0015 to
   be available). This eliminates manual post-sale liquidity seeding
   and provides immediate post-graduation tradability.
-- **Buyer token vesting**: at sale close, purchased tokens can be
-  routed directly into a vesting schedule (see
-  [RFP-017](./RFP-017-token-vesting.md)) rather than transferred
-  to the buyer immediately. This enables a sale-plus-vesting flow
-  in a single operation.
+- **Optional end timestamp**: the sale creator can configure an end
+  timestamp at creation time. The sale closes when the supply target
+  is reached or the end timestamp passes, whichever comes first.
+  This prevents zombie sales (curves that sit open indefinitely if
+  demand is low). On Pump.fun, the graduation rate is approximately
+  0.7% to 1.4%, meaning over 98% of bonding curves never reach
+  their supply target and remain as dormant on-chain state. When an
+  end timestamp is configured, the program must enforce a minimum
+  sale duration at creation time, long enough that latency in the
+  deshield→buy→re-shield privacy path does not systematically
+  disadvantage private-path buyers on price relative to public-path
+  buyers. No bonding curve platform currently implements this
+  feature.
 
 
 ## ⚠ Platform Dependencies
@@ -637,10 +581,10 @@ following criteria.
 | Criterion | Weight | What we look for |
 |-----------|--------|-----------------|
 | Technical design quality | 30% | Formal specification of pricing mechanism, invariant proofs or arguments, integer arithmetic strategy, audit plan |
-| Privacy architecture | 25% | Strength of anonymity properties in the private account path, completeness of the deshield→buy→re-shield flow, allowlist privacy interaction (if applicable) |
+| Privacy architecture | 25% | Strength of anonymity properties in the private account path, completeness of the deshield→buy→re-shield flow |
 | Team experience | 20% | Prior AMM or DeFi protocol work, smart contract security track record, familiarity with SVM or similar execution environments |
 | Timeline and milestones | 15% | Realistic schedule with concrete deliverables, risk identification, dependency management (especially LP-0015) |
-| Ecosystem alignment | 10% | Open source commitment, composability with other LEZ programs (DEX, vesting), community engagement plan |
+| Ecosystem alignment | 10% | Open source commitment, composability with other LEZ programs (DEX), community engagement plan |
 
 
 ## Resources
@@ -651,8 +595,6 @@ following criteria.
 - [RFP-008: Lending & Borrowing Protocol](./RFP-008-lending-borrowing-protocol.md)
   (reference for the public/private account interaction pattern used
   across LEZ applications)
-- [RFP-017: Privacy-Preserving Token Vesting](./RFP-017-token-vesting.md)
-  (soft requirement: post-sale vesting integration)
 - [RFP-004: Privacy-Preserving DEX](./RFP-004-privacy-preserving-dex.md)
   (soft requirement: auto-graduation target)
 - [Appendix: Token Launchpad Ecosystem](../appendix/token-launchpad-ecosystem.md)
