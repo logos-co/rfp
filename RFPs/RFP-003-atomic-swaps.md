@@ -180,6 +180,14 @@ for the maturity of those modules and a high-visibility proof point for ecosyste
    documentation: all public types, functions, and error types, with usage examples
    covering the complete swap lifecycle (offer discovery, negotiation, escrow
    creation, claim, and refund).
+9. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+   for each per-pair SDK (LEZ–BTC, LEZ–XMR, LEZ–ETH), covering the developer
+   integration journey for that swap protocol.
+10. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+    for the maker CLI and a separate one for the taker CLI, each covering the
+    respective operator/user journey end-to-end.
+11. Provide Figma designs or equivalent for the maker mini-app GUI and the
+    taker mini-app GUI.
 
 #### + (Demos)
 

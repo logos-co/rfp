@@ -123,6 +123,12 @@ alternative to established chains for advanced lending use cases.
 4. A README addendum documents the new features: configuration steps,
    eMode category setup, isolated market listing process, and a
    flash loan integration guide.
+5. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+   for each new SDK feature (flash loans, eMode, isolated markets, multiple
+   collateral), covering the developer integration journey.
+6. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+   for the CLI additions covering the new features.
+7. Provide Figma designs or equivalent for all GUI additions to the mini-app.
 
 ### Soft Requirements
 
