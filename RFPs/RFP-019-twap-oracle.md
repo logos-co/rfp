@@ -13,6 +13,12 @@ category: Developer Tooling & Infrastructure
 
 ## 🧭 Overview
 
+<!-- TODO: Review whether TWAP as a core tier is the right direction.
+     Ecosystem evidence is weak: only Compound V2 used TWAP (as a sanity
+     check, not primary), and dropped it in V3. Liquity V2 explicitly
+     rejected TWAP. No major lending protocol uses TWAP as a primary
+     price source. See appendix "Production Oracle Architectures". -->
+
 Build a two-tier oracle system for LEZ: an on-chain TWAP (time-weighted
 average price) oracle program that computes prices from LEZ DEX pool
 accumulators, plus integration adaptors for external oracle feeds (Pyth,
@@ -29,7 +35,7 @@ development, AMM mathematics, and cryptographic verification.
 
 ## 🔥 Why This Matters
 
-Without price feeds, the lending protocol (RFP-008), liquidation
+Without price feeds, the lending protocol ([RFP-008](./RFP-008-lending-borrowing-protocol.md)), liquidation
 engines, and any derivatives built on LEZ cannot function. Price
 oracles are the single most critical shared dependency across DeFi
 applications.
@@ -307,7 +313,7 @@ The oracle program must call the DEX program to read pool accumulators.
 
 TWAP computation requires block timestamps to calculate the time delta
 between observations. Interest accrual in the lending protocol
-(RFP-008) has the same dependency.
+([RFP-008](./RFP-008-lending-borrowing-protocol.md)) has the same dependency.
 
 ### Soft blockers
 
@@ -358,7 +364,7 @@ adaptors first, TWAP second.
 | Oracle security | 25% | Circuit breaker design, cryptographic verification completeness, staleness handling |
 | Team experience | 20% | Prior oracle or DeFi infrastructure work, security track record |
 | Timeline and milestones | 15% | Realistic schedule, phased delivery (external adaptors first, TWAP second) |
-| Ecosystem alignment | 10% | Open source, composability with DEX (RFP-004) and lending (RFP-008) |
+| Ecosystem alignment | 10% | Open source, composability with DEX (RFP-004) and lending ([RFP-008](./RFP-008-lending-borrowing-protocol.md)) |
 
 ## 🌍 Open Source Requirement
 
