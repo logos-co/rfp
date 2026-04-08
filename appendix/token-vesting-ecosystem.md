@@ -218,10 +218,13 @@ the core protocol needing to charge fees.
 Zero fees are the dominant model and the most adoption-friendly
 design. Any RFP-017 implementation on LEZ should default to zero
 protocol fees, with a governance-activatable fee switch for
-future monetisation (the Sablier pattern). The broker fee model
-is worth considering for third-party integrators and launchpad
-partners. LEZ transaction and proof costs will be the primary
-user-facing expense.
+future monetisation. Sablier V2 included such a switch
+(admin-controlled, hard-capped at 10%) but never activated it
+and removed it in V2.2; current Sablier versions charge modest
+interface fees instead [2]. A broker fee for third-party
+integrators and launchpad partners is worth considering. LEZ
+transaction and proof costs will be the primary user-facing
+expense.
 
 ### Cost comparison for 100-recipient vesting
 
@@ -300,6 +303,7 @@ future vested tokens can itself be transferred or sold.
 
 | Protocol | Transferable | Mechanism | Secondary Market |
 |---|---|---|---|
+| Magna | Not publicly documented [1] | Enterprise platform; not open source | N/A |
 | Sablier | Yes | ERC-721 NFT per stream [2] | Any NFT marketplace (OpenSea, Blur, etc.) |
 | Hedgey Finance | Yes (configurable) | ERC-721 NFT per plan; bound (soulbound) variant available [5] | NFT marketplace; Lockup Plan NFTs are non-revocable + transferable |
 | Streamflow | No [4] | Fixed recipient address | None |
@@ -380,10 +384,10 @@ This universal transparency creates real problems:
 
 - **Front-running unlock events.** Unlock schedules are public;
   traders position ahead of large unlocks anticipating sell
-  pressure. The April 2025 MANTRA ($OM) collapse (from $6 to
-  $0.60 in hours, wiping $6B in market cap), while not solely
-  caused by front-running, illustrates the fragility of
-  transparent unlock mechanics at scale.
+  pressure. The April 2025 MANTRA ($OM) collapse (90% in hours,
+  from over $6 to under $0.50, wiping over $5B in market cap
+  [18]), while not solely caused by front-running, illustrates
+  the fragility of transparent unlock mechanics at scale.
 - **Investor allocation leakage.** A project's fundraising round
   terms are effectively public once vesting contracts are
   deployed. Competitors, token analytics firms, and short sellers
@@ -475,3 +479,7 @@ https://blog.kraken.com/news/payward-acquires-magna
 [17] arXiv 2501.03391, "Privacy-Preserving Smart Contracts for
 Permissioned Blockchains: A zk-SNARK-Based Recipe," Jan 2025.
 https://arxiv.org/html/2501.03391v1
+
+[18] CoinDesk, "Mantra's OM Crashes 90% in Bizarre Sell-Off as
+Team Alleges 'Forced Liquidations'," Apr 2025.
+https://www.coindesk.com/markets/2025/04/14/mantra-s-om-crashes-90-in-bizarre-selloff-as-team-alleges-forced-liquidations
