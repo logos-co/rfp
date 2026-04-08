@@ -573,20 +573,6 @@ Estimated duration: **10–12 weeks**
 All code must be released under the **MIT+Apache2.0 dual License**.
 
 
-## Evaluation Criteria
-
-Proposals that meet all hard requirements will be ranked on the
-following criteria.
-
-| Criterion | Weight | What we look for |
-|-----------|--------|-----------------|
-| Technical design quality | 30% | Formal specification of pricing mechanism, invariant proofs or arguments, integer arithmetic strategy, audit plan |
-| Privacy architecture | 25% | Strength of anonymity properties in the private account path, completeness of the deshield→buy→re-shield flow |
-| Team experience | 20% | Prior AMM or DeFi protocol work, smart contract security track record, familiarity with SVM or similar execution environments |
-| Timeline and milestones | 15% | Realistic schedule with concrete deliverables, risk identification, dependency management (especially LP-0015) |
-| Ecosystem alignment | 10% | Open source commitment, composability with other LEZ programs (DEX), community engagement plan |
-
-
 ## Resources
 
 - [Logos Documentation](https://github.com/logos-co/logos-docs)
