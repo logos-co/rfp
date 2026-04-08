@@ -64,7 +64,7 @@ Click an RFP to view details. Use the Submit Proposal button to apply.
 | RFP-004 | [Privacy-Preserving DEX](RFPs/RFP-004-privacy-preserving-dex.md)           | XL   | $XXXXX  | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
 | RFP-008 | [Lending & Borrowing Protocol](RFPs/RFP-008-lending-borrowing-protocol.md) | XL   | $XXXXX  | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
 | RFP-012 | [Advanced Lending Features](RFPs/RFP-012-advanced-lending-features.md)     | L    | $XXXXX  | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
-| RFP-018 | [TWAP Oracle and Price Feed Infrastructure](RFPs/RFP-018-twap-oracle.md)  | L    | $XXXXX  | open   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
+| RFP-019 | [TWAP Oracle and Price Feed Infrastructure](RFPs/RFP-019-twap-oracle.md)  | L    | $XXXXX  | open   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
 <!-- RFP_TABLE_END -->
 
 ## Terms & Conditions

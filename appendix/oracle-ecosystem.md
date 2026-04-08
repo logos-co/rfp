@@ -2,7 +2,7 @@
 
 This appendix surveys oracle protocols, TWAP mechanics, manipulation
 vectors, and external oracle models relevant to
-[RFP-018](../RFPs/RFP-018-twap-oracle.md). It provides the technical
+[RFP-019](../RFPs/RFP-019-twap-oracle.md). It provides the technical
 and market context for the two-tier oracle architecture proposed for
 LEZ.
 
@@ -15,8 +15,8 @@ This order is maintained throughout the document.
 |----------|-----|--------|-------|------------|-------------|
 | Chainlink | $93B+ | 27 push / 100+ pull | Push (OCR/DON) | 1,000+ | Decentralised Oracle Network with VWAP from premium data aggregators |
 | Chronicle | $9.2B+ | 13 | Push | Limited | MakerDAO-native; concentrated TVS from Sky's $9B+ TVL |
-| Pyth | $8.6B+ | 81 | Pull (Wormhole) | 1,500+ | First-party data from 70+ institutional publishers; confidence intervals |
-| RedStone | $7.2B+ | 50+ push / 110+ pull | Pull (calldata) | 1,000+ | No bridge dependency; modular push+pull; fastest-growing oracle |
+| Pyth | $8.6B+ | 110+ | Pull (Wormhole) | 1,500+ | First-party data from 70+ institutional publishers; confidence intervals |
+| RedStone | $7.2B+ | 50+ push / 120+ pull | Pull (calldata) | 1,000+ | No bridge dependency; modular push+pull; fastest-growing oracle |
 | Switchboard | $3B+ | 9 | Pull (TEE) | Permissionless | TEE (SGX/SEV) security; permissionless custom feed creation |
 | Supra | $650M+ | 45 | Push+Pull | N/A | Newer entrant; DORA (Distributed Oracle Agreement) consensus |
 
@@ -29,14 +29,16 @@ start at $0 regardless of oracle choice.
 
 ### Market share
 
-Chainlink dominates with approximately 68% of global oracle TVS and
-84% on Ethereum specifically [1]. Chronicle's high TVS (approximately
-6.7%) is concentrated in a single protocol (MakerDAO/Sky) and does
-not reflect general-purpose adoption [1]. Pyth (approximately 6.3%)
-leads on chain breadth (81+ chains) and data quality through
-first-party institutional publishers. RedStone (approximately 5.2%)
-has the fastest growth trajectory, driven by explicit support for L2s,
-appchains, and rollups [2][3].
+Chainlink dominates with approximately 64% of global oracle TVS and
+over 80% on Ethereum specifically [1]. Chronicle's high TVS
+(approximately 11%) is concentrated in a single protocol
+(MakerDAO/Sky) and does not reflect general-purpose adoption [1].
+Pyth (approximately 5.8%) leads on chain breadth (110+ chains) and
+data quality through first-party institutional publishers. RedStone
+(approximately 5.5%) has the fastest growth trajectory, driven by
+explicit support for L2s, appchains, and rollups; RedStone reports
+zero mispricing or downtime incidents through early 2026
+[2][3][17].
 
 ### Per-protocol adoption
 
@@ -64,13 +66,13 @@ on Morpho (Base) and Jupiter (Solana) [5].
 model attaches signed data to EVM calldata; the on-chain contract
 verifies node signatures without requiring a bridge or dedicated
 relay infrastructure [3]. Fastest-growing oracle in 2024 to 2025,
-with deployments on Monad, Hyperliquid (HyperStone), and 110+ pull
-chains. Zero reported mispricing incidents as of early 2026 [3].
+with deployments on Monad, Hyperliquid (HyperStone), and 120+ pull
+chains. Zero reported mispricing incidents as of early 2026 [3][17].
 Expanding into RWA feeds (BlackRock BUIDL, VanEck VBILL) and risk
 ratings via Credora acquisition.
 
 **Switchboard.** Permissionless feed creation via TEE (SGX/SEV)
-oracle nodes [6]. Any developer can create custom feeds for assets
+oracle nodes [13]. Any developer can create custom feeds for assets
 not covered by Pyth or RedStone. Can aggregate from multiple upstream
 oracles (Pyth + Chainlink + custom APIs) in a single feed. The core
 EVM contract must be deployed by the Switchboard team (not
@@ -89,7 +91,7 @@ chains. Smaller feed catalogue (200+) and newer ZK architecture
 Each Uniswap v2 pool stores `price0CumulativeLast` and
 `price1CumulativeLast` variables. These accumulators are updated at
 the beginning of each block (before any same-block trades execute)
-using the price set by the last trade of the previous block [8]. The
+using the price set by the last trade of the previous block [14]. The
 formula: `cumulativePrice += price * timeElapsed`. To compute a TWAP,
 an external contract reads the accumulator at two timestamps (T1 and
 T2) and divides:
@@ -147,7 +149,7 @@ price in the same or next block. Under Uniswap v2/v3, the accumulator
 is updated at block start (before same-block trades), so within-block
 manipulation does not affect the current block's accumulator sample.
 However, the attacker can manipulate price at the end of block N,
-which contaminates the accumulator sample in block N+1 [4][10].
+which contaminates the accumulator sample in block N+1 [6][10].
 
 ### PoS multi-block validator attacks
 
@@ -155,7 +157,7 @@ Under Proof of Stake, validators know one epoch ahead (32 blocks on
 Ethereum, approximately 6.4 minutes) whether they control consecutive
 blocks. A validator controlling two consecutive blocks can move the
 price in block N and reverse it in block N+1, at a cost of only 2x
-pool fees, with no back-run competition [4]. This contaminates one
+pool fees, with no back-run competition [6]. This contaminates one
 accumulator data point per attack. On high-liquidity pools (e.g.
 USDC/WETH 5bps on Ethereum), the attack is economically infeasible;
 on low-liquidity pools, it is trivially cheap.
@@ -163,9 +165,9 @@ on low-liquidity pools, it is trivially cheap.
 ### Low-liquidity vulnerability
 
 Manipulation cost scales approximately linearly with pool liquidity
-depth [4][10]. Adding $1M of wide-range liquidity on the USDC/WETH
+depth [6][10]. Adding $1M of wide-range liquidity on the USDC/WETH
 5bps pool increases the two-block attack cost by approximately $360B,
-demonstrating extreme sensitivity [4]. On a new chain like LEZ with
+demonstrating extreme sensitivity [6]. On a new chain like LEZ with
 $1M pools, the same attack that costs trillions on Ethereum mainnet
 costs only thousands.
 
@@ -264,6 +266,90 @@ market coverage.
 | Confidence interval | No | Yes | No | No |
 | Real-world assets | No | Yes | Yes (RWA feeds) | Yes |
 
+## Production Oracle Architectures
+
+Major lending and borrowing protocols have converged on multi-source
+oracle designs with fallback mechanisms. These production patterns
+inform the requirements and design rationale of RFP-019.
+
+### Aave V3
+
+Aave V3's `AaveOracle` contract uses Chainlink aggregators as the
+primary price source via `getAssetPrice()`. Each asset is mapped to a
+Chainlink feed through `setAssetSources()`. If the Chainlink feed
+returns a price <= 0, the call is forwarded to a configurable fallback
+oracle via `getFallbackOracle()` [15]. On Layer 2 deployments, the
+`PriceOracleSentinel` contract monitors sequencer uptime: if the L2
+sequencer goes down, borrowing is disabled and liquidations are paused
+for a configurable grace period (`setGracePeriod()`), giving users
+time to restore position health after an outage [15]. Aave does not
+use TWAP as a primary or secondary price source; it relies entirely
+on Chainlink feeds with governance-managed fallback.
+
+### Compound V2 and V3
+
+Compound V2's `UniswapAnchoredView` contract implemented a two-source
+design: Coinbase as the primary reporter, anchored against a Uniswap
+V2 TWAP. If the Coinbase price diverged beyond 20% of the TWAP
+anchor, the price was rejected and the system retained the last valid
+price [16]. This is the closest production precedent to RFP-019's
+circuit breaker design. On 26 November 2020, a DAI price spike to
+$1.30 on Coinbase triggered approximately $89M in liquidations;
+the TWAP anchor limited the damage by rejecting the most extreme
+prices, but the 20% tolerance was too wide to prevent all
+mispricing [16]. Compound V3 (Comet) dropped the TWAP anchor entirely
+and switched to Chainlink feeds via `AggregatorV3Interface`, with
+asset-specific price feed wrappers for bounds checking [16].
+
+### MakerDAO / Sky
+
+MakerDAO's oracle pipeline has two layers: the Median contract
+(aggregates prices from multiple whitelisted feed providers) and
+the Oracle Security Module (OSM), which imposes a mandatory one-hour
+delay before new prices take effect in the system [15a]. The delay
+is a circuit breaker by design: it gives governance one hour to
+detect and respond to oracle manipulation before the system acts on
+a compromised price. Emergency responses include calling `stop()`
+to freeze the OSM or triggering Emergency Shutdown. MakerDAO does
+not use Uniswap TWAP. Chronicle Protocol evolved from MakerDAO's
+internal oracle infrastructure, using Schnorr signature aggregation
+to consolidate validator signatures into a single "super signature,"
+achieving constant-time verification at approximately 52K gas
+regardless of the number of validators [15b].
+
+### Liquity V2
+
+Liquity V2 explicitly rejected Uniswap V3 TWAP as a primary or
+fallback source due to liquidity migration risk (uncertainty about
+whether v3 liquidity would persist after the Uniswap v4 launch)
+[18]. Instead, Liquity V2 uses Chainlink as the primary oracle with
+a simple fallback: if the primary feed is frozen for more than 12
+hours or returns bad data, the system falls back to a secondary
+oracle (once, with no cascading). Liquity V2 explicitly rejects
+complex circuit breaker designs (e.g. Gyroscope's pause-on-divergence
+model), reasoning that pausing operations requires human intervention
+to set a new oracle and unpause, which conflicts with their
+immutability goals [18]. The design prioritises automation: simple
+trigger conditions, single fallback, no manual intervention required.
+
+### Common patterns
+
+| Protocol | Primary | Secondary / fallback | Circuit breaker | TWAP role |
+|----------|---------|---------------------|-----------------|-----------|
+| Aave V3 | Chainlink | Governance-set fallback | PriceOracleSentinel (L2 sequencer) | None |
+| Compound V2 | Coinbase reporter | Last valid price | 20% TWAP anchor tolerance | Anchor / sanity check |
+| Compound V3 | Chainlink | None (governance pauses) | Asset-specific bounds | None |
+| MakerDAO | Median (multi-feed) | Emergency Shutdown | 1-hour OSM delay | None |
+| Liquity V2 | Chainlink | Simple fallback (one hop) | None (by design) | Rejected |
+
+Two patterns emerge. First, every major lending protocol uses at
+least two tiers of price validation: no production protocol trusts a
+single oracle source without some form of cross-check or delay.
+Second, TWAP serves as an anchor or sanity check in the protocols
+that use it (Compound V2), never as the sole price source for
+lending. These patterns validate RFP-019's two-tier architecture
+(on-chain TWAP + external feeds) and circuit breaker design.
+
 ## LEZ Bootstrap Strategy
 
 ### Phase 1: Genesis (no TVL)
@@ -312,7 +398,7 @@ The TWAP tier's role evolves with liquidity:
 
 ## References
 
-1. DefiLlama, "Oracles" dashboard, accessed Q3 2025.
+1. DefiLlama, "Oracles" dashboard, accessed Q1 2026.
    https://defillama.com/oracles
 2. Mitosis University, "Which Oracle Powers What," 2025.
    https://university.mitosis.org/chainlink-pyth-redstone-chronicle-supra-switchboard-which-oracle-powers-what/
@@ -339,3 +425,20 @@ The TWAP tier's role evolves with liquidity:
     https://smartcontentpublication.medium.com/twap-oracles-vs-chainlink-price-feeds-a-comparative-analysis-8155a3483cbd
 12. Chainlink, "Off-Chain Reporting" documentation.
     https://docs.chain.link/architecture-overview/off-chain-reporting
+13. Switchboard, "Protocol" documentation.
+    https://docs.switchboard.xyz/how-it-works/switchboard-protocol
+14. Uniswap, "Oracles" (v2 protocol concepts).
+    https://docs.uniswap.org/contracts/v2/concepts/core-concepts/oracles
+15. Aave, "Oracles" (v3 smart contracts documentation).
+    https://aave.com/docs/aave-v3/smart-contracts/oracles
+15a. MakerDAO, "Oracle Security Module (OSM)" documentation.
+     https://docs.makerdao.com/smart-contract-modules/oracle-module/oracle-security-module-osm-detailed-documentation
+15b. Chronicle Labs, "Understanding Chronicle" documentation.
+     https://docs.chroniclelabs.org/understandingChronicle
+16. Compound Finance, "Price Feed" documentation.
+    https://compound.finance/docs/prices
+17. RedStone, "Blockchain Oracles Comparison: Chainlink vs Pyth vs
+    RedStone 2026," Mar 2026.
+    https://blog.redstone.finance/2026/03/30/blockchain-oracles-comparison-chainlink-vs-pyth-vs-redstone-2026/
+18. Liquity, "The Oracle Conundrum," 2023.
+    https://www.liquity.org/blog/the-oracle-conundrum
