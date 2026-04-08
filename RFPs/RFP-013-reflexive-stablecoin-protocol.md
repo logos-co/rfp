@@ -14,7 +14,7 @@ category: Applications & Integrations
 
 Build a non-pegged, reflexive stablecoin protocol for the Logos Execution Zone (LEZ). The stablecoin is backed by a reference token collateral and uses an autonomous feedback controller to adjust a floating redemption price, incentivizing market participants to stabilize the token without requiring active governance intervention.
 
-This design — pioneered by [RAI / Reflexer Finance](https://reflexer.finance/) — produces a stablecoin that trades governance for mathematics: the system self-corrects via economic incentives rather than policy decisions. Users lock collateral and mint stablecoins against it. The protocol continuously adjusts a redemption rate based on the deviation between market price and redemption price. When market price exceeds redemption price, the rate goes negative, causing redemption price to drift down and reducing demand. When market price is below redemption price, the rate goes positive, causing redemption price to drift up and increasing demand. This creates a self-stabilizing feedback loop.
+This design — pioneered by [RAI / Reflexer Finance](https://reflexer.finance/) — produces a stablecoin that trades governance for mathematics: the system self-corrects via economic incentives rather than policy decisions. For a survey of the stablecoin ecosystem and the design rationale behind this approach, see the [companion appendix](../appendix/appendix-reflexive-stablecoin-ecosystem.md). Users lock collateral and mint stablecoins against it. The protocol continuously adjusts a redemption rate based on the deviation between market price and redemption price. When market price exceeds redemption price, the rate goes negative, causing redemption price to drift down and reducing demand. When market price is below redemption price, the rate goes positive, causing redemption price to drift up and increasing demand. This creates a self-stabilizing feedback loop.
 
 The protocol follows the RAI design with these key components: collateralized debt positions (SAFEs) that track collateral, normalized debt, and accumulated rates; a redemption price that drifts based on a computed redemption rate; stability fees that accrue continuously via rate accumulation; and a feedback loop that stabilizes the token mathematically rather than through governance intervention.
 
@@ -199,6 +199,7 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [RFP-002 — Freeze Authority](./RFP-002-freeze-authority-poc.md)
 - [RFP-008 — Lending & Borrowing](./RFP-008-lending-borrowing-protocol.md)
 - [RFP-014 — Liquidation & Auction Engine](./RFP-014-liquidation-auction-engine.md)
+- [Appendix: Reflexive Stablecoin Ecosystem](../appendix/appendix-reflexive-stablecoin-ecosystem.md)
 
 ## How to Apply
 

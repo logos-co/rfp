@@ -14,7 +14,7 @@ category: Applications & Integrations
 
 Build a permissionless liquidation and auction system for collateralized debt position (CDP) protocols on the Logos Execution Zone (LEZ). This system is designed as a reusable program that each CDP product can deploy as its own instance. It detects undercollateralized positions, seizes collateral, and sells it via auctions to cover debt. It also manages protocol surplus and debt through separate auction mechanisms.
 
-The design follows proven patterns from [RAI / Reflexer Finance](https://reflexer.finance/): a fixed-discount auction for seized collateral that incentivizes quick liquidation while minimizing protocol losses, plus surplus and debt auction houses for system-level balance management. When a position becomes undercollateralized, the system seizes its collateral and begins an auction where the discount to market price increases over time until the target amount is raised. Surplus from liquidation penalties and stability fees is auctioned for the reference token and burned. Shortfalls from insufficient collateral auctions are covered by minting the reference token and auctioning for stablecoins.
+The design follows proven patterns from [RAI / Reflexer Finance](https://reflexer.finance/): a fixed-discount auction for seized collateral that incentivizes quick liquidation while minimizing protocol losses, plus surplus and debt auction houses for system-level balance management. For a survey of liquidation mechanisms and the design rationale behind this approach, see the [companion appendix](../appendix/appendix-liquidation-auction-ecosystem.md). When a position becomes undercollateralized, the system seizes its collateral and begins an auction where the discount to market price increases over time until the target amount is raised. Surplus from liquidation penalties and stability fees is auctioned for the reference token and burned. Shortfalls from insufficient collateral auctions are covered by minting the reference token and auctioning for stablecoins.
 
 ## Why This Matters
 
@@ -195,6 +195,7 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [RFP-002 — Freeze Authority](./RFP-002-freeze-authority-poc.md)
 - [RFP-008 — Lending & Borrowing](./RFP-008-lending-borrowing-protocol.md)
 - [RFP-013 — Reflexive Stablecoin Protocol](./RFP-013-reflexive-stablecoin-protocol.md)
+- [Appendix: Liquidation & Auction Ecosystem](../appendix/appendix-liquidation-auction-ecosystem.md)
 
 ## How to Apply
 
