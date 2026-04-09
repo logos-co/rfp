@@ -9,7 +9,7 @@ Through Requests for Proposals (RFPs), Logos invites builders to submit projects
 Projects supported under the Logos RFP Program may range from experimental prototypes and proofs-of-concept to production-ready or near-production-ready applications and integrations.
 
 > **Note**
-> By participating in the Logos RFP Program, including by submitting a proposal through this repository, you agree to the [Terms & Conditions](./TERMS.md).
+> By participating in the Logos RFP Program, including by submitting a proposal through this repository, you agree to the [Terms & Conditions](./TERMS_AND_CONDITIONS.md).
 > Please read them carefully before submitting a proposal.
 
 ---
@@ -68,14 +68,14 @@ Click an RFP to view details. Use the Submit Proposal button to apply.
 
 ## Terms & Conditions
  
-All participants are bound by the [Terms & Conditions](./TERMS.md). Key points:
+ All participants are bound by the [Terms & Conditions](./TERMS_AND_CONDITIONS.md). Key points:
  
 - Submissions must be open sourced under MIT or Apache 2.0 unless otherwise agreed.
 - Submissions are public and non-confidential.
 - Logos retains sole discretion over evaluation and Grant awards.
 - No Grant is awarded and no obligation to provide any Grant arises unless a Grant Agreement is executed.
  
-See the full [Terms & Conditions](./TERMS.md) for eligibility, IP, liability, and other provisions.
+See the full [Terms & Conditions](./TERMS_AND_CONDITIONS.md) for eligibility, IP, liability, and other provisions.
  
 ---
  
