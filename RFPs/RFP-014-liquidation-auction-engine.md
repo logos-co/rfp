@@ -161,6 +161,14 @@ The system requires external price feeds for collateral valuation and liquidatio
 
 This liquidation system is designed to integrate with a host CDP protocol that provides positions to liquidate. It is typically deployed alongside [RFP-013](./RFP-013-reflexive-stablecoin-protocol.md) or equivalent.
 
+#### General cross-program calls (LP-0015)
+
+LEZ uses a tail-call execution model rather than Solana's CPI (Cross-Program Invocation). In Solana's model, a program can call another program mid-execution and resume when the call returns. In LEZ's model, a tail call hands off control entirely — there is no return.
+
+A liquidation operation needs to: (1) call the host CDP protocol to seize collateral from an undercollateralized position, then (2) continue executing to initialize auction state and account for the seized collateral. Without general cross-program calls, step 2 cannot happen after step 1. Each continuation would need to be a separate externally callable entrypoint, which is fragile and insecure (anyone could call the continuation directly, bypassing the collateral seizure).
+
+[LP-0015](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0015.md) (General cross-program calls via tail calls) solves this by introducing internal-only entrypoints protected by an unforgeable capability, so the liquidation program can tail-call the CDP program and have control return to a protected continuation. This prize is currently **open**.
+
 ### Soft blockers
 
 Desirable but the RFP can open without them.

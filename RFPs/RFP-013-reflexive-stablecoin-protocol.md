@@ -164,6 +164,14 @@ The protocol requires external price feeds for market price and redemption rate 
 
 Rate computation and stability fee accrual require knowing how much time has elapsed between interactions. Without a reliable on-chain timestamp, these cannot be computed.
 
+#### General cross-program calls (LP-0015)
+
+LEZ uses a tail-call execution model rather than Solana's CPI (Cross-Program Invocation). In Solana's model, a program can call another program mid-execution and resume when the call returns. In LEZ's model, a tail call hands off control entirely — there is no return.
+
+A stablecoin operation like "lock collateral and mint" needs to: (1) call the token program to transfer collateral into the position, then (2) continue executing to update position state and mint stablecoins. Without general cross-program calls, step 2 cannot happen after step 1. Each continuation would need to be a separate externally callable entrypoint, which is fragile and insecure (anyone could call the continuation directly, bypassing the collateral transfer).
+
+[LP-0015](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0015.md) (General cross-program calls via tail calls) solves this by introducing internal-only entrypoints protected by an unforgeable capability, so the stablecoin program can tail-call the token program and have control return to a protected continuation. This prize is currently **open**.
+
 ### Soft blockers
 
 Desirable but the RFP can open without them.
