@@ -333,3 +333,12 @@ massive scale (Mainline DHT, Tor) but no existing system combines
 human-readable names, privacy, and high availability. The two-layer
 architecture proposed in Appendix A is a novel contribution that draws
 on the best properties of each system.
+
+---
+
+## Appendix D — Anti-Squatting Mechanisms
+
+See [appendix/anti-squatting-mechanisms.md](../appendix/anti-squatting-mechanisms.md):
+what prevents name squatting (liveness, Harberger pricing, eligibility),
+what merely slows it (fees, auctions, staking), and a potential
+Harberger + staking direction for Logos.
