@@ -48,19 +48,19 @@ funds raised, depending on availability).
 
 | Protocol | Cumulative Volume | Cumulative Revenue | Tokens Launched | Data as of |
 |---|---|---|---|---|
-| Pump.fun | >$150B (trading volume) [1] | >$1B (protocol fees) [1][2][14] | 11.7M (H1 2025) [4] | Q1 2026 |
-| Fjord Foundry | ~$1.5B (swap volume) [22] | ~$55M (est.) [a] | 717 LBPs; 106,762 participants [6] | Sep 2025 |
+| Pump.fun | >$150B (trading volume) [1] | $818M+ (protocol fees) [2] | 11.7M (H1 2025) [4] | Feb 2026 |
+| Fjord Foundry | ~$1.5B (swap volume) [22] | $30M (total fees) [6] | 717 LBPs; 106,762 participants [6] | Sep 2025 |
 | Metaplex Genesis | ~$55-70M (est. funds raised) [d] | $48M+ (all Metaplex products) [7] | 20M+ fungible tokens [7] | Dec 2025 |
 | DAO Maker | $90M+ (total raised) [8] | ~$4.5M (est.) [b] | N/A | Undated |
 | Flaunch | N/A | $3.1M [9] | N/A | Q1 2026 |
 | Polkastarter | $46M+ (total raised) [10] | ~$460K (est.) [c] | 105+ projects [10] | Q1 2022 |
 
-\[a] Estimated as 5% fee [11] applied to $1.1B cumulative raised [5].
+\[a] Reported as $30M in total fees by Bitbond [6].
 \[b] Estimated as 5% fee [12] applied to $90M+ cumulative raised [8].
 \[c] Estimated as 1% fee [13] applied to $46M+ cumulative raised [10].
 Figure is from Q1 2022; no updated aggregate has been published.
 \[d] Estimated from Genesis protocol revenue ($1.1M, Jul to Nov 2025)
-divided by 2% deposit fee [16]. Genesis launched in July 2025 (alpha);
+divided by 2% withdrawal fee [16]. Genesis launched in July 2025 (alpha);
 no 2024 data exists.
 
 ### Yearly breakdown
@@ -121,10 +121,10 @@ cancellation window plus a mandatory minimum raise threshold [20].
 | Fjord Foundry (LBP) | No [11] | No [11] | Sell back at market price (buy+sell mode only) [11] |
 | Fjord Foundry (tiered sales) | No | Yes (minimum cap; auto-refund if unmet) [33] | No |
 | Metaplex Genesis | No [d] | Yes (Launch Pool only) [16] | Yes (Launch Pool: withdraw before claim window; 2% fee) [16] |
-| DAO Maker (DYCO) | Yes: 16 months, 80% of invested price, USDC-backed, burn on refund [15] | No | Yes: unconditional within window [15] |
+| DAO Maker (DYCO) | Yes: configurable refund windows, escrowed funds, burn on refund [15] | No | Yes: within designated windows [15] |
 | DAO Maker (SHO) | No [12] | No | No |
 | Flaunch | No [17] | No | No |
-| Polkastarter | No [18] | No | No |
+| Polkastarter | Optional per-project refund window (since Oct 2024); claim tokens or request full refund [18] | No | No |
 | DAOs.fun | No (AMM exit + mandatory expiry distribution) [21] | Yes (hard cap; refund if unmet) [21] | Yes: redeem during fundraising (10% penalty) [21] |
 
 \[d] Metaplex Genesis Launch Pool allows withdrawal during the deposit
@@ -156,29 +156,26 @@ refunded [16]. However, once the claim window opens and tokens are
 distributed, there is no refund. Presale and Uniform Price Auction
 modes have no refund mechanism.
 
-**DAO Maker (DYCO).** The Dynamic Coin Offering is the only
-crypto-native mechanism with a post-purchase performance refund [15].
-Tokens sold are backed at 80% of the invested price by USDC held in a
-smart contract for 16 months after the Token Generation Event. Refunds
-occur in three tranches: 20% of invested funds at 9 months, 30% at
-12 months, and 30% at 16 months, collectively covering up to 80% of
-the original investment [15]. Participants can return tokens in each
-window; returned tokens are burned, reducing circulating supply. If
-the token price falls below the refund price on the secondary market,
-arbitrageurs can buy cheaply and refund at the higher price, creating
-a price floor at 80% of the sale price. DYCO is a specialized
-product; most DAO Maker sales use the SHO model, which has no refund
-mechanism.
+**DAO Maker (DYCO).** The Dynamic Coin Offering was a post-purchase
+performance refund mechanism [15]. Tokens sold were backed by a
+portion of the funds raised, held in escrow for a defined period
+after the Token Generation Event. Refunds were tranched over
+multiple windows, with returned tokens burned to reduce circulating
+supply [15]. DYCO parameters (refund percentage, timeline, tranche
+structure) were configurable per project. Most DAO Maker sales
+use the SHO model, which has no refund mechanism.
 
 **Flaunch.** No refund mechanism [17]. The 30-minute fixed-price fair
 launch phase is one-directional (buyers cannot sell during this
 window). After graduation to standard AMM pricing, tokens trade freely
 with no platform-level refund.
 
-**Polkastarter.** No refund mechanism [18]. Fixed-price IDO purchases
-are atomic swaps and are final once executed. Participants who are
-allowlisted but have not yet purchased can choose not to participate,
-but there is no post-purchase cancellation.
+**Polkastarter.** Since October 2024, Polkastarter offers an optional
+per-project refund policy [18]. When enabled, participants can
+request a full refund within a specified window (duration varies per
+project) after the claiming period opens. Claiming tokens forfeits
+the refund right. The refund policy is flexible and may not apply to
+all sales.
 
 **DAOs.fun.** Structured refund mechanism with three phases [21].
 During the 7-day fundraising window, contributors can redeem their SOL
@@ -222,8 +219,8 @@ open access; gating is either absent or optional.
 |---|---|---|---|
 | Pump.fun | Open (permissionless) | None | N/A |
 | Fjord Foundry | Open; optional project whitelist | CSV whitelist upload by creator [11] | Off-chain (platform UI) |
-| Metaplex Genesis | Configurable per-launch | Wallet allowlist, optional KYC, geo-blocking [16] | On-chain (smart contract) |
-| DAO Maker (SHO) | $DAO stakers + KYC | Token staking (min 2,000 $DAO) + mandatory platform KYC [12] | Hybrid (on-chain staking, off-chain KYC) |
+| Metaplex Genesis | Open (permissionless) | None natively; external allowlist possible via custom contracts or frontend [16] | N/A (protocol level) |
+| DAO Maker (SHO) | $DAO stakers + KYC | Token staking (min 500 $DAO) + mandatory platform KYC [8][40] | Hybrid (on-chain staking, off-chain KYC) |
 | Flaunch | Open (permissionless) | None | N/A |
 | Polkastarter | $POLS stakers + per-project KYC | Token staking (min 1,000 POLS) + lottery + per-project KYC [10] | Hybrid (on-chain staking, off-chain KYC) |
 | DAOs.fun | Creators: invitation-only; Buyers: open | Invite codes for creators; none for buyers [21] | Platform-level |
@@ -239,19 +236,22 @@ participation, enforced at the platform UI level (not on-chain).
 The $FJO token is not required for participation. LBPs also provide
 structural anti-bot protection via high starting price.
 
-**Metaplex Genesis.** Most configurable access control among the
-platforms studied [16]. Creators can choose open access, wallet
-allowlist, or KYC-gated launches, all enforced on-chain at the
-smart contract level. Supports per-wallet deposit limits and
-geo-blocking. The Launch Pool's proportional distribution mechanism
-provides some natural Sybil resistance: allocation is proportional
-to deposit size, so splitting across wallets yields no advantage.
+**Metaplex Genesis.** Genesis does not natively support allowlists
+for its core launch mechanisms (Launch Pool, Presale, Uniform Price
+Auction) [16]. The protocol is designed for fair, on-chain
+distribution where access is determined by deposit timing or bid
+price rather than pre-approval. Developers can implement allowlist
+logic externally using custom smart contracts or frontend validation.
+The Launch Pool's proportional distribution mechanism provides some
+natural Sybil resistance: allocation is proportional to deposit
+size, so splitting across wallets yields no advantage.
 
-**DAO Maker.** Mandatory $DAO staking (minimum 2,000 $DAO) plus
-platform-level KYC [12]. A seven-tier system based on staked amount
-(250 to 100,000 $DAO) assigns non-linear bonus multipliers (DAO
-Power). Higher tiers receive disproportionate allocation advantages.
-SHO priority rounds serve high-tier holders first, then remaining
+**DAO Maker.** Mandatory $DAO staking (minimum 500 $DAO) plus
+platform-level KYC [8][40]. A time-weighted staking power system
+determines allocation priority: staking 2,000 tokens for 180 days
+may yield equivalent power to 6,000 tokens for 60 days [40]. Higher
+staking power receives disproportionate allocation advantages. SHO
+priority rounds serve high-power holders first, then remaining
 allocation opens as FCFS.
 
 **Flaunch.** Fully permissionless [17]. Built on Uniswap V4 hooks
@@ -292,10 +292,10 @@ crypto-native launchpads surveyed in this appendix.
 
 | Protocol | Issuer Fee | Buyer Fee | Setup Cost | Staking Required | Fee Disposition |
 |---|---|---|---|---|---|
-| Pump.fun | 0% | 0.05–0.95% dynamic (was 1% before Sep 2025) [1][2][39] | Free | None | 30% of fees to PUMP buyback (60% burned, 40% staking rewards; ~$335M+ cumulative, ~30% supply reduction); creator fee sharing (Jan 2026) [39] |
-| Fjord Foundry | 5% of collateral raised [11] | 2% swap fee [11][34] | Free | None | ~10% to Fjord Labs, ~90% to FJO buyback-and-redistribute to stakers [38] |
-| Metaplex Genesis | 5% graduation fee (on total deposits at close) [16] | 2% on deposits; 2% on withdrawals [16] | Free | None | 50% MPLX buyback for DAO treasury, 50% Metaplex Foundation [7] |
-| DAO Maker | 5% of tokens [12] | 5% (DAO SHO) / 30% (Public SHO) [12] | Undisclosed | 2,000–100,000 $DAO (~$100–$5,000 at Apr 2026 prices) [12] | Quarterly buyback-and-burn (~20% of fees); staking rewards; low transparency [40] |
+| Pump.fun | 0% | 0.05–0.95% dynamic (was 1% before Sep 2025) [39] | Free | None | Nearly all protocol revenue directed to PUMP buybacks ($350M cumulative as of Apr 2026 [39]); creator fee sharing (Jan 2026) [39] |
+| Fjord Foundry | 5% of collateral raised [11] | 2% swap fee (Balancer pool parameter) [34] | Free | None | ~10% to Fjord Labs, ~90% to FJO buyback-and-redistribute to stakers [38] |
+| Metaplex Genesis | 5% creator withdrawal fee (on liquidity withdrawn by creator) [16] | 0% on deposits; 2% on withdrawals [16] | Free | None | 50% MPLX buyback for DAO treasury, 50% Metaplex Foundation [7] |
+| DAO Maker | 5% of tokens [12] | 5% of allocated tokens [12] | Undisclosed | 500+ $DAO (~$25+ at Apr 2026 prices) [8][40] | Quarterly buyback-and-burn (~20% of fees); staking rewards; low transparency [40] |
 | Flaunch | Undisclosed | Swap fee (Uniswap V4) [17] | Free (gas only) | None | 1% split: creator (via Memestream NFT) + automated buybacks; 0% platform fee (governance can activate max 10%) [17] |
 | Polkastarter | ~1% of raised [13] | Network gas only [10] | Undisclosed | 1,000–50,000 POLS (~$53–$2,650 at Apr 2026 prices) [10] | Largely undisclosed; staking rewards not onchain-linked to fees [10] |
 | DAOs.fun | 10% early redemption penalty [21] | None during fundraise; AMM fee post-launch [21] | Free | None | Trading fees split between Meteora, platform, creator, and referrer; exact split not independently verified [21] |
@@ -305,7 +305,7 @@ crypto-native launchpads surveyed in this appendix.
 **Pump.fun.** Zero issuer fee for token creation. Before September
 2025, the protocol charged a flat 1% fee on all trades; since Project
 Ascend (September 2025), fees are dynamic, ranging from 0.05% to
-0.95% based on transaction size and market conditions [1][2][39].
+0.95% based on transaction size and market conditions [39].
 This buyer-side-only model minimises friction for token creators and
 has been a primary driver of Pump.fun's scale (11.7M tokens launched
 in H1 2025). Fees are collected per transaction at swap time.
@@ -317,19 +317,19 @@ needed for participation). The 5% issuer fee is competitive for a
 managed platform that provides a no-code UI and marketing
 distribution.
 
-**Metaplex Genesis.** The protocol charges a 5% graduation fee on
-total deposits at the end of the deposit period, effectively an
-issuer-side cost deducted from proceeds [16]. Buyers pay a 2% fee
-on deposits and a 2% fee on withdrawals during the deposit window
-[16]. Setup is free (gas costs only on Solana). No native token
+**Metaplex Genesis.** The protocol charges a 5% creator withdrawal
+fee when the creator withdraws liquidity from a completed Launch
+Pool [16]. Deposits are free (0% deposit fee); buyers pay a 2%
+withdrawal fee if they withdraw during the deposit window [16].
+Setup is free (gas costs only on Solana). No native token
 requirement.
 
 **DAO Maker.** Charges issuers 5% of tokens allocated to the sale
-[12]. Buyer fees depend on tier: DAO SHO participants pay 5% of
-allocated tokens; Public SHO participants pay 30% unless they hold
-at least 2,000 $DAO [12]. Setup costs are undisclosed and negotiated
-per project. The staking requirement (2,000 to 100,000 $DAO) is the
-primary access gate and functions as an additional implicit cost.
+[12]. Buyers pay 5% of allocated tokens [12]. Setup costs are undisclosed and negotiated
+per project. The staking requirement (minimum 500 $DAO, with
+time-weighted staking power determining allocation priority [40])
+is the primary access gate and functions as an additional implicit
+cost.
 
 **Flaunch.** Built on Uniswap V4 hooks with no disclosed
 platform-level fee beyond Uniswap swap fees [17]. Token creation
@@ -353,15 +353,16 @@ with standard swap fees.
 
 Across the seven protocols, the sustainable fee range clusters
 around 0.05–2% per transaction or 5% at close. Pump.fun (0.05–0.95%
-dynamic buyer fee) and Metaplex Genesis (2% deposit fee + 5%
-graduation fee) represent opposite approaches: low per-swap fees at
-high volume versus higher at-close fees on aggregate deposits.
+dynamic buyer fee) and Metaplex Genesis (0% deposit fee, 2%
+withdrawal fee, 5% creator withdrawal fee) represent opposite
+approaches: low per-swap fees at high volume versus at-close fees
+on creator proceeds.
 Fjord Foundry (5% issuer fee at close + 2% per-swap) represents
 the upper bound for crypto-native platforms. Fees above 5% are
 found only in enterprise-regulated platforms (Republic, Securitize)
 serving institutional markets [23]. Staking requirements (DAO Maker,
 Polkastarter) function as hidden fees: they impose a capital lockup
-cost of ~$53 to $5,000+ at current token prices and create
+cost of ~$25 to $2,650+ at current token prices and create
 plutocratic access barriers where participation rights scale with
 token holdings rather than genuine interest in the project.
 
@@ -379,13 +380,12 @@ to onchain revenue waterfalls with verifiable distribution to token
 holders. The table above includes a summary column; per-protocol
 detail follows.
 
-**Pump.fun.** Since the PUMP token launch in July 2025, 30% of
-protocol fees fund systematic PUMP token buybacks (~$335M+
-cumulative as of Q1 2026). Of repurchased tokens, 60% are
-permanently burned and 40% are distributed as staking rewards,
-collectively reducing circulating supply by approximately 30% [39].
-A Creator Fee Sharing system was introduced in January 2026,
-allowing creators to split fee revenue across multiple wallets [39].
+**Pump.fun.** Since the PUMP token launch in July 2025, nearly all
+protocol revenue is directed toward systematic PUMP token buybacks
+($350M cumulative as of Apr 2026 [39]). Repurchased tokens are
+removed from circulating supply [39]. A Creator Fee Sharing system was
+introduced in January 2026, allowing creators to split fee revenue
+across multiple wallets [39].
 
 **Fjord Foundry.** Approximately 10% of revenue supports
 operational expenses (Fjord Labs); approximately 90% funds FJO
@@ -400,7 +400,7 @@ holders. Buyback is onchain verifiable; Foundation share is opaque.
 
 **DAO Maker.** Quarterly buyback-and-burn program funded by
 approximately 20% of fees from successful project launches [40].
-Staking rewards of 8 to 15% APY are offered. However, the buyback
+Staking rewards of 8 to 12% APY are offered. However, the buyback
 programme lacks prominent onchain verification (no public dashboard
 or transparent burn address), giving lower transparency than
 protocols such as Metaplex or Pump.fun [40].
@@ -462,7 +462,7 @@ time-dependent weight interpolation [34].
 
 Pump.fun uses an equivalent model: a dynamic fee (0.05–0.95%, was
 1% before September 2025) deducted per trade, collected atomically
-in the same transaction [1][2][39].
+in the same transaction [39].
 
 #### Balancer protocol fee
 
@@ -501,7 +501,7 @@ Fjord's wrapper contract) [11][34].
 | Pump.fun | 0.05–0.95% dynamic per trade | Onchain (Solana program) | Per-swap | From swap amount |
 | Fjord/Balancer | 2% swap fee | Onchain (Balancer pool contract) | Per-swap | From input before formula |
 | Fjord | 5% platform fee | Onchain (Fjord wrapper contract) | At-close | From collateral proceeds |
-| Metaplex Genesis | 2% deposit fee; 2% withdrawal fee; 5% graduation fee | Onchain (Solana program) | Per-deposit / at-close | From deposit amount / total deposits |
+| Metaplex Genesis | 0% deposit; 2% withdrawal; 5% creator withdrawal | Onchain (Solana program) | Per-withdrawal / at-close | From withdrawal amount / creator proceeds |
 | Flaunch | Swap fee | Onchain (Uniswap V4 hook) | Per-swap | Via hook mechanism |
 | Polkastarter | ~1% of raised | Off-chain / undisclosed | At-close | From proceeds |
 
@@ -742,8 +742,9 @@ anonymity set regardless of allowlist size.
     platform documentation; exact percentage not prominently published.
 14. Yahoo Finance, "Pump.fun Quarterly Revenue," Dec 2025; AInvest,
     Jan 2026.
-15. DAO Maker, "DYCO: Dynamic Coin Offering."
-    https://learn.daomaker.com/dyco
+15. Entrepreneur, "How a New Crowdfunding Model Offers Guaranteed
+    Refunds and Protection," 2020 (DYCO: 80% refund, 16-month window).
+    https://www.entrepreneur.com/starting-a-business/how-a-new-crowdfunding-model-offers-guaranteed-refunds-and/353536
 16. Metaplex, "Genesis: Launch Pool" developer documentation.
     https://developers.metaplex.com/smart-contracts/genesis
 17. Flaunch documentation and Bankless, "How to Launch Better
@@ -753,8 +754,8 @@ anonymity set regardless of allowlist size.
 18. Polkastarter, "How to Participate in a Polkastarter IDO."
     https://blog.polkastarter.com/how-to-participate-in-a-polkastarter-ido/
 19. EU Markets in Crypto-Assets Regulation (MiCA), right of withdrawal
-    provisions; Shoosmiths, "Consumer Protection for Crypto Assets."
-    https://www.shoosmiths.com/insights/articles/heating-up-consumer-protection-for-crypto-assets
+    provisions; Cyfrin, "MiCA Regulation Explained," 2025.
+    https://www.cyfrin.io/blog/mica-regulation-explained-a-guide-to-eu-crypto-compliance
 20. US Regulation CF, 17 CFR §227.
     https://www.ecfr.gov/current/title-17/chapter-II/part-227
 21. ChainCatcher, "daos.fun: The next liquidity black hole?" Oct 2024;
@@ -789,10 +790,12 @@ anonymity set regardless of allowlist size.
     Balancer v2 documentation.
     https://docs.balancer.fi/concepts/explore-available-balancer-pools/weighted-pool/weighted-math.html ;
     https://balancer.gitbook.io/balancer/smart-contracts/smart-pools/liquidity-bootstrapping-faq
-30. Bitget, "Pump.fun statistics," citing Dune Analytics, Aug 2024.
-    https://www.bitget.com/news/detail/12560604442705
-31. The Defiant, "Pump.fun graduation rate drops," mid-2025.
-    https://www.thedefiant.io/news/defi/pump-fun-graduation-rate-drops
+30. Coinpaper, "Only 1.41% of Pump.fun Meme Coins Launch
+    Successfully," citing Dune Analytics, Aug 2024.
+    https://coinpaper.com/5028/only-1-41-of-pump-fun-meme-coins-launch-successfully
+31. The Block, "Pump.fun sees rapid decline in graduating tokens,"
+    Feb 2025.
+    https://www.theblock.co/post/343742/pump-fun-rapid-decline-graduating-tokens-memecoin-frenzy-fizzles-out
 32. Bonding Curve Time-Based Close Mechanisms research note
     (internal), compiled from Pump.fun, Meteora DBC, Flaunch,
     Raydium LaunchLab documentation, Apr 2026.
