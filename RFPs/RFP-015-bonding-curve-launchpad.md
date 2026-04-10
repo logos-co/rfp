@@ -111,15 +111,33 @@ state.
 
 ### Fee structure
 
-This RFP does not mandate a specific fee rate. Proposals must
-specify: (1) who pays the fee (issuer, buyer, or both), (2) when
-fees are collected (per-transaction, at sale close, or both),
-(3) the fee rate or rate range, and (4) where fees are routed
-(protocol treasury, sale creator, burn, or other destination). See
-the [Fee Structures](../appendix/token-launchpad-ecosystem.md#fee-structures)
-section of the token launchpad ecosystem appendix for a
-cross-platform comparison of fee models across seven surveyed
-protocols.
+The bonding curve program collects a per-swap protocol fee on every
+buy and sell, denominated in the collateral token. On buy, the
+program deducts `fee = C_in × fee_rate` (rounded up, against the
+trader) before applying the pricing formula; the effective input to
+the constant product calculation is `C_in - fee`. On sell, the
+program computes the raw collateral output `C_out_raw` from the
+pricing formula, then deducts `fee = C_out_raw × fee_rate` (rounded
+up); the seller receives `C_out_raw - fee`. In both cases the fee
+is transferred atomically to a protocol treasury account in the same
+transaction as the swap.
+
+The fee rate and treasury address are configured by the program's
+admin authority and apply uniformly to all sales. The RFP does not
+mandate a specific rate; the admin authority sets the rate at
+deployment and may update it. Sale creation is free (no creation
+fee).
+
+Per-swap collection is critical for bonding curves. The graduation
+rate across the ecosystem is approximately 0.7% to 1.4% (see
+the [Sale Lifecycle](../appendix/token-launchpad-ecosystem.md#sale-lifecycle-and-close-mechanics)
+section of the appendix): over 98% of bonding curves never reach
+their supply target. An at-close fee model would capture revenue on
+fewer than 2% of launches. Pump.fun, the largest bonding curve
+platform by volume, uses a buyer-side per-swap fee and has generated
+over $818M in cumulative protocol fees (see the
+[Fee Structures](../appendix/token-launchpad-ecosystem.md#fee-structures)
+section of the appendix for a cross-platform comparison).
 
 ### Bonding curves and LBPs as complementary mechanisms
 
@@ -219,9 +237,9 @@ RFP-016 instead.
 4. The sale closes automatically when the sale reserve is exhausted
    (all `D` tokens have been sold).
 5. After the sale closes, the creator can withdraw:
-   - The real collateral raised, net of fees as defined by the
-     fee model specified in the proposal (see the Fee structure
-     subsection in Design Rationale).
+   - The full real collateral reserve. Protocol fees have already
+     been collected per-swap during the sale; no additional
+     deduction occurs at withdrawal.
    - The DEX seed reserve `R` tokens (if not used for
      auto-graduation).
 6. Slippage protection: on buy, buyers specify the collateral
@@ -267,7 +285,8 @@ RFP-016 instead.
    each purchase: collateral to spend, exact tokens to be received
    (computed using the pricing formula), current spot price
    (`Vc / Vt`), price impact (percentage increase in spot price
-   after the buy), and fee.
+   after the buy), and the per-swap protocol fee deducted from
+   collateral.
 5. When using the private account path, the mini-app must display a
    privacy disclosure before each buy, identifying what will be
    visible on-chain (buy transaction, collateral amount, tokens
