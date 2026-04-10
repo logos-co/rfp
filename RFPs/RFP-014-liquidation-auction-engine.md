@@ -50,7 +50,7 @@ Building this as a reusable program has ecosystem-wide benefits. Each CDP produc
 
 3. Provide a CLI that covers core functionality of the program. The CLI may have fewer features than the GUI mini-app but must support all essential operations.
 
-4. Tools display undercollateralized positions with estimated liquidator incentives, enabling efficient bot operation.
+4. Tools display undercollateralized positions with estimated liquidator incentives and allow users to trigger liquidation, enabling efficient bot and manual operation.
 
 5. Active auctions display collateral type, amount, current discount, raised amount vs target, and time remaining. Users can bid with clear previews of received collateral and costs.
 
