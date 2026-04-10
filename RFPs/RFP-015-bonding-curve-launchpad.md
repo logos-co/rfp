@@ -135,7 +135,7 @@ section of the appendix): over 98% of bonding curves never reach
 their supply target. An at-close fee model would capture revenue on
 fewer than 2% of launches. Pump.fun, the largest bonding curve
 platform by volume, uses a buyer-side per-swap fee (dynamic,
-0.05–0.95% since September 2025) and has generated over $1B in
+0.05–0.95% since September 2025) and has generated over $818M in
 cumulative protocol fees (see the
 [Fee Structures](../appendix/token-launchpad-ecosystem.md#fee-structures)
 section of the appendix for a cross-platform comparison).
