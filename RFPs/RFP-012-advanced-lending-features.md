@@ -1,6 +1,6 @@
 ---
 id: RFP-012
-title: Advanced Lending Features
+title: Curated Lending Vaults
 tier: L
 funding: $XXXXX
 status: open
@@ -9,37 +9,51 @@ category: Applications & Integrations
 ---
 
 
-# RFP-012 — Advanced Lending Features
+# RFP-012 — Curated Lending Vaults
 
 ## 🧭 Overview
 
-Extend the lending protocol delivered by [RFP-008](./RFP-008-lending-borrowing-protocol.md)
-with Aave v3-equivalent features: efficiency mode (eMode), isolated
-markets, flash loans, multiple collateral per position, and curated
-vault abstractions. These features either depend on platform primitives
-not yet available on LEZ or add complexity best tackled after a
-baseline protocol is live and battle-tested.
+Build a curated vault layer on top of the isolated-market lending
+protocol delivered by [RFP-008](./RFP-008-lending-borrowing-protocol.md).
+Each vault accepts deposits of a single loan token, issues transferable
+vault share tokens (SPL tokens), and allocates deposits across multiple
+Morpho-style lending markets according to a curator-defined strategy.
+This is the MetaMorpho equivalent for LEZ: it transforms raw isolated
+markets into a managed lending product with passive yield, risk
+curation, and composable receipt tokens.
 
-This RFP is explicitly a follow-up to RFP-008. Teams should not apply
-until the RFP-008 protocol is deployed and the platform dependencies
-listed below are resolved. The applying team should ideally be the same
-team that delivered RFP-008, or have deep familiarity with the deployed
-protocol's internals.
+Morpho Blue's isolated-market core is powerful but requires lenders to
+choose individual markets manually (evaluating collateral quality,
+oracle reliability, LLTV risk). Curated vaults abstract this complexity:
+depositors supply a single token, the curator allocates across vetted
+markets, and depositors earn blended yield. On Ethereum, MetaMorpho
+vaults reached [DATA NEEDED] in deposits, demonstrating that the
+vault layer is where most passive capital concentrates. The applying
+team should ideally be the same team that delivered RFP-008, or have
+deep familiarity with the deployed protocol's internals.
 
 ## 🔥 Why This Matters
 
-Aave v3's efficiency mode enabled LST/underlying pairs to operate at
-up to 97% LTV, dramatically improving capital efficiency for correlated
-assets. Isolated markets allowed the ecosystem to list long-tail assets
-without exposing the core protocol to unbounded risk. Flash loans
-unlocked a class of atomic arbitrage and self-liquidation tooling that
-deepened market efficiency. Together, these features transformed a
-functional lending protocol into a composable capital market primitive.
+The isolated-market model in RFP-008 optimises for safety and
+permissionlessness, but it fragments liquidity: each market is
+independent, and lenders must actively manage exposure across markets.
+Most passive lenders (the largest source of TVL in any lending
+ecosystem) will not do this. Without curated vaults, the protocol's
+TVL ceiling is limited to active, sophisticated lenders.
 
-For the Logos ecosystem, delivering these features on top of the
-RFP-008 baseline will complete the capital-efficiency stack, attract
-more sophisticated DeFi builders, and position LEZ as a credible
-alternative to established chains for advanced lending use cases.
+Curated vaults solve this by aggregating passive capital and directing
+it where it earns the best risk-adjusted yield. On Ethereum, the
+majority of Morpho deposits flow through MetaMorpho vaults rather than
+directly into isolated markets. For the Logos ecosystem, vaults
+transform the lending protocol from a tool for power users into a
+passive yield product accessible to all participants, dramatically
+expanding the protocol's addressable market and TVL.
+
+Vaults also create a natural role for risk specialists (curators) who
+compete on yield and safety. This decentralises risk management:
+instead of a single governance body deciding which assets are safe,
+multiple curators offer different risk/yield profiles, and depositors
+choose the vault that matches their preference.
 
 ## ✅ Scope of Work
 
@@ -47,82 +61,124 @@ alternative to established chains for advanced lending use cases.
 
 #### Functionality
 
-1. **Flash loans** — uncollateralised loans borrowed and repaid within
-   a single transaction. The lending program releases funds, tail-calls
-   the borrower's callback (via LP-0015's capability-protected
-   continuation model), and the callback must invoke `repay` before
-   returning control. If the callback fails or does not repay, the
-   transaction reverts atomically and no funds leave the pool. Borrowers
-   pay a configurable flash loan fee.
-
-2. **Efficiency mode (eMode)** — define correlated asset groups
-   (e.g. stablecoin pairs, LST/underlying) with elevated LTV and
-   liquidation threshold ratios. Borrowers automatically receive eMode
-   parameters when all collateral and debt assets belong to the same
-   eMode category. eMode categories are configurable by an admin
-   authority.
-
-3. **Isolated markets** — an admin authority can list higher-risk
-   assets in isolated pools with independent debt ceilings. Bad debt
-   from an isolated market does not propagate to cross-market pools.
-   Each isolated asset has its own debt ceiling set and enforced
-   on-chain by an admin authority.
-
-4. **Multiple collateral per position** — a single borrower can
-   deposit multiple distinct assets as collateral. Aggregate borrowing
-   power is the weighted sum of each collateral asset's contribution
-   (LTV × USD value). When interacting via a private account, the ZKP
-   must verify the aggregate collateral constraint.
-
-5. **All risk parameters adjustable without program upgrade** — every
-   configurable parameter (interest rate model slope, eMode LTV,
-   isolated market debt ceiling, flash loan fee, reserve factor, etc.)
-   must be updatable by an admin authority without redeploying the
-   program.
+1. **Vault creation**: anyone can create a vault by specifying the
+   loan token, a vault name, and a vault symbol. The creator becomes
+   the vault's initial curator. Vault creation is permissionless.
+2. **Vault share tokens**: depositors receive SPL tokens representing
+   their proportional share of the vault's total assets. Vault shares
+   are freely transferable and composable with other LEZ programs.
+   The share-to-asset exchange rate increases monotonically as interest
+   accrues (absent bad debt).
+3. **Deposit and withdraw**: users can deposit the vault's loan token
+   and receive vault shares. Users can redeem vault shares for the
+   underlying loan token, subject to available liquidity across the
+   vault's allocated markets.
+4. **Market allocation**: the curator (or an authorised allocator)
+   allocates vault deposits across RFP-008 lending markets. The
+   curator sets a supply cap per market, limiting the maximum amount
+   the vault can supply to each market.
+5. **Supply queue and withdraw queue**: the curator defines an ordered
+   list of markets for deposits (supply queue) and withdrawals
+   (withdraw queue). Deposits flow into markets in supply queue order
+   until each market's cap is reached. Withdrawals draw from markets
+   in withdraw queue order.
+6. **Curator role**: the curator can update supply caps, reorder
+   queues, add or remove markets from the vault's allocation set, and
+   set a performance fee. The curator can transfer the curator role to
+   another account.
+7. **Allocator role**: the curator can authorise allocator accounts
+   that may reallocate funds between the vault's approved markets
+   within the curator's supply caps. Allocators cannot change caps,
+   queues, or fees.
+8. **Performance fee**: a configurable percentage of yield accrued by
+   the vault is directed to the curator as a performance fee. The fee
+   is denominated in vault shares and minted to the curator's account
+   on each interaction that triggers interest accrual.
+9. **Timelock for parameter changes**: changes to supply caps, market
+   additions, curator transfer, and fee adjustments are subject to a
+   configurable timelock. The timelock duration is set at vault
+   creation and is immutable.
+10. **Guardian role**: the curator can appoint a guardian that can
+    revoke pending (timelocked) parameter changes before they take
+    effect. The guardian cannot initiate changes, only cancel them.
+    This is a safety mechanism against compromised curator keys.
 
 #### Usability
 
-1. All new features are exposed in the SDK, CLI, and mini-app built
+1. All vault features are exposed in the SDK, CLI, and mini-app built
    in RFP-008; no separate front-end is required, only extension of
    the existing one.
-2. The mini-app clearly surfaces eMode status per position (active
-   category, effective LTV) and isolated market constraints (debt
-   ceiling remaining).
-3. Flash loan callbacks must be documented with worked examples
-   showing how to implement an atomic arbitrage or self-liquidation
-   flow.
+2. The mini-app displays per-vault: current APY, total deposits,
+   allocated markets with individual utilisation, supply caps and
+   remaining capacity, and the curator's performance fee.
+3. The mini-app displays per-user: vault share balance, current value
+   in underlying token, and accrued yield since deposit.
+4. When interacting via a private account, the SDK must handle the
+   atomic deshield (deposit token + native gas) as a single
+   indivisible user action, consistent with the RFP-008 privacy
+   pattern.
+5. When interacting via a private account, before each vault
+   operation, the mini-app must show the estimated transaction fee and
+   confirm that the user's shielded balance covers both the deposit
+   amount and fees within the single deshield action.
+6. Vault share tokens must be usable as collateral in RFP-008 lending
+   markets (subject to an oracle being available for the vault share
+   price).
 
 #### Reliability
 
-1. Flash loans revert atomically if the borrower's callback fails to
-   invoke `repay` or the repaid amount (principal + fee) does not
-   match the borrowed amount.
-2. eMode LTV parameters cannot be set above a hard-coded maximum
-   (configurable at deploy time, not upgradeable) to prevent
-   governance from enabling 100% LTV positions.
-3. Isolated market debt ceilings are enforced atomically; concurrent
-   borrows cannot jointly exceed the ceiling.
+1. Vault share value (assets per share) is monotonically
+   non-decreasing absent bad debt in underlying markets.
+2. Supply caps are enforced atomically; concurrent deposits cannot
+   jointly exceed a market's cap.
+3. Withdrawal always succeeds if the total available liquidity across
+   the vault's allocated markets covers the requested amount, even if
+   individual markets have insufficient liquidity (the vault draws
+   from multiple markets in queue order).
+4. If a market in the vault's allocation incurs bad debt, the loss is
+   socialised across all vault depositors proportionally. The vault
+   must track and report realised bad debt per market.
 
 #### Performance
 
-1. Document the transaction size of each new operation (flash loan
-   initiation, eMode position open, isolated market borrow) on LEZ.
-   LEZ's block size is limited and this budget may change during
-   testnet.
-2. Multiple collateral positions must not exceed LEZ compute limits
-   for a position with up to 5 collateral assets.
+1. Document the transaction size of each vault operation (deposit,
+   withdraw, reallocate) on LEZ. LEZ's block size is limited and this
+   budget may change during testnet.
+2. A vault with up to 10 allocated markets must not exceed LEZ compute
+   limits on any single deposit or withdrawal operation.
 
 #### Supportability
 
 1. The updated program is deployed and tested on LEZ devnet/testnet.
 2. End-to-end integration tests run against a LEZ sequencer
-   (standalone mode) and are included in CI — CI must be green on
+   (standalone mode) and are included in CI; CI must be green on
    the default branch.
 3. Every hard requirement in Functionality, Usability, Reliability,
    and Performance has at least one corresponding test.
-4. A README addendum documents the new features: configuration steps,
-   eMode category setup, isolated market listing process, and a
-   flash loan integration guide.
+4. A README addendum documents the vault features: vault creation,
+   curator setup, market allocation, deposit/withdrawal flow, and
+   guardian configuration.
+
+#### + Privacy
+
+1. The mini-app and SDK must support both direct public account
+   interaction and the deshield→interact→reshield pattern for private
+   account interaction with vaults. When a user chooses the private
+   account path, the SDK must enforce the complete
+   deshield→interact→reshield pattern; the reshield step must not be
+   skippable.
+2. When using the private account path, the mini-app must display a
+   pre-confirmation summary for each vault operation that clearly
+   identifies what will be visible on-chain (deposit/withdrawal
+   amount, vault address, vault share mint/burn, ephemeral
+   intermediary account) and what will remain private (the originating
+   private account, the destination of re-shielded vault shares or
+   withdrawn tokens, and any link between separate interactions by the
+   same user).
+3. The ephemeral public account (account A) created during the
+   deshield step must never be reused across vault operations. Each
+   interaction from a private account must use a freshly generated
+   account with no prior on-chain history.
 
 ### Soft Requirements
 
@@ -130,23 +186,16 @@ If possible.
 
 #### Functionality
 
-1. **Curated vault abstraction** — single-asset deposit vaults that
-   allocate across multiple lending markets via a curator-defined
-   strategy. Depositors receive vault shares; the curator rebalances
-   allocations to maximise yield within risk limits they define.
+1. **Vault performance history**: an on-chain or indexed record of
+   historical vault APY, enabling depositors to evaluate curator
+   track records before depositing.
 
 #### Reliability
 
-1. **Multi-oracle redundancy for eMode assets** — eMode correlated
-   asset groups should support a secondary oracle per asset, with
-   automatic fallback when the primary is stale, to prevent eMode
-   positions from becoming un-liquidatable due to oracle downtime.
-
-#### Supportability
-
-1. **Formal verification of eMode invariants** — (a) an eMode
-   position with health factor ≥ 1 cannot be liquidated, (b) eMode
-   LTV is never higher than the hard-coded maximum.
+1. **Formal verification of vault invariants**: (a) vault share value
+   cannot decrease except through realised bad debt, (b) supply caps
+   are never exceeded, (c) timelock duration cannot be shortened after
+   vault creation.
 
 ### Out of Scope
 
@@ -156,43 +205,34 @@ If possible.
 - Leveraged looping / one-click multiply products
 - Any feature already delivered by RFP-008
 
+### Privacy Architecture
+
+See [Appendix: Lending Platform Context](../appendix/lending-platform.md#privacy-architecture).
+
 ## ⚠ Platform Dependencies
 
 This RFP is open for proposal submission. However, development is blocked until the following is satisfied:
 
-1. **RFP-008 is live on LEZ mainnet/testnet** — this RFP extends the
+1. **RFP-008 is live on LEZ devnet/testnet**: this RFP extends the
    deployed protocol; it cannot proceed without the base layer.
 
-All other platform primitives required by this RFP (including
-LP-0015 general cross-program calls, oracle provider, and on-chain
-clock) are hard blockers for RFP-008 and will therefore be resolved
-before this RFP opens.
-
-### Private Account Complexity
-
-eMode (F2) and multiple collateral per position (F4) increase ZKP
-complexity for private account users:
-
-- **eMode** — the ZKP must verify that all collateral and debt assets
-  belong to the same eMode category and apply the correct elevated LTV.
-  This adds circuit constraints but is tractable in principle.
-- **Multiple collateral** — the ZKP must aggregate the USD value of
-  multiple collateral assets, each with its own oracle price and LTV.
-  Circuit size grows with the number of collateral assets. Benchmarking
-  proof generation time for 5-asset positions is required before
-  marking this feature production-ready.
+All other platform primitives required by this RFP (including LP-0015
+general cross-program calls, oracle provider, and on-chain clock) are
+hard blockers for RFP-008 and will therefore be resolved before this
+RFP opens. See
+[Appendix: Lending Platform Context](../appendix/lending-platform.md#platform-dependencies)
+for details.
 
 ## 👤 Recommended Team Profile
 
 Team experienced with:
 
-- Aave v3 or equivalent protocol internals (eMode, isolated markets,
-  flash loan architecture)
+- Morpho Blue and MetaMorpho vault architecture (or equivalent
+  vault/aggregator protocols such as Yearn, ERC-4626 vaults)
 - Solana or SVM program development (Anchor or native)
-- ZKP circuit design (for private account compatibility of multi-asset
-  positions)
-- Capability-based cross-program call patterns (flash loan callback model)
-- DeFi governance and parameter management
+- DeFi risk curation and yield optimisation strategies
+- Token standard design (vault share token mechanics)
+- Front-end development for DeFi applications
 
 Ideally the same team that delivered RFP-008.
 
@@ -210,8 +250,9 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 ## Resources
 
 - [RFP-008 — Lending & Borrowing Protocol](./RFP-008-lending-borrowing-protocol.md)
-- [RFP-001 — Admin Authority Library](./RFP-001-admin-authority-lib.md)
+- [RFP-001 — Admin Authority Library](./RFP-001-admin-authority-lib.md) — reference pattern for admin-gated operations (F6, F10)
 - [RFP-002 — Freeze Authority Library](./RFP-002-freeze-authority-lib.md)
+- [Appendix: Lending Platform Context](../appendix/lending-platform.md) — shared privacy architecture and platform dependencies
 - TODO: Oracle integration guide for LEZ
 - TODO: SPEL framework documentation
 
