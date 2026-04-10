@@ -34,9 +34,9 @@ Building this as a reusable program has ecosystem-wide benefits. Each CDP produc
 
 3. Auctions support buying partial collateral lots, preventing large positions from becoming stuck.
 
-4. When collateral auctions don't raise enough to cover debt plus penalty, the shortfall is handled via a separate debt auction mechanism that restores system balance.
+4. When collateral auctions don't raise enough to cover debt plus penalty, the shortfall is handled via a debt auction mechanism. The mechanism must be fully implemented and tested (using a mock token), but parameterized by a configurable token address so the deployer can point it at whatever protocol token they choose. The protocol token itself is out of scope (see [RFP-013 Out of Scope](./RFP-013-reflexive-stablecoin-protocol.md#out-of-scope)). Until a protocol token is configured, the surplus buffer absorbs shortfalls up to its capacity; if bad debt exceeds the buffer, the system pauses new debt generation via freeze authority ([RFP-002](./RFP-002-freeze-authority-poc.md)).
 
-5. When the protocol accumulates excess stablecoin above a threshold, surplus auctions sell it for the reference token (which is burned).
+5. When the protocol accumulates excess stablecoin above a threshold, surplus auctions sell it for a protocol token (which is burned). As with F4, the surplus auction mechanism must be fully implemented and tested with a mock token, parameterized by a configurable token address. Until a protocol token is configured, surplus accumulates in the buffer without being auctioned.
 
 6. Auctions follow strict state transitions with no reversals. All state changes are atomic and verifiable.
 
