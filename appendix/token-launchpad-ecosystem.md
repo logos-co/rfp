@@ -287,7 +287,7 @@ crypto-native launchpads surveyed in this appendix.
 | Protocol | Issuer Fee | Buyer Fee | Setup Cost | Staking Required |
 |---|---|---|---|---|
 | Pump.fun | 0% | 1% (protocol fee on trades) [1][2] | Free | None |
-| Fjord Foundry | 5% of collateral raised [11] | Swap fee only (1–2% typical) [11] | Free | None |
+| Fjord Foundry | 5% of collateral raised [11] | 2% swap fee [11][34] | Free | None |
 | Metaplex Genesis | 0% (fee on deposits) [16] | 2% on deposits [16] | Free | None |
 | DAO Maker | 5% of tokens [12] | 5% (DAO SHO) / 30% (Public SHO) [12] | Undisclosed | 2,000–100,000 $DAO ($28–$1,400+) [12] |
 | Flaunch | Undisclosed | Swap fee (Uniswap V4) [17] | Free (gas only) | None |
@@ -304,11 +304,11 @@ for token creators and has been a primary driver of Pump.fun's scale
 transaction at swap time.
 
 **Fjord Foundry.** Charges issuers 5% of collateral raised at sale
-close [11]. Buyers pay only the pool swap fee, typically configured
-at 1–2% by the sale creator. No upfront setup cost and no native
-token requirement ($FJO is not needed for participation). The 5%
-issuer fee is competitive for a managed platform that provides a
-no-code UI and marketing distribution.
+close [11]. Buyers pay a 2% swap fee on each transaction [34]. No
+upfront setup cost and no native token requirement ($FJO is not
+needed for participation). The 5% issuer fee is competitive for a
+managed platform that provides a no-code UI and marketing
+distribution.
 
 **Metaplex Genesis.** Zero issuer fee; the protocol charges a 2%
 fee on buyer deposits [16]. Setup is free (gas costs only on
@@ -353,6 +353,90 @@ Polkastarter) function as hidden fees: they impose a capital lockup
 cost of $300 to $25,000+ and create plutocratic access barriers
 where participation rights scale with token holdings rather than
 genuine interest in the project.
+
+### Onchain fee enforcement
+
+Among the protocols surveyed, fee enforcement falls into three
+categories: per-swap onchain fees (deducted atomically in the swap
+transaction), at-close onchain fees (deducted when the creator
+withdraws proceeds), and platform-level fees (collected off-chain
+or via UI restrictions).
+
+#### Per-swap onchain fees
+
+Pump.fun, Balancer (underlying Fjord Foundry LBPs), Flaunch
+(Uniswap V4 hooks), and Metaplex Genesis all enforce fees onchain
+at swap time.
+
+In Balancer v2 weighted pools (the contract underlying all Fjord
+LBPs), the swap fee is deducted from the **input amount before**
+the weighted math formula runs [29][34]. The adjusted input is:
+
+```
+A_in = A_sent × (1 - swap_fee_percentage)
+```
+
+This `A_in` is then substituted into the standard weighted pool
+out-given-in formula. The fee portion stays in the pool (increasing
+LP value), minus the Balancer protocol fee share. In
+`LiquidityBootstrappingPool.sol`, the `_onSwapMinimal` function
+handles this explicitly [34]:
+
+```solidity
+// For GIVEN_IN (exact input):
+request.amount = request.amount.mulDown(
+    getSwapFeePercentage().complement()
+);
+```
+
+Both directions round against the trader (in favour of the pool).
+The LBP contract inherits standard weighted pool fee handling with
+no LBP-specific fee logic; the only LBP-specific behaviour is
+time-dependent weight interpolation [34].
+
+Pump.fun uses an equivalent model: a 1% fee deducted per trade,
+collected atomically in the same transaction [1][2].
+
+#### Balancer protocol fee
+
+Balancer v2 imposes a protocol-level fee that is a **percentage of
+the swap fee**, not of the swap amount [35]. The current rate is
+50% of collected swap fees (set by Balancer governance via BIP-371,
+August 2023) [35]. For example, if a pool charges a 2% swap fee,
+1% accrues to LPs (stays in pool) and 1% goes to the Balancer
+`ProtocolFeesCollector` contract. From the swapper's perspective,
+the total cost is the same regardless of the protocol/LP split.
+
+Balancer v3 retains the 50% swap fee share but reduced the yield
+fee share from 50% to 10% to encourage adoption of boosted
+pools [36]. v3 also introduced a Pool Creator Fee, allowing pool
+deployers to earn a share of fees from their pools [37].
+
+#### At-close onchain fees
+
+Fjord Foundry collects a 5% platform fee on collateral raised at
+sale close [11]. Fjord's wrapper contract (historically the Copper
+Launch proxy) acts as the Balancer pool controller; only Fjord's
+contract can call `exitPool` on the underlying Balancer pool,
+allowing it to retain 5% of collateral before forwarding proceeds
+to the creator [11]. The creator interacts with Fjord's contract,
+not Balancer directly, and cannot bypass the fee.
+
+This means Fjord LBPs have two distinct onchain fee layers: a 2%
+per-swap fee (enforced by Balancer's pool contract, split 50/50
+between LPs and protocol) and a 5% at-close fee (enforced by
+Fjord's wrapper contract) [11][34].
+
+#### Fee enforcement comparison
+
+| Protocol | Fee Type | Enforcement | When Collected | Deduction Point |
+|---|---|---|---|---|
+| Pump.fun | 1% per trade | Onchain (Solana program) | Per-swap | From swap amount |
+| Fjord/Balancer | 2% swap fee | Onchain (Balancer pool contract) | Per-swap | From input before formula |
+| Fjord | 5% platform fee | Onchain (Fjord wrapper contract) | At-close | From collateral proceeds |
+| Metaplex Genesis | 2% deposit fee | Onchain (Solana program) | Per-deposit | From deposit amount |
+| Flaunch | Swap fee | Onchain (Uniswap V4 hook) | Per-swap | Via hook mechanism |
+| Polkastarter | ~1% of raised | Off-chain / undisclosed | At-close | From proceeds |
 
 ## Sale Lifecycle and Close Mechanics
 
@@ -648,3 +732,19 @@ anonymity set regardless of allowlist size.
 33. Fjord Foundry, "Seed, Private and Public Rounds: Can I refund
     participants if my sale doesn't hit the minimum cap?"
     https://help.fjordfoundry.com/fjord-foundry-docs/for-sale-creators/seed-private-and-public-rounds#can-i-refund-participants-if-my-sale-doesnt-hit-the-minimum-cap
+34. Balancer v2, `LiquidityBootstrappingPool.sol` source code
+    (swap fee deduction in `_onSwapMinimal`); Bitbond Fjord Foundry
+    review (2% swap fee); Fjord Foundry LBP FAQ (fee structure).
+    https://github.com/balancer/balancer-v2-monorepo/blob/master/pkg/pool-weighted/contracts/lbp/LiquidityBootstrappingPool.sol ;
+    https://www.bitbond.com/resources/fjord-foundry-launchpad-review/ ;
+    https://help.fjordfoundry.com/fjord-foundry-docs/for-sale-creators/faqs-creators/lbp-faq
+35. Balancer v2, "Protocol Fees" and "Governable Protocol Fees"
+    documentation (protocol fee is percentage of swap fee, 50% rate
+    per BIP-371).
+    https://docs.balancer.fi/concepts/governance/protocol-fees.html ;
+    https://balancer.gitbook.io/balancer-v2/ecosystem/governance/governable-protocol-fees
+36. Balancer v3, "Protocol Fee Model" documentation (50% swap fee
+    share, 10% yield fee share).
+    https://docs.balancer.fi/concepts/protocol-fee-model/protocol-fee-model.html
+37. Balancer v3, "Pool Creator Fee" documentation.
+    https://docs.balancer.fi/concepts/core-concepts/pool-creator-fee.html

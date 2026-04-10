@@ -150,15 +150,29 @@ they detect large buy orders.
 
 ### Fee structure
 
-This RFP does not mandate a specific fee rate. Proposals must
-specify: (1) who pays the fee (issuer, buyer, or both), (2) when
-fees are collected (per-transaction, at sale close, or both),
-(3) the fee rate or rate range, and (4) where fees are routed
-(protocol treasury, sale creator, burn, or other destination). See
-the [Fee Structures](../appendix/token-launchpad-ecosystem.md#fee-structures)
-section of the token launchpad ecosystem appendix for a
-cross-platform comparison of fee models across seven surveyed
-protocols.
+The LBP program collects a protocol fee at sale close, matching
+the model used by Fjord Foundry on Balancer (see the
+[Onchain Fee Enforcement](../appendix/token-launchpad-ecosystem.md#onchain-fee-enforcement)
+section of the appendix). When the creator withdraws collateral
+after the sale end timestamp, the program deducts
+`fee = collateral_balance × fee_rate` (rounded up) and transfers
+it to a protocol treasury account. The creator receives the
+remainder.
+
+Because the LBP is time-bounded (every sale reaches its end
+timestamp regardless of demand), the at-close fee is always
+collectible, unlike bonding curves where over 98% of sales never
+graduate. Fjord Foundry uses a 5% at-close fee on collateral
+raised, enforced onchain by its wrapper contract [11].
+
+The fee rate and treasury address are configured by the program's
+admin authority and apply uniformly to all sales. The RFP does not
+mandate a specific rate; the admin authority sets it at deployment
+and may update it. Sale creation is free (no creation fee).
+
+See the
+[Fee Structures](../appendix/token-launchpad-ecosystem.md#fee-structures)
+section of the appendix for a cross-platform comparison.
 
 ## ✅ Scope of Work
 
@@ -197,9 +211,10 @@ protocols.
    at transaction time regardless of how recently the last poke
    occurred.
 5. After the sale end timestamp passes, the creator can withdraw:
-   - The collateral raised, net of fees as defined by the fee
-     model specified in the proposal (see the Fee structure
-     subsection in Design Rationale).
+   - The collateral raised, net of the at-close protocol fee
+     (see the Fee structure subsection in Design Rationale). The
+     program deducts the fee and transfers it to the protocol
+     treasury atomically in the withdrawal transaction.
    - Any unsold project tokens remaining in the pool.
 6. The sale creator can pause buying at any time during the sale
    period (emergency stop). Pausing does not affect weight
@@ -247,7 +262,7 @@ protocols.
    pause/resume, close, withdraw).
 4. The mini-app must display a pre-buy confirmation summary before
    each purchase: current token price, estimated tokens to be
-   received, price impact, collateral spent, and fee.
+   received, price impact, and collateral spent.
 5. When using the private account path, the mini-app must display a
    privacy disclosure before each buy, identifying what will be
    visible on-chain (buy transaction, collateral amount, tokens
