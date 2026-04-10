@@ -284,15 +284,15 @@ permissionless deployment to enterprise pricing tiers exceeding
 $50,000. The table below summarises fee structures for the seven
 crypto-native launchpads surveyed in this appendix.
 
-| Protocol | Issuer Fee | Buyer Fee | Setup Cost | Staking Required |
-|---|---|---|---|---|
-| Pump.fun | 0% | 1% (protocol fee on trades) [1][2] | Free | None |
-| Fjord Foundry | 5% of collateral raised [11] | 2% swap fee [11][34] | Free | None |
-| Metaplex Genesis | 0% (fee on deposits) [16] | 2% on deposits [16] | Free | None |
-| DAO Maker | 5% of tokens [12] | 5% (DAO SHO) / 30% (Public SHO) [12] | Undisclosed | 2,000–100,000 $DAO ($28–$1,400+) [12] |
-| Flaunch | Undisclosed | Swap fee (Uniswap V4) [17] | Free (gas only) | None |
-| Polkastarter | ~1% of raised [13] | Network gas only [10] | Undisclosed | 1,000–50,000 POLS ($300–$25,000) [10] |
-| DAOs.fun | 10% early redemption penalty [21] | None during fundraise; AMM fee post-launch [21] | Free | None |
+| Protocol | Issuer Fee | Buyer Fee | Setup Cost | Staking Required | Fee Disposition |
+|---|---|---|---|---|---|
+| Pump.fun | 0% | 1% (protocol fee on trades) [1][2] | Free | None | ~25% to PUMP buyback-and-burn ($350M+ cumulative); creator fee sharing (Jan 2026) [39] |
+| Fjord Foundry | 5% of collateral raised [11] | 2% swap fee [11][34] | Free | None | ~10% to Fjord Labs, ~90% to FJO buyback-and-redistribute to stakers [38] |
+| Metaplex Genesis | 0% (fee on deposits) [16] | 2% on deposits [16] | Free | None | 50% MPLX buyback for DAO treasury, 50% Metaplex Foundation [7] |
+| DAO Maker | 5% of tokens [12] | 5% (DAO SHO) / 30% (Public SHO) [12] | Undisclosed | 2,000–100,000 $DAO ($28–$1,400+) [12] | Quarterly buyback-and-burn (~20% of fees); staking rewards; low transparency [40] |
+| Flaunch | Undisclosed | Swap fee (Uniswap V4) [17] | Free (gas only) | None | 1% split: creator (via Memestream NFT) + automated buybacks; 0% platform fee (governance can activate max 10%) [17] |
+| Polkastarter | ~1% of raised [13] | Network gas only [10] | Undisclosed | 1,000–50,000 POLS ($300–$25,000) [10] | Largely undisclosed; staking rewards not onchain-linked to fees [10] |
+| DAOs.fun | 10% early redemption penalty [21] | None during fundraise; AMM fee post-launch [21] | Free | None | Trading fees split between Meteora, platform, creator, and referrer; exact split not independently verified [21] |
 
 ### Per-protocol detail
 
@@ -353,6 +353,61 @@ Polkastarter) function as hidden fees: they impose a capital lockup
 cost of $300 to $25,000+ and create plutocratic access barriers
 where participation rights scale with token holdings rather than
 genuine interest in the project.
+
+For platforms that combine per-swap and at-close fees, swap fee
+revenue is a significant complement to the raise fee. Fjord
+Foundry's cumulative swap volume (~$1.5B [22]) exceeds cumulative
+funds raised (~$1.1B [5]) by a factor of roughly 1.4x, implying
+that per-swap fees generate meaningful additional revenue on top of
+the 5% at-close fee.
+
+### Fee disposition and revenue routing
+
+Fee routing varies widely: from fully opaque team-controlled wallets
+to onchain revenue waterfalls with verifiable distribution to token
+holders. The table above includes a summary column; per-protocol
+detail follows.
+
+**Pump.fun.** Since the PUMP token launch in July 2025,
+approximately 25% of platform fees fund systematic PUMP token
+buybacks, with purchased tokens sent to a burn address ($350M+
+cumulative buybacks, retiring approximately 14.75% of circulating
+supply) [39]. A Creator Fee Sharing system was introduced in
+January 2026, allowing creators to split fee revenue across
+multiple wallets [39].
+
+**Fjord Foundry.** Approximately 10% of revenue supports
+operational expenses (Fjord Labs); approximately 90% funds FJO
+buyback-and-redistribute to stakers [38]. Rewards come from
+revenue-funded buybacks only, not direct ETH/USDC distributions
+or native emissions. Parameters are configurable.
+
+**Metaplex.** 50/50 split: half buys MPLX for DAO treasury (73.8M
+MPLX repurchased as of mid-2025, 7.4% of supply), half to Metaplex
+Foundation at its discretion [7]. No direct revenue share to MPLX
+holders. Buyback is onchain verifiable; Foundation share is opaque.
+
+**DAO Maker.** Quarterly buyback-and-burn program funded by
+approximately 20% of fees from successful project launches [40].
+Staking rewards of 8 to 15% APY are offered. However, the buyback
+programme lacks prominent onchain verification (no public dashboard
+or transparent burn address), giving lower transparency than
+protocols such as Metaplex or Pump.fun [40].
+
+**Flaunch.** 1% swap fee split at launch between creator (ETH via
+Memestream NFT) and automated buybacks (Progressive Bid Walls)
+[17]. Ratio is set at coin creation. Platform takes 0% currently;
+FLAY governance can activate a fee switch (max 10%) but has not.
+Transparent and onchain.
+
+**Polkastarter.** Fee destination largely undisclosed. Staking
+rewards are not onchain-linked to fee collection [10]. Revenue
+sharing has been announced on the roadmap but not deployed.
+
+**DAOs.fun.** Trading fees are split between Meteora, the DAOs.fun
+platform, the creator, and referrers [21]. The exact percentage
+breakdown has not been independently verified from primary sources.
+Early redemption penalty destination is undisclosed.
 
 ### Onchain fee enforcement
 
@@ -748,3 +803,18 @@ anonymity set regardless of allowlist size.
     https://docs.balancer.fi/concepts/protocol-fee-model/protocol-fee-model.html
 37. Balancer v3, "Pool Creator Fee" documentation.
     https://docs.balancer.fi/concepts/core-concepts/pool-creator-fee.html
+38. Fjord Foundry FJO tokenomics and staking documentation; Fjord
+    Foundry help docs "FJO Token" and "Staking."
+    https://help.fjordfoundry.com/fjord-foundry-docs/tokenomics/fjo-token ;
+    https://help.fjordfoundry.com/fjord-foundry-docs/tokenomics/staking
+39. The Block, "Pump.fun initiates PUMP token buybacks," 2025;
+    BeInCrypto, "Pump.fun Burned $350M on Buybacks," 2026; Brave
+    New Coin, "Pump.fun Introduces Creator Fee Sharing System," Jan
+    2026.
+    https://www.theblock.co/post/362867/pump-fun-appears-to-initiate-pump-token-buybacks-using-platform-fees-onchain-analysts ;
+    https://beincrypto.com/pump-fun-350m-buyback-pump-token/ ;
+    https://bravenewcoin.com/insights/pump-fun-introduces-creator-fee-sharing-system-to-rebalance-platform-incentives
+40. Bitget, "DAO Maker Investment Guide" (quarterly buyback-and-burn
+    programme); MEXC, "DAO Maker Tokenomics."
+    https://www.bitgetapp.com/academy/dao-maker-investment ;
+    https://www.mexc.com/price/DAO/tokenomics
