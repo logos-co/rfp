@@ -101,7 +101,7 @@ Liquity's liquidation has three distinct layers:
 - Deeply coupled to Liquity's token mechanics; not easily abstracted behind a generic interface
 - Less flexible for different CDP designs that may have different collateral types or risk parameters
 
-**However**, the trigger layer (keeper detects undercollateralization, calls liquidation function) is shared across all approaches. The difference is in resolution: Liquity routes to a Stability Pool, RFP-014 routes to an increasing-discount auction, and Aave-style direct liquidation resolves at the CDP level without an engine. See [Compatibility with RFP-013 Hybrid Evolution](#compatibility-with-rfp-013-hybrid-evolution) for how these paths relate to the hybrid design discussed in the stablecoin appendix.
+**However**, the trigger layer (keeper detects undercollateralization, calls liquidation function) is shared across all approaches. The difference is in resolution: Liquity routes to a Stability Pool, RFP-014 routes to an increasing-discount auction, and Aave-style direct liquidation resolves at the CDP level without an engine. See [Compatibility with RFP-013 Hybrid Evolution](#compatibility-with-rfp-013-hybrid-evolution) for how direct liquidation could complement the auction engine independently of the hybrid approach (which was [rejected](./appendix-reflexive-stablecoin-ecosystem.md#design-consideration-reflexive--redemption-hybrid) based on simulation analysis).
 
 ### Soft Liquidation via AMM (crvUSD / LLAMMA)
 
@@ -217,13 +217,11 @@ The integration interface above is generic, but RFP-013's reflexive stablecoin i
 
 ### Compatibility with RFP-013 Hybrid Evolution
 
-The [Reflexive Stablecoin appendix](./appendix-reflexive-stablecoin-ecosystem.md#design-consideration-reflexive--redemption-hybrid) discusses a potential hybrid model combining RAI's PID controller with Liquity-style direct redemptions. If this hybrid is pursued, the liquidation engine's scope expands in two ways:
+The [Reflexive Stablecoin appendix](./appendix-reflexive-stablecoin-ecosystem.md#design-consideration-reflexive--redemption-hybrid) discusses a potential hybrid model combining RAI's PID controller with Liquity-style direct redemptions, and explains why this approach was rejected. Simulation analysis found that the hybrid's redemption floor is asymmetric — it only fires when the market trades below the redemption price, but the dominant RAI failure mode is an upside death spiral where the market stays above target and the PID drives extended negative-rate regimes that bleed LP participation. The hybrid provides zero protection against this risk. For the full analysis, see the stablecoin appendix.
 
-**Redemption-triggered position closures.** In a hybrid, redemptions force-close the riskiest CDPs (Liquity-style). This is not a liquidation in the traditional sense (the position isn't undercollateralized), but it uses similar mechanics: collateral is seized from a position and transferred to the redeemer. The engine's integration interface would need to support a `redeem_against_position(position_id, amount)` call distinct from `seize_collateral`, since redemption has different authorization rules (anyone can redeem, not just keepers responding to undercollateralization).
+**Redemption-triggered position closures.** Although the full hybrid is not recommended as a default operating mode, Liquity-style redemptions — where anyone redeems stablecoins for collateral from the riskiest CDPs — remain a viable component, either as a circuit-breaker-activated emergency backstop for downside crunches or as a standalone feature independent of the PID hybrid framing. This is not a liquidation in the traditional sense (the position isn't undercollateralized), but it uses similar mechanics: collateral is seized from a position and transferred to the redeemer. To support this, the engine's integration interface should accommodate a `redeem_against_position(position_id, amount)` call distinct from `seize_collateral`, since redemption has different authorization rules (anyone can redeem, not just keepers responding to undercollateralization). Keeping this interface available costs nothing and ensures the engine remains versatile if RFP-013 adds a redemption path later.
 
-**Direct liquidation as a CDP-level function.** The Liquity Stability Pool model requires pre-committed capital from depositors, creating a bootstrapping dependency unsuitable for a new ecosystem. A simpler complementary path is direct liquidation (Aave-style), where a keeper repays a position's debt and receives collateral at a configurable bonus in a single atomic transaction.
-
-Critically, direct liquidation does not require the auction engine at all. It is a function on the CDP program itself (RFP-013), callable by any keeper:
+**Direct liquidation as a complementary CDP-level function.** Independent of the hybrid question, there is value in a direct liquidation path (Aave-style) as a complement to the auction engine. A keeper repays a position's debt and receives collateral at a configurable bonus in a single atomic transaction. This does not require the auction engine at all — it is a function on the CDP program itself (RFP-013), callable by any keeper:
 
 ```
 Undercollateralized position detected
@@ -241,10 +239,10 @@ Path C is fast and simple but requires keepers with capital (or flash-loan acces
 
 This means:
 - **RFP-014** (this RFP) delivers the auction engine (Path A). This is the scope of the current deliverable.
-- **RFP-013** currently scopes all liquidation to RFP-014. If the hybrid evolution is pursued, RFP-013 would add a direct `liquidate(position_id, debt_amount)` function (Path C) as a CDP-level feature, independent of the auction engine.
+- **RFP-013** could independently add a direct `liquidate(position_id, debt_amount)` function (Path C) as a CDP-level feature. This is a straightforward Aave-style mechanism that does not depend on the hybrid design.
 - The two paths are complementary, not competing. Path C handles the common case (liquid markets, capital-rich keepers). Path A handles the stress case (thin markets, volatile conditions, no immediate taker).
 
-In this model, the liquidation engine's integration interface remains as specified: the CDP protocol notifies the engine when collateral needs to be auctioned. Direct liquidation bypasses this interface entirely since it's resolved at the CDP layer. A Stability Pool (Liquity-style Resolution B) remains a viable but more complex addition for later stages when the ecosystem has sufficient depositor liquidity.
+In this model, the liquidation engine's integration interface remains as specified: the CDP protocol notifies the engine when collateral needs to be auctioned. Direct liquidation bypasses this interface entirely since it's resolved at the CDP layer.
 
 ## Auction Types Comparison
 
