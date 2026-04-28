@@ -37,23 +37,23 @@ repay, withdraw, liquidation, interest accrual, oracle integration,
 flash loans). The curation layer (single-asset deposit vaults that
 allocate across multiple markets, vault share tokens, supply and borrow
 caps) is addressed in
-[RFP-012](./RFP-012-advanced-lending-features.md). The applying team
+[RFP-012](./RFP-012-curated-lending-vaults.md). The applying team
 should have experience building or contributing to on-chain lending
 protocols and be comfortable with interest rate modelling, liquidation
 mechanics, and oracle integration.
 
 ## 🔥 Why This Matters
 
-Lending protocols are proven ecosystem catalysts. Aave's deployment on
-Polygon catalysed over $1B in TVL and bootstrapped the entire Polygon
-DeFi ecosystem. On Solana, Kamino grew to $2.8B TVL and became the
-backbone for leveraged yield strategies across the chain.
+Lending protocols anchor DeFi ecosystems. Aave on Polygon reached over
+$1B TVL within months of deployment and was the largest application on
+the chain at that time. On Solana, Kamino grew to $2.8B TVL and is the
+largest source of borrowed liquidity on the chain.
 
 Without lending, assets on LEZ sit idle. Holders have no way to earn
 yield, builders have no liquidity primitive to compose with, and the
 ecosystem lacks the capital-efficiency layer needed to attract serious
-DeFi activity. A lending protocol is the single highest-leverage
-application for growing the Logos ecosystem.
+DeFi activity. A lending protocol is one of the highest-impact
+applications for growing the Logos ecosystem.
 
 The Morpho Blue model offers specific advantages for a nascent
 ecosystem like LEZ. Permissionless market creation removes governance
@@ -65,11 +65,9 @@ accounting) is easier to audit, formally verify, and reason about,
 which is critical when the protocol is the first lending primitive on a
 new chain.
 
-Beyond TVL, lending creates downstream demand: it establishes a
-borrowing market for stablecoins, generates liquidation volume for
-DEXs, and provides the collateral infrastructure needed for synthetic
-assets and structured products. Every major DeFi ecosystem was built on
-this foundation.
+Beyond TVL, lending creates downstream demand: a borrowing market for
+stablecoins and the collateral layer that synthetic assets and
+structured products are built on.
 
 ## ✅ Scope of Work
 
@@ -209,6 +207,14 @@ this foundation.
 7. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
    for the CLI, covering the core operator/user journey.
 8. Provide Figma designs or equivalent for the mini-app GUI.
+9. Provide a privacy and anonymisation properties document covering:
+   what on-chain state and transaction data is visible to observers;
+   what data is protected when the private account path is used; trust
+   assumptions, specifying which guarantees are enforced by the on-chain
+   program and which depend on correct client behaviour; and what
+   happens if a user bypasses the expected interaction path. See
+   [Appendix: Lending Platform Context — Privacy Architecture](../appendix/lending-platform.md#privacy-architecture)
+   for the baseline this document must align with.
 
 #### + Privacy
 
@@ -248,7 +254,7 @@ If possible.
 
 The following are explicitly excluded from this RFP.
 
-Curation layer features, deferred to [RFP-012](./RFP-012-advanced-lending-features.md):
+Curation layer features, deferred to [RFP-012](./RFP-012-curated-lending-vaults.md):
 
 - Curated vault abstraction: single-asset deposit vaults allocating
   across multiple markets with a curator-managed strategy

@@ -7,8 +7,8 @@ status: draft
 # Lending Protocol Platform Context
 
 This appendix covers shared architectural context for the lending
-protocol RFPs ([RFP-008](./RFP-008-lending-borrowing-protocol.md) and
-[RFP-012](./RFP-012-advanced-lending-features.md)).
+protocol RFPs ([RFP-008](../RFPs/RFP-008-lending-borrowing-protocol.md) and
+[RFP-012](../RFPs/RFP-012-curated-lending-vaults.md)).
 
 
 ## Privacy Architecture
@@ -80,14 +80,6 @@ These must be available on LEZ before any lending RFP can open.
 No oracle provider is available on LEZ. The lending protocol requires
 external price feeds for collateral valuation and liquidation triggers.
 
-#### On-chain clock / timestamp
-
-LEZ does not yet have on-chain block time. Interest accrual (the
-core economic mechanic of a lending protocol) requires knowing how
-much time has elapsed between interactions. Without a reliable on-chain
-timestamp, interest rates, supply APY, and borrow APR cannot be
-computed.
-
 #### General cross-program calls (LP-0015)
 
 LEZ uses a tail-call execution model rather than Solana's CPI
@@ -104,7 +96,7 @@ continuation would need to be a separate externally callable
 entrypoint, which is fragile and insecure (anyone could call the
 continuation directly, bypassing the token transfer).
 
-[LP-0015](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0015.md)
+[LP-0015](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0015.md)
 (General cross-program calls via tail calls) solves this by introducing
 internal-only entrypoints protected by an unforgeable capability, so
 the lending program can tail-call the token program and have control
@@ -120,7 +112,7 @@ Liquidator bots and indexers need to monitor positions and react to
 on-chain state changes. Without structured events, off-chain services
 must poll all accounts, which is expensive and unreliable.
 
-[LP-0012](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)
+[LP-0012](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md)
 (Structured events for LEZ program execution) is currently **open**.
 
 ### Risks
@@ -131,7 +123,12 @@ LEZ currently processes one private transaction per block. Liquidation
 is the most compute-intensive lending operation: it reads the
 borrower's position, collateral balance, oracle price, interest
 indices, and market parameters, then writes updated state. On Solana,
-a liquidation can consume 200,000 to 400,000 compute units. If LEZ's
-per-transaction compute budget is insufficient, liquidations will fail
-and the protocol risks insolvency. This needs benchmarking once the
-protocol is under development.
+where the per-instruction default is 200,000 compute units and the
+per-transaction maximum is 1.4M compute units (see
+[Solana compute budget](https://solana.com/docs/core/fees/compute-budget)),
+a liquidation typically consumes hundreds of thousands of compute
+units; the exact figure for LEZ depends on the implementation and
+needs benchmarking [BENCHMARK NEEDED]. If LEZ's per-transaction
+compute budget is insufficient, liquidations will fail and the
+protocol risks insolvency. This needs benchmarking once the protocol
+is under development.

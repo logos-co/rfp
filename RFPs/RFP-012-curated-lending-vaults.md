@@ -27,10 +27,10 @@ choose individual markets manually (evaluating collateral quality,
 oracle reliability, LLTV risk). Curated vaults abstract this complexity:
 depositors supply a single token, the curator allocates across vetted
 markets, and depositors earn blended yield. On Ethereum, MetaMorpho
-vaults reached [DATA NEEDED] in deposits, demonstrating that the
-vault layer is where most passive capital concentrates. The applying
-team should ideally be the same team that delivered RFP-008, or have
-deep familiarity with the deployed protocol's internals.
+vaults reached [DATA NEEDED] in deposits. Most passive capital in
+Morpho concentrates in the vault layer rather than in raw markets. The
+applying team should ideally be the same team that delivered RFP-008,
+or have deep familiarity with the deployed protocol's internals.
 
 ## 🔥 Why This Matters
 
@@ -44,10 +44,10 @@ TVL ceiling is limited to active, sophisticated lenders.
 Curated vaults solve this by aggregating passive capital and directing
 it where it earns the best risk-adjusted yield. On Ethereum, the
 majority of Morpho deposits flow through MetaMorpho vaults rather than
-directly into isolated markets. For the Logos ecosystem, vaults
-transform the lending protocol from a tool for power users into a
-passive yield product accessible to all participants, dramatically
-expanding the protocol's addressable market and TVL.
+directly into isolated markets. For the Logos ecosystem, vaults make
+the lending protocol usable for passive depositors who would not
+otherwise interact with raw isolated markets. This widens the
+protocol's addressable market.
 
 Vaults also create a natural role for risk specialists (curators) who
 compete on yield and safety. This decentralises risk management:
@@ -165,6 +165,15 @@ choose the vault that matches their preference.
 6. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
    for the CLI additions covering the vault features.
 7. Provide Figma designs or equivalent for all GUI additions to the mini-app.
+8. Update the privacy and anonymisation properties document delivered
+   by RFP-008 to cover the vault layer: what vault state and operations
+   are visible to observers; what data is protected when the private
+   account path is used for vault interactions; trust assumptions,
+   specifying which guarantees are enforced by the on-chain program and
+   which depend on correct client behaviour; and what happens if a user
+   bypasses the expected interaction path. See
+   [Appendix: Lending Platform Context — Privacy Architecture](../appendix/lending-platform.md#privacy-architecture)
+   for the baseline this document must align with.
 
 #### + Privacy
 
@@ -224,9 +233,8 @@ This RFP is open for proposal submission. However, development is blocked until 
    deployed protocol; it cannot proceed without the base layer.
 
 All other platform primitives required by this RFP (including LP-0015
-general cross-program calls, oracle provider, and on-chain clock) are
-hard blockers for RFP-008 and will therefore be resolved before this
-RFP opens. See
+general cross-program calls and an oracle provider) are hard blockers
+for RFP-008 and will therefore be resolved before this RFP opens. See
 [Appendix: Lending Platform Context](../appendix/lending-platform.md#platform-dependencies)
 for details.
 
