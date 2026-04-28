@@ -510,6 +510,28 @@ patterns motivate RFP-019's two-tier architecture (on-chain TWAP +
 external feeds) and circuit breaker design as a defence-in-depth
 choice rather than a universal industry default.
 
+## Privacy-Asset Feed Availability
+
+LEZ's privacy focus likely makes XMR/USD and ZEC/USD first-class
+pricing requirements. On-chain TWAP cannot supply these prices: no
+wrapped XMR or ZEC token has sufficient DEX liquidity (low five to
+six figures across all surveyed pools on Ethereum and Solana) for a
+manipulation-resistant TWAP, so an off-chain feed is the only viable
+path on day one. Coverage across the surveyed oracles is summarised
+below.
+
+| Oracle | XMR/USD | ZEC/USD | Self-serve on LEZ? |
+|--------|---------|---------|--------------------|
+| Chainlink (push) | Active on Optimism (1,200s heartbeat, 0.2% deviation) and Polygon (24h, 1%) [39] | Active on Ethereum (24h, 2%) and Polygon (24h, 1%) [40] | No: permissioned onboarding |
+| Chainlink Data Streams | 43+ chains, subscription-gated [39] | 35+ chains, subscription-gated [40] | No: paid product |
+| Pyth (pull) | `crypto-xmr-usd`, approximately 80+ publishers across two clusters [41] | `crypto-zec-usd`, 28 publishers [41] | Yes, once Wormhole endpoint and the Pyth receiver are deployed |
+| RedStone (pull) | Listed; data feed ID `XMR` [42] | Listed; data feed ID `ZEC` [42] | Yes: RedStone publishes a Solana / SVM connector built on the native secp256k1 precompile (the same scheme as its EVM and other chain connectors); no bridge dependency, no per-chain RedStone team engagement |
+| DIA / Lumina | Production-ready (MAIR aggregation, 120s, announced January 2026) [43] | Available (MAIR, 120s) [43] | Yes via Lumina; bespoke deployment per chain |
+| Supra | XMR_USDT, 195 sources (Standard tier) [44] | ZEC_USDT, 60 sources (Premium tier) [44] | No: requires Supra team engagement |
+| Chronicle | Not in public feed catalogue | Not in public feed catalogue | N/A |
+| API3 | Not found | Not found | N/A |
+| Switchboard | Not found | Not found | Permissionless feed creation supported but no XMR or ZEC feed currently exists |
+
 ## LEZ Bootstrap Strategy
 
 ### Phase 1: Genesis (no TVL)
@@ -662,3 +684,28 @@ The TWAP tier's role evolves with liquidity:
 38. Morpho governance forum, "PYTH CBETH price feed is easily
     manipulated, resulted in me losing $33,000," Mar 2025.
     https://forum.morpho.org/t/pyth-cbeth-price-feed-is-easily-manipulated-resulted-in-me-losing-33000/1577
+39. Chainlink, XMR/USD price feeds: Optimism Mainnet
+    (`0x2a8D91686A048E98e6CCF1A89E82f40D14312672`) and Polygon
+    Mainnet (`0xBE6FB0AB6302B693368D0E9001fAF77ecc6571db`); Data
+    Streams XMR/USD-RefPrice product on 43+ chains.
+    https://data.chain.link/feeds/optimism/mainnet/xmr-usd
+    https://data.chain.link/feeds/polygon/mainnet/xmr-usd
+    https://data.chain.link/streams/xmr-usd-cexprice-streams
+40. Chainlink, ZEC/USD price feeds: Ethereum Mainnet
+    (`0x3f929667bdf783b99274F10465a89d6aF772736E`) and Polygon
+    Mainnet (`0xBC08c639e579a391C4228F20d0C29d0690092DF0`); Data
+    Streams ZEC/USD-RefPrice product on 35+ chains.
+    https://data.chain.link/ethereum/mainnet/crypto-usd/zec-usd
+    https://data.chain.link/feeds/polygon/mainnet/zec-usd
+    https://data.chain.link/streams/zec-usd-cexprice-streams
+41. Pyth Network, legacy price feeds dashboard
+    (`crypto-xmr-usd`, `crypto-zec-usd`).
+    https://insights.pyth.network/legacy-price-feeds/crypto-xmr-usd
+    https://insights.pyth.network/legacy-price-feeds/crypto-zec-usd
+42. RedStone, "ALL_SUPPORTED_TOKENS" registry (XMR and ZEC listed).
+    https://github.com/redstone-finance/redstone-api/blob/main/docs/ALL_SUPPORTED_TOKENS.md
+43. DIA, asset price index (XMR and ZEC).
+    https://www.diadata.org/app/price/asset/Monero/0x0000000000000000000000000000000000000000/
+    https://www.diadata.org/app/price/asset/Zcash/0x0000000000000000000000000000000000000000/
+44. Supra, "Data Feeds Index" (XMR_USDT, ZEC_USDT).
+    https://docs.supra.com/oracles/data-feeds/data-feeds-index
