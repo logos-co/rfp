@@ -51,7 +51,7 @@ notable example is the LGS/LSC composite oracle path that the LSC
 stablecoin (RFP-013) may choose: an external LGS/USD feed combined
 with an on-chain LGS/LSC TWAP. Whether RFP-013 ultimately picks the
 direct LSC/USD path or the composite path is a business decision
-left to the implementer; either path benefits from a robust TWAP
+left to the implementer; either path benefits from a working TWAP
 tier as a swappable building block.
 
 On new chains, on-chain TWAP is acutely vulnerable on its own: with
@@ -285,7 +285,7 @@ ongoing subsidies once LEZ reaches moderate TVL.
 
 1. Multi-source aggregation: compute the median of N sources
    (TWAP plus N external sources registered to the standard) as a
-   single aggregated price, reducing reliance on any one source.
+   single aggregated price.
 2. Ormer algorithm implementation: median estimator with
    multi-window fusion as an alternative to the standard
    geometric-mean TWAP, if a production-ready specification exists.

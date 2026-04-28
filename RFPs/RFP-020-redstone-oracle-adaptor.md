@@ -34,14 +34,13 @@ work on the anon-comms roadmap.)
 Logos's thesis is private DeFi: assets, applications, and users
 that the broader web3 stack does not yet serve well. Privacy
 collateral, in particular Monero (XMR) and Zcash (ZEC), is the
-clearest day-one differentiator and the most direct path to
-attracting privacy-aligned developers and capital to LEZ. Building
-on top of those assets, the LSC stablecoin
+day-one asset class that distinguishes LEZ from a generic SVM
+deployment. The LSC stablecoin
 ([RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)), the
 privacy-preserving DEX
 ([RFP-004](./RFP-004-privacy-preserving-dex.md)), wrapped privacy
-assets, and other cross-chain primitives all require a USD
-reference price for XMR and ZEC. Without one, none of those
+assets, and other cross-chain primitives all need a USD reference
+price for XMR and ZEC to function. Without one, none of those
 applications can ship.
 
 Across the surveyed off-chain oracle providers, RedStone is the
@@ -77,17 +76,17 @@ genuine choice for production:
   fix.
 - **Path B (LGS/USD + LGS/LSC composite).** Use an external
   LGS/USD feed combined with an on-chain LGS/LSC TWAP. Pros: LGS
-  will have more robust CEX liquidity once the network reaches
-  scale; external oracles for LGS/USD are battle-tested. Cons: the
-  LGS/LSC TWAP becomes the manipulation bottleneck, which is
-  exactly the low-liquidity vulnerability the TWAP RFP raises.
+  is expected to have deeper CEX liquidity than LSC once the
+  network reaches scale; external oracles for LGS/USD are
+  battle-tested. Cons: the LGS/LSC TWAP becomes the manipulation
+  bottleneck, which is exactly the low-liquidity vulnerability the
+  TWAP RFP raises.
 
 This RFP does not pick A or B. It provides the off-chain oracle
 half of either path: USD prices for LSC, LGS, XMR, ZEC, and any
 other asset RedStone supports. RFP-019 provides the TWAP half
-needed for Path B. Whichever path the LSC implementer ultimately
-chooses for production (informed by the realities of CEX liquidity
-and adoption), this adaptor remains the swap-in for the off-chain
+needed for Path B. Whichever path the LSC implementer chooses for
+production, this adaptor remains the swap-in for the off-chain
 component.
 
 ## 🏗 Design Rationale
