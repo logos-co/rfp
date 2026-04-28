@@ -116,25 +116,28 @@ participants.
 2. Provide a Logos mini-app GUI with local build instructions,
    downloadable assets, and loadable in Logos app (Basecamp) via
    git repo.
-3. Provide a pool analytics view showing aggregate volume, TVL, and
+3. Provide a CLI that covers core functionality of the program (pool
+   creation, swapping, LP management). The CLI may have fewer features
+   than the GUI mini-app but must support all essential operations.
+4. Provide an IDL for the DEX program, preferably using the
+   [SPEL framework](https://github.com/logos-co/spel).
+5. Provide a pool analytics view showing aggregate volume, TVL, and
    fee revenue without revealing individual positions.
-4. Documentation must clearly explain what information is public vs.
+6. Documentation must clearly explain what information is public vs.
    private for each action (trade size and pool used are visible
    on-chain; the private account that originated or receives the funds
    is not traceable).
-5. Failed or rejected swaps must return clear, actionable error messages.
-6. Provide an IDL for the DEX program, preferably using the
-   [SPEL framework](https://github.com/logos-co/spel).
-7. Before each swap or liquidity operation, the mini-app must show the
+7. Failed or rejected swaps must return clear, actionable error messages.
+8. Before each swap or liquidity operation, the mini-app must show the
    estimated transaction fee. When the user interacts from a private
    account, it must also confirm that the shielded balance covers both
    the operation amount and fees within the single deshield action; a
    clear, actionable error must be shown if the balance is insufficient
-   — preventing partial deshields that could leave funds stranded in
-   an ephemeral account.
-8. The mini-app must display a swap preview before the user confirms:
+   (preventing partial deshields that could leave funds stranded in
+   an ephemeral account).
+9. The mini-app must display a swap preview before the user confirms:
    estimated output amount, effective price, price impact, and fee
-   taken — so the user can evaluate the trade before confirming.
+   taken, so the user can evaluate the trade before confirming.
 
 #### Reliability
 
@@ -155,17 +158,19 @@ participants.
 
 1. The DEX program is deployed and tested on LEZ devnet/testnet.
 2. End-to-end integration tests run against a LEZ sequencer (standalone
-   mode) and are included in CI — CI must be green on the default
-   branch.
-3. Every hard requirement in Functionality, Usability, Reliability,
+   mode) and are included in CI.
+3. CI must be green on the default branch.
+4. Every hard requirement in Functionality, Usability, Reliability,
    and Performance has at least one corresponding test.
-4. A README documents end-to-end usage: deployment steps, program
+5. A README documents end-to-end usage: deployment steps, program
    addresses, and step-by-step instructions for interacting with the
    DEX via CLI and front-end (pool creation, swapping, LP management).
-5. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-   for the SDK, covering the developer integration journey for swapping,
-   pool creation, and liquidity management.
-6. Provide Figma designs or equivalent for the mini-app GUI.
+6. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+   for the SDK, covering the developer integration journey for pool
+   creation, swapping, and liquidity management.
+7. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+   for the CLI, covering the core operator/user journey.
+8. Provide Figma designs or equivalent for the mini-app GUI.
 
 #### + Privacy
 
@@ -189,6 +194,26 @@ participants.
    deshield step must never be reused across operations. Each swap
    or liquidity operation from a private account must use a freshly
    generated account with no prior on-chain history.
+
+### Soft Requirements
+
+If possible.
+
+#### Functionality
+
+1. Support multi-hop routing across multiple pools within a single
+   transaction (e.g. flash-accounting style settlement of intermediate
+   hops), reducing slippage on token pairs without a direct pool.
+2. Provide a permissionless `recoverSurplus(to)` instruction, callable
+   only when the pool has zero liquidity (total LP supply is zero), to
+   sweep surplus tokens to a caller-specified address. See
+   [Appendix: DEX Ecosystem Behaviour, section 10](../appendix/dex-ecosystem-behaviour.md#10-reserve-reconciliation-sync-and-skim).
+
+#### Performance
+
+1. Compute unit usage of swap, add liquidity, remove liquidity, and
+   pool creation is documented and benchmarked against LEZ devnet
+   compute limits.
 
 ### Privacy Architecture
 
