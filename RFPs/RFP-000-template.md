@@ -107,9 +107,10 @@ Explain all the optional soft requirements of the RFP in points.
 
 ## 🛡️ Threat Model & Security Requirements
 
-This section enumerates the adversaries and scenarios the implementation
-must protect against. Each numbered scenario is a testable hard
-requirement. The proposal must respond to each scenario with one of:
+This section enumerates the adversaries and scenarios the
+implementation must protect against. Each numbered scenario is a
+testable hard requirement. The proposal must respond to each scenario
+with one of:
 
 - a corresponding test or formal argument that the scenario is
   defended,
@@ -121,22 +122,32 @@ Supportability item 9 (privacy and anonymisation properties document)
 must address every scenario listed here in the same form.
 
 The threat model is scoped to what the delivered application stack
-(on-chain program, SDK, mini-app) controls. Properties of the
-underlying Logos platform are inherited as trust assumptions and are
-not the responsibility of this RFP.
+(programs, modules, SDKs, mini-app) controls. Properties of the
+underlying Logos platform are inherited as trust assumptions.
+
+### Stack components consumed
+
+The proposal must declare which Logos stack components the application
+consumes. The relevant component-specific scenarios then apply in
+addition to the common scenarios. Tick all that apply:
+
+- [ ] **Blockchain / LEZ**: programs, sequencer, indexer, wallet,
+  bridging.
+- [ ] **AnonComms**: Mix transport, RLN identity service.
+- [ ] **Logos Core**: module loader, QObject Registry, Process
+  Manager.
+- [ ] **Messaging (Waku)**: Relay, Light Push, Store, RLN Relay,
+  messaging SDK.
+- [ ] **Storage (Codex)**: privacy-preserving filesharing,
+  anonymous downloads.
 
 ### Trust assumptions inherited from the Logos stack
 
 The proposal inherits the trust assumptions documented in
 [`appendix/logos-stack-trust-assumptions.md`](../appendix/logos-stack-trust-assumptions.md).
 That appendix is a dated snapshot of the
-[stack FURPS](https://roadmap.logos.co) and lists both what an RFP can
-rely on (programmable privacy, sequencer behaviour, indexer
-correctness, blockchain finality, block proposer privacy) and what an
-RFP must not assume (anonymous transaction submission at the network
-layer, mempool privacy, anonymous RPC queries, off-chain storage
-privacy for LEZ state, sequencer-level censorship resistance, side
-channels).
+[stack FURPS](https://roadmap.logos.co) and lists, per component, both
+what an RFP can rely on and what an RFP must not assume.
 
 The proposal must not claim to defend against weaknesses in the
 inherited assumptions. The proposal must not claim to inherit a
@@ -144,145 +155,252 @@ guarantee that the snapshot does not commit to.
 
 If the proposal depends on a specific FURPS item, it must cite the
 item by component and number (e.g., "relies on
-`lez:programmable-privacy.22`") so that reviewers can verify the
-dependency against the snapshot.
+`lez:programmable-privacy.22`" or "relies on `messaging:rln_relay:F.3`")
+so that reviewers can verify the dependency against the snapshot.
 
 ### Adversary classes
 
 Scenarios are grouped by adversary class and identified by a stable
-code (e.g., `O-1`) so other documents and reviews can reference them.
+code (e.g., `N-1`) so other documents and reviews can reference them.
 RFP authors must keep the common scenarios verbatim and add
-protocol-specific scenarios within the relevant adversary class,
-continuing the numbering.
+component-specific and protocol-specific scenarios within the
+relevant adversary class, continuing the numbering.
 
-- **O. On-chain observer.** Reads all public on-chain state and the
-  full transaction history touching the program. Also sees any
-  user-correlatable patterns the SDK or mini-app produce through RPC
-  and indexer queries, since the application chooses those query
-  patterns. Does not submit transactions.
-- **A. Active on-chain attacker.** Submits arbitrary transactions,
-  deploys other programs, pays priority fees, and controls multiple
-  addresses. Tries to break the program's invariants.
-- **C. Malicious counterparty.** A user the victim transacts with
-  directly through the program: trade counterparty, LP, borrower,
-  lender, launchpad participant, swap maker.
-- **S. Sequencer with elevated visibility.** The LEZ sequencer
-  receives, orders, and posts user transactions. The stack does not
-  commit to non-censorship or to non-correlation against the
-  sequencer. The application controls what it reveals to the
-  sequencer beyond what is unavoidable, and what its safety depends
-  on.
+- **N. Network observer.** Reads everything visible on the public
+  surfaces the application touches: on-chain state and transactions;
+  Waku messages, topics, and metadata; Codex content delivery and DHT
+  queries; indexer and RPC traffic; client-issued query patterns. Does
+  not actively interfere.
+- **A. Active attacker.** Submits transactions, messages, queries,
+  uploads. Deploys programs, runs malicious peer nodes (Waku store or
+  relay, Codex cache or provider, RPC endpoints, sequencer-attached
+  infra). Pays priority fees. Controls multiple identities. Tries to
+  break protocol invariants or coerce malicious responses.
+- **C. Malicious counterparty.** A user or peer the victim transacts,
+  communicates, or exchanges with directly through the application:
+  trade counterparty, LP, lender, launchpad participant, chat peer,
+  swap maker, content publisher.
+- **P. Platform operator with elevated visibility.** A node or
+  operator the application routes through and trusts for liveness
+  only: LEZ sequencer; Waku store, relay, or RLNaaS provider; Codex
+  cache or provider; indexer or RPC operator. The stack does not
+  commit to non-correlation against these operators; the application
+  chooses what it reveals to them and what it depends on them for.
 - **F. Malicious or buggy client.** A user runs a hostile mini-app, a
-  third-party SDK, or hand-crafted transactions that bypass the
-  official SDK.
+  third-party SDK, or hand-crafted requests that bypass the official
+  client.
 - **X. External identity correlator.** Holds off-chain data (CEX KYC,
-  IP logs, social graph, public wallet labels) and tries to link it
-  to on-chain activity.
+  IP logs, social graph, public address labels, leaked address books)
+  and tries to link it to application activity.
 
 ### Common scenarios
 
-The following scenarios apply to every Logos RFP that supports private
-account interaction. Each implementation must protect against them or
+The following scenarios apply to every Logos RFP regardless of which
+components it uses. Each implementation must protect against them or
 explicitly document them as out of scope or inherited.
 
-#### O. On-chain observer
+#### N. Network observer
 
-1. **O-1.** Given a series of operations executed via the
-   deshield→interact→re-shield pattern, the observer cannot determine
-   which private account originated the funds for any operation from
-   on-chain state alone.
-2. **O-2.** Given two operations from the same private-account user,
-   the observer cannot link them on-chain. The program does not store
-   any field that joins two ephemeral accounts to a common owner.
-3. **O-3.** Given an ephemeral public account used for one operation,
-   the observer cannot link it to the destination private account
-   that receives the re-shielded output.
-4. **O-4.** The program's account layout, transaction structure, and
-   event emissions do not include identifiers, salts, or correlatable
-   metadata that would let an observer cluster operations by
-   originating private account.
-5. **O-5.** The SDK and mini-app do not issue RPC or indexer queries
-   that re-link ephemeral accounts to a common owner (e.g., a
-   batched lookup that names multiple ephemeral accounts in a
-   single request, or a query that pairs an ephemeral account with
-   the user's private-account identifier). RPC-level anonymity is
-   not inherited from the stack; the application minimises leakage
-   through call patterns.
+1. **N-1.** Public surfaces produced by the application (on-chain
+   transactions, Waku messages, Codex content and queries, indexer
+   and RPC traffic) do not contain user-correlatable identifiers,
+   salts, or metadata that allow an observer to cluster a user's
+   operations beyond what the underlying primitive intentionally
+   exposes.
+2. **N-2.** The client and SDK do not issue queries that re-link
+   user activity across operations: no batched RPC over multiple
+   ephemeral identities in one request, no Waku store query that
+   pairs ephemeral and persistent topics, no Codex DHT query that
+   names a sequence of CIDs from one user.
+3. **N-3.** Where the application composes a private-state container
+   (LEZ private account, encrypted Waku topic, end-to-end encrypted
+   Codex blob) with a public-action surface, the transition between
+   them is enforced as an indivisible user action. Seeding the
+   public surface from external sources (a known wallet, a public
+   peer identity, a long-lived RLN membership) is impossible via
+   the official SDK.
+4. **N-4.** Persistent identifiers the application issues (LEZ
+   public account addresses, Waku content topics, Codex CIDs, RLN
+   memberships) do not encode information that links them to a
+   user's other identifiers across the stack.
 
-#### A. Active on-chain attacker
+#### A. Active attacker
 
-1. **A-1.** The attacker cannot drain protocol funds, mint phantom
-   positions, or corrupt protocol state via reentrancy, race
-   conditions, compute-budget exhaustion, or arithmetic overflow.
-2. **A-2.** The attacker cannot bypass authority checks (admin,
-   freeze, role-gated operations) by forging signatures, replaying
-   transactions, or substituting accounts.
-3. **A-3.** The attacker cannot front-run, sandwich, or otherwise
-   target a victim by linking the victim's on-chain identity to a
-   transaction. Identity-linked attacks (wallet profiling, repeated
-   targeting of the same victim) must be impossible when the victim
-   uses the deshield→interact→re-shield pattern. Size-based or
-   pool-state-based attacks (sandwiching, back-running) that do not
-   rely on identity are out of scope unless the RFP explicitly states
-   otherwise.
+1. **A-1.** The attacker cannot violate protocol invariants
+   regardless of how a transaction, message, query, or upload is
+   constructed. Authoritative validation (on-chain program,
+   server-side validator, peer-side verifier) rejects all invalid
+   state transitions.
+2. **A-2.** The attacker cannot bypass authority or access checks
+   (admin roles, RLN membership, encryption-key gates,
+   capability-based permissions) by forging, replaying, or
+   substituting credentials.
+3. **A-3.** The attacker cannot identity-link a target through
+   patterns the application could prevent: user fingerprints in
+   transaction structure, peer identifiers in Waku metadata,
+   address fingerprints in Codex DHT lookups, repeated client
+   fingerprints in RPC traffic. Attacks that depend on properties
+   the application does not control (raw network position, timing
+   visible at the transport layer) must be marked inherited or out
+   of scope.
 
 #### C. Malicious counterparty
 
-1. **C-1.** A counterparty cannot steal funds mid-settlement. Every
-   protocol-mediated exchange must complete atomically or fully
-   revert.
-2. **C-2.** A counterparty cannot grief the user by leaving funds
-   locked, stranded in an ephemeral account, or recoverable only via
-   privileged intervention.
+1. **C-1.** Where the application mediates an exchange (trade,
+   swap, settled message, asset transfer, file delivery), a
+   counterparty cannot steal mid-settlement. The exchange completes
+   atomically or fully reverts.
+2. **C-2.** A counterparty cannot grief the user by stranding their
+   state: funds locked in an ephemeral account, content stuck
+   mid-upload, messages in a deadlocked group, cryptographic
+   capability lost, recoverable only via privileged intervention.
 
-#### S. Sequencer with elevated visibility
+#### P. Platform operator with elevated visibility
 
-1. **S-1.** Program safety must not depend on the sequencer behaving
-   honestly. A malicious or compromised sequencer that censors,
-   reorders, or delays transactions can cause liveness loss but
-   cannot mint, steal, or corrupt protocol state.
-2. **S-2.** Information the sequencer learns from a user's
-   transaction submission (transaction contents, the user's network
-   identity at submission time, pre-confirmation ordering) does not
-   exceed what is already visible on-chain. The program does not
-   place additional user-correlatable metadata in fields the
-   sequencer reads but the chain does not commit.
+1. **P-1.** Application safety does not depend on the honesty of
+   any platform operator. A malicious or compromised operator (LEZ
+   sequencer, Waku store or relay, Codex cache or provider,
+   RPC endpoint, RLNaaS provider) can cause liveness loss but
+   cannot mint, steal, corrupt protocol state, or break the
+   application's documented privacy guarantees.
+2. **P-2.** The application reveals to each platform operator only
+   what is unavoidable for that operator's role. Metadata the
+   application could withhold (correlatable salts, batched
+   queries, payload framing, identity hints) is withheld.
 
 #### F. Malicious or buggy client
 
-1. **F-1.** The on-chain program rejects any transaction that
-   violates protocol invariants regardless of how the transaction is
-   constructed. Integrity guarantees do not depend on SDK or
-   mini-app correctness. Where privacy depends on client behaviour
-   (e.g., the deshield→interact→re-shield pattern), the proposal
-   states this explicitly and the SDK enforces the pattern as a
-   single indivisible user action.
-2. **F-2.** The SDK rejects privacy-breaking inputs by construction:
-   re-shielding to a public account, reusing an ephemeral account,
-   funding an ephemeral account from an external source, or
-   splitting a single conceptual operation across multiple
-   user-visible signing steps.
+1. **F-1.** Authoritative components (on-chain programs, server-side
+   validators, peer-side verifiers) reject invariant-violating
+   inputs regardless of how they are constructed. Integrity
+   guarantees do not depend on client correctness.
+2. **F-2.** Where privacy depends on client behaviour, the SDK
+   enforces the privacy-preserving pattern as a single indivisible
+   user action and rejects privacy-breaking inputs by construction
+   (e.g., funding an ephemeral account from a known wallet, reusing
+   a single-use Waku topic, decrypting and republishing a Codex
+   blob, splitting a conceptual operation across multiple
+   user-visible signing steps).
 
 #### X. External identity correlator
 
-1. **X-1.** Funding the ephemeral public account from any source
-   other than the atomic deshield (e.g., a CEX withdrawal, a
-   transfer from an existing wallet) creates an on-chain link to a
-   known identity and breaks the privacy guarantee. The SDK makes
-   external funding impossible by construction. The deshield
-   (operation token plus gas) is a single indivisible user action.
-2. **X-2.** The mini-app and documentation make the privacy
-   boundaries explicit, identifying which user actions preserve
-   unlinkability and which actions break it (re-shielding to a
-   known wallet, sending re-shielded funds to a CEX, signing with a
-   publicly attested key).
+1. **X-1.** The application makes external linkage difficult by
+   construction. Where the user crosses a privacy boundary
+   (re-shielding to a known wallet, sending to a CEX, posting under
+   a publicly-attested key, uploading content from a known
+   publisher identity), the SDK and mini-app warn explicitly before
+   the action.
+2. **X-2.** Documentation enumerates which user actions preserve
+   unlinkability and which actions break it, in user-visible
+   language.
+
+### Component-specific scenarios
+
+The following scenarios apply only when the corresponding component
+is declared in the "Stack components consumed" section above. RFP
+authors must include the scenarios for each declared component
+verbatim and may extend them with protocol-specific items
+(continuing the numbering).
+
+#### Blockchain / LEZ
+
+Apply when the application runs an LEZ program or interacts with
+LEZ accounts.
+
+1. **L-1.** Operations executed via the deshield→interact→re-shield
+   pattern do not link the originating private account to any
+   on-chain artefact. The program stores no field that joins two
+   ephemeral accounts to a common owner.
+2. **L-2.** Ephemeral public accounts created during a
+   deshield→interact→re-shield flow are single-use. The SDK does
+   not reuse them across operations.
+3. **L-3.** Where a deshield→interact→re-shield flow is required for
+   privacy, the deshield is a single indivisible user action that
+   transfers both the operation token and the gas required for the
+   downstream interaction in one step.
+4. **L-4.** The SDK validates that the re-shield destination is a
+   private (shielded) account before submitting the transaction and
+   rejects with an explicit error if it is not.
+5. **L-5.** Program correctness does not rely on the LEZ sequencer's
+   honesty. A malicious or compromised sequencer that censors,
+   reorders, or delays transactions can cause liveness loss but
+   cannot mint, steal, or corrupt protocol state. Cite
+   `lez:sequencer.23-25` for the inherited liveness role.
+6. **L-6.** SDK and mini-app queries to the LEZ indexer RPC do not
+   pair multiple ephemeral accounts in a single request and do not
+   batch ephemeral and persistent identifiers in a way that re-links
+   them.
+
+#### AnonComms
+
+Apply when the application explicitly composes Mix or RLN.
+
+1. **AC-1.** Where the application routes traffic through Mix, it
+   does so via the documented integration points (the libp2p mix
+   protocol, Logos Core mix module, or Waku Lightpush mix path) and
+   does not bypass them on a fallback path that lacks the same
+   protections.
+2. **AC-2.** RLN memberships obtained through the AnonComms RLN
+   service are not reused across application sessions where
+   unlinkability is required between sessions.
+
+#### Logos Core
+
+Apply when the application ships as a Logos Core module.
+
+1. **LC-1.** The module fails closed on platform errors. A failing
+   QObject Registry lookup, a crashed sibling module, or a stalled
+   Process Manager does not cause the module to bypass
+   authority checks or expose user state.
+2. **LC-2.** The module declares its inter-module dependencies and
+   does not assume the presence of capabilities (transport, UI,
+   networking) that Logos Core does not itself provide.
+
+#### Messaging (Waku)
+
+Apply when the application uses Waku for any user-facing
+communication.
+
+1. **W-1.** Content topics chosen by the SDK do not encode
+   user-identifying information. Ephemeral topics used for
+   unlinkable interactions are not reused across user sessions.
+2. **W-2.** RLN proofs attached to outbound messages do not leak
+   identity beyond the rate-limit guarantee. The application does
+   not include user-correlatable metadata in message envelopes that
+   the RLN proof would otherwise protect.
+3. **W-3.** Waku store queries do not pair ephemeral and persistent
+   topics in a single request. The SDK pages and time-windows store
+   queries to limit what a store node operator can correlate.
+4. **W-4.** Application safety does not depend on the chosen Light
+   Push or RLNaaS provider's honesty. Provider failure causes
+   liveness loss only.
+
+#### Storage (Codex)
+
+Apply when the application uses Codex for content distribution or
+archival.
+
+1. **CX-1.** Codex uploads from the application do not include
+   metadata that links them to a known publisher identity. Where
+   the application's privacy model requires publisher
+   unlinkability, the upload path uses the privacy-preserving
+   variant rather than a direct provider upload.
+2. **CX-2.** Downloads use the anonymous-downloads-over-mix path
+   when the application's privacy model requires downloader
+   unlinkability. The SDK does not query for the same content via
+   two distinguishable downloader identities in a way that
+   re-links a single user.
+3. **CX-3.** Where the application caches Codex content, it does so
+   in a form that supports the cache plausible-deniability property
+   declared in the Storage FURPS (the cache does not store
+   plaintext or otherwise gain knowledge of the contents it caches).
 
 ### Protocol-specific scenarios
 
 RFP authors must append protocol-specific scenarios under the
-relevant adversary class, continuing the numbering. Use the same
-format: a concrete adversary capability, a clear scenario, and the
-testable defence.
+relevant adversary class or component-specific section, continuing
+the numbering. Use the same format: a concrete adversary capability,
+a clear scenario, and the testable defence.
 
 Examples of where protocol-specific scenarios commonly apply:
 
@@ -294,15 +412,19 @@ Examples of where protocol-specific scenarios commonly apply:
 - DEXes: A-class scenarios that document the boundary between
   identity-linked attacks (in scope) and pool-state attacks (out of
   scope by default).
-- Protocols sensitive to ordering: S-class scenarios documenting
-  whether the program's correctness depends on sequencer ordering
-  or only on chain-finalised order.
+- Group messaging or forum protocols: C-class scenarios for
+  member-join griefing; W-class scenarios for membership-change
+  unlinkability.
+- Filesharing and archival protocols: CX-class scenarios for
+  publisher anonymity sets and download cover-traffic.
+- Protocols sensitive to ordering: P-class scenarios documenting
+  whether correctness depends on a specific operator's ordering.
 
-Scenarios that the proposal treats as out of scope (e.g.,
-side-channel correlation via transaction timing, sandwich attacks
-based purely on pool state, network-layer observability of
-transaction submission, key-loss recovery) must still be listed with
-explicit rationale rather than omitted.
+Scenarios the proposal treats as out of scope (e.g., side-channel
+correlation via transaction timing, sandwich attacks based purely
+on pool state, network-layer observability of transaction
+submission, key-loss recovery) must still be listed with explicit
+rationale rather than omitted.
 
 
 ## 👤 Recommended Team Profile
