@@ -173,23 +173,29 @@ Curve). RFP-004's privacy model does not change this: LP positions
 remain public, but the private account that originated the funds is not
 traceable when the deshield pattern is used.
 
-## 8. Associated Token Accounts for token custody
+## 8. Token account derivation on Solana DEXes
 
-**RFP-004 requirement:** Use Associated Token Accounts (ATAs) for all
-token interactions, derived per `(owner, mint)` pair (requirement F.8).
+**Ecosystem practice on Solana:** Solana DEX programs split token
+account handling between pool-side and user-side:
 
-**Ecosystem practice on Solana:** Both Raydium and Orca use
-deterministic PDA-derived token accounts for pool vaults:
+- **Pool-side vaults are PDA-derived, not ATAs.** Both Raydium and Orca
+  use deterministic program-derived addresses for pool token accounts.
+  Raydium CLMM uses the seed `["pool_vault", pool_state, token_mint]`;
+  Orca Whirlpools uses similar per-pool, per-mint derivation. Pool
+  vaults are not ATAs because the pool program (not a wallet) is the
+  owning authority.
+- **User-side accounts are conventionally ATAs but not required by the
+  program.** Raydium and Orca instructions accept any valid SPL token
+  account owned by the caller, validating ownership and mint rather
+  than derivation. Frontends and SDKs default to ATAs and create them
+  on-demand via the SPL Associated Token Account program, so users
+  encounter ATAs as the path of least resistance, but non-ATA token
+  accounts (e.g. delegated accounts, Token-2022 accounts with extensions)
+  can also be used.
 
-- **Raydium CLMM:** Vault seed `["pool_vault", pool_state, token_mint]`
-- **Orca Whirlpools:** Similar PDA derivation per pool per token mint
-
-User-side, the SPL Associated Token Account program derives one token
-account per `(wallet, mint)` pair, and Solana DEX frontends universally
-create ATAs on-demand.
-
-On LEZ (which uses SVM), the ATA requirement aligns with standard
-Solana practice.
+The SPL Associated Token Account program itself derives one token
+account per `(wallet, mint)` pair, providing a predictable address that
+any sender can compute without coordination.
 
 ## 9. Vault accounting and balance reconciliation
 
@@ -260,130 +266,75 @@ unacknowledged by the pool's reserve accounting.
 | Flash accounting (V4, Balancer V3) | No (singleton, transient deltas) | Not needed | Via hooks |
 | SVM accounts (Raydium, Orca) | Yes (unsolicited transfer) | None implemented | Not applicable (no rebasing tokens on SVM) |
 
-## 10. Recommendation: `sync()` and `recoverSurplus()` functions
+## 10. Reserve reconciliation: `sync()` and `skim()`
 
-**Context:** The LEZ DEX implementation uses cached reserves (the
-Uniswap V2 pattern). Because anyone can transfer SPL tokens into a
-pool's vault account without invoking the pool program, the actual
-vault balance can exceed the pool's recorded reserves. Two functions
-handle this discrepancy:
+In a cached-reserve AMM, the pool stores token reserves in its own
+state and updates them after each operation. The live token balance
+(actual tokens held by the pool's vault) can diverge from the cached
+reserves when value enters or leaves the vault outside the normal
+swap or liquidity flow. Different protocols handle this divergence
+differently.
 
-- **`sync()`** updates the cached reserves to match the live vault
-  balance, absorbing the surplus into the pool. The surplus becomes
-  part of the pool's reserves, benefiting all current LPs
-  proportionally.
-- **`recoverSurplus(to)`** (Uniswap V2's `skim()`) transfers the
-  difference between the vault balance and the cached reserve to a
-  specified address. The reserves remain unchanged; only the excess
-  leaves.
+### How divergence arises
 
-### How surplus arises on LEZ
+On Ethereum, several mechanisms can cause vault balances to drift
+from cached reserves:
 
-On SVM, surplus can only arise through one channel: an external account
-explicitly transfers tokens into the pool's vault account outside the
-normal swap or liquidity flow. Unlike Ethereum, there are no rebasing
-tokens, no fee-on-transfer mechanics, and no interest-bearing token
-accrual on SVM. The surplus problem on LEZ is therefore narrower than
-on Ethereum: it is limited to unsolicited direct transfers, whether
-accidental or intentional.
+- **Direct transfers:** anyone can `transfer()` ERC-20 tokens to a
+  pool's address without calling the pool contract.
+- **Rebasing tokens:** elastic-supply tokens (e.g. AMPL, stETH before
+  wrapper) periodically adjust holder balances; positive rebases
+  create surplus, negative rebases create deficits.
+- **Fee-on-transfer tokens:** the amount received differs from the
+  amount sent, so post-transfer balances do not match the swap
+  arithmetic.
+- **Interest-bearing tokens:** balances grow over time without explicit
+  transfers.
 
-### Why sync() is needed
+On SVM, the surface is narrower. There are no rebasing tokens, no
+fee-on-transfer mechanics, and no interest-bearing balance growth.
+The only divergence channel is an explicit SPL `transfer` instruction
+sending tokens to the pool's vault account outside the normal flow,
+because the SPL Token program permits transfers without the recipient's
+signature.
 
-Even though surplus arises less frequently on SVM than on Ethereum,
-`sync()` serves an important role: it reconciles the pool's internal
-accounting with the actual vault balance. Without it, surplus tokens
-sit in the vault permanently, unacknowledged by the pool's reserve
-state. `sync()` lets anyone absorb the surplus into the pool, where it
-benefits LPs.
+### `sync()` and `skim()` in Uniswap V2
 
-On Ethereum, `sync()` also handles the opposite case: if a negative
-rebase reduces the vault balance below the cached reserve, `sync()`
-writes down the reserve so that swaps do not revert. On SVM, this
-scenario cannot occur (token balances only change through explicit
-instructions), so `sync()` on LEZ is strictly a surplus-absorption
-function.
+Uniswap V2 exposes two permissionless functions to reconcile cached
+reserves with vault balances:
 
-### The case for recoverSurplus()
+- **`sync()`** writes the cached reserves to match the live balances.
+  Surplus is absorbed into the pool and accrues to LPs proportionally.
+  Deficit (from negative rebase) is written down so swaps continue to
+  function rather than reverting.
+- **`skim(to)`** transfers the difference between the live balance and
+  the cached reserve to a caller-specified address, leaving the cached
+  reserves unchanged. This extracts surplus without folding it into LP
+  value.
 
-The implementor identifies one scenario where `recoverSurplus()` is
-genuinely useful: all LPs remove their liquidity, but surplus tokens
-remain in the vault. In this state:
-
-- Calling `sync()` would set the reserves to the vault balance, but
-  with zero LP tokens outstanding, no one holds a claim on those
-  reserves.
-- The next user to `sync()` and then add liquidity would effectively
-  absorb the surplus into their position.
-- `recoverSurplus()` provides a direct path to extract the tokens
-  without requiring someone to enter the pool first.
-
-### The case against recoverSurplus()
-
-In Uniswap V2, `skim()` is permissionless: any caller can extract the
-surplus at any time. This creates a race condition:
-
-- On Ethereum, positive rebases generate surplus continuously, and MEV
-  bots monitor all pools for skimmable amounts. The economic value of
-  rebases is captured by bots, not LPs.
-- A caller can front-run a `recoverSurplus()` call with `sync()`,
-  absorbing the surplus into the pool and leaving nothing to recover.
-
-On LEZ, the MEV concern is reduced because surplus only arises from
-unsolicited transfers (no rebasing tokens), making extractable surplus
-rare and unpredictable. However, the front-running risk remains: any
-pending `recoverSurplus()` transaction can be neutralised by a `sync()`
-call.
+Both functions are permissionless. Their interaction creates a race:
+any pending `skim()` can be neutralised by a `sync()` call, since
+`sync()` consumes the surplus into the pool. On Ethereum, MEV bots
+monitor pools for skimmable amounts and routinely capture rebase
+surplus before LPs benefit.
 
 ### Ecosystem precedent
 
 | Protocol | sync() | skim() / recoverSurplus() | Notes |
 |----------|--------|--------------------------|-------|
-| Uniswap V2 | Yes (permissionless) | Yes (permissionless) | Both needed for rebasing tokens and overflow protection |
+| Uniswap V2 | Yes (permissionless) | Yes (permissionless) | Handles rebasing tokens, direct transfers, and negative-rebase deficits |
 | Uniswap V4 | Different function (settlement, not reconciliation) | No | Flash accounting eliminates cached reserve drift |
 | Balancer V3 | No | No | Transient accounting; no cached reserves |
-| Curve StableSwapNG | No (reads live balances) | No | Admin fees isolated in separate array |
-| Raydium | No | No | Surplus silently accumulates; unrecoverable |
+| Curve StableSwapNG | No (reads live balances) | No | Admin fees isolated in a separate array |
+| Raydium | No | No | Surplus silently accumulates in vault accounts |
 | Orca Whirlpools | No | No | Same as Raydium |
 
-Uniswap V2 is the only protocol that implements both functions.
-Later protocols eliminated the need entirely by moving to live balance
-reads or transient accounting. Solana protocols do not implement either
-function, and surplus tokens in Raydium and Orca vaults are
-effectively permanently stuck.
-
-### Recommendation
-
-**Implement `sync()`. Implement `recoverSurplus()`, restricted to
-the empty-pool case.**
-
-1. **`sync()`** should be permissionless, matching Uniswap V2. It
-   absorbs surplus into the pool, benefiting LPs. This is the expected
-   behaviour: if tokens arrive in the vault, they should become part of
-   the pool.
-
-2. **`recoverSurplus(to)`** should be callable only when the pool has
-   zero liquidity (total LP supply is zero). This addresses the
-   implementor's scenario (surplus in an empty pool) without creating a
-   permissionless extraction function that competes with `sync()` during
-   normal operation.
-
-   When LP supply is zero, `sync()` cannot benefit anyone because there
-   are no LP holders. In this state, `recoverSurplus()` is the only
-   way to move the tokens out, and there is no front-running concern
-   because `sync()` in an empty pool would just set reserves that no
-   one can claim.
-
-   If a broader permissionless `recoverSurplus()` is preferred (matching
-   Uniswap V2's `skim()` exactly), the trade-off is that callers will
-   always race against `sync()` callers. On LEZ this is low-stakes
-   (surplus is rare), but the restricted version is cleaner.
-
-3. **Do not implement live balance reads as an alternative.** Curve
-   StableSwapNG's `_balance()` approach avoids the problem entirely
-   but adds an external call per token per operation. Since the LEZ DEX
-   already uses cached reserves and `sync()`, switching to live reads
-   would be a larger architectural change for marginal benefit on a
-   chain with no rebasing tokens.
+Uniswap V2 is the only surveyed protocol that implements both
+functions. Later AMMs eliminated the need for them by switching to
+live balance reads (Curve) or transient accounting (Uniswap V4,
+Balancer V3). Solana DEXes implement neither: surplus tokens in
+Raydium and Orca vaults remain unacknowledged by pool accounting and
+are not recoverable through any program-exposed instruction.
 
 ## References
 

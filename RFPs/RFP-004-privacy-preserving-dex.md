@@ -88,17 +88,20 @@ participants.
    to LPs.
 7. Implement slippage protection with user-configurable tolerance and
    minimum output guarantees.
-8. Use Associated Token Accounts (ATAs) for all token interactions —
-   pool token accounts, LP token accounts, and trader token accounts
-   must use the deterministic ATA derivation per `(owner, mint)` pair
-   (see [LP-0014](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0014.md)).
+8. The DEX program must be compatible with Associated Token Accounts
+   (ATAs) for user-facing token accounts: when a trader or LP supplies
+   an ATA derived per `(owner, mint)` pair (see
+   [LP-0014](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0014.md)),
+   the program must accept it without requiring an alternative
+   derivation. ATAs must not be forced on users; the program must also
+   accept any valid SPL token account owned by the caller. Pool-side
+   vault accounts may use program-derived addresses (PDAs) rather than
+   ATAs, matching Solana DEX practice.
 9. Implement a permissionless `sync()` function that updates a pool's
    cached reserves to match the actual vault token balances, absorbing
    any surplus from unsolicited transfers into the pool for the benefit
-   of LPs. Implement a `recoverSurplus(to)` function, callable only
-   when the pool has zero liquidity (total LP supply is zero), that
-   transfers surplus tokens from the vault to a specified account. See
-   [Appendix: DEX Ecosystem Behaviour, section 10](../appendix/dex-ecosystem-behaviour.md#10-recommendation-sync-and-recoversurplus-functions)
+   of LPs. See
+   [Appendix: DEX Ecosystem Behaviour, section 10](../appendix/dex-ecosystem-behaviour.md#10-reserve-reconciliation-sync-and-skim)
    for rationale and ecosystem precedent.
 
 #### Usability
