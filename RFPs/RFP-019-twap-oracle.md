@@ -24,9 +24,10 @@ average price) oracle program that computes prices from LEZ DEX pool
 accumulators, plus integration adaptors for external oracle feeds (Pyth,
 RedStone). Every DeFi protocol on LEZ (lending, derivatives,
 liquidations, stablecoins) requires reliable price feeds to function.
-The oracle ecosystem secures approximately $138B in total value secured
-(TVS) across chains: Chainlink alone secures $93B, Pyth $8.6B across
-110+ chains, and RedStone $7.2B across 120+ chains [1][2][3]. On a new
+The oracle ecosystem secures approximately $95B-$105B in total value
+secured (TVS) across chains (Q1 2026): Chainlink secures $66B-$75B,
+Pyth $8.6B across 50+ chains via Wormhole, and RedStone $10B+ across
+120+ pull chains [1][2][3][17]. On a new
 chain with thin liquidity, on-chain TWAP alone is insufficient because
 manipulation cost scales linearly with pool depth; external oracle feeds
 from established networks provide the safety baseline from day one. The
@@ -42,8 +43,9 @@ applications.
 
 On new chains, on-chain TWAP oracles are acutely vulnerable: with thin
 liquidity, a PoS validator controlling two consecutive blocks can
-manipulate the TWAP accumulator at a cost of only 2x pool fees, with
-no competition for the back-run [6]. The attack cost scales linearly
+manipulate the TWAP accumulator at a cost approximately equal to the
+round-trip swap fees and price impact, with no competition for the
+back-run [6]. The attack cost scales linearly
 with pool depth, so pools with $1M in liquidity offer far less
 protection than pools with $100M. Historically, 36 documented flash
 loan oracle attacks have caused over $418M in cumulative losses [5].
@@ -56,6 +58,17 @@ together they create a layered security model where each compensates
 for the other's weaknesses.
 
 ## Design Rationale
+
+### Public oracle execution
+
+Oracle programs run as public LEZ executions with no confidential
+state. Accumulator updates, TWAP computation (including the geometric
+mean), external feed verification, and price queries are all visible
+to any caller. This is intentional: oracles are a shared public good
+on LEZ, and every dapp must be able to read the same canonical price.
+Confidential execution is reserved for application-layer protocols
+that consume oracle prices (for example, private DEX swaps in
+RFP-004); the price feed itself stays public.
 
 ### Two-tier architecture
 
