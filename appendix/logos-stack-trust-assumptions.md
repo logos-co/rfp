@@ -24,7 +24,7 @@ next batch of RFPs is updated.
 | AnonComms Mix | `anoncomms/furps/mix.md` | 2026-04-08 | [link](https://github.com/logos-co/roadmap/blob/v4/content/anoncomms/furps/mix.md) |
 | AnonComms RLN | `anoncomms/furps/rln.md` | 2026-03-24 | [link](https://github.com/logos-co/roadmap/blob/v4/content/anoncomms/furps/rln.md) |
 | Logos Core | `logoscore/furps/logos-core.md` | 2025-12-15 | [link](https://github.com/logos-co/roadmap/blob/v4/content/logoscore/furps/logos-core.md) |
-| Messaging (Waku) overview | `messaging/furps/index.md` | 2025-11-13 (dated) | [link](https://github.com/logos-co/roadmap/blob/v4/content/messaging/furps/index.md) |
+| Messaging overview | `messaging/furps/index.md` | 2025-11-13 (dated) | [link](https://github.com/logos-co/roadmap/blob/v4/content/messaging/furps/index.md) |
 | Messaging Mix | `messaging/furps/core/mix.md` | 2025-11-13 (dated) | [link](https://github.com/logos-co/roadmap/blob/v4/content/messaging/furps/core/mix.md) |
 | Messaging RLN Relay | `messaging/furps/core/rln_relay.md` | 2025-11-13 (dated) | [link](https://github.com/logos-co/roadmap/blob/v4/content/messaging/furps/core/rln_relay.md) |
 | Storage privacy filesharing | `storage/furps/privacy-preserving-filesharing-furps.md` | 2026-04-08 | [link](https://github.com/logos-co/roadmap/blob/v4/content/storage/furps/privacy-preserving-filesharing-furps.md) |
@@ -129,7 +129,8 @@ Critically, the AnonComms FURPS describes integration targets but does
   integrated in nim-libp2p" (Usability `mix.2`)
 - "The libp2p mix protocol with DoS and Sybil protection is
   integrated into Waku Lightpush protocol as reference integration"
-  (Usability `mix.3`)
+  (Usability `mix.3`) [verbatim quote from source; current
+  stack-level term: Messaging Light Push]
 - "A libp2p module with mix capability is integrated into Logos
   Core" (Usability `mix.4`)
 - "The libp2p mix protocol is integrated into the Logos Chat module"
@@ -183,10 +184,10 @@ What Logos Core does **not** commit to:
   privacy, and security properties for an RFP do not come from Logos
   Core itself; they come from the modules that an RFP composes.
 
-### Messaging (Waku)
+### Messaging
 
-Messaging FURPS (dated 2025-11-13) commits to a Waku-based stack with
-its own Mix and RLN. Relevant items for RFPs that use Waku:
+Messaging FURPS (dated 2025-11-13) commits to a stack with its own
+Mix and RLN. Relevant items for RFPs that use Messaging:
 
 - Mix at the messaging layer: "Relay nodes can mount mixnet protocol,
   acting as sender, intermediary or exit nodes" (`messaging:mix.1`)
@@ -199,15 +200,15 @@ its own Mix and RLN. Relevant items for RFPs that use Waku:
 - Store explicit limitation: "(limitation) No guarantees in terms of
   message presence or retention duration" (Reliability `store.2`)
 
-Messaging is a separate sub-system from LEZ. RFPs that use Waku for
-out-of-band communication (e.g., a chat-style interaction layer)
+Messaging is a separate sub-system from LEZ. RFPs that use Messaging
+for out-of-band communication (e.g., a chat-style interaction layer)
 inherit these properties; RFPs that interact only with LEZ programs do
 not.
 
 ### Storage
 
 Storage FURPS (dated 2026-04-08) define privacy properties for
-Codex-based filesharing.
+filesharing.
 
 - "Neither the identity of publishers nor that of downloaders should
   be revealed to other participants; i.e., we want full publisher and
@@ -220,7 +221,7 @@ Codex-based filesharing.
   download. Note that the node that provides the file is not
   anonymized here" (`anonymous-downloads-over-mix`, Security 1)
 
-Storage is a separate sub-system from LEZ. RFPs that use Codex for
+Storage is a separate sub-system from LEZ. RFPs that use Storage for
 file or asset distribution inherit these properties for the file
 distribution path. They do not extend to LEZ on-chain state.
 
@@ -279,9 +280,9 @@ layer.
    queried, or that an RPC operator cannot correlate a sequence of
    queries to a single user.
 4. **No off-chain storage privacy by default for LEZ state.** Storage
-   FURPS apply to the Codex filesharing stack, not to LEZ on-chain
-   state nor to private-account witness data unless an RFP
-   explicitly composes Codex for that purpose.
+   FURPS apply to the filesharing stack, not to LEZ on-chain state
+   nor to private-account witness data unless an RFP explicitly
+   composes Storage for that purpose.
 5. **Censorship resistance is at the consensus layer, not the
    sequencer.** "Censorship resistance against malicious
    broadcasters" applies to block propagation. There is no equivalent

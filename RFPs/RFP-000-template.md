@@ -136,10 +136,10 @@ addition to the common scenarios. Tick all that apply:
 - [ ] **AnonComms**: Mix transport, RLN identity service.
 - [ ] **Logos Core**: module loader, QObject Registry, Process
   Manager.
-- [ ] **Messaging (Waku)**: Relay, Light Push, Store, RLN Relay,
+- [ ] **Messaging**: Relay, Light Push, Store, RLN Relay,
   messaging SDK.
-- [ ] **Storage (Codex)**: privacy-preserving filesharing,
-  anonymous downloads.
+- [ ] **Storage**: privacy-preserving filesharing, anonymous
+  downloads.
 
 ### Trust assumptions inherited from the Logos stack
 
@@ -168,24 +168,26 @@ relevant adversary class, continuing the numbering.
 
 - **N. Network observer.** Reads everything visible on the public
   surfaces the application touches: on-chain state and transactions;
-  Waku messages, topics, and metadata; Codex content delivery and DHT
-  queries; indexer and RPC traffic; client-issued query patterns. Does
-  not actively interfere.
+  Messaging messages, topics, and metadata; Storage content delivery
+  and DHT queries; indexer and RPC traffic; client-issued query
+  patterns. Does not actively interfere.
 - **A. Active attacker.** Submits transactions, messages, queries,
-  uploads. Deploys programs, runs malicious peer nodes (Waku store or
-  relay, Codex cache or provider, RPC endpoints, sequencer-attached
-  infra). Pays priority fees. Controls multiple identities. Tries to
-  break protocol invariants or coerce malicious responses.
+  uploads. Deploys programs, runs malicious peer nodes (Messaging
+  store or relay, Storage cache or provider, RPC endpoints,
+  sequencer-attached infra). Pays priority fees. Controls multiple
+  identities. Tries to break protocol invariants or coerce malicious
+  responses.
 - **C. Malicious counterparty.** A user or peer the victim transacts,
   communicates, or exchanges with directly through the application:
   trade counterparty, LP, lender, launchpad participant, chat peer,
   swap maker, content publisher.
 - **P. Platform operator with elevated visibility.** A node or
   operator the application routes through and trusts for liveness
-  only: LEZ sequencer; Waku store, relay, or RLNaaS provider; Codex
-  cache or provider; indexer or RPC operator. The stack does not
-  commit to non-correlation against these operators; the application
-  chooses what it reveals to them and what it depends on them for.
+  only: LEZ sequencer; Messaging store, relay, or RLNaaS provider;
+  Storage cache or provider; indexer or RPC operator. The stack does
+  not commit to non-correlation against these operators; the
+  application chooses what it reveals to them and what it depends on
+  them for.
 - **F. Malicious or buggy client.** A user runs a hostile mini-app, a
   third-party SDK, or hand-crafted requests that bypass the official
   client.
@@ -202,27 +204,27 @@ explicitly document them as out of scope or inherited.
 #### N. Network observer
 
 1. **N-1.** Public surfaces produced by the application (on-chain
-   transactions, Waku messages, Codex content and queries, indexer
-   and RPC traffic) do not contain user-correlatable identifiers,
-   salts, or metadata that allow an observer to cluster a user's
-   operations beyond what the underlying primitive intentionally
-   exposes.
+   transactions, Messaging messages, Storage content and queries,
+   indexer and RPC traffic) do not contain user-correlatable
+   identifiers, salts, or metadata that allow an observer to cluster
+   a user's operations beyond what the underlying primitive
+   intentionally exposes.
 2. **N-2.** The client and SDK do not issue queries that re-link
    user activity across operations: no batched RPC over multiple
-   ephemeral identities in one request, no Waku store query that
-   pairs ephemeral and persistent topics, no Codex DHT query that
-   names a sequence of CIDs from one user.
+   ephemeral identities in one request, no Messaging store query
+   that pairs ephemeral and persistent topics, no Storage DHT query
+   that names a sequence of content identifiers from one user.
 3. **N-3.** Where the application composes a private-state container
-   (LEZ private account, encrypted Waku topic, end-to-end encrypted
-   Codex blob) with a public-action surface, the transition between
-   them is enforced as an indivisible user action. Seeding the
-   public surface from external sources (a known wallet, a public
-   peer identity, a long-lived RLN membership) is impossible via
-   the official SDK.
+   (LEZ private account, encrypted Messaging topic, end-to-end
+   encrypted Storage blob) with a public-action surface, the
+   transition between them is enforced as an indivisible user action.
+   Seeding the public surface from external sources (a known wallet,
+   a public peer identity, a long-lived RLN membership) is impossible
+   via the official SDK.
 4. **N-4.** Persistent identifiers the application issues (LEZ
-   public account addresses, Waku content topics, Codex CIDs, RLN
-   memberships) do not encode information that links them to a
-   user's other identifiers across the stack.
+   public account addresses, Messaging content topics, Storage
+   content identifiers, RLN memberships) do not encode information
+   that links them to a user's other identifiers across the stack.
 
 #### A. Active attacker
 
@@ -237,8 +239,8 @@ explicitly document them as out of scope or inherited.
    substituting credentials.
 3. **A-3.** The attacker cannot identity-link a target through
    patterns the application could prevent: user fingerprints in
-   transaction structure, peer identifiers in Waku metadata,
-   address fingerprints in Codex DHT lookups, repeated client
+   transaction structure, peer identifiers in Messaging metadata,
+   address fingerprints in Storage DHT lookups, repeated client
    fingerprints in RPC traffic. Attacks that depend on properties
    the application does not control (raw network position, timing
    visible at the transport layer) must be marked inherited or out
@@ -259,7 +261,7 @@ explicitly document them as out of scope or inherited.
 
 1. **P-1.** Application safety does not depend on the honesty of
    any platform operator. A malicious or compromised operator (LEZ
-   sequencer, Waku store or relay, Codex cache or provider,
+   sequencer, Messaging store or relay, Storage cache or provider,
    RPC endpoint, RLNaaS provider) can cause liveness loss but
    cannot mint, steal, corrupt protocol state, or break the
    application's documented privacy guarantees.
@@ -278,8 +280,8 @@ explicitly document them as out of scope or inherited.
    enforces the privacy-preserving pattern as a single indivisible
    user action and rejects privacy-breaking inputs by construction
    (e.g., funding an ephemeral account from a known wallet, reusing
-   a single-use Waku topic, decrypting and republishing a Codex
-   blob, splitting a conceptual operation across multiple
+   a single-use Messaging topic, decrypting and republishing a
+   Storage blob, splitting a conceptual operation across multiple
    user-visible signing steps).
 
 #### X. External identity correlator
@@ -337,9 +339,9 @@ Apply when the application explicitly composes Mix or RLN.
 
 1. **AC-1.** Where the application routes traffic through Mix, it
    does so via the documented integration points (the libp2p mix
-   protocol, Logos Core mix module, or Waku Lightpush mix path) and
-   does not bypass them on a fallback path that lacks the same
-   protections.
+   protocol, Logos Core mix module, or the Messaging Light Push mix
+   path) and does not bypass them on a fallback path that lacks the
+   same protections.
 2. **AC-2.** RLN memberships obtained through the AnonComms RLN
    service are not reused across application sessions where
    unlinkability is required between sessions.
@@ -356,43 +358,44 @@ Apply when the application ships as a Logos Core module.
    does not assume the presence of capabilities (transport, UI,
    networking) that Logos Core does not itself provide.
 
-#### Messaging (Waku)
+#### Messaging
 
-Apply when the application uses Waku for any user-facing
+Apply when the application uses Messaging for any user-facing
 communication.
 
-1. **W-1.** Content topics chosen by the SDK do not encode
+1. **M-1.** Content topics chosen by the SDK do not encode
    user-identifying information. Ephemeral topics used for
    unlinkable interactions are not reused across user sessions.
-2. **W-2.** RLN proofs attached to outbound messages do not leak
+2. **M-2.** RLN proofs attached to outbound messages do not leak
    identity beyond the rate-limit guarantee. The application does
    not include user-correlatable metadata in message envelopes that
    the RLN proof would otherwise protect.
-3. **W-3.** Waku store queries do not pair ephemeral and persistent
-   topics in a single request. The SDK pages and time-windows store
-   queries to limit what a store node operator can correlate.
-4. **W-4.** Application safety does not depend on the chosen Light
+3. **M-3.** Messaging store queries do not pair ephemeral and
+   persistent topics in a single request. The SDK pages and
+   time-windows store queries to limit what a store node operator
+   can correlate.
+4. **M-4.** Application safety does not depend on the chosen Light
    Push or RLNaaS provider's honesty. Provider failure causes
    liveness loss only.
 
-#### Storage (Codex)
+#### Storage
 
-Apply when the application uses Codex for content distribution or
+Apply when the application uses Storage for content distribution or
 archival.
 
-1. **CX-1.** Codex uploads from the application do not include
+1. **ST-1.** Storage uploads from the application do not include
    metadata that links them to a known publisher identity. Where
    the application's privacy model requires publisher
    unlinkability, the upload path uses the privacy-preserving
    variant rather than a direct provider upload.
-2. **CX-2.** Downloads use the anonymous-downloads-over-mix path
+2. **ST-2.** Downloads use the anonymous-downloads-over-mix path
    when the application's privacy model requires downloader
    unlinkability. The SDK does not query for the same content via
    two distinguishable downloader identities in a way that
    re-links a single user.
-3. **CX-3.** Where the application caches Codex content, it does so
-   in a form that supports the cache plausible-deniability property
-   declared in the Storage FURPS (the cache does not store
+3. **ST-3.** Where the application caches Storage content, it does
+   so in a form that supports the cache plausible-deniability
+   property declared in the Storage FURPS (the cache does not store
    plaintext or otherwise gain knowledge of the contents it caches).
 
 ### Protocol-specific scenarios
@@ -413,9 +416,9 @@ Examples of where protocol-specific scenarios commonly apply:
   identity-linked attacks (in scope) and pool-state attacks (out of
   scope by default).
 - Group messaging or forum protocols: C-class scenarios for
-  member-join griefing; W-class scenarios for membership-change
+  member-join griefing; M-class scenarios for membership-change
   unlinkability.
-- Filesharing and archival protocols: CX-class scenarios for
+- Filesharing and archival protocols: ST-class scenarios for
   publisher anonymity sets and download cover-traffic.
 - Protocols sensitive to ordering: P-class scenarios documenting
   whether correctness depends on a specific operator's ordering.
