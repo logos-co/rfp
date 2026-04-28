@@ -148,11 +148,12 @@ participants.
 
 1. A swap against an existing pool completes within a single LEZ
    transaction.
-2. The transaction size of each operation (swap, add/remove
-   liquidity, pool creation) must be documented; LEZ's block size is
-   limited and this budget may change during testnet.
-3. Pool creation and liquidity operations complete within a single
+2. Pool creation and liquidity operations complete within a single
    transaction each.
+3. Compute unit usage and transaction size of each operation (swap,
+   add liquidity, remove liquidity, pool creation) must be documented
+   and benchmarked against LEZ devnet limits; LEZ's per-transaction
+   compute budget and block size may change during testnet.
 
 #### Supportability
 
@@ -204,12 +205,6 @@ If possible.
 1. Support multi-hop routing across multiple pools within a single
    transaction (e.g. flash-accounting style settlement of intermediate
    hops), reducing slippage on token pairs without a direct pool.
-
-#### Performance
-
-1. Compute unit usage of swap, add liquidity, remove liquidity, and
-   pool creation is documented and benchmarked against LEZ devnet
-   compute limits.
 
 ### Out of Scope
 
