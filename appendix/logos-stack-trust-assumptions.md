@@ -120,8 +120,8 @@ What the Blockchain / LEZ FURPS does **not** commit to:
 ### AnonComms
 
 The AnonComms component delivers a mix protocol and an RLN service.
-Critically, the AnonComms FURPS describes integration targets but does
-**not** list LEZ transaction submission as one of them.
+The AnonComms FURPS lists integration targets for the mix protocol;
+LEZ transaction submission is not one of them.
 
 **Mix integration targets** (`anoncomms/furps/mix.md`):
 
