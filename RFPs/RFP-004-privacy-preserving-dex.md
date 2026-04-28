@@ -204,16 +204,25 @@ If possible.
 1. Support multi-hop routing across multiple pools within a single
    transaction (e.g. flash-accounting style settlement of intermediate
    hops), reducing slippage on token pairs without a direct pool.
-2. Provide a permissionless `recoverSurplus(to)` instruction, callable
-   only when the pool has zero liquidity (total LP supply is zero), to
-   sweep surplus tokens to a caller-specified address. See
-   [Appendix: DEX Ecosystem Behaviour, section 10](../appendix/dex-ecosystem-behaviour.md#10-reserve-reconciliation-sync-and-skim).
 
 #### Performance
 
 1. Compute unit usage of swap, add liquidity, remove liquidity, and
    pool creation is documented and benchmarked against LEZ devnet
    compute limits.
+
+### Out of Scope
+
+The following are explicitly excluded from this RFP:
+
+- A `skim()` or `recoverSurplus()` instruction that extracts surplus
+  tokens from a pool's vault to a caller-specified address. Surplus
+  reconciliation is handled exclusively by the permissionless `sync()`
+  function (Functionality requirement F.9), which folds surplus into
+  the pool to benefit LPs. Among surveyed protocols, only Uniswap V2
+  exposes a `skim()`-style instruction; Uniswap V4, Balancer V3, Curve
+  StableSwapNG, Raydium, and Orca Whirlpools do not. See
+  [Appendix: DEX Ecosystem Behaviour, section 10](../appendix/dex-ecosystem-behaviour.md#10-reserve-reconciliation-sync-and-skim).
 
 ### Privacy Architecture
 
