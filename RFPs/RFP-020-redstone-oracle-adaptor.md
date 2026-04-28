@@ -90,7 +90,7 @@ chooses for production (informed by the realities of CEX liquidity
 and adoption), this adaptor remains the swap-in for the off-chain
 component.
 
-## Design Rationale
+## 🏗 Design Rationale
 
 ### Public oracle execution
 
@@ -246,17 +246,24 @@ reaches moderate TVL.
 2. End-to-end integration tests run against a LEZ sequencer
    (standalone mode) and are included in CI; CI must be green on
    the default branch.
-3. Every hard requirement has at least one corresponding test.
-   The test suite must include: valid signature acceptance,
-   invalid signature rejection, signer-threshold enforcement
-   (M-of-N, including boundary cases), stale-package rejection
-   (`maxAge`), asset-identifier mismatch rejection, zero or
-   negative price rejection, and feed registration / signer-set
-   update transitions.
+3. Every hard requirement in Functionality, Usability, Reliability,
+   and Performance has at least one corresponding test. The test
+   suite must include: valid signature acceptance, invalid
+   signature rejection, signer-threshold enforcement (M-of-N,
+   including boundary cases), stale-package rejection (`maxAge`),
+   asset-identifier mismatch rejection, zero or negative price
+   rejection, and feed registration / signer-set update transitions.
 4. A README documents end-to-end usage: deployment steps, program
    addresses, initial XMR/USD and ZEC/USD feed registrations, and
    step-by-step instructions for submitting data packages and
    querying prices via CLI and mini-app.
+5. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+   for the SDK, covering the developer integration journey for
+   submitting RedStone data packages and reading verified prices.
+6. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+   for the CLI, covering the core operator/user journey.
+7. Provide Figma designs or equivalent for the mini-app GUI
+   (off-chain feed dashboard).
 
 #### + Adaptor Security
 
@@ -280,6 +287,27 @@ reaches moderate TVL.
    that divergence between the RedStone-published price and the
    TWAP-published price triggers the dispute flag as specified in
    RFP-019.
+
+### Out of Scope
+
+The following are explicitly excluded from this RFP and addressed
+elsewhere:
+
+- The on-chain TWAP tier and the canonical oracle price account
+  standard are owned by [RFP-019](./RFP-019-twap-oracle.md). This
+  RFP populates the standard, it does not define it.
+- A Pyth adaptor. Pyth depends on Wormhole on LEZ and is deferred
+  to a future RFP. Higher publisher counts and confidence
+  intervals (which RedStone does not natively expose) come with
+  that adaptor.
+- Adaptors for other off-chain oracles (Chainlink, DIA, Chronicle,
+  Switchboard, Supra). None of these match the combination of
+  privacy-asset coverage, SVM-portable verification, and bridge
+  independence that motivates this RFP. Future RFPs may add them.
+- The choice between LSC/USD direct and LGS/USD + LGS/LSC
+  composite for the LSC stablecoin
+  ([RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)). That
+  is a business decision left to the RFP-013 implementer.
 
 ## ⚠ Platform Dependencies
 
@@ -331,17 +359,6 @@ The adaptor has no hard external dependencies beyond the SVM
 secp256k1 precompile (already present on LEZ); the canonical price
 account standard is a soft dependency on RFP-019 with a documented
 fallback.
-
-## Evaluation Criteria
-
-| Criterion | Weight | What we look for |
-|-----------|--------|------------------|
-| Technical design quality | 25% | Signature verification correctness, data-package decoding, conformance to the canonical price account standard |
-| Adaptor security | 25% | Signer-set management, replay protection, staleness handling, signer compromise analysis |
-| Privacy-asset coverage | 20% | Working XMR/USD and ZEC/USD feeds on LEZ devnet/testnet as part of the deliverable |
-| Team experience | 15% | Prior RedStone, oracle, or SVM cryptographic-verification work |
-| Timeline and milestones | 10% | Realistic schedule, early delivery of a working XMR/USD or ZEC/USD feed |
-| Ecosystem alignment | 5% | Open source, composability with TWAP (RFP-019), lending ([RFP-008](./RFP-008-lending-borrowing-protocol.md)), and the LSC stablecoin ([RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)) |
 
 ## 🌍 Open Source Requirement
 

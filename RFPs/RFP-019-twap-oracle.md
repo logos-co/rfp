@@ -65,7 +65,7 @@ precisely to bound this risk: when an external feed is registered
 for the same pair, divergence above a configurable threshold flags
 the price as disputed.
 
-## Design Rationale
+## 🏗 Design Rationale
 
 ### Public oracle execution
 
@@ -250,8 +250,9 @@ ongoing subsidies once LEZ reaches moderate TVL.
 2. End-to-end integration tests run against a LEZ sequencer
    (standalone mode) and are included in CI; CI must be green on
    the default branch.
-3. Every hard requirement has at least one corresponding test. The
-   test suite must include: TWAP computation correctness (known
+3. Every hard requirement in Functionality, Usability, Reliability,
+   and Performance has at least one corresponding test. The test
+   suite must include: TWAP computation correctness (known
    accumulator values produce expected prices), manipulation
    detection (circuit breaker triggers when TWAP and an external
    source diverge beyond threshold), staleness rejection (prices
@@ -261,6 +262,14 @@ ongoing subsidies once LEZ reaches moderate TVL.
    addresses, and step-by-step instructions for querying prices,
    expanding cardinality, and registering feed sources via CLI and
    mini-app.
+5. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+   for the SDK, covering the developer integration journey for
+   querying prices, expanding cardinality, and registering feed
+   sources.
+6. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+   for the CLI, covering the core operator/user journey.
+7. Provide Figma designs or equivalent for the mini-app GUI (price
+   feed dashboard).
 
 #### + Oracle Security
 
@@ -285,6 +294,22 @@ ongoing subsidies once LEZ reaches moderate TVL.
    [5].
 3. Historical price API: query past prices by timestamp or block
    range for analytics and backtesting.
+
+### Out of Scope
+
+The following are explicitly excluded from this RFP and addressed
+elsewhere:
+
+- External oracle adaptors. RedStone is delivered in
+  [RFP-020](./RFP-020-redstone-oracle-adaptor.md). A Pyth adaptor
+  (which depends on Wormhole on LEZ) is deferred to a future RFP.
+- Confidential or shielded oracle execution. Oracle programs run
+  as public LEZ executions (see Design Rationale, "Public oracle
+  execution").
+- The reflexive stablecoin design. RFP-013 owns the LSC stablecoin
+  and is the consumer of TWAP and external feeds; the choice
+  between LSC/USD direct and LGS/USD + LGS/LSC composite is a
+  business decision for that RFP's implementer.
 
 ## ⚠ Platform Dependencies
 
@@ -345,16 +370,6 @@ Estimated duration: **8 to 12 weeks**.
 The canonical price account standard and circuit-breaker interface
 can be designed and shipped early; the TWAP program itself depends
 on RFP-004 (DEX) and is the longer pole.
-
-## Evaluation Criteria
-
-| Criterion | Weight | What we look for |
-|-----------|--------|------------------|
-| Technical design quality | 30% | TWAP accumulator correctness, manipulation-cost analysis, canonical price account design |
-| Oracle security | 25% | Circuit-breaker design, staleness handling, registration / dispute state transitions |
-| Team experience | 20% | Prior oracle or DeFi infrastructure work, security track record |
-| Timeline and milestones | 15% | Realistic schedule, early delivery of standard and circuit-breaker interface |
-| Ecosystem alignment | 10% | Open source, composability with DEX (RFP-004), lending ([RFP-008](./RFP-008-lending-borrowing-protocol.md)), and external adaptors (RFP-020) |
 
 ## 🌍 Open Source Requirement
 
