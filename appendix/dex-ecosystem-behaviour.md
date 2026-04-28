@@ -11,15 +11,18 @@ individual project notes contain full citations.
 
 ## Protocols considered
 
+TVL figures are DeFiLlama snapshots as of 2026-04-27. Volume figures
+cite each protocol's own dashboards or DeFiLlama where available.
+
 | Protocol | Ecosystem | Type | TVL | Cumulative volume |
 |----------|-----------|------|-----|-------------------|
-| Uniswap V2 | Ethereum | Constant-product AMM | ~$945M | $604B+ |
-| Uniswap V4 | Ethereum (17 chains) | Singleton AMM with hooks | >$1B | >$190B (2025) |
-| Balancer V3 | Ethereum (9 chains) | Vault-based AMM with hooks | $104M to $151M | N/A (fee data only) |
-| Curve StableSwapNG | Ethereum | StableSwap AMM | ~$2.3B | ~$126B (2025) |
-| CoW Protocol | Ethereum (10 chains) | Intent-based batch auction | N/A (no custody) | $87B (2025) |
-| Raydium | Solana | AMM + CLMM | $1.4B | $695.7B all-time |
-| Orca Whirlpools | Solana (+ Eclipse) | CLMM | $246.8M | >$300B |
+| Uniswap V2 | Ethereum (multi-chain) | Constant-product AMM | ~$970M | $604B+ |
+| Uniswap V4 | Ethereum (~16 chains) | Singleton AMM with hooks | ~$720M | >$190B (2025) |
+| Balancer V3 | Ethereum (9 chains) | Vault-based AMM with hooks | ~$80M (post 2025-11 V2 exploit) | N/A (fee data only) |
+| Curve Finance (StableSwapNG and earlier) | Ethereum (multi-chain) | StableSwap AMM | ~$1.7B | ~$126B (2025) |
+| CoW Protocol | Ethereum (~9 chains) | Intent-based batch auction | N/A (no custody) | $87B (2025) |
+| Raydium | Solana | AMM + CLMM | ~$1.0B | $695.7B all-time |
+| Orca Whirlpools | Solana (+ Eclipse) | CLMM | ~$255M | $36B+ all-time (Orca dashboards) |
 
 ## 1. Constant-product AMM with public pool state
 
@@ -28,10 +31,10 @@ pools (requirement F.1).
 
 **Ecosystem practice:** The constant-product invariant (`x * y = k`) is
 the most widely deployed AMM mechanism. Uniswap V2 is the reference
-implementation with over 100 forks (PancakeSwap, SushiSwap, Aerodrome,
-and others). Pool state (reserves, price, cumulative volume) is fully
-public on-chain in every surveyed protocol. No production AMM stores
-pool state privately.
+implementation, with major forks including PancakeSwap, SushiSwap, and
+Aerodrome (DeFiLlama tracks dozens of V2-derived deployments). Pool
+state (reserves, price, cumulative volume) is fully public on-chain in
+every surveyed protocol. No production AMM stores pool state privately.
 
 On Solana, both Raydium and Orca implement the same constant-product
 invariant for their base pools, adapted for the SVM account model:
@@ -77,7 +80,7 @@ distributed to LPs (requirement F.6).
 
 | Protocol | Fee payer | LP share | Protocol share | Other |
 |----------|-----------|----------|----------------|-------|
-| Uniswap V2 | Trader (input token) | 100% (protocol fee optional: 0.05%) | 0% (or 1/6 of 0.3% when active) | Protocol fee activated Dec 2025 |
+| Uniswap V2 | Trader (input token) | 0.25% (post-UNIfication) | 0.05% (1/6 of 0.3%) | UNIfication proposal passed 2025-12-26; pre-activation LPs received the full 0.3% |
 | Uniswap V4 | Trader (input token) | Majority | Configurable per pool | Hook can adjust |
 | Balancer V3 | Trader (input token) | ~50% (varies) | ~50% (split with pool creator) | Yield fee: 10% on boosted pools |
 | Curve StableSwapNG | Trader (output token) | Majority | Admin fee (fraction of swap fee) | Dynamic fee on imbalanced pools |
@@ -232,11 +235,12 @@ transfers corrupt fee accounting.
 ### Flash accounting / transient accounting (Uniswap V4, Balancer V3)
 
 A singleton contract holds all pool tokens. Operations accumulate
-credits and debits in EIP-1153 transient storage. Only the net token
-amounts are transferred at the end of the session. There is no
-cached reserve separate from the live balance. This model eliminates
-the sync/skim pattern entirely and achieves a 98% gas reduction for
-state tracking versus persistent storage.
+credits and debits in EIP-1153 transient storage (TSTORE/TLOAD). Only
+the net token amounts are transferred at the end of the session. There
+is no cached reserve separate from the live balance. This model
+eliminates the reserve-reconciliation pattern: TSTORE costs 100 gas vs
+SSTORE's 20,000 gas for a cold write, so per-operation state tracking
+is roughly two orders of magnitude cheaper.
 
 ### Solana/SVM account model (Raydium, Orca)
 
@@ -322,19 +326,20 @@ surplus before LPs benefit.
 
 | Protocol | sync() | skim() / recoverSurplus() | Notes |
 |----------|--------|--------------------------|-------|
-| Uniswap V2 | Yes (permissionless) | Yes (permissionless) | Handles rebasing tokens, direct transfers, and negative-rebase deficits |
-| Uniswap V4 | Different function (settlement, not reconciliation) | No | Flash accounting eliminates cached reserve drift |
+| Uniswap V2 | Yes (permissionless reserve sync) | Yes (permissionless) | Handles rebasing tokens, direct transfers, and negative-rebase deficits |
+| Uniswap V4 | `PoolManager.sync()` exists but checkpoints balances for flash accounting, not reserve reconciliation | No | Flash accounting eliminates cached reserve drift |
 | Balancer V3 | No | No | Transient accounting; no cached reserves |
 | Curve StableSwapNG | No (reads live balances) | No | Admin fees isolated in a separate array |
 | Raydium | No | No | Surplus silently accumulates in vault accounts |
 | Orca Whirlpools | No | No | Same as Raydium |
 
 Uniswap V2 is the only surveyed protocol that implements both
-functions. Later AMMs eliminated the need for them by switching to
-live balance reads (Curve) or transient accounting (Uniswap V4,
-Balancer V3). Solana DEXes implement neither: surplus tokens in
-Raydium and Orca vaults remain unacknowledged by pool accounting and
-are not recoverable through any program-exposed instruction.
+functions for reserve reconciliation. Later AMMs eliminated the need
+for them by switching to live balance reads (Curve) or transient
+accounting (Uniswap V4, Balancer V3). Solana DEXes implement neither:
+surplus tokens in Raydium and Orca vaults remain unacknowledged by
+pool accounting and are not recoverable through any program-exposed
+instruction.
 
 ## References
 
