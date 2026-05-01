@@ -9,7 +9,13 @@ category: Applications & Integrations
 
 # RFP-003 — Atomic Swaps with LEZ
 
-> **Note:** This RFP is open for proposal submission. However, development is blocked pending **LEZ timelock support** being available on LEZ.
+> **Status:** Open for proposal submission and ready to start. The LEZ-side
+> primitives required for adaptor-signature-based swaps (BIP-340 Schnorr over
+> secp256k1, block-height and timestamp validity windows, AND-multisig witness
+> sets, SHA-256 in guest programs) are present in `logos-execution-zone`
+> today — see [LEZ Primitive Status](#lez-primitive-status) below for a
+> file-cited inventory and the two design constraints applicants should be
+> aware of.
 
 ## 🧭 Overview
 
@@ -216,6 +222,81 @@ for the maturity of those modules and a high-visibility proof point for ecosyste
 - Distributed systems: swap state machines, crash recovery, concurrent coordination
 
 
+## LEZ Primitive Status
+
+This section is informational. It captures what is available on LEZ today
+(`logos-execution-zone` `main`) so proposals can reason about the LEZ side
+without first auditing the source. Applicants are still expected to verify
+against the current tip before submission.
+
+### Available
+
+| Primitive | Where |
+|---|---|
+| **secp256k1 BIP-340 Schnorr** signing and verification | `nssa/src/signature/mod.rs` (uses `k256::schnorr`); 32-byte x-only public keys at `nssa/src/signature/public_key.rs` |
+| **2-of-2 (AND) multisig at the witness layer** | `WitnessSet` in `nssa/src/public_transaction/witness_set.rs` validates a `Vec<(Signature, PublicKey)>` — every signature must verify |
+| **Block-height validity window** on transactions / program outputs | `BlockValidityWindow` in `nssa/core/src/program.rs`, exposed via `ProgramOutput::with_block_validity_window()` |
+| **Timestamp validity window** on transactions / program outputs | `TimestampValidityWindow` in `nssa/core/src/program.rs`, exposed via `ProgramOutput::with_timestamp_validity_window()` |
+| Validity windows enforced on **privacy-preserving (private) transactions** | `nssa/src/privacy_preserving_transaction/message.rs` |
+| Reading **current block height / timestamp** from a guest program | The on-chain `clock` program writes height + timestamp into accounts at 1 / 10 / 50-block cadence: `program_methods/guest/src/bin/clock.rs` |
+| **SHA-256** inside guest programs | `risc0_zkvm::sha::Impl::hash_bytes()` exposed through `nssa/core/src/program.rs` |
+| Reference HTLC-style swap implementation (ETH ↔ LEZ) | [`eth-lez-atomic-swaps`](https://github.com/logos-co/eth-lez-atomic-swaps) |
+
+### Design Constraints (not blockers, but shape the implementation)
+
+1. **Schnorr verification happens at the witness/auth layer, not as a guest
+   syscall.** A guest program cannot today call a `secp256k1_schnorr_verify`
+   precompile against arbitrary `(message, sig, pubkey)`. The intended pattern
+   is to gate the swap-claim state transition on a `WitnessSet` containing the
+   completed adaptor signature; LEZ's existing protocol-level Schnorr check
+   then enforces atomicity. This is sufficient for BTC ↔ LEZ adaptor swaps and
+   for the LEZ side of XMR ↔ LEZ swaps; it does not require any LEZ protocol
+   change. Proposals that need richer in-guest verification (e.g. for MuSig2
+   aggregation or DLEQ proofs evaluated by the program itself) should call
+   this out explicitly so a `secp256k1_schnorr_verify` host call can be
+   scoped as a coordinated change.
+2. **No native n-of-m threshold multisig.** AND-of-all signatures is provided
+   by `WitnessSet`; threshold (e.g. 2-of-3) must be implemented at the program
+   level on top of `WitnessSet` and per-account `is_authorized` flags.
+   Adaptor-signature swaps as specified here only need 2-of-2, so this is not
+   on the critical path.
+
+### Open Questions Applicants Should Verify
+
+These two are inexpensive to confirm in the LEZ codebase and material to the
+swap-protocol design. Submissions should confirm both early, and the
+proposal write-up should document the result.
+
+1. **`s`-malleability of accepted signatures.** Adaptor extraction relies on
+   `t = s − s'` where `s` is the on-chain completed signature. If any layer
+   (mempool, sequencer, witness normalisation) mutates `s` between submission
+   and inclusion, the counterparty cannot recover `t`. Confirm that LEZ does
+   not normalise or canonicalise `s` after acceptance.
+2. **Validity-window enforcement timing.** The refund-path argument requires
+   that the BTC/XMR/ETH refund deadline `Δ_btc` strictly succeeds the LEZ
+   refund deadline `Δ_lez` with a margin large enough to cover worst-case
+   confirmation latency on the counterparty chain. Confirm whether
+   `BlockValidityWindow` upper bound is enforced at inclusion (sequencer
+   refuses a tx submitted after the upper bound) versus only at validation,
+   and document the inclusive/exclusive semantics that the swap design
+   relies on.
+
+### Why Adaptor Signatures, Not HTLCs (LEZ side)
+
+The reference ETH ↔ LEZ implementation uses HTLCs. For the BTC and XMR pairs,
+HTLCs are either undesirable (Bitcoin: identifies the swap on-chain and
+links the two legs across chains) or impossible (Monero has no scripting).
+Adaptor signatures replace the on-chain hash preimage with an off-chain
+scalar reveal: publishing the completed signature on one chain
+unavoidably leaks the adaptor witness `t = s − s'` to anyone who held the
+pre-signature, which lets the counterparty finish the signature on the
+other chain. The on-chain footprint becomes an ordinary 2-of-2 keypath
+spend on Bitcoin (post-Taproot) and an ordinary spend on Monero — making
+the two legs of a swap unlinkable on-chain. The Ethereum pair may continue
+to use HTLCs (the existing reference implementation), or migrate to
+adaptor signatures for consistency; both are acceptable.
+
+
 ## ⏱ Timeline Expectations
 
 Estimated duration: **16–24 weeks**
@@ -234,14 +315,25 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [Logos Execution Zone](https://github.com/logos-blockchain/logos-execution-zone/)
 - [Risc0 proving system](https://dev.risczero.com/)
 
+### LEZ Source Pointers
+
+- `nssa/src/signature/` — BIP-340 Schnorr signing and verification
+- `nssa/src/public_transaction/witness_set.rs` — multi-signature `WitnessSet`
+- `nssa/core/src/program.rs` — `BlockValidityWindow`, `TimestampValidityWindow`, `ProgramOutput` builders
+- `nssa/src/privacy_preserving_transaction/message.rs` — validity-window enforcement on private transactions
+- `program_methods/guest/src/bin/clock.rs` — on-chain clock accounts (height + timestamp)
+
 ### Bitcoin
 
 - [BIP-340: Schnorr signatures for secp256k1](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki)
 - [BIP-341: Taproot](https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki)
-- [Adaptor signatures — Lloyd Fournier](https://github.com/LLFourn/one-time-vrf/blob/master/main.pdf)
+- [DLC specs — Adaptor Signatures](https://github.com/discreetlogcontracts/dlcspecs/blob/master/AdaptorSignature.md) — production-grade spec for both Schnorr and ECDSA adaptor signatures with test vectors
+- [Aumayr et al. (2021), *Generalized Channels from Limited Blockchain Scripts and Adaptor Signatures*](https://eprint.iacr.org/2020/476) — formal security definitions (aEUF-CMA, witness-extractability, pre-signature adaptability)
+- [Adaptor signatures — Lloyd Fournier](https://github.com/LLFourn/one-time-VES) — reference ECDSA adaptor construction with DLEQ proof
 - [Scriptless Scripts — Andrew Poelstra](https://github.com/apoelstra/scriptless-scripts)
 - [rust-bitcoin](https://github.com/rust-bitcoin/rust-bitcoin)
 - [secp256k1-zkp (adaptor signature support)](https://github.com/BlockstreamResearch/secp256k1-zkp)
+- [secp256kfun / ecdsa-fun](https://github.com/LLFourn/secp256kfun) — Rust libraries with clean reference implementations of Schnorr and ECDSA adaptor signatures
 
 ### Monero
 
