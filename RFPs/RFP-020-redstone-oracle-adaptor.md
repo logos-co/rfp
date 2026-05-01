@@ -37,7 +37,7 @@ for the push-mode aggregator's update cadence, the adaptor ships
 on the existing runtime. If it is not, the measurement becomes the
 input to a follow-on RFP that proposes adding a secp256k1 ECDSA +
 keccak256 precompile to LEZ for the public-mode write side. The
-precompile is therefore an optimization path, not a precondition
+precompile is therefore an optimisation path, not a precondition
 for this RFP.
 
 (Scope note: this RFP is about asset-price oracles for DeFi
@@ -308,6 +308,19 @@ reaches moderate TVL.
    stale data package, signer-threshold not met, signer not in
    authorised set, asset identifier mismatch, malformed package,
    invalid signature, zero or negative price.
+6. Provide a **reference consumer program**: a minimal LEZ program
+   (or equivalently a documented program-side code snippet plus
+   tests) that demonstrates the recommended consumer-side
+   integration pattern for reading the canonical price account
+   populated by this adaptor. The reference must show: reading
+   price and timestamp from the account, rejecting prices older
+   than the consumer's chosen `maxAge`, refusing to act on a
+   price whose dispute flag is set (the dispute flag is owned by
+   RFP-019's circuit breaker), and the recommended response when
+   a price is unavailable (typically: refuse the action, do not
+   fall back to an unsafe default). This is a guidance artefact
+   for downstream consumer protocols (RFP-008, RFP-013, RFP-004),
+   not a production product on its own.
 
 #### Reliability
 
@@ -357,7 +370,13 @@ reaches moderate TVL.
    querying prices via CLI and mini-app.
 5. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
    for the SDK, covering the developer integration journey for
-   submitting RedStone data packages and reading verified prices.
+   submitting RedStone data packages and reading verified prices,
+   **plus a "Recommended Consumer Pattern" section** that walks a
+   downstream protocol developer through the reference consumer
+   program from Usability #6: staleness handling, dispute-flag
+   handling, behaviour when no valid non-disputed price is
+   available, and the recommended pairing with the on-chain TWAP
+   tier from RFP-019 for divergence checking.
 6. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
    for the CLI, covering the core operator/user journey.
 7. Provide Figma designs or equivalent for the mini-app GUI

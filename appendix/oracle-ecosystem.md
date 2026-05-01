@@ -22,12 +22,12 @@ prediction markets, not streaming price feeds.
 
 | Protocol | TVS | Chains | Model | Feed Count | Key Feature |
 |----------|-----|--------|-------|------------|-------------|
-| Chainlink | $66B-$75B | 27 push / 60+ via CCIP | Push (OCR/DON) | 1,000+ | Decentralised Oracle Network with VWAP from premium data aggregators |
-| Chronicle | $10.2B+ | 13 | Push | Limited | MakerDAO-native; concentrated TVS from Sky's $10B+ TVL |
+| Chainlink | $66B-$75B (May 2025) | 27 push / 60+ via CCIP | Push (OCR/DON) | 1,000+ | Decentralised Oracle Network with VWAP from premium data aggregators |
+| Chronicle | $10.2B+ (per [2]); Messari Q1 2025 cites $12.6B | 13 | Push | Limited | MakerDAO-native; concentrated TVS from Sky's $10B+ TVL |
 | Pyth | $8.6B+ | 50+ via Wormhole | Pull (Wormhole) | 2,800+ | First-party data from 120+ institutional publishers; confidence intervals |
 | RedStone | $10B+ | 50+ push / 120+ pull | Pull (calldata) | 1,000+ | No bridge dependency; modular push+pull; fastest-growing oracle |
-| Switchboard | $3B+ | 9 | Pull (TEE) | Permissionless | TEE (SGX/SEV) security; permissionless custom feed creation |
-| Supra | $650M+ | 45 | Push+Pull | N/A | Newer entrant; DORA (Distributed Oracle Agreement) consensus |
+| Switchboard | $3B+ [1] | 9 | Pull (TEE) | Permissionless | TEE (SGX/SEV) security; permissionless custom feed creation |
+| Supra | $650M+ [1]; Supra positioning cites 50+ networks | 45 | Push+Pull | N/A | Newer entrant; DORA (Distributed Oracle Agreement) consensus |
 | DLC oracles (Pythia live; Sibyls, P2PDerivatives, Ernest, Magnolia, others non-public or dormant) | N/A (not DeFi-TVS measured) | Bitcoin native; BIP-340 attestations portable to any verifying chain | Event-driven attestation (pre-announced R-points, signed at maturity) | Limited (BTC/USD; some chain metrics) | Native BIP-340 Schnorr; live ecosystem split between plain SHA-256 (Pythia, P2PDerivatives, rust-dlc) and tagged SHA-256 (Kormir, Ernest, Sibyls dlc_v0 mode); structural fit is prediction markets, not streaming price feeds |
 
 ## Scale and Traction
@@ -222,7 +222,7 @@ Short TWAP windows (e.g. 5 minutes) provide fresh prices but are
 cheap to manipulate. Long windows (e.g. 24 hours) are expensive to
 manipulate but lag the market severely during genuine volatility.
 Unlike external oracle networks, AMM TWAP cannot simultaneously
-optimise both security and freshness [10][11].
+optimise both security and freshness [10].
 
 ### Production standards
 
@@ -289,8 +289,8 @@ market coverage.
 |-----------|---------|------|----------|---------------|
 | Trust model | Trustless (on-chain) | Semi-trusted (publishers + Wormhole) | Semi-trusted (node signatures) | Semi-trusted (node operators + staking) |
 | Data source | Single DEX pool | 70+ first-party publishers | CEX + DEX + aggregators | Premium aggregators (Kaiko, CoinMetrics) |
-| Market coverage | On-chain pairs only | 1,500+ feeds (crypto, FX, equities) | 1,000+ feeds | 1,000+ feeds |
-| New-chain deployability | Requires AMM with liquidity | Requires Wormhole | No bridge needed | Requires 3+ RPC providers, node operators |
+| Market coverage | On-chain pairs only | 2,800+ feeds (Dec 2025; crypto, FX, equities) | 1,000+ feeds | 1,000+ feeds |
+| New-chain deployability | Requires AMM with liquidity | Requires Wormhole | No bridge needed | Requires multiple high-availability RPC providers, valid SSL, JSON-RPC compatibility, 30-day historical RPC performance metrics |
 | Manipulation resistance | Scales with pool depth | Independent of on-chain liquidity | Independent of on-chain liquidity | Independent of on-chain liquidity |
 | Gas per query | Very low (read accumulator) | 50K to 100K (VAA verification) | 50K to 100K (signature verification) | N/A (push: consumer reads storage) |
 | Confidence interval | No | Yes | No | No |
@@ -676,9 +676,12 @@ canonical reference.
 The numeric DLC encoding signs the outcome bit-by-bit: a price
 attested with N-bit precision requires N nonce-point announcements
 up front and N independent BIP-340 signatures at maturity, which
-the consumer chain verifies in sequence. For 18-bit precision (a
-range covering most cryptocurrency prices with cent granularity),
-that is 18 single-sig Schnorr verifications per update on LEZ. As
+the consumer chain verifies in sequence. For 18-bit base-2
+precision (covering integer dollar amounts up to roughly
+$262,000; cent granularity for prices in that range would require
+27+ binary digits, which is what Pythia's production config uses
+at 30 digits), that is 18 single-sig Schnorr verifications per
+update on LEZ. As
 noted in the Signature Verification Schemes section, BIP-340
 verification is not exposed to guest programs on LEZ, so each of
 those 18 verifications runs in-circuit; the per-update cost is
@@ -955,11 +958,11 @@ whether v3 liquidity would persist after the Uniswap v4 launch)
 Chainlink feeds for LST collateral, e.g. ETH/USD combined with an
 LST market-rate feed) with a simple fallback: if the primary feed
 is frozen for more than 12 hours or returns bad data, the system
-falls back to a secondary oracle (once, with no cascading). Liquity V2 explicitly rejects
-complex circuit breaker designs (e.g. Gyroscope's pause-on-divergence
-model), reasoning that pausing operations requires human intervention
-to set a new oracle and unpause, which conflicts with their
-immutability goals [18]. The design prioritises automation: simple
+falls back to a secondary oracle (once, with no cascading). Liquity V2 explicitly prefers
+this simple fallback over complex circuit breaker designs (e.g.
+Gyroscope's pause-on-divergence model), reasoning that pausing
+operations requires human intervention to set a new oracle and
+unpause, which conflicts with their immutability goals [18]. The design prioritises automation: simple
 trigger conditions, single fallback, no manual intervention required.
 
 ### Common patterns
@@ -997,8 +1000,8 @@ below.
 |--------|---------|---------|--------------------|
 | Chainlink (push) | Active on Optimism (1,200s heartbeat, 0.2% deviation) and Polygon (24h, 1%) [39] | Active on Ethereum (24h, 2%) and Polygon (24h, 1%) [40] | No: permissioned onboarding |
 | Chainlink Data Streams | 43+ chains, subscription-gated [39] | 35+ chains, subscription-gated [40] | No: paid product |
-| Pyth (pull) | `crypto-xmr-usd`, approximately 80+ publishers across two clusters [41] | `crypto-zec-usd`, 28 publishers [41] | Yes, once Wormhole endpoint and the Pyth receiver are deployed |
-| RedStone (pull) | Listed; data feed ID `XMR` [42] | Listed; data feed ID `ZEC` [42] | Yes: RedStone publishes a Solana / SVM connector built on the native secp256k1 precompile (the same scheme as its EVM and other chain connectors); no bridge dependency, no per-chain RedStone team engagement |
+| Pyth (pull) | `crypto-xmr-usd`, multiple publishers across both Pyth clusters; live count at [41] | `crypto-zec-usd`, multiple publishers; live count at [41] | Yes, once Wormhole endpoint and the Pyth receiver are deployed |
+| RedStone (pull) | Listed; data feed ID `XMR` [42] | Listed; data feed ID `ZEC` [42] | Yes once shape D1 or D2 lands per RFP-020 (LEZ-side ECDSA + keccak verification path); no bridge dependency on the upstream side, no per-chain RedStone team engagement |
 | DIA / Lumina | Production-ready (MAIR aggregation, 120s, announced January 2026) [43] | Available (MAIR, 120s) [43] | Yes via Lumina; bespoke deployment per chain |
 | Supra | XMR_USDT, 195 sources (Standard tier) [44] | ZEC_USDT, 60 sources (Premium tier) [44] | No: requires Supra team engagement |
 | Chronicle | Not in public feed catalogue | Not in public feed catalogue | N/A |
@@ -1022,7 +1025,7 @@ Once RFP-004 (DEX) is live, deploy the on-chain TWAP oracle as a
 supplementary data source. At this stage, TWAP should be used only
 as a sanity check (circuit breaker comparison against external feeds),
 not as a primary price source, because pool liquidity will be
-insufficient for manipulation resistance [10][11].
+insufficient for manipulation resistance [10].
 
 Engage Switchboard for core EVM contract deployment (TEE security,
 permissionless custom feeds). Consider DIA Lumina as a permissionless
@@ -1066,7 +1069,7 @@ The TWAP tier's role evolves with liquidity:
    Blockchain Oracle Scheme," arXiv:2410.07893v2, Oct 2024.
    https://arxiv.org/html/2410.07893v2
 6. ChainSecurity, "Oracle Manipulation After The Merge," 2022.
-   https://chainsecurity.com/oracle-manipulation-after-merge/
+   https://www.chainsecurity.com/blog/oracle-manipulation-after-merge
 7. DIA, "Lumina" documentation, accessed 2026.
    https://www.diadata.org/lumina/
 8. Pyth Network, "Cross-Chain Delivery" documentation.

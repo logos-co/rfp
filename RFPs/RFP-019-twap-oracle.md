@@ -18,18 +18,14 @@ for LEZ that reads pool accumulators from a LEZ DEX (RFP-004) and
 exposes geometric-mean prices through a canonical oracle price
 account standard, together with a circuit-breaker interface against
 external price sources. The TWAP tier is the on-chain
-defence-in-depth complement to off-chain feeds: its security depends
-on DEX liquidity depth and is independent of any bridge or off-chain
-publisher. This RFP covers the TWAP program, the canonical price
-account standard, and the circuit-breaker interface only. External
-oracle adaptors (RedStone in RFP-020, Pyth in a future RFP) plug
-into the same standard. The applying team should have experience
-with AMM mathematics, oracle manipulation analysis, and SVM program
-development.
-
-(Scope note: this RFP is about asset-price oracles for DeFi
-applications. It is unrelated to the RLN service-attestation oracle
-work on the anon-comms roadmap.)
+defence-in-depth layer alongside off-chain feeds: its security
+depends on DEX liquidity depth and is independent of any bridge or
+off-chain publisher. This RFP covers the TWAP program, the
+canonical price account standard, and the circuit-breaker interface
+only. External oracle adaptors (RedStone in RFP-020, Pyth in a
+future RFP) populate the same standard. The applying team should
+have experience with AMM mathematics, oracle manipulation analysis,
+and SVM program development.
 
 ## 🔥 Why This Matters
 
@@ -38,32 +34,31 @@ lending protocol ([RFP-008](./RFP-008-lending-borrowing-protocol.md)),
 the reflexive stablecoin
 ([RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)), and any
 derivatives or liquidation engines, faces the same risk: a single
-oracle source under thin-liquidity conditions is cheap to manipulate.
-Historically, 36 documented flash-loan oracle attacks have caused
+oracle source under thin-liquidity conditions is cheap to
+manipulate. 36 documented flash-loan oracle attacks have caused
 over $418M in cumulative losses [5]. The defence is layered: combine
 on-chain TWAP with an off-chain feed and flag divergence above a
-threshold. Without an on-chain TWAP tier, LEZ DeFi is forced to
-trust a single off-chain provider with no on-chain cross-check.
+threshold. Without an on-chain TWAP tier, LEZ DeFi has to trust a
+single off-chain provider with no on-chain cross-check.
 
-The TWAP tier also unlocks a class of designs that depend on
-on-chain pair pricing without trusting an external publisher. A
-notable example is the LGS/LSC composite oracle path that the LSC
-stablecoin (RFP-013) may choose: an external LGS/USD feed combined
-with an on-chain LGS/LSC TWAP. Whether RFP-013 ultimately picks the
-direct LSC/USD path or the composite path is a business decision
-left to the implementer; either path benefits from a working TWAP
-tier as a swappable building block.
+The TWAP tier also enables designs that depend on on-chain pair
+pricing without trusting an external publisher. One example is the
+LGS/LSC composite oracle path that the LSC stablecoin (RFP-013)
+may choose: an external LGS/USD feed combined with an on-chain
+LGS/LSC TWAP. Whether RFP-013 picks the direct LSC/USD path or the
+composite path is a business decision for the implementer; either
+path needs a working TWAP tier as a swappable building block.
 
-On new chains, on-chain TWAP is acutely vulnerable on its own: with
-thin liquidity, a PoS validator controlling two consecutive blocks
-can manipulate the TWAP accumulator at a cost approximately equal
-to the round-trip swap fees and price impact, with no competition
-for the back-run [6]. The attack cost scales linearly with pool
-depth, so pools with $1M in liquidity offer far less protection than
-pools with $100M. The circuit-breaker interface in this RFP exists
-precisely to bound this risk: when an external feed is registered
-for the same pair, divergence above a configurable threshold flags
-the price as disputed.
+On new chains, on-chain TWAP is vulnerable on its own: with thin
+liquidity, a PoS validator controlling two consecutive blocks can
+manipulate the TWAP accumulator at a cost roughly equal to the
+round-trip swap fees and price impact, with no competition for the
+back-run [6]. The attack cost scales linearly with pool depth, so
+pools with $1M in liquidity offer far less protection than pools
+with $100M. The circuit-breaker interface in this RFP exists to
+bound this risk: when an external feed is registered for the same
+pair, divergence above a configurable threshold flags the price as
+disputed.
 
 ## 🏗 Design Rationale
 
@@ -106,26 +101,25 @@ On EVM, Chainlink's `AggregatorV3Interface` (`latestRoundData()`)
 became the de facto oracle standard because Chainlink was the first
 mover; Pyth, RedStone, Switchboard, and DIA all ship compatible
 wrapper contracts so that consuming protocols need no code changes.
-However, the interface has well-known limitations: no confidence
-interval, no source identifier, confusing `answeredInRound`
-semantics, and variable `decimals()` per feed.
+The interface has known limitations: no confidence interval, no
+source identifier, confusing `answeredInRound` semantics, and
+variable `decimals()` per feed.
 
 On SVM (Solana, LEZ), no equivalent standard exists. Each oracle
 provider defines its own account data layout (Pyth's `PriceAccount`,
-Switchboard's `AggregatorAccountData`), forcing consuming programs
-to write per-provider integration code. This fragmentation is not
-architectural necessity; a shared account struct is straightforward
-on SVM.
+Switchboard's `AggregatorAccountData`), so consuming programs write
+per-provider integration code. This fragmentation is not an
+architectural necessity; a shared account struct is feasible on SVM.
 
-LEZ has the opportunity to define a canonical oracle price account
-structure before ecosystem fragmentation occurs. The struct should
-include fields that `AggregatorV3Interface` lacks: confidence
-interval, source identifier, and circuit-breaker dispute status.
-Because account data structures on SVM are append-friendly (a
-program can add new fields at the end of the struct without
-breaking consumers that read only the existing fields), the
-standard can evolve over time without requiring coordinated
-upgrades across consuming protocols.
+LEZ can define a canonical oracle price account structure now,
+before ecosystem fragmentation sets in. The struct should include
+fields that `AggregatorV3Interface` lacks: confidence interval,
+source identifier, and circuit-breaker dispute status. Because
+account data structures on SVM are append-friendly (a program can
+add new fields at the end of the struct without breaking consumers
+that read only the existing fields), the standard can evolve over
+time without requiring coordinated upgrades across consuming
+protocols.
 
 The standard is defined in this RFP. External oracle adaptors
 (RFP-020 RedStone, future Pyth RFP) populate the same struct so
@@ -149,6 +143,67 @@ tolerance [16]; MakerDAO interposes a one-hour Oracle Security
 Module (OSM) delay as a manipulation circuit breaker [15a]. Most
 major lending protocols use at least two tiers of price validation
 [6].
+
+#### What the production record actually shows
+
+The production record favours **source diversification** more
+clearly than it favours the specific TWAP-anchor +
+divergence-flag mechanic this RFP includes. The strongest
+documented saves are not divergence-flag firings; they are
+incidents where a protocol consumed a robustly-aggregated
+external feed that held while a single market venue dislocated:
+
+- **Curve / Vyper exploit, 30 July 2023.** During the
+  reentrancy attack, the on-chain CRV/USD price on Curve pools
+  collapsed to roughly $0.08; Chainlink's CRV/USD feed,
+  aggregated across CEX prices, bottomed at approximately
+  $0.59. Aave and other lending markets consuming the
+  Chainlink feed avoided cascade liquidation on a position
+  reported in coverage at roughly $200M. This is a clean
+  source-diversification save; the divergence between the
+  on-chain venue and the off-chain aggregate was the signal,
+  but no protocol-side divergence-flag firing is documented.
+- **USDe Binance flash, 11 October 2025.** On-chain consumers
+  of robust USDe pricing stayed within roughly 30 basis points
+  of $1 despite a Binance wick, again driven by aggregate
+  price feeds rather than a circuit breaker.
+- **MakerDAO OSM delay, 31 March 2025.** The mandatory one-hour
+  delay absorbed roughly $84.4M of whale positions during an
+  ETH wick. Passive save: no governance `stop()` was called;
+  the delay window itself was the protection.
+- **Base sequencer outage, 5 August 2025.** Aave and Moonwell
+  on Base used the generic Chainlink Sequencer Uptime Feed to
+  pause borrowing and liquidations during a 33-minute handoff
+  outage. Note that this is the generic L2 uptime feed, not
+  Aave's `PriceOracleSentinel` wrapper.
+
+The track record of the specific TWAP-anchor +
+divergence-flag mechanic this RFP includes is thinner. The
+canonical reference is Compound V2's `UniswapAnchoredView`
+during the November 2020 DAI spike: the 20% TWAP anchor
+rejected the most extreme prices but did not prevent
+approximately $89M of liquidations because the tolerance was
+too wide. Compound V3 then dropped the TWAP anchor entirely.
+Aave removed `PriceOracleSentinel` in v3.7 after years on four
+chains with no documented saves and repeated false positives.
+Aave's CAPO wstETH safety wrapper itself became the failure
+source on 10 March 2026, causing roughly $27M of
+false-positive liquidations. No protocol publishes "divergence
+flag fired and saved $N" events the way protocols publish
+post-mortems for losses.
+
+Layered defence pays off, but the load-bearing layer is
+**source diversification** with robust aggregate feeds that
+hold under venue-level distortion, not **bounds-checking
+circuit breakers** that fire when sources disagree. This RFP's
+circuit-breaker interface is worth shipping for the cases it
+does catch (the bounds it imposes are a hedge against either
+source going badly wrong), but the RFP-013, RFP-008, and
+RFP-004 implementers should not treat the divergence flag as a
+substitute for selecting feeds whose aggregation method is
+itself robust. The Recommended Consumer Pattern in the SDK doc
+packet should be explicit on this point: cross-check is a
+guard rail, not a primary defence.
 
 ### Fee structure
 
@@ -227,6 +282,18 @@ ongoing subsidies once LEZ reaches moderate TVL.
    observation history for the requested window, cardinality too
    low for the requested window, zero or negative price from
    source, and no valid non-disputed price available.
+6. Provide a **reference consumer program**: a minimal LEZ program
+   (or equivalently a documented program-side code snippet plus
+   tests) that demonstrates the recommended consumer-side
+   integration pattern for reading the canonical price account.
+   The reference must show: reading price and timestamp from the
+   account, rejecting prices older than the consumer's chosen
+   `maxAge`, refusing to act on a price whose dispute flag is set,
+   and the recommended response when a price is unavailable
+   (typically: refuse the action, do not fall back to an unsafe
+   default). This is a guidance artefact for downstream consumer
+   protocols (RFP-008, RFP-013, RFP-004), not a production
+   product on its own.
 
 #### Reliability
 
@@ -265,7 +332,12 @@ ongoing subsidies once LEZ reaches moderate TVL.
 5. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
    for the SDK, covering the developer integration journey for
    querying prices, expanding cardinality, and registering feed
-   sources.
+   sources, **plus a "Recommended Consumer Pattern" section** that
+   walks a downstream protocol developer through the reference
+   consumer program from Usability #6: staleness handling,
+   dispute-flag handling, behaviour when no valid non-disputed
+   price is available, and the recommended pairing with an
+   external feed for divergence checking.
 6. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
    for the CLI, covering the core operator/user journey.
 7. Provide Figma designs or equivalent for the mini-app GUI (price
@@ -283,17 +355,15 @@ ongoing subsidies once LEZ reaches moderate TVL.
 
 ### Soft Requirements
 
-1. Multi-source aggregation: compute the median of N sources
-   (TWAP plus N external sources registered to the standard) as a
-   single aggregated price.
-2. Ormer algorithm implementation: median estimator with
-   multi-window fusion as an alternative to the standard
-   geometric-mean TWAP, if a production-ready specification exists.
-   The Ormer paper (2024) reports 15.3% lower mean absolute error,
-   49.3% lower delay, and 15.2% lower gas cost compared to TWAP
-   [5].
-3. Historical price API: query past prices by timestamp or block
-   range for analytics and backtesting.
+1. Aggregator-helper SDK utility: a client-side library that
+   composes the canonical price account with one or more
+   external-feed accounts (registered via the same standard) and
+   applies the documented Recommended Consumer Pattern from the
+   SDK doc packet: staleness rejection, dispute-flag handling,
+   divergence cross-check, and fail-safe behaviour when no valid
+   non-disputed price is available. This reduces duplicated
+   boilerplate across consumer protocols (RFP-008, RFP-013,
+   RFP-004) without changing the on-chain program surface.
 
 ### Out of Scope
 
@@ -324,20 +394,6 @@ The TWAP oracle reads pool accumulators from the DEX. Without
 RFP-004, the on-chain TWAP tier cannot be exercised. The canonical
 price account standard and circuit-breaker interface can be
 designed and prototyped in parallel.
-
-#### General cross-program calls (LP-0015)
-
-The oracle program must call the DEX program to read pool
-accumulators.
-[LP-0015](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0015.md)
-(General cross-program calls via tail calls) is currently **open**.
-
-#### On-chain clock / timestamp
-
-TWAP computation requires block timestamps to calculate the time
-delta between observations. Interest accrual in the lending
-protocol ([RFP-008](./RFP-008-lending-borrowing-protocol.md)) has
-the same dependency.
 
 ### Soft blockers
 
