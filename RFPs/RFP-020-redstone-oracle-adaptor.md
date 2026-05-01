@@ -13,17 +13,32 @@ category: Developer Tooling & Infrastructure
 
 ## 🧭 Overview
 
-Build a RedStone off-chain oracle adaptor for LEZ: a SVM program
-that verifies RedStone-signed data packages from instruction
-calldata, exposes the resulting prices through the canonical oracle
-price account standard defined in
-[RFP-019](./RFP-019-twap-oracle.md), and supports day-one delivery
-of XMR/USD and ZEC/USD feeds. RedStone's data packages are signed
-with secp256k1 + keccak256 by its data nodes, recoverable on LEZ
-via the SVM native secp256k1 precompile, with no cross-chain bridge
-or Wormhole dependency. This RFP is scoped to the RedStone adaptor
-only; on-chain TWAP is in RFP-019, and a Pyth adaptor (which
-depends on Wormhole on LEZ) is deferred to a future RFP.
+Build a RedStone off-chain oracle adaptor for LEZ: a public-mode
+LEZ program that verifies RedStone-signed data packages, exposes
+the resulting prices through the canonical oracle price account
+standard defined in [RFP-019](./RFP-019-twap-oracle.md), and
+supports day-one delivery of XMR/USD and ZEC/USD feeds. RedStone's
+data packages are signed with secp256k1 + keccak256 by its data
+nodes; verification on LEZ runs as in-program code inside the
+RISC-V zkVM (no cross-chain bridge, no Wormhole dependency). The
+adaptor uses a push-mode aggregator pattern: a public-mode program
+verifies signatures on the write side, stores the result in a
+public price account, and consumers (including private-execution
+programs) read the slot. This RFP is scoped to the RedStone
+adaptor only; on-chain TWAP is in RFP-019, and a Pyth adaptor
+(which adds a Wormhole dependency) is deferred to a future RFP.
+
+LEZ is RISC0-based, so any signature scheme can be implemented in
+program code. The open question is whether the resulting program
+cost is acceptable. This RFP makes that question its first
+deliverable: implement signature verification in RISC-V, measure
+the cost, document the result. If the measured cost is acceptable
+for the push-mode aggregator's update cadence, the adaptor ships
+on the existing runtime. If it is not, the measurement becomes the
+input to a follow-on RFP that proposes adding a secp256k1 ECDSA +
+keccak256 precompile to LEZ for the public-mode write side. The
+precompile is therefore an optimization path, not a precondition
+for this RFP.
 
 (Scope note: this RFP is about asset-price oracles for DeFi
 applications. It is unrelated to the RLN service-attestation oracle
@@ -34,8 +49,8 @@ work on the anon-comms roadmap.)
 Logos's thesis is private DeFi: assets, applications, and users
 that the broader web3 stack does not yet serve well. Privacy
 collateral, in particular Monero (XMR) and Zcash (ZEC), is the
-day-one asset class that distinguishes LEZ from a generic SVM
-deployment. The LSC stablecoin
+day-one asset class that distinguishes LEZ from a generic L2 or
+appchain DeFi deployment. The LSC stablecoin
 ([RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)), the
 privacy-preserving DEX
 ([RFP-004](./RFP-004-privacy-preserving-dex.md)), wrapped privacy
@@ -45,15 +60,15 @@ applications can ship.
 
 Across the surveyed off-chain oracle providers, RedStone is the
 only one that combines: support for both XMR and ZEC in its public
-token registry, an SVM-portable connector that recovers signatures
-via the native secp256k1 precompile, no cross-chain bridge
-requirement, and a self-serve deployment path that does not require
-an oracle-team business engagement. Pyth covers both feeds and adds
-higher publisher counts and confidence intervals, but is gated on
-Wormhole integration on LEZ; it should land as a fast-follow in a
-future RFP. Chainlink is permissioned and not self-serve. DIA
-Lumina is permissionless but requires bespoke per-chain
-deployment. See
+token registry, a portable connector pattern (single secp256k1
+ECDSA + keccak256 verification path that works the same on every
+host chain), no cross-chain bridge requirement, and a self-serve
+deployment path that does not require an oracle-team business
+engagement. Pyth covers both feeds and adds higher publisher
+counts and confidence intervals, but is gated on Wormhole
+integration on LEZ; it should land as a fast-follow in a future
+RFP. Chainlink is permissioned and not self-serve. DIA Lumina is
+permissionless but requires bespoke per-chain deployment. See
 [Appendix: Oracle Ecosystem, Privacy-Asset Feed Availability](../appendix/oracle-ecosystem.md)
 for the full coverage matrix.
 
@@ -91,16 +106,85 @@ component.
 
 ## 🏗 Design Rationale
 
-### Public oracle execution
+### Public-mode aggregator with private-account composability
 
-The adaptor runs as a public LEZ execution with no confidential
+The adaptor runs as a public-mode LEZ program with no confidential
 state. Signature verification, data-package decoding, and price
 publication are all visible to any caller. Any LEZ dapp can read
-the same canonical price. Confidential execution is reserved for
-application-layer protocols that consume oracle prices (for
-example, private DEX swaps in
+the same canonical price.
+
+This shape is determined by where signature verification can run
+on LEZ. LEZ is a RISC-V zkVM built on RISC0; any code that runs
+inside a private transaction has to be expressible inside the
+RISC-V zkVM circuit, so a private transaction that wants to verify
+a secp256k1 ECDSA signature has two options, both unappealing:
+verify the signature inside the privacy circuit (forfeits the
+batching benefits that make ZK proof amortisation work; RISC0
+elliptic-curve performance for this primitive is currently
+unmeasured), or place the signature in the transaction journal
+where it is publicly disclosed (breaks the privacy of the
+transaction). Neither option preserves both efficiency and
+privacy.
+
+The adaptor therefore runs the verifier in a public-mode
+aggregator: signatures are recovered once per update on the write
+side, and the verified price plus timestamp are stored in a public
+price account. Private-execution programs compose with the price
+by reading the public account, not by carrying signed payloads
+inline. Cost is paid once per update and amortises across all
+downstream reads, public and private. Confidential execution is
+reserved for application-layer protocols that consume oracle
+prices (for example, private DEX swaps in
 [RFP-004](./RFP-004-privacy-preserving-dex.md)); the price feed
 itself stays public.
+
+Pull-mode reads (where a public consumer transaction carries a
+signed payload and verifies inline) remain technically possible on
+LEZ inside public execution, but are out of scope for this RFP
+because they don't extend to private execution and because the
+push-mode aggregator gives strictly better cost amortisation for
+the LEZ DeFi consumer set. They can be revisited in a follow-on
+once measured cost data is in.
+
+### RISC-V verification path and the precompile question
+
+This RFP implements signature verification in RISC-V program code,
+running inside RISC0. There is no host primitive to call: the
+recovery is an in-program ECDSA + keccak256 path written against
+existing Rust crates (k256 / sha3 / equivalents) and proved by
+RISC0 along with the rest of the program.
+
+This is the central technical bet of the RFP. RISC0 elliptic-curve
+performance for secp256k1 ECDSA recovery and keccak256 hashing has
+not been comprehensively measured in the LEZ runtime; the LEZ team
+has discussed testing but deprioritised it. The first concrete
+deliverable of this RFP is therefore the measurement: implement
+the verifier in RISC-V, run it on LEZ, document the cost
+(compute units / proof time / proof size / per-update bytes) for
+both the per-signature recovery and the full 3-of-N aggregator
+write.
+
+Two outcomes are possible from that measurement:
+
+1. **Measured cost is acceptable for the push-mode aggregator.**
+   The adaptor ships on the runtime as it stands. The aggregator's
+   update cadence amortises the per-update cost across all
+   downstream reads. No runtime change required.
+2. **Measured cost is unacceptable.** The measurement becomes the
+   input to a follow-on RFP that proposes adding a secp256k1 ECDSA
+   + keccak256 precompile to LEZ for use by public-execution
+   programs. A precompile lives outside the ZK proof boundary and
+   is invoked as native validator code, so the cost goes from
+   "ZK-proven elliptic-curve operations" to "native ECDSA recovery
+   + keccak", which is the cost profile RedStone's existing
+   connectors assume on every other chain. The precompile is an
+   optimisation path conditional on the measurement, not a
+   precondition for this RFP.
+
+The applicant should therefore design the verification path so
+that swapping in a precompile in a later release is a localised
+change (a single trait implementation or syscall wrapper), not a
+restructuring of the program.
 
 ### Why RedStone first
 
@@ -114,15 +198,16 @@ Three reasons specific to LEZ's constraints:
    any external infrastructure. Pyth and DIA both cover the same
    assets but require either Wormhole (Pyth) or bespoke per-chain
    deployment (DIA Lumina) before they work on a new chain.
-2. **SVM-portable verification with existing primitives.**
-   RedStone's signature scheme is plain m-of-N secp256k1 ECDSA
-   (typically 3-of-N), recoverable via the SVM secp256k1 SigVerify
-   precompile at roughly 20K to 35K compute units per update. No
-   new cryptographic precompile is required on LEZ to host the
-   adaptor. Pyth's full 13-of-19 Wormhole VAA verification is
-   roughly 87K compute units per signature step plus Merkle proof
-   on top of that, even before Wormhole guardian-set tracking is in
-   place.
+2. **Single verification primitive, no bridge.** RedStone's
+   signature scheme is plain m-of-N secp256k1 ECDSA over keccak256
+   (typically 3-of-N). Verification on LEZ is in-program ECDSA
+   recovery and keccak256 hashing inside RISC0; the cost profile
+   is the open variable this RFP measures (see "RISC-V verification
+   path and the precompile question"). Pyth's full 13-of-19
+   Wormhole VAA verification is heavier in two ways: it adds a
+   Merkle proof on top of more signatures, and it presupposes a
+   Wormhole guardian-set tracking program on LEZ that does not yet
+   exist. RedStone has neither cost.
 3. **Independent of LEZ's external integration timeline.**
    Choosing RedStone first decouples the oracle layer from when
    Wormhole on LEZ is decided. Pyth then fast-follows in a future
@@ -148,9 +233,9 @@ TWAP, RedStone, or any future provider.
 
 If RFP-019 has not yet shipped the canonical struct when this RFP
 is delivered, the team must define a forward-compatible minimal
-struct using SVM's append-friendly account-data conventions, so
-that a later RFP-019 release can extend the struct without
-breaking consumers.
+struct using append-friendly account-data conventions, so that a
+later RFP-019 release can extend the struct without breaking
+consumers.
 
 ### Pull-model fee structure
 
@@ -170,11 +255,15 @@ reaches moderate TVL.
 
 #### Functionality
 
-1. Implement an SVM program that accepts signed RedStone data
-   packages from instruction calldata, recovers each signer's
-   public key using the SVM secp256k1 SigVerify precompile, and
-   verifies that the recovered public keys match the configured
-   set of authorised RedStone data nodes for the requested feed.
+1. Implement a public-mode LEZ program (push-mode aggregator) that
+   accepts signed RedStone data packages, recovers each signer's
+   public key via in-program secp256k1 ECDSA recovery (with
+   keccak256 hashing) running inside the RISC-V zkVM, and verifies
+   that the recovered public keys match the configured set of
+   authorised RedStone data nodes for the requested feed.
+   Structure the verification path so that swapping the in-program
+   recovery for a future host primitive (precompile or syscall) is
+   a localised change.
 2. Verify the M-of-N signer threshold for each feed (configurable
    at registration; default 3-of-N consistent with RedStone's
    reference parameters) and reject any data package that does
@@ -232,11 +321,21 @@ reaches moderate TVL.
 
 1. End-to-end signature verification and price publication for a
    single 3-of-N RedStone data package must complete within a
-   single LEZ transaction.
-2. Document the compute unit (CU) cost of: signature verification
-   per signer, package decoding, signer-set membership check,
-   canonical price account write, and feed registration. LEZ's
-   per-transaction compute budget may change during testnet.
+   single LEZ transaction at the per-transaction compute and proof
+   budget in force on LEZ at delivery time.
+2. Cost measurement is a primary deliverable, not a side report.
+   The applicant must measure and document, for the RISC-V
+   in-program verification path: per-signer ECDSA recovery cost
+   (compute units, RISC0 proof time, RISC0 proof size), keccak256
+   hashing cost, package decoding cost, signer-set membership
+   check, canonical price account write, and feed registration.
+   Numbers must be reproducible from the test suite.
+3. Document the cost delta between the in-program path and a
+   hypothetical native ECDSA + keccak256 precompile, using existing
+   per-chain reference points (for example, the RedStone EVM
+   end-to-end gas range of 50K to 100K, and the per-recovery cost
+   profile on chains that expose a native primitive). The delta
+   informs whether a follow-on precompile RFP is warranted.
 
 #### Supportability
 
@@ -301,8 +400,20 @@ elsewhere:
   that adaptor.
 - Adaptors for other off-chain oracles (Chainlink, DIA, Chronicle,
   Switchboard, Supra). None of these match the combination of
-  privacy-asset coverage, SVM-portable verification, and bridge
-  independence that motivates this RFP. Future RFPs may add them.
+  privacy-asset coverage, single-primitive verification, and
+  bridge independence that motivates this RFP. Future RFPs may
+  add them.
+- Pull-mode reads from inside private execution. A private
+  transaction that wants to verify a secp256k1 signature inline
+  cannot do so without forfeiting batching benefits or breaking
+  privacy (see Design Rationale). Private composability is via
+  reading the public price account that the push-mode aggregator
+  writes to.
+- Adding a secp256k1 ECDSA + keccak256 precompile to LEZ. The
+  RISC-V in-program path is the deliverable here. A precompile
+  becomes a candidate for a follow-on RFP if and only if the cost
+  measurement in this RFP shows the in-program path is too
+  expensive for production cadence.
 - The choice between LSC/USD direct and LGS/USD + LGS/LSC
   composite for the LSC stablecoin
   ([RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)). That
@@ -312,12 +423,34 @@ elsewhere:
 
 ### Hard blockers
 
-#### SVM secp256k1 precompile
+None at the runtime level. The adaptor builds on the LEZ runtime
+as it stands today (RISC-V zkVM on RISC0, public-execution mode,
+public account storage). Signature verification runs as in-program
+code; no new precompile or syscall is required to deliver the
+adaptor.
 
-The adaptor relies on the SVM secp256k1 SigVerify precompile to
-recover signers from RedStone's secp256k1 + keccak256 signatures.
-LEZ inherits this precompile from its Solana base; no new
-precompile is required.
+### Cost-conditional follow-on (not a blocker for this RFP)
+
+#### secp256k1 ECDSA + keccak256 precompile in public-execution mode
+
+If the cost measurement deliverable shows that in-program ECDSA
+recovery and keccak256 hashing in RISC0 are too expensive for the
+push-mode aggregator's production cadence, a follow-on RFP can
+propose adding a precompile (or accelerated host function) to LEZ
+for use by public-execution programs. That RFP would substitute
+for the in-program verification path in this adaptor via the
+localised swap-out described in the Functionality requirements.
+The precompile would be public-mode only; private execution paths
+are unaffected because they do not call this primitive.
+
+The LEZ runtime team has noted that supporting a secp256k1
+primitive raises a broader set of design questions (nullifier
+tracking for replay, privacy-circuit branching to support
+Ethereum-signed private accounts, identifier-flow / wallet
+implications) that are not blockers for the narrow oracle use of
+the precompile but should be acknowledged. Those questions can be
+scoped out of the follow-on or addressed in a separate runtime
+RFP, depending on appetite.
 
 ### Soft blockers
 
@@ -341,10 +474,12 @@ for price updates, feed registrations, and signer-set changes.
 Team experienced with:
 
 - Oracle or DeFi protocol infrastructure development
-- Cryptographic verification (secp256k1 ECDSA recovery, calldata
-  parsing, signer-set management)
-- Solana or SVM program development (Anchor or native), including
-  use of the secp256k1 SigVerify precompile
+- Cryptographic verification (secp256k1 ECDSA recovery, keccak256
+  hashing, calldata parsing, signer-set management)
+- LEZ / RISC0 program development; in particular, comfort writing
+  and measuring elliptic-curve and hash-function code in RISC-V
+  programs proved by RISC0 (cost characterisation experience is a
+  strong signal, since cost measurement is a primary deliverable)
 - RedStone's data-package format, EVM connector, or Solana
   connector (any prior integration is a strong signal)
 - Smart-contract security auditing (signer compromise, replay
@@ -354,10 +489,14 @@ Team experienced with:
 
 Estimated duration: **6 to 10 weeks**.
 
-The adaptor has no hard external dependencies beyond the SVM
-secp256k1 precompile (already present on LEZ); the canonical price
-account standard is a soft dependency on RFP-019 with a documented
-fallback.
+The adaptor has no hard runtime dependencies; it builds on LEZ as
+it stands today. The canonical price account standard is a soft
+dependency on RFP-019 with a documented fallback. The cost
+measurement deliverable resolves the open question of whether
+in-program ECDSA + keccak256 in RISC0 is fast enough for the
+push-mode aggregator at production cadence; if not, a follow-on
+RFP for a secp256k1 precompile becomes the optimisation path,
+with this adaptor as the immediate consumer.
 
 ## 🌍 Open Source Requirement
 

@@ -8,8 +8,17 @@ LEZ.
 
 ## Oracles Surveyed
 
-Protocols are ordered by Total Value Secured (TVS), largest first.
-This order is maintained throughout the document.
+DeFi-style oracles are ordered by Total Value Secured (TVS),
+largest first; this order is maintained throughout the document.
+The DLC-oracle row is appended at the end because the DLC
+attestation model does not have a TVS metric comparable to
+push/pull DeFi oracles (DLC oracles secure individual Bitcoin DLC
+contracts at maturity rather than continuously-running DeFi
+positions). DLC oracles are included because the BIP-340
+attestation format they publish is the LEZ-native signature
+primitive, which makes them relevant to the verification-cost
+analysis later in this document; their structural fit is
+prediction markets, not streaming price feeds.
 
 | Protocol | TVS | Chains | Model | Feed Count | Key Feature |
 |----------|-----|--------|-------|------------|-------------|
@@ -19,6 +28,7 @@ This order is maintained throughout the document.
 | RedStone | $10B+ | 50+ push / 120+ pull | Pull (calldata) | 1,000+ | No bridge dependency; modular push+pull; fastest-growing oracle |
 | Switchboard | $3B+ | 9 | Pull (TEE) | Permissionless | TEE (SGX/SEV) security; permissionless custom feed creation |
 | Supra | $650M+ | 45 | Push+Pull | N/A | Newer entrant; DORA (Distributed Oracle Agreement) consensus |
+| DLC oracles (Pythia live; Sibyls, P2PDerivatives, Ernest, Magnolia, others non-public or dormant) | N/A (not DeFi-TVS measured) | Bitcoin native; BIP-340 attestations portable to any verifying chain | Event-driven attestation (pre-announced R-points, signed at maturity) | Limited (BTC/USD; some chain metrics) | Native BIP-340 Schnorr; live ecosystem split between plain SHA-256 (Pythia, P2PDerivatives, rust-dlc) and tagged SHA-256 (Kormir, Ernest, Sibyls dlc_v0 mode); structural fit is prediction markets, not streaming price feeds |
 
 ## Scale and Traction
 
@@ -127,6 +137,15 @@ This yields a geometric mean price, which is more appropriate for
 multiplicative price processes. The observation buffer is a circular
 array of up to 65,535 slots, expandable via
 `increaseObservationCardinalityNext()` at a one-time gas cost [9].
+
+Note on Uniswap v4: v4 removed the oracle from core pool state and
+moved it to an optional hook, so pools that do not need an oracle
+no longer pay the per-swap accumulator-update gas. The v3 design
+described above remains the production reference for on-chain TWAP
+(v3 is still the dominant AMM by deployed volume), and is what an
+LEZ-side TWAP program would emulate. v4's hook-based oracle is a
+deployment choice on top of the same accumulator pattern, not a
+replacement for it.
 
 ### Geometric vs arithmetic mean
 
@@ -280,12 +299,39 @@ market coverage.
 ## Signature Verification Schemes
 
 The cost of verifying oracle signatures on-chain dictates whether
-LEZ can host an oracle adaptor at all. Since LEZ inherits the
-Solana Virtual Machine architecture, it has native precompiles for
-secp256k1 ECDSA and ed25519 EdDSA, but no built-in support for
-threshold or aggregate schemes (BLS, Schnorr multisig, t-Schnorr).
-This section verifies, against primary sources, what schemes Pyth
-(via Wormhole) and RedStone use, and what they cost.
+LEZ can host an oracle adaptor at all. LEZ is a RISC-V zkVM
+execution environment built on RISC0. The on-chain signature
+primitive currently wired into the runtime is single-key secp256k1
+Schnorr (BIP-340) over SHA-256, validated as a witness on the
+transaction (the runtime checks the signature when it admits the
+transaction). This primitive is **not exposed to guest programs**:
+a program running inside the RISC-V zkVM cannot invoke it as a
+host function. No threshold or aggregate scheme (BLS, Schnorr
+multisig, t-Schnorr) is exposed to guest programs either, and no
+other signing scheme has a host primitive at all. Any signature
+that a program needs to verify (whether BIP-340 Schnorr from a
+DLC or FROST publisher, secp256k1 ECDSA from RedStone or Pyth,
+ed25519 from Switchboard) has to run as program code inside the
+RISC-V zkVM, where verification cost is dominated by the ZK
+proving overhead of the underlying primitive. ECDSA recovery and
+keccak256 are both expensive to prove; in-circuit Schnorr/SHA-256
+performance on RISC0 is currently unmeasured. The cost question
+is identical in shape across signature schemes: how much does
+in-circuit verification cost, and is that acceptable for the
+adaptor's update cadence.
+
+This matters because every general-purpose price oracle in
+production today (RedStone, Pyth via Wormhole, Chainlink Data
+Streams, Chronicle's per-signer leg) signs with secp256k1 ECDSA
+over keccak256, and Switchboard signs with ed25519. None of these
+match the LEZ-native primitive. Verifying their payloads on chain
+therefore requires either (a) adding a secp256k1 ECDSA + keccak256
+precompile to LEZ, or (b) running a trusted relayer that re-signs
+upstream payloads in BIP-340 Schnorr over SHA-256, which collapses
+the trust set from N publishers to one re-signer. This section walks through what schemes Pyth and
+RedStone actually use, and what they cost on chains that do expose
+the matching primitive, so the gap between the upstream cost
+profile and the LEZ-side cost is visible to the reader.
 
 ### Wormhole VAA verification (Pyth dependency)
 
@@ -367,20 +413,12 @@ host-chain primitive is available:
 | Radix (Scrypto) | Rust SDK with secp256k1 / k256 crate | [29][35] |
 | Casper | Rust SDK with secp256k1 / k256 crate | [29] |
 
-The reviewer's claim that RedStone uses ed25519 on Stellar
-appears to derive from the DeployingFeed.md note that "the
-private key here can be any 256-bit hex string, because stellar
-uses the Ed25519-curve" [36]. That sentence refers to the
-deployer's Stellar account key (which Stellar requires to be
-ed25519 for its native account model), not to the curve used to
-sign or verify RedStone data packages. The Stellar connector's
-audit by Veridise describes the Soroban contract verifying
-ECDSA signature parameters from RedStone's payload, not ed25519
-signatures [33]. RedStone signs once with secp256k1 / keccak256
-and verifies the same signatures everywhere, including on
-Stellar via Soroban's recover_key_ecdsa_secp256k1 host function
-(documented CPU cost: 2.3 million instructions per recovery)
-[32].
+Note: although Stellar's native account model uses ed25519
+(referenced in RedStone's Stellar connector deployment
+documentation [36]), RedStone's data-package signing and
+verification on Stellar use the same secp256k1 ECDSA over
+keccak256 as on every other chain, via Soroban's
+`recover_key_ecdsa_secp256k1` host function [32][33].
 
 Per-chain verification cost (single signature):
 
@@ -399,26 +437,461 @@ of a RedStone update on EVM falls in the 50K to 100K range [3]
 
 ### Implications for LEZ
 
-LEZ inherits Solana's architecture, which provides native
-precompile programs for both secp256k1 ECDSA (with keccak256 or
-sha256 hashing) and ed25519 EdDSA [25]. Both Pyth (via Wormhole
-VAAs) and RedStone (per-chain connectors) can therefore be
-ported to LEZ without new opcodes or runtime changes: Pyth needs
-a Wormhole core-bridge port that calls the secp256k1 program in
-batches of seven (mirroring the existing Solana implementation)
-[22], and RedStone needs only its existing solana-connector with
-the secp256k1_recover syscall [29]. RedStone is the cheaper and
-simpler day-one option because it requires no bridge: a single
-verification contract recovers three to five secp256k1
-signatures from calldata, costing approximately 20K to 35K
-compute units total. Pyth depends on the full 13-of-19 VAA
-verification, costing approximately 87K compute units for the
-signature step alone (13 signatures multiplied by 6,690 CU)
-plus Merkle proof verification, but amortises across many feeds
-per transaction after the Perseus upgrade [26]. No threshold or
-aggregate scheme (BLS, Schnorr) is required by either oracle, so
-LEZ does not need to implement new cryptographic precompiles to
-host both adaptors.
+The discussion below applies only to off-chain price oracles
+(external publishers signing data that has to be verified on
+chain). The on-chain TWAP tier is structurally separate: it reads
+LEZ-native AMM pool state, accumulates price observations, and
+exposes them through a program account. No external signature is
+involved, so the LEZ-native single-sig BIP-340 Schnorr primitive
+is sufficient (it covers transaction authentication, not data
+attestation). RFP-019 sits entirely on the on-chain side and is
+unaffected by what follows.
+
+For the off-chain side, the gap is real: every general-purpose
+price oracle in production today signs with secp256k1 ECDSA over
+keccak256 (RedStone, Pyth via Wormhole, Chainlink, Chronicle's
+per-signer leg) or ed25519 (Switchboard). None match the
+LEZ-native primitive. The candidates that *do* sign in BIP-340
+Schnorr over tagged SHA-256 are concentrated in the Bitcoin DLC
+ecosystem (Pythia from DLC Markets, Sibyls, Suredbits, Ernest
+Oracle on Nostr), all of which are single-operator BTC/USD
+publishers built around discrete-event attestation rather than
+continuous price streams. None today publish ZEC/USD or XMR/USD,
+and none are decentralised in the way a DeFi-grade feed needs.
+
+Four realistic adaptor shapes exist for closing this gap. They
+are independent of RFP-019. A constraint that runs across B, C,
+and D: no signature-verification primitive is currently exposed
+to guest programs on LEZ, so any in-program signature check
+(whether ECDSA-keccak for shape D's adaptor, BIP-340 Schnorr for
+shape B's federation output, or BIP-340 for shape C's DLC
+attestations) runs as RISC-V code inside the RISC0 zkVM. The
+cost question is the same shape across all three; only the
+upstream supply differs. Shape A avoids the question because the
+signature being checked authenticates the LEZ transaction itself,
+not data carried inside calldata: the re-signer is a regular LEZ
+user, the runtime validates the BIP-340 transaction witness at
+admission time as part of the standard transaction-admission flow,
+and the price-aggregator program does only an equality check on
+the authenticated caller against a registered relayer pubkey.
+There is no in-program signature verification, so the in-circuit
+cost question never arises. The cost is trust: collapse from N
+upstream publishers to one re-signer.
+
+The structural test that distinguishes A from B/C/D is **whose
+signature authenticates the LEZ transaction**. If it is the
+re-signer's, the runtime handles verification and the guest
+program does an authorisation check on the caller (shape A). If
+the LEZ transaction carries an upstream publisher's signature
+inside calldata, distinct from the transaction sender, the guest
+program has to verify it in-circuit (shapes B/C/D).
+
+**Shape A — Trusted re-signer relayer.** A LEZ-side process
+fetches RedStone or Pyth payloads, verifies them off chain, and
+submits a regular LEZ transaction that calls the price-aggregator
+program with the resulting price. The relayer's BIP-340 Schnorr
+signature is on the transaction itself; the runtime validates it
+at admission time. The aggregator program checks the authenticated
+caller against a registered relayer pubkey (an equality check, not
+a signature verification) and writes the price to a public price
+account. The trust set collapses from N upstream publishers to one
+re-signer; the chain has no cryptographic evidence that the relayer
+reported what the publishers actually signed.
+
+**Shape B — FROST-BIP340 federation.** A t-of-n federation runs a
+distributed key generation and produces a single BIP-340-verifiable
+Schnorr signature per price update, aggregating data ingested from
+upstream sources. The signing infrastructure already exists as
+libraries (Zcash Foundation FROST [45], Blockstream `bip-frost-dkg`
+[46], Frostsnap [47]; jesseposner FROST-BIP340 [48] is the
+reference implementation), and ZF is actively building FROST
+tooling for Zcash, which aligns with the privacy-asset focus.
+
+**This shape is conditional on LEZ exposing BIP-340 Schnorr**
+**verification to guest programs at acceptable cost.** The runtime's
+existing BIP-340 primitive validates transaction witnesses only;
+it is not callable from a guest program running inside the
+RISC-V zkVM. An adaptor that consumes a FROST-aggregated BIP-340
+attestation would therefore have to verify the Schnorr signature
+in-circuit, with the same unmeasured ZK-proving cost that ECDSA
+verification faces under shape D. The "natively verifiable
+without a runtime change" framing only holds if Schnorr
+verification is later exposed to guest programs as a host
+primitive; **absent that, shape B carries the same cost-question as**
+**shape D plus the open R&D risks listed below. Pursuing shape B**
+**without that runtime exposure is therefore not the right call.**
+
+No price-oracle product is deployed in this shape today. Public
+framing of FROST by its implementers and grant funders is
+exclusively wallet and custody (Blockstream `bip-frost-dkg` README,
+ZF FROST documentation, OpenSats and Brink grants for
+jesseposner/FROST-BIP340 and Frostsnap, Blockchain Commons HRF 2025
+FROST grant for shared-custody multisig). The closest production
+precedent is iBTC Network (formerly dlcBTC; operator rebranded
+DLC.Link to BitSafe in 2025), which runs a t-of-n attestor
+federation at sizes 10-of-15 (iBTC on EVM) and 7-of-10 (CBTC on
+Canton, mainnet October 2025). The federation runs two parallel
+signing modes [51]: per-attestor secp256k1 ECDSA over keccak256
+for EVM-bridge attestations (verified on chain by
+`ECDSAUpgradeable.recover` per signature, not aggregated), and a
+single FROST-aggregated BIP-340 Schnorr signature inside the
+Taproot spend path on Bitcoin. The FROST-BIP-340 path is therefore
+live but only inside a Bitcoin script; there is no off-chain wire
+format that a downstream LEZ verifier could subscribe to as a
+single BIP-340 stream. The attestation content is also contract
+outcomes (was a burn observed on the counterparty chain) rather
+than continuous price data, and the FROST library used is the
+project's own `DLC-link/conduition-frost` (a fork-of-fork of ZF
+FROST) rather than Blockstream's `bip-frost-dkg` or jesseposner's
+implementation. Chainflip
+runs FROST in production at 100-of-150 for cross-chain vault signing
+[52], showing FROST scales operationally, but its use is internal
+transaction signing rather than external attestation. Babylon EOTS
+[53] uses BIP-340 Schnorr but is per-validator (not threshold) and
+signs consensus votes, not external data. The only academic proposal
+specifically for FROST-as-oracle is *FrostOracle* (Chen et al., IEEE
+iThings 2023, [54]), which describes the construction but has no
+known implementation.
+
+A consequence of FROST's round-stateful design is that
+nonce-management discipline for repeated signing differs from the
+one-shot wallet-ceremony model the existing libraries are scoped to.
+Public reference deployments of FROST for high-frequency repeated
+signing (such as a heartbeat-driven price update) do not exist, and
+the existing audits of ZF FROST and `bip-frost-dkg` cover the
+wallet-custody threat model rather than an oracle-shaped one.
+
+**Shape C — DLC-oracle extension.** A handful of DLC oracle
+publishers emit BIP-340 attestations natively.
+
+Two disqualifiers apply, either of which is sufficient on its own.
+First, shape C carries the same runtime dependency as shape B:
+verifying a DLC attestation requires the guest program to verify
+BIP-340 Schnorr in-circuit at unmeasured cost, multiplied by N
+(the bit-precision of the numeric DLC encoding). Pursuing shape C
+is therefore not the right call unless LEZ later exposes Schnorr
+verification to guest programs at acceptable cost. Second, even
+with cheap Schnorr verification, the structural fit of the DLC
+attestation model is prediction markets and discrete-outcome
+contracts (which is what the format was designed for), not
+streaming price feeds for DeFi protocols. Either condition alone
+moves shape C out of scope for the current oracle work; the
+description below documents the ecosystem state for reference and
+for a future prediction-market RFP.
+
+A DLC oracle pre-announces nonce points (R-values) for a future
+event with a known maturity time, then at maturity publishes the
+s-values that, combined with the pre-committed R-points, yield
+BIP-340 Schnorr signatures over a hash of the outcome. The native
+cadence is "one attestation per scheduled event," which matches
+"did BTC settle above $X on date D" but does not match "what is
+BTC/USD right now, updated every 30 seconds." For a continuous
+price feed, every update has to be modelled as a scheduled event
+in advance, which is an unusual usage pattern relative to what
+existing publishers operate.
+
+#### Two signing conventions in the live ecosystem
+
+The dlcspecs `Oracle.md` text mandates a tagged SHA-256
+construction with domain `DLC/oracle/announcement/v0` for the
+announcement signature and `DLC/oracle/attestation/v0` for the
+attestation signature. The live ecosystem does not implement this
+uniformly. Two distinct conventions exist, both calling themselves
+dlcspecs-compatible:
+
+- **Plain SHA-256 lineage.** Pythia (DLC Markets) [49], the
+  P2PDerivatives reference oracle [56], and the rust-dlc reference
+  verifier all use plain `SHA256(message)` with no tag. Pythia
+  inherited this from sibyls but removed sibyls' dual-mode support;
+  rust-dlc's `OracleAnnouncement::validate` and
+  `OracleAttestation::validate` follow the same plain-SHA-256 path.
+  Anything verified against this lineage will not verify under a
+  strict reading of `Oracle.md`.
+- **Tagged SHA-256 lineage.** Kormir [57] (active reference
+  library), Ernest Oracle [58] (which delegates to Kormir), and
+  Sibyls in `dlc_v0` mode (the `SigningVersion` selected by Lava's
+  shipped `config/oracle.json` before the operator wound down) use
+  the tagged construction byte-for-byte per the spec.
+
+The two lineages produce different signed bytes for the same
+underlying message. A LEZ-side verifier consuming attestations
+from this ecosystem must either pick a lineage and reject the
+other, or maintain both code paths. Choosing the rust-dlc /
+plain-SHA-256 path captures the more numerous and more
+historically-deployed publishers (Pythia is the only one of those
+currently live); choosing the spec-correct tagged path captures
+Kormir, Ernest, and any future deployments that follow Kormir's
+canonical reference.
+
+#### State of the live publishers (May 2026)
+
+- **Pythia (DLC Markets) [49]:** live mainnet, `https://pythia.dlcmarkets.com`,
+  cron every minute, BTC/USD only, single oracle pubkey, no
+  rotation, no public attestation index (consumers must already
+  know the maturity timestamp). Plain SHA-256 lineage.
+- **Sibyls (Lava) [50]:** operator dead. `oracle.lava.xyz` returns
+  404 (Wayback last-alive 2025-04-14, dead by 2025-11-12). The
+  `lava-xyz/sibyls` GitHub repo has been deleted; the codebase
+  exists only on a third-party mirror (`briefgaming/sibyls`)
+  whose owner is unaffiliated with Lava. Lava itself abandoned
+  DLCs in late 2025 and went custodial. No surviving Sibyls
+  operator.
+- **P2PDerivatives oracle (Crypto Garage) [56]:** repo dormant
+  since 2022-05-24. Last historical operator URLs verified dead
+  (`oracle.10101.finance`, `oracle.lava.xyz`). Library code in
+  `rust-dlc` continues; the application code is frozen. The only
+  multi-asset DLC oracle in the survey (BTC/USD plus BTC/JPY)
+  but not currently published.
+- **Kormir [57]:** active library, monthly releases continuing
+  through March 2026. Live reference deployment at
+  `kormir.dlcdevkit.com` is dev/test data only. Operator runbook
+  is minimal (Postgres plus a Nostr nsec key); no bundled price
+  feed or scheduler.
+- **Ernest Oracle [58]:** on hiatus since 2025-06-02. The OpenSats
+  blog characterises Ernest as a Nostr publisher; the daemon does
+  not import Nostr in-tree and exposes only an HTTP API on port
+  3001 (the Nostr publication path lives in `kormir-server` which
+  Ernest does not deploy). Implements four Bitcoin chain-metric
+  attestations (hashrate, fee rate, block fees, difficulty); the
+  UTXO-size metric mentioned in the announcement post is not in
+  the source. No public deployment located. Repo is unlicensed
+  (no LICENSE file, no `license` field in `Cargo.toml`).
+- **Magnolia Financial price oracle [59]:** live commercial,
+  powers Lygos institutional Bitcoin lending. Attestations are
+  dlcspecs-shaped BIP-340 (per the operator's public statements)
+  but not publicly retrievable: the documented endpoint
+  `GET /oracle/events/{eventId}` requires an API key, and there
+  is no public attestation explorer or relay. Closed source.
+- **v0l on Nostr (kind 1009) [60]:** live single-publisher feed.
+  The signature is BIP-340 native (Nostr's signature scheme) but
+  the message is `serialised_event_json` per NIP-01 with plain
+  SHA-256, not the dlcspecs construction. Cannot be reused as a
+  DLC attestation without the publisher dual-signing. The
+  successor proposal NIP-1658 defines kinds 31892 / 1892 / 10041,
+  not kind 1009; kind 1009 is informal and not in the official
+  NIPs registry.
+
+#### Numeric DLC verification cost on LEZ
+
+The numeric DLC encoding signs the outcome bit-by-bit: a price
+attested with N-bit precision requires N nonce-point announcements
+up front and N independent BIP-340 signatures at maturity, which
+the consumer chain verifies in sequence. For 18-bit precision (a
+range covering most cryptocurrency prices with cent granularity),
+that is 18 single-sig Schnorr verifications per update on LEZ. As
+noted in the Signature Verification Schemes section, BIP-340
+verification is not exposed to guest programs on LEZ, so each of
+those 18 verifications runs in-circuit; the per-update cost is
+therefore 18× whatever in-circuit BIP-340 + SHA-256 verification
+costs in RISC0 (currently unmeasured). If LEZ later exposes
+Schnorr verification as a host primitive at low cost, the
+multiplier becomes a constant overhead instead of dominating; until
+then, shape C inherits the same in-circuit cost question that
+shape D's ECDSA path does.
+
+#### Trust and decentralisation
+
+Trust is single operator per oracle. DLC's multi-oracle pattern
+combines independent attestations via t-of-t adaptor signatures on
+the Bitcoin spend path [55]; the LEZ analogue is an aggregator
+program that registers K independent BIP-340 publishers and
+requires M-of-K agreement within a tolerance window. The
+publishers do not coordinate, no DKG is involved, and each
+publisher remains a single-key DLC oracle. With Sibyls dead,
+P2PDerivatives dormant, Magnolia closed, and Ernest in hiatus,
+the realistic candidate set for an LEZ M-of-K federation today is
+one (Pythia) plus whatever forks an external builder stands up.
+
+#### Privacy-asset coverage
+
+None of the live BIP-340 publishers attest XMR/USD or ZEC/USD.
+Pythia's roadmap covers BTC options, not non-BTC pairs. Forking
+Pythia or Kormir for additional asset pairs is a few hundred lines
+of code (per the deep-research notes for both projects); the
+harder constraint is operator obligations (key custody, rotation,
+uptime) and pricefeed selection (LN Markets and BitcoinAverage are
+BTC-only; Kraken delisted XMR/USD for US users; coverage on
+Gate.io and Bitstamp is patchy).
+
+The cleaner long-term home for shape C is a future prediction-
+market RFP, where the discrete-event attestation model is the
+native fit and the operational pattern matches what DLC publishers
+already run.
+
+**Shape D — secp256k1 ECDSA on LEZ.** Verify RedStone (or Pyth)
+secp256k1 ECDSA + keccak256 signatures on the LEZ side. Two
+implementation paths share the same adaptor program shape; only
+the verification call site differs.
+
+**Path D1 (day one): RISC-V in-program verification.** Implement
+ECDSA recovery and keccak256 hashing as program code running
+inside the RISC0 zkVM, using existing Rust crates (k256 / sha3 /
+equivalents) proved by RISC0 along with the rest of the program.
+This is what RFP-020 commits to. No runtime change required. The
+cost profile is the open variable: RISC0 elliptic-curve
+performance for this primitive is currently unmeasured, and LEZ
+runtime developers have flagged it as untested rather than
+known-cheap. RFP-020's first deliverable is therefore the
+measurement, not the assumption that it will be acceptable.
+
+**Path D2 (cost-conditional follow-on): an accelerated precompile
+or host function in public-execution mode.** Triggered only if D1
+is too expensive at the push-mode aggregator's production cadence.
+A precompile lives outside the ZK proof boundary, so a public-mode
+program calls it as native code. The upstream cost reference
+points are approximately 6,690 CU per recovery on Solana
+[24][25] and an end-to-end RedStone EVM update in the 50K to 100K
+gas range [3]; LEZ public-mode cost via a precompile would track
+the lower of these two on a constant-overhead basis [22][29]. D2
+is the optimisation path, not a precondition.
+
+#### Public-mode aggregator design (applies to both D1 and D2)
+
+The adaptor runs in public execution: the verifier executes once
+per update on the write side, and the verified price plus
+timestamp land in a public price account. Private-execution
+programs compose by reading the public account, not by carrying
+signed payloads inline. This is push mode. The reasoning for
+preferring it differs slightly between D1 and D2, but the
+end-state design is identical.
+
+Under D1, in-program verification is technically reachable from
+private execution as well (the same RISC-V code can run inside a
+user's private proof), but the cost is paid by the user generating
+the private transaction, every time, and added to the privacy
+circuit's existing load. Push mode therefore amortises the cost
+once across all downstream reads instead of paying it per private
+consumer.
+
+Under D2, the asymmetry becomes structural rather than economic.
+A precompile is unreachable from private execution: anything in a
+private transaction has to be expressible inside the RISC-V zkVM
+circuit, and a host function lives outside it. Private execution
+that wants to verify a secp256k1 signature would have to either
+(a) verify in the privacy circuit (forfeits batching, pays
+unmeasured RISC0 EC cost, defeats the precompile's purpose), or
+(b) place the signature in the transaction's journal and break
+privacy. Neither option preserves both efficiency and privacy. So
+under D2 push mode is not a preference but the only design that
+works.
+
+In both cases, push mode is the right choice. Under D1 the
+amortisation argument carries it; under D2 the structural
+argument forces it. The aggregator program is the same either
+way, which is what makes D2 a localised swap-in for D1 if cost
+forces the upgrade.
+
+Pull-mode reads are therefore deliberately out of scope:
+
+- **Pull mode from public execution under D1.** Technically
+  possible (the in-program verifier can be called from a public
+  consumer's transaction), but it pays full proving cost per
+  consumer transaction with no amortisation, which is strictly
+  worse than reading the push-mode aggregator's public price
+  account. Excluded by design.
+- **Pull mode from private execution under D1.** Possible at
+  a heavy proving-cost penalty for every private transaction.
+  Excluded by design.
+- **Pull mode from public execution under D2.** Available (a
+  public consumer can carry a signed payload and call the
+  precompile inline), but offers no benefit over reading the
+  push-mode aggregator's public price account. Out of scope.
+- **Pull mode from private execution under D2.** Structurally
+  unavailable (precompile cannot be called from inside the
+  privacy circuit). Out of scope.
+
+#### Broader open issues with adding a secp256k1 primitive (path D2 only)
+
+Beyond the oracle adaptor, the broader question of "what does a
+secp256k1 primitive in LEZ unlock" has open design issues that
+LEZ runtime developers have flagged but not resolved. The Solana
+precompile's main published use case is letting Ethereum users
+authorise transactions on Solana with their existing Ethereum
+keys; mapping that flow to LEZ raises additional questions:
+
+- **Nullifier tracking.** Replay protection for secp256k1
+  signatures used in either public or privacy execution requires
+  tracking nullifiers so the same signature cannot be reused.
+- **Privacy-circuit branching.** Supporting private accounts
+  authorised by an Ethereum signature (rather than the LEZ-native
+  `nsk`) requires branching logic in the privacy circuit.
+- **Account-identifier flow.** A recent LEZ change introduces
+  identifiers that let one private-key set support multiple
+  private accounts, with maintenance and recovery encrypted under
+  the viewing public key. Identifiers are not currently supported
+  for public accounts (each public account requires a fresh key
+  set), so an Ethereum-signed public-account flow would imply
+  fresh Ethereum accounts per use, and Ethereum-signed private
+  accounts would require LEZ-specific wallet support to handle the
+  identifier flow.
+
+These issues are not blockers for the narrow oracle-adaptor use of
+the precompile (push-mode aggregator writing a public price
+account), but they are part of why the LEZ runtime team is not
+currently championing a precompile addition: the cost is real, the
+in-circuit elliptic-curve performance is unmeasured, and the
+compelling-use-case story beyond oracle adaptors is not yet
+established. If RFP-020's cost measurement triggers a follow-on
+RFP for path D2, that follow-on should be scoped on the assumption
+that the precompile is bespoke runtime work that has to be argued
+for, not a small extension that is already on the LEZ roadmap.
+
+For private-account composability with off-chain price data, push
+mode is therefore the structural design under both D1 and D2.
+The pull-vs-push analysis below frames the same point in terms of
+the upstream RedStone / Pyth dichotomy.
+
+#### Push mode is preferable to pull mode on LEZ
+
+RedStone supports both pull (signed payload attached to consumer
+calldata) and push (a relayer submits signed updates to an
+aggregator contract on a heartbeat or deviation trigger). On LEZ
+the push model is the better fit:
+
+- **Verification cost is paid once per update, not once per
+  read.** The aggregator program recovers signatures and checks
+  the unique-signer threshold on write, then stores the latest
+  price and timestamp in a public account. Consumers just read
+  the slot. The single write-side cost amortises across all
+  downstream reads instead of being paid by every consuming
+  transaction.
+- **Composes cleanly with private accounts.** A private account
+  reads a public price-feed account's slot the same way it reads
+  any other shared public state. Pull mode is the awkward case:
+  the consumer's transaction must carry the signed payload in
+  calldata, coupling oracle data into the private execution path
+  and making both signature recovery and payload handling part of
+  the private workload. Under D1 this is technically reachable
+  but pays the full in-circuit ECDSA cost in every private
+  consumer's proof; under D2 it is structurally unavailable
+  because the precompile cannot be called from inside the privacy
+  circuit. Either way push mode is strictly better for private
+  consumers.
+- **Update cadence is a tunable parameter.** Heartbeat plus
+  deviation threshold trade cost against freshness. For a TWAP
+  oracle this is acceptable because the consumer is already
+  smoothing; pull mode's "fresh at transaction time" guarantee
+  is not required.
+
+Tradeoffs: push mode requires someone to operate the relayer
+(RedStone runs the pusher for their existing push deployments; a
+sovereign LEZ deployment would rely on RedStone's relayer or run
+its own), and the aggregator program still has to perform
+secp256k1 recovery and keccak256 hashing on the write side. Under
+D1 that path is RISC-V program code; under D2 it is a precompile
+call. The write-side cost per update differs between the two but
+the design shape does not.
+
+RedStone is the simpler day-one option for the upstream-source
+side because it carries no bridge dependency. Pyth depends on the
+full 13-of-19 VAA verification plus Merkle proof verification,
+though it amortises across many feeds per transaction after the
+Perseus upgrade [26]. Neither requires threshold or aggregate
+schemes (BLS, Schnorr) on the *upstream* side, so the crypto
+surface required by shape D is limited to secp256k1 ECDSA
+recovery with keccak256 hashing — implemented in-program under D1
+(no runtime change) and exposed as a precompile under D2 (cost-
+conditional follow-on).
 
 ## Production Oracle Architectures
 
@@ -709,3 +1182,61 @@ The TWAP tier's role evolves with liquidity:
     https://www.diadata.org/app/price/asset/Zcash/0x0000000000000000000000000000000000000000/
 44. Supra, "Data Feeds Index" (XMR_USDT, ZEC_USDT).
     https://docs.supra.com/oracles/data-feeds/data-feeds-index
+45. Zcash Foundation, FROST (Flexible Round-Optimised Schnorr
+    Threshold) reference implementation and documentation.
+    https://frost.zfnd.org/
+46. Blockstream Research, `bip-frost-dkg` (FROST distributed key
+    generation, BIP-340 compatible).
+    https://github.com/BlockstreamResearch/bip-frost-dkg
+47. Frostsnap, hardware-wallet stack using secp256kfun for FROST
+    threshold Schnorr.
+    https://github.com/frostsnap/frostsnap
+48. Jesse Posner, `FROST-BIP340` (reference implementation of
+    FROST emitting BIP-340-verifiable signatures).
+    https://github.com/jesseposner/FROST-BIP340
+49. DLC Markets, "DLC Markets open-sources its oracle Pythia,"
+    May 2025; Pythia source.
+    https://blog.dlcmarkets.com/dlc-markets-open-sources-its-oracle-pythia/
+    https://github.com/dlc-markets/pythia
+50. Lava, `sibyls` (DLC oracle implementing BIP-340 attestation
+    over numeric outcomes).
+    https://github.com/lava-xyz/sibyls
+51. iBTC Network (formerly DLC.Link / dlcBTC), "FROST at DLC.Link:
+    Pioneering Advanced Security for DLCs"; technical stack
+    documentation describing the 5-of-7 attestor federation.
+    https://www.ibtc.network/blog/frost-at-dlc-link-pioneering-advanced-security-for-dlcs
+    https://docs.dlc.link/tech-stack
+52. Chainflip, "FROST Signature Scheme" protocol documentation
+    (100-of-150 threshold for cross-chain vault signing).
+    https://docs.chainflip.io/protocol/frost-signature-scheme
+53. Babylon Labs, "EOTS Manager" architecture documentation
+    (per-validator BIP-340 Schnorr finality voting; not threshold).
+    https://docs.babylonlabs.io/guides/architecture/btc_staking_program/eots_manager/
+54. Chen et al., "FrostOracle: A Novel and Efficient Blockchain
+    Oracle Scheme Based on Threshold Signature," IEEE iThings/
+    CPSCom 2023.
+    https://ieeexplore.ieee.org/document/10501857/
+55. Discreet Log Contracts specifications, "MultiOracle.md"
+    (combining independent oracle attestations via t-of-t
+    adaptor signatures).
+    https://github.com/discreetlogcontracts/dlcspecs/blob/master/MultiOracle.md
+56. P2PDerivatives / Crypto Garage, `p2pderivatives-oracle`
+    reference DLC oracle (Go; signs BTC/USD and BTC/JPY; repo
+    last commit 2022-05-24).
+    https://github.com/p2pderivatives/p2pderivatives-oracle
+57. Kormir, reference Rust DLC oracle library
+    (`bennyhodl/dlcdevkit/kormir`; tagged SHA-256 per dlcspecs;
+    monthly releases through March 2026).
+    https://github.com/bennyhodl/dlcdevkit
+58. Ernest Oracle (`ernest-money/ernest-oracle`); Bitcoin
+    chain-metric DLC oracle delegating to Kormir; HTTP-only,
+    no Nostr publication in-tree; on hiatus since 2025-06-02.
+    https://github.com/ernest-money/ernest-oracle
+59. Magnolia Financial Services, "Oracles" product page;
+    commercial DLC oracle powering Lygos, attestations gated
+    behind API key.
+    https://magnolia.financial/oracles/
+60. NIP-1658, asset price publishing on Nostr (proposed kinds
+    31892 / 1892 / 10041); kind 1009 is informal and not in
+    the official NIPs registry.
+    https://github.com/nostr-protocol/nips/pull/1658
