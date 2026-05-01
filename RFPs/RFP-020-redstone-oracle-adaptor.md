@@ -146,6 +146,33 @@ push-mode aggregator gives strictly better cost amortisation for
 the LEZ DeFi consumer set. They can be revisited in a follow-on
 once measured cost data is in.
 
+A LEZ-specific freshness pattern follows from the public / private
+execution split. A user who needs a price fresher than the
+heartbeat's last update can submit a public transaction that
+pushes a fresh signed payload to the aggregator account, then
+submit a private transaction immediately after that reads the
+just-updated public price. Verification cost is paid in the public
+path (cheaper, especially under the precompile follow-on); the
+private transaction does no signature work. This recovers pull
+mode's "fresh at transaction time" property for private consumers
+without paying the in-circuit cost in the privacy proof. The
+adaptor program already accommodates this: any caller can submit
+a valid signed payload and the program writes if signatures and
+timestamps check out.
+
+The same mechanism enables a **consumer-pays push variant** that
+does not require a dedicated relayer at all. Users push when they
+need a fresh price; idle periods incur zero update cost; the
+aggregator only advances when someone needs it. This is
+operationally pull (consumer-pays, on-demand) but structurally
+push (the program owns the public price account that downstream
+private consumers read from). Whether to run a heartbeat relayer
+in addition (RedStone's own pusher, a sovereign relayer, or
+neither) is a deployment-time choice: a heartbeat keeps the slot
+warm for read-only consumers; consumer-pays push keeps the cost
+model strictly proportional to demand. Both can coexist; the
+program logic does not distinguish between them.
+
 ### RISC-V verification path and the precompile question
 
 This RFP implements signature verification in RISC-V program code,

@@ -885,6 +885,39 @@ D1 that path is RISC-V program code; under D2 it is a precompile
 call. The write-side cost per update differs between the two but
 the design shape does not.
 
+There is one freshness pattern that is unusual to LEZ and worth
+calling out: a user who needs a price fresher than the
+heartbeat's last update can submit a **public transaction that
+pushes a fresh signed payload to the aggregator account**, and
+then submit a **private transaction immediately afterwards that
+reads the just-updated public price**. The verification cost is
+paid in the public transaction (where it is cheaper, especially
+under D2 where the precompile is callable), and the private
+transaction does no signature work at all, just reads a slot.
+This pattern is uninteresting on chains without a public / private
+execution split because it collapses to ordinary pull mode, but on
+LEZ it captures pull mode's "fresh at transaction time" property
+without paying the in-circuit cost in the privacy proof. Cost is
+borne by the consumer, in the public path, once per private
+action that needs a guaranteed-fresh price. The aggregator program
+already accommodates this: any caller can submit a valid signed
+payload and the program writes if signatures and timestamps check
+out.
+
+A useful corollary: this enables a **consumer-pays push variant**
+that does not require a dedicated relayer at all. Users push when
+they need a fresh price, paying the verification cost themselves
+in the public path; idle periods incur zero update cost; the
+aggregator only advances when someone actually needs it. This is
+operationally pull (consumer-pays, on-demand) but structurally
+push (the program owns the public price account that downstream
+private consumers read from). Whether to run a heartbeat relayer
+in addition is a deployment-time choice: a heartbeat keeps the
+slot warm for protocols that read it without first pushing
+themselves; consumer-pays push keeps the cost model strictly
+proportional to demand. Both can coexist; the program logic does
+not distinguish between them.
+
 RedStone is the simpler day-one option for the upstream-source
 side because it carries no bridge dependency. Pyth depends on the
 full 13-of-19 VAA verification plus Merkle proof verification,
