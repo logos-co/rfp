@@ -242,24 +242,31 @@ against the current tip before submission.
 | **SHA-256** inside guest programs | `risc0_zkvm::sha::Impl::hash_bytes()` exposed through `nssa/core/src/program.rs` |
 | Reference HTLC-style swap implementation (ETH ↔ LEZ) | [`eth-lez-atomic-swaps`](https://github.com/logos-co/eth-lez-atomic-swaps) |
 
-### Design Constraints (not blockers, but shape the implementation)
+### Design Constraint (not a blocker, but shapes the implementation)
 
-1. **Schnorr verification happens at the witness/auth layer, not as a guest
-   syscall.** A guest program cannot today call a `secp256k1_schnorr_verify`
-   precompile against arbitrary `(message, sig, pubkey)`. The intended pattern
-   is to gate the swap-claim state transition on a `WitnessSet` containing the
-   completed adaptor signature; LEZ's existing protocol-level Schnorr check
-   then enforces atomicity. This is sufficient for BTC ↔ LEZ adaptor swaps and
-   for the LEZ side of XMR ↔ LEZ swaps; it does not require any LEZ protocol
-   change. Proposals that need richer in-guest verification (e.g. for MuSig2
-   aggregation or DLEQ proofs evaluated by the program itself) should call
-   this out explicitly so a `secp256k1_schnorr_verify` host call can be
-   scoped as a coordinated change.
-2. **No native n-of-m threshold multisig.** AND-of-all signatures is provided
-   by `WitnessSet`; threshold (e.g. 2-of-3) must be implemented at the program
-   level on top of `WitnessSet` and per-account `is_authorized` flags.
-   Adaptor-signature swaps as specified here only need 2-of-2, so this is not
-   on the critical path.
+**Schnorr verification happens at the witness/auth layer, not as a guest
+syscall.** A guest program cannot today call a `secp256k1_schnorr_verify`
+precompile against an *arbitrary* `(message, sig, pubkey)` triple — for
+example, to verify a stored signature blob produced during prior off-chain
+coordination. Sufficient pattern for these swaps: gate the swap-claim
+state transition on a `WitnessSet` containing the completed adaptor
+signature; LEZ's existing protocol-level Schnorr check then enforces
+atomicity, and the program only inspects which pubkeys appeared in the
+validated witness. This works for BTC ↔ LEZ adaptor swaps and for the
+LEZ side of XMR ↔ LEZ swaps without any LEZ protocol change. Proposals
+that need richer in-guest verification (e.g. MuSig2 aggregation, DLEQ
+proofs evaluated by the program itself, or verification of signatures
+not authorizing the current transaction) should call this out so a
+`secp256k1_schnorr_verify` host call can be scoped as a coordinated
+change.
+
+> Note on multisig: AND-of-all multisig is provided natively by
+> `WitnessSet`. Threshold n-of-m multisig over the current transaction's
+> signers is implementable as a guest program on top of `WitnessSet`
+> with no syscall needed — the protocol validates every
+> `(Signature, PublicKey)` pair in the witness, and the program then
+> applies its own policy (e.g. "at least 2 of [P1, P2, P3] must appear").
+> No native n-of-m primitive is required for the swaps in this RFP.
 
 ### Open Questions Applicants Should Verify
 
