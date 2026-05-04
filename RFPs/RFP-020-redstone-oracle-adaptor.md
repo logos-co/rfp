@@ -47,10 +47,6 @@ follow-on RFP that proposes adding a secp256k1 ECDSA + keccak256
 precompile to LEZ. Until such an accelerator or precompile lands,
 treat private-execution pull mode as out of reach.
 
-(Scope note: this RFP is about asset-price oracles for DeFi
-applications. It is unrelated to the RLN service-attestation oracle
-work on the anon-comms roadmap.)
-
 ## 🔥 Why This Matters
 
 Logos's thesis is private DeFi: assets, applications, and users
