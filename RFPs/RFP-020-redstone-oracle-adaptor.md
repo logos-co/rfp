@@ -56,8 +56,22 @@ USD reference prices for privacy collateral, in particular Monero
 privacy-preserving DEX
 ([RFP-004](./RFP-004-privacy-preserving-dex.md)), wrapped privacy
 assets, and other cross-chain primitives all need those reference
-prices to function. Without an off-chain oracle adaptor, none of
-those applications can ship.
+prices to function.
+
+The on-chain TWAP tier in
+[RFP-019](./RFP-019-twap-oracle.md) is not sufficient on its own
+for the day-one asset list. TWAP security scales linearly with
+pool depth: on a new chain where liquidity is thin, a validator
+controlling two consecutive blocks can manipulate the accumulator
+at a cost roughly equal to the round-trip swap fees and price
+impact, which on a $1M pool is cheap (see
+[Appendix: TWAP Manipulation Vectors](../appendix/oracle-ecosystem.md)).
+More structurally, TWAP only produces a price for pairs that
+exist as pools on LEZ; XMR/USD and ZEC/USD don't, because XMR and
+ZEC aren't natively on LEZ. An off-chain feed is the only way to
+get those prices on chain at all, and pairing it with TWAP for
+the pairs where TWAP does work is the production norm for layered
+oracle defence.
 
 Across the surveyed off-chain oracle providers, RedStone is the
 only one that combines: support for both XMR and ZEC in its public
