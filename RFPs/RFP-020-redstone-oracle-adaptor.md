@@ -29,16 +29,23 @@ adaptor only; on-chain TWAP is in RFP-019, and a Pyth adaptor
 (which adds a Wormhole dependency) is deferred to a future RFP.
 
 LEZ is RISC0-based, so any signature scheme can be implemented in
-program code. The open question is whether the resulting program
-cost is acceptable. This RFP makes that question its first
-deliverable: implement signature verification in RISC-V, measure
-the cost, document the result. If the measured cost is acceptable
-for the push-mode aggregator's update cadence, the adaptor ships
-on the existing runtime. If it is not, the measurement becomes the
-input to a follow-on RFP that proposes adding a secp256k1 ECDSA +
-keccak256 precompile to LEZ for the public-mode write side. The
-precompile is therefore an optimisation path, not a precondition
-for this RFP.
+program code. Early prototype work on in-program secp256k1 ECDSA
+verification inside RISC0 (`fryorcraken/lez-ecdsa`) shows the
+verification is slow enough that **pull-mode reads from inside a
+private transaction are not feasible on consumer hardware** (a
+private consumer would spend several minutes generating the proof
+for each read), absent a RISC0-specific signature-verification
+accelerator. The push-mode aggregator pattern is therefore the
+working assumption: the verifier runs once per update on the write
+side in public execution; consumers (public or private) read the
+resulting public price account without doing any signature work.
+Cost measurement remains a primary deliverable for the public-mode
+write side, where amortisation across all downstream reads can
+make in-program verification workable; if the measured public-mode
+cost is unacceptable the measurement becomes the input to a
+follow-on RFP that proposes adding a secp256k1 ECDSA + keccak256
+precompile to LEZ. Until such an accelerator or precompile lands,
+treat private-execution pull mode as out of reach.
 
 (Scope note: this RFP is about asset-price oracles for DeFi
 applications. It is unrelated to the RLN service-attestation oracle
@@ -181,15 +188,24 @@ recovery is an in-program ECDSA + keccak256 path written against
 existing Rust crates (k256 / sha3 / equivalents) and proved by
 RISC0 along with the rest of the program.
 
-This is the central technical bet of the RFP. RISC0 elliptic-curve
-performance for secp256k1 ECDSA recovery and keccak256 hashing has
-not been comprehensively measured in the LEZ runtime; the LEZ team
-has discussed testing but deprioritised it. The first concrete
-deliverable of this RFP is therefore the measurement: implement
-the verifier in RISC-V, run it on LEZ, document the cost
-(compute units / proof time / proof size / per-update bytes) for
-both the per-signature recovery and the full 3-of-N aggregator
-write.
+This is the central technical bet of the RFP. Early prototype
+work on in-program secp256k1 ECDSA verification inside RISC0
+(`fryorcraken/lez-ecdsa`) is already enough to flag that the
+naive in-circuit path is slow on consumer hardware: a private
+consumer attempting pull-mode verification would spend several
+minutes generating the proof for each read. That rules out
+private-execution pull mode under D1 in any practical sense,
+absent a RISC0-specific signature-verification accelerator (e.g.
+a future `risc0-ecdsa` extension or a secp256k1 precompile wired
+into the zkVM proving system itself). The first concrete
+deliverable of this RFP refines this picture for the public-mode
+write side: implement the verifier in RISC-V, run it on LEZ,
+document the cost (compute units, proof time, proof size,
+per-update bytes) for both the per-signature recovery and the
+full 3-of-N aggregator write, and characterise where the
+public-mode cost lands relative to the production-cadence budget.
+Public-mode cost is the cost that matters for shipping the
+adaptor: it amortises across all downstream reads.
 
 Two outcomes are possible from that measurement:
 

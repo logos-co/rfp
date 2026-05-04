@@ -730,12 +730,17 @@ the verification call site differs.
 ECDSA recovery and keccak256 hashing as program code running
 inside the RISC0 zkVM, using existing Rust crates (k256 / sha3 /
 equivalents) proved by RISC0 along with the rest of the program.
-This is what RFP-020 commits to. No runtime change required. The
-cost profile is the open variable: RISC0 elliptic-curve
-performance for this primitive is currently unmeasured, and LEZ
-runtime developers have flagged it as untested rather than
-known-cheap. RFP-020's first deliverable is therefore the
-measurement, not the assumption that it will be acceptable.
+This is what RFP-020 commits to for the public-mode write side.
+No runtime change required. Early prototype work
+(`fryorcraken/lez-ecdsa`) is already enough to establish that
+naive in-circuit ECDSA is slow on consumer hardware (proof
+generation in the order of minutes for a private read), which
+rules out private-execution pull mode under D1 absent a
+RISC0-specific signature-verification accelerator. Public-mode
+cost remains the open variable RFP-020 measures: it amortises
+across all downstream reads, so a write-side cost that would be
+unworkable per-private-transaction may still be acceptable per
+heartbeat.
 
 **Path D2 (cost-conditional follow-on): an accelerated precompile
 or host function in public-execution mode.** Triggered only if D1
@@ -759,12 +764,14 @@ preferring it differs slightly between D1 and D2, but the
 end-state design is identical.
 
 Under D1, in-program verification is technically reachable from
-private execution as well (the same RISC-V code can run inside a
-user's private proof), but the cost is paid by the user generating
-the private transaction, every time, and added to the privacy
-circuit's existing load. Push mode therefore amortises the cost
-once across all downstream reads instead of paying it per private
-consumer.
+private execution (the same RISC-V code can run inside a user's
+private proof), but prototype data (`fryorcraken/lez-ecdsa`)
+establishes the proof-generation cost is in the order of minutes
+on consumer hardware. That makes private-execution pull mode
+infeasible in practice, not merely expensive, absent a
+RISC0-specific signature-verification accelerator. Push mode
+amortises the cost once across all downstream reads on the
+public-mode write side instead.
 
 Under D2, the asymmetry becomes structural rather than economic.
 A precompile is unreachable from private execution: anything in a
