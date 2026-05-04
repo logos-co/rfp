@@ -172,7 +172,7 @@ operationally pull (consumer-pays, on-demand) but structurally
 push (the program owns the public price account that downstream
 private consumers read from). Whether to run a heartbeat relayer
 in addition (RedStone's own pusher, a sovereign relayer, or
-neither) is a deployment-time choice: a heartbeat keeps the slot
+neither) is a deployment-time choice: a heartbeat keeps the slot[]()
 warm for read-only consumers; consumer-pays push keeps the cost
 model strictly proportional to demand. Both can coexist; the
 program logic does not distinguish between them.
@@ -301,6 +301,8 @@ consumers.
 
 ### Pull-model fee structure
 
+TODO: fix, the RFP is here to open opportunities, users of the RFP work can decide how they want to handle fees.
+
 Proposals must specify a fee model covering: who pays for oracle
 updates (consumer, protocol, or subsidised), when fees are charged
 (per query, per update, per registration), the fee rate or
@@ -384,6 +386,8 @@ reaches moderate TVL.
    for downstream consumer protocols (RFP-008, RFP-013, RFP-004),
    not a production product on its own.
 
+TODO: provide a CLI/Daemon to run a redstone relayer, that pushes on LEZ. 
+
 #### Reliability
 
 1. A price read is read-only and never modifies adaptor state.
@@ -396,8 +400,8 @@ reaches moderate TVL.
 
 1. End-to-end signature verification and price publication for a
    single 3-of-N RedStone data package must complete within a
-   single LEZ transaction at the per-transaction compute and proof
-   budget in force on LEZ at delivery time.
+   single LEZ public transaction at the per-transaction compute and
+   proof budget in force on LEZ at delivery time.
 2. Cost measurement is a primary deliverable, not a side report.
    The applicant must measure and document, for the RISC-V
    in-program verification path: per-signer ECDSA recovery cost
