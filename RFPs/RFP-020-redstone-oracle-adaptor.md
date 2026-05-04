@@ -49,17 +49,15 @@ treat private-execution pull mode as out of reach.
 
 ## 🔥 Why This Matters
 
-Logos's thesis is private DeFi: assets, applications, and users
-that the broader web3 stack does not yet serve well. Privacy
-collateral, in particular Monero (XMR) and Zcash (ZEC), is the
-day-one asset class that distinguishes LEZ from a generic L2 or
-appchain DeFi deployment. The LSC stablecoin
+Private DeFi is what LEZ is positioned to support, and reliable
+USD reference prices for privacy collateral, in particular Monero
+(XMR) and Zcash (ZEC), are a necessary step. The LSC stablecoin
 ([RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)), the
 privacy-preserving DEX
 ([RFP-004](./RFP-004-privacy-preserving-dex.md)), wrapped privacy
-assets, and other cross-chain primitives all need a USD reference
-price for XMR and ZEC to function. Without one, none of those
-applications can ship.
+assets, and other cross-chain primitives all need those reference
+prices to function. Without an off-chain oracle adaptor, none of
+those applications can ship.
 
 Across the surveyed off-chain oracle providers, RedStone is the
 only one that combines: support for both XMR and ZEC in its public
