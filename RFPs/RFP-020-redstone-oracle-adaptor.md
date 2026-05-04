@@ -91,33 +91,21 @@ The combination of "private DeFi needs XMR and ZEC" and "RedStone
 is the only path that is self-serve on LEZ today" makes this the
 priority off-chain oracle integration for LEZ.
 
-### Production security is a business decision
+### Building blocks, not a production-grade design
 
-This RFP delivers a swappable building block, not a production
-stablecoin oracle. The LSC stablecoin
-([RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)) faces a
-genuine choice for production:
-
-- **Path A (LSC/USD direct).** Use external oracles
-  (RedStone, Pyth) for LSC/USD. Pros: single source, simpler
-  integration. Cons: LSC/USD off-chain liquidity will be thin
-  early; volatile markets create a manipulation surface; the real
-  problem is low CEX liquidity, which a stable AMM does not fully
-  fix.
-- **Path B (LGS/USD + LGS/LSC composite).** Use an external
-  LGS/USD feed combined with an on-chain LGS/LSC TWAP. Pros: LGS
-  is expected to have deeper CEX liquidity than LSC once the
-  network reaches scale; external oracles for LGS/USD are
-  battle-tested. Cons: the LGS/LSC TWAP becomes the manipulation
-  bottleneck, which is exactly the low-liquidity vulnerability the
-  TWAP RFP raises.
-
-This RFP does not pick A or B. It provides the off-chain oracle
-half of either path: USD prices for LSC, LGS, XMR, ZEC, and any
-other asset RedStone supports. RFP-019 provides the TWAP half
-needed for Path B. Whichever path the LSC implementer chooses for
-production, this adaptor remains the swap-in for the off-chain
-component.
+Neither an off-chain feed nor an on-chain TWAP is a complete
+oracle on its own; both have known failure modes and the
+production norm in DeFi is to layer them. This RFP delivers the
+off-chain half as a swappable building block. The TWAP half is
+delivered by [RFP-019](./RFP-019-twap-oracle.md). Consuming
+protocols (the LSC stablecoin in
+[RFP-013](./RFP-013-reflexive-stablecoin-protocol.md), the
+lending market in
+[RFP-008](./RFP-008-lending-borrowing-protocol.md), the DEX in
+[RFP-004](./RFP-004-privacy-preserving-dex.md)) compose these
+pieces according to their own production-security choices, with
+the canonical price account standard from RFP-019 keeping
+swap-out cheap if those choices change later.
 
 ## 🏗 Design Rationale
 
