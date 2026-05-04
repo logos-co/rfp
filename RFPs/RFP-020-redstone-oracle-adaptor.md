@@ -315,18 +315,24 @@ struct using append-friendly account-data conventions, so that a
 later RFP-019 release can extend the struct without breaking
 consumers.
 
-### Pull-model fee structure
+### Fee structure
 
-Because RedStone is a pull oracle, the cost of an update naturally
-falls on whoever submits the signed data package on-chain; the
-adaptor does not need to fund a dedicated node operator pool.
+In the push-aggregator shape this RFP commits to, the on-chain
+verification cost is paid once per update by whoever submits the
+signed data package to the aggregator, and is amortised across all
+downstream reads (public and private). RedStone itself does not
+publish prices on-chain; a relayer fetches the signed packages from
+the RedStone gateway and pushes them, so "whoever pays for an
+update" in practice means whoever runs (or pays for) the relayer.
+The adaptor does not need to fund a dedicated node operator pool.
+
 Beyond that structural point, this RFP does not prescribe a fee
 model. Downstream users of the adaptor (consuming protocols,
 relayer operators, deployers) are free to handle fees in whatever
 way fits their product: subsidised by the consuming protocol,
-charged per query, charged per update, routed to a treasury,
-burned, or left at zero. The adaptor program itself should not bake
-in policy that forecloses these choices.
+charged per read, charged per update, routed to a treasury, burned,
+or left at zero. The adaptor program itself should not bake in
+policy that forecloses these choices.
 
 ## ✅ Scope of Work
 
