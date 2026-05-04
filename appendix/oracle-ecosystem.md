@@ -732,7 +732,7 @@ inside the RISC0 zkVM, using existing Rust crates (k256 / sha3 /
 equivalents) proved by RISC0 along with the rest of the program.
 This is what RFP-020 commits to for the public-mode write side.
 No runtime change required. Early prototype work
-(`fryorcraken/lez-ecdsa`) is already enough to establish that
+([`fryorcraken/lez-ecdsa`](https://github.com/fryorcraken/lez-ecdsa)) is already enough to establish that
 naive in-circuit ECDSA is slow on consumer hardware (proof
 generation in the order of minutes for a private read), which
 rules out private-execution pull mode under D1 absent a
@@ -765,7 +765,7 @@ end-state design is identical.
 
 Under D1, in-program verification is technically reachable from
 private execution (the same RISC-V code can run inside a user's
-private proof), but prototype data (`fryorcraken/lez-ecdsa`)
+private proof), but prototype data ([`fryorcraken/lez-ecdsa`](https://github.com/fryorcraken/lez-ecdsa))
 establishes the proof-generation cost is in the order of minutes
 on consumer hardware. That makes private-execution pull mode
 infeasible in practice, not merely expensive, absent a

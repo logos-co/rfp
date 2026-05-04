@@ -30,7 +30,7 @@ adaptor only; on-chain TWAP is in RFP-019, and a Pyth adaptor
 
 LEZ is RISC0-based, so any signature scheme can be implemented in
 program code. Early prototype work on in-program secp256k1 ECDSA
-verification inside RISC0 (`fryorcraken/lez-ecdsa`) shows the
+verification inside RISC0 ([`fryorcraken/lez-ecdsa`](https://github.com/fryorcraken/lez-ecdsa)) shows the
 verification is slow enough that **pull-mode reads from inside a
 private transaction are not feasible on consumer hardware** (a
 private consumer would spend several minutes generating the proof
@@ -190,7 +190,7 @@ RISC0 along with the rest of the program.
 
 This is the central technical bet of the RFP. Early prototype
 work on in-program secp256k1 ECDSA verification inside RISC0
-(`fryorcraken/lez-ecdsa`) is already enough to flag that the
+([`fryorcraken/lez-ecdsa`](https://github.com/fryorcraken/lez-ecdsa)) is already enough to flag that the
 naive in-circuit path is slow on consumer hardware: a private
 consumer attempting pull-mode verification would spend several
 minutes generating the proof for each read. That rules out
