@@ -177,6 +177,28 @@ warm for read-only consumers; consumer-pays push keeps the cost
 model strictly proportional to demand. Both can coexist; the
 program logic does not distinguish between them.
 
+The two-transaction split (public push, then private read) is
+distinct from the rejected "put the signature in the journal"
+option. The signature is carried only in the public push; the
+private transaction reads the resulting public price account by
+address with no upstream signature in its calldata or journal,
+so the private transaction's contents (assets, counterparty,
+amount) stay private. This fits the adaptor's existing write
+path: the program already accepts signed payloads from any
+caller and writes a public price account, regardless of whether
+the caller is a relayer or an end user. There is a residual
+linkability risk that the consumer needs to handle on its side,
+not the adaptor's: an observer can correlate a public push from
+wallet X at time T with a private transaction at time T plus
+epsilon and infer that the same actor is consuming the
+just-pushed price. Mitigations (separate funding wallet for the
+push, timing decorrelation, reliance on a heartbeat to mask
+single-purpose pushes) are consumer-side production-security
+choices. The privacy story is strictly better than
+journal-disclosed signatures (the private transaction's body
+stays private) but not equivalent to a heartbeat-only push
+model.
+
 ### RISC-V verification path and the precompile question
 
 This RFP implements signature verification in RISC-V program code,

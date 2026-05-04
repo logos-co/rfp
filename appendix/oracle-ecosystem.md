@@ -925,6 +925,50 @@ themselves; consumer-pays push keeps the cost model strictly
 proportional to demand. Both can coexist; the program logic does
 not distinguish between them.
 
+#### How this differs from "put the signature in the journal"
+
+The two-transaction split (public push, then private read) is
+not the same as embedding the upstream signature in the
+private transaction's journal. The differences matter:
+
+- **Two distinct transactions, not one.** The signature is
+  carried only in the public push transaction. The private
+  transaction reads the resulting public price account by
+  address, with no upstream signature in its calldata or
+  journal. The private transaction's *contents* (which assets,
+  which counterparty, which amount) remain private; only the
+  fact that some price update happened is observable, and
+  that fact is observable for any push regardless of who
+  submitted it.
+- **Fits the existing aggregator design.** The aggregator
+  program already accepts signed payloads from any caller and
+  writes a public price account; that is its normal write
+  path. Consumer-pays push exercises this path from an
+  end-user wallet rather than from a dedicated relayer. No
+  new program logic.
+- **Linkability risk to clarify, not to wave away.** An
+  observer can correlate "wallet X pushes a price update at
+  time T" with "private transaction at time T plus epsilon"
+  and infer that the same actor is consuming the just-pushed
+  price. Strength of the inference depends on push frequency
+  and the consumer's wallet hygiene. Mitigations are
+  consumer-side, not adaptor-side: push from a separate
+  funding wallet from the one used in the private
+  transaction, time-shift the push and consume across enough
+  blocks that timing correlation weakens, or rely on a
+  heartbeat relayer so that single-purpose pushes are not the
+  observable pattern. None of these are guaranteed by the
+  aggregator program; they are choices the consumer protocol
+  or end user makes.
+
+The privacy story is therefore strictly better than
+journal-disclosed signatures (the private transaction's body
+stays private) but not equivalent to a heartbeat-only push
+model (timing-correlation linkability remains). Whether the
+residual linkability is acceptable is a consumer-side
+production-security decision, the same way any DEX-routing or
+liquidity-management decision is.
+
 RedStone is the simpler day-one option for the upstream-source
 side because it carries no bridge dependency. Pyth depends on the
 full 13-of-19 VAA verification plus Merkle proof verification,
