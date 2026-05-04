@@ -213,10 +213,10 @@ work on in-program secp256k1 ECDSA verification inside RISC0
 naive in-circuit path is slow on consumer hardware: a private
 consumer attempting pull-mode verification would spend several
 minutes generating the proof for each read. That rules out
-private-execution pull mode under D1 in any practical sense,
-absent a RISC0-specific signature-verification accelerator (e.g.
-a future `risc0-ecdsa` extension or a secp256k1 precompile wired
-into the zkVM proving system itself). The first concrete
+private-execution pull mode in any practical sense for the
+in-program path, absent a RISC0-specific signature-verification
+accelerator (e.g. a future `risc0-ecdsa` extension or a secp256k1
+precompile wired into the zkVM proving system itself). The first concrete
 deliverable of this RFP refines this picture for the public-mode
 write side: implement the verifier in RISC-V, run it on LEZ,
 document the cost (compute units, proof time, proof size,
