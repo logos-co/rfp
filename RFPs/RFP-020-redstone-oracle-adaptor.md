@@ -91,14 +91,15 @@ The combination of "private DeFi needs XMR and ZEC" and "RedStone
 is the only path that is self-serve on LEZ today" makes this the
 priority off-chain oracle integration for LEZ.
 
-### Building blocks, not a production-grade design
+### A building block in a layered oracle stack
 
 Neither an off-chain feed nor an on-chain TWAP is a complete
 oracle on its own; both have known failure modes and the
 production norm in DeFi is to layer them. This RFP delivers the
-off-chain half as a swappable building block. The TWAP half is
-delivered by [RFP-019](./RFP-019-twap-oracle.md). Consuming
-protocols (the LSC stablecoin in
+off-chain adaptor as a swappable building block in that layered
+stack: production-grade code on its own terms, paired with the
+TWAP tier from [RFP-019](./RFP-019-twap-oracle.md) on the
+consumer side. Consuming protocols (the LSC stablecoin in
 [RFP-013](./RFP-013-reflexive-stablecoin-protocol.md), the
 lending market in
 [RFP-008](./RFP-008-lending-borrowing-protocol.md), the DEX in
