@@ -24,13 +24,11 @@ RISC-V zkVM (no cross-chain bridge, no Wormhole dependency). The
 adaptor uses a push-mode aggregator pattern: a public-mode program
 verifies signatures on the write side, stores the result in a
 public price account, and consumers (including private-execution
-programs) read the slot. This RFP is scoped to the RedStone
-adaptor only; on-chain TWAP is in RFP-019, and a Pyth adaptor
-(which adds a Wormhole dependency) is deferred to a future RFP.
+programs) read the slot.
 
 LEZ is RISC0-based, so any signature scheme can be implemented in
 program code. Early prototype work on in-program secp256k1 ECDSA
-verification inside RISC0 ([`fryorcraken/lez-ecdsa`](https://github.com/fryorcraken/lez-ecdsa)) shows the
+verification inside RISC0 ([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench)) shows the
 verification is slow enough that **pull-mode reads from inside a
 private transaction are not feasible on consumer hardware** (a
 private consumer would spend several minutes generating the proof
@@ -44,8 +42,21 @@ write side, where amortisation across all downstream reads can
 make in-program verification workable; if the measured public-mode
 cost is unacceptable the measurement becomes the input to a
 follow-on RFP that proposes adding a secp256k1 ECDSA + keccak256
-precompile to LEZ. Until such an accelerator or precompile lands,
-treat private-execution pull mode as out of reach.
+precompile to LEZ.
+
+### Scope
+
+In scope:
+
+- The RedStone off-chain oracle adaptor as a public-mode push aggregator on LEZ.
+- Day-one XMR/USD and ZEC/USD feeds, registered and exercised on LEZ devnet/testnet.
+- Cost measurement of the in-program RISC-V verification path as a primary deliverable.
+
+Out of scope at the Overview level (full list under Out of Scope below):
+
+- The on-chain TWAP tier and the canonical oracle price account standard, owned by [RFP-019](./RFP-019-twap-oracle.md).
+- A Pyth adaptor: depends on Wormhole on LEZ, deferred to a future RFP.
+- Pull-mode reads from inside private execution: blocked on a RISC0 signature accelerator or a LEZ secp256k1 + keccak256 precompile, neither of which exists today. A precompile is the subject of a possible cost-conditional follow-on RFP.
 
 ## 🔥 Why This Matters
 
@@ -150,6 +161,11 @@ push-mode aggregator gives strictly better cost amortisation for
 the LEZ DeFi consumer set. They can be revisited in a follow-on
 once measured cost data is in.
 
+See [Appendix: Oracle Ecosystem, Implications for LEZ](../appendix/oracle-ecosystem.md#implications-for-lez)
+for the full four-shape analysis (trusted re-signer, FROST-BIP340
+federation, DLC-oracle extension, and the cost-conditional
+precompile path) that this section condenses.
+
 A LEZ-specific freshness pattern follows from the public / private
 execution split. A user who needs a price fresher than the
 heartbeat's last update can submit a public transaction that
@@ -209,7 +225,7 @@ RISC0 along with the rest of the program.
 
 This is the central technical bet of the RFP. Early prototype
 work on in-program secp256k1 ECDSA verification inside RISC0
-([`fryorcraken/lez-ecdsa`](https://github.com/fryorcraken/lez-ecdsa)) is already enough to flag that the
+([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench)) is already enough to flag that the
 naive in-circuit path is slow on consumer hardware: a private
 consumer attempting pull-mode verification would spend several
 minutes generating the proof for each read. That rules out
@@ -301,17 +317,16 @@ consumers.
 
 ### Pull-model fee structure
 
-TODO: fix, the RFP is here to open opportunities, users of the RFP work can decide how they want to handle fees.
-
-Proposals must specify a fee model covering: who pays for oracle
-updates (consumer, protocol, or subsidised), when fees are charged
-(per query, per update, per registration), the fee rate or
-formula, and where fees are routed (protocol treasury or burned).
-Because RedStone is a pull oracle, the cost model naturally
-follows the consumer that submits the signed data packages; the
-adaptor does not need to fund a dedicated node operator pool. The
-fee model should be sustainable without ongoing subsidies once LEZ
-reaches moderate TVL.
+Because RedStone is a pull oracle, the cost of an update naturally
+falls on whoever submits the signed data package on-chain; the
+adaptor does not need to fund a dedicated node operator pool.
+Beyond that structural point, this RFP does not prescribe a fee
+model. Downstream users of the adaptor (consuming protocols,
+relayer operators, deployers) are free to handle fees in whatever
+way fits their product: subsidised by the consuming protocol,
+charged per query, charged per update, routed to a treasury,
+burned, or left at zero. The adaptor program itself should not bake
+in policy that forecloses these choices.
 
 ## ✅ Scope of Work
 
@@ -364,15 +379,25 @@ reaches moderate TVL.
 3. Provide a CLI that covers core functionality: submit a data
    package, query the verified price, register and deregister
    feeds, update signer sets.
-4. Provide an IDL for the adaptor program and the canonical
+4. Provide a relayer daemon (runnable from the CLI) that fetches
+   signed RedStone data packages from the RedStone gateway for the
+   registered feeds, pushes them to the LEZ adaptor on a
+   configurable cadence, and is suitable for an operator to run as
+   a long-running process. The daemon must support: configurable
+   feed list and update cadence per feed, retry and back-off on
+   transient gateway or LEZ errors, structured logging of submitted
+   updates and rejections (with the on-chain rejection reason where
+   available), and a clean shutdown path. Document the operator
+   journey end-to-end: install, configure, run, monitor.
+5. Provide an IDL for the adaptor program and the canonical
    oracle price account standard (re-exported from RFP-019, not
    forked), using the
    [SPEL framework](https://github.com/logos-co/spel).
-5. Return clear, actionable error messages for all failure modes:
+6. Return clear, actionable error messages for all failure modes:
    stale data package, signer-threshold not met, signer not in
    authorised set, asset identifier mismatch, malformed package,
    invalid signature, zero or negative price.
-6. Provide a **reference consumer program**: a minimal LEZ program
+7. Provide a **reference consumer program**: a minimal LEZ program
    (or equivalently a documented program-side code snippet plus
    tests) that demonstrates the recommended consumer-side
    integration pattern for reading the canonical price account
@@ -385,8 +410,6 @@ reaches moderate TVL.
    fall back to an unsafe default). This is a guidance artefact
    for downstream consumer protocols (RFP-008, RFP-013, RFP-004),
    not a production product on its own.
-
-TODO: provide a CLI/Daemon to run a redstone relayer, that pushes on LEZ. 
 
 #### Reliability
 
@@ -439,7 +462,7 @@ TODO: provide a CLI/Daemon to run a redstone relayer, that pushes on LEZ.
    submitting RedStone data packages and reading verified prices,
    **plus a "Recommended Consumer Pattern" section** that walks a
    downstream protocol developer through the reference consumer
-   program from Usability #6: staleness handling, dispute-flag
+   program from Usability #7: staleness handling, dispute-flag
    handling, behaviour when no valid non-disputed price is
    available, and the recommended pairing with the on-chain TWAP
    tier from RFP-019 for divergence checking.
