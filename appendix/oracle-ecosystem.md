@@ -460,31 +460,38 @@ continuous price streams. None today publish ZEC/USD or XMR/USD,
 and none are decentralised in the way a DeFi-grade feed needs.
 
 Four realistic adaptor shapes exist for closing this gap. They
-are independent of RFP-019. A constraint that runs across B, C,
-and D: no signature-verification primitive is currently exposed
-to guest programs on LEZ, so any in-program signature check
-(whether ECDSA-keccak for shape D's adaptor, BIP-340 Schnorr for
-shape B's federation output, or BIP-340 for shape C's DLC
+are independent of RFP-019. A constraint that runs across C and
+D: no signature-verification primitive is currently exposed to
+guest programs on LEZ, so any in-program signature check (whether
+ECDSA-keccak for shape D's adaptor or BIP-340 for shape C's DLC
 attestations) runs as RISC-V code inside the RISC0 zkVM. The
-cost question is the same shape across all three; only the
-upstream supply differs. Shape A avoids the question because the
+cost question is the same shape across both; only the upstream
+supply differs. Shapes A and B avoid the question because the
 signature being checked authenticates the LEZ transaction itself,
-not data carried inside calldata: the re-signer is a regular LEZ
-user, the runtime validates the BIP-340 transaction witness at
-admission time as part of the standard transaction-admission flow,
-and the price-aggregator program does only an equality check on
-the authenticated caller against a registered relayer pubkey.
-There is no in-program signature verification, so the in-circuit
-cost question never arises. The cost is trust: collapse from N
-upstream publishers to one re-signer.
+not data carried inside calldata: the transaction sender is a
+regular LEZ user (a single re-signer in A, a t-of-n FROST
+federation emitting one aggregated BIP-340 signature in B), the
+runtime validates the BIP-340 transaction witness at admission
+time as part of the standard transaction-admission flow, and the
+price-aggregator program does only an equality check on the
+authenticated caller against a registered pubkey. There is no
+in-program signature verification under either shape, so the
+in-circuit cost question never arises in public push mode. The
+remaining variable is trust: collapse to one re-signer (A) or to
+t honest signers in a federation (B). Crucially, neither shape
+unlocks private-execution pull: both are public push-mode
+designs, with private consumers reading the public price account
+written by the relayer or federation.
 
-The structural test that distinguishes A from B/C/D is **whose
+The structural test that distinguishes the shapes is **whose
 signature authenticates the LEZ transaction**. If it is the
-re-signer's, the runtime handles verification and the guest
-program does an authorisation check on the caller (shape A). If
-the LEZ transaction carries an upstream publisher's signature
-inside calldata, distinct from the transaction sender, the guest
-program has to verify it in-circuit (shapes B/C/D).
+transaction sender's (a single re-signer in A, a FROST federation
+emitting one aggregated BIP-340 signature in B), the runtime
+handles verification at admission and the guest program does an
+authorisation check on the caller. If the LEZ transaction carries
+an upstream publisher's signature inside calldata, distinct from
+the transaction sender, the guest program has to verify it
+in-circuit (shapes C and D).
 
 **Shape A — Trusted re-signer relayer.** A LEZ-side process
 fetches RedStone or Pyth payloads, verifies them off chain, and
@@ -498,44 +505,62 @@ account. The trust set collapses from N upstream publishers to one
 re-signer; the chain has no cryptographic evidence that the relayer
 reported what the publishers actually signed.
 
-**Shape B — FROST-BIP340 federation.** A t-of-n federation runs a
-distributed key generation and produces a single BIP-340-verifiable
-Schnorr signature per price update, aggregating data ingested from
-upstream sources. The signing infrastructure already exists as
+**Shape B — FROST-BIP340 federation, transaction-signing.** A
+t-of-n federation jointly signs the LEZ transaction itself (not
+the data inside calldata) using FROST, emitting a single
+BIP-340-verifiable Schnorr signature as the transaction witness.
+Each federation member fetches upstream RedStone or Pyth payloads
+independently, verifies the upstream signatures off chain in
+native code, and proposes a `(price, timestamp, source_metadata)`
+tuple. When t members agree on the tuple within a tolerance
+window, they run FROST signing rounds (commit + sign) over the
+LEZ transaction hash and the coordinator submits the resulting
+tx. The aggregator program checks the authenticated caller against
+a registered federation aggregate pubkey `P_fed` (an equality
+check, not a signature verification) and writes the price to a
+public price account. The signing infrastructure exists as
 libraries (Zcash Foundation FROST [45], Blockstream `bip-frost-dkg`
 [46], Frostsnap [47]; jesseposner FROST-BIP340 [48] is the
 reference implementation), and ZF is actively building FROST
 tooling for Zcash, which aligns with the privacy-asset focus.
 
-**The benefit of LEZ exposing the runtime BIP-340 primitive to**
-**guest programs is public-mode CU only, not private-execution pull.**
-The runtime's existing BIP-340 primitive validates transaction
-witnesses only; it is not callable from a guest program running
-inside the RISC-V zkVM. An adaptor that consumes a
-FROST-aggregated BIP-340 attestation therefore has to verify the
-Schnorr signature in-circuit; the cross-scheme bench
-([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench))
-measures Schnorr secp256k1 at roughly 9% cheaper per-sig than
-ECDSA secp256k1 (5:22 E2E private TX vs 7:26 at 3-of-N on
-CPU-only Ryzen 9 7940HS), neither under 30 s. Exposing the
-runtime primitive as a guest-callable host function would lower
-the public-mode aggregator's write-side compute-unit cost
-(potentially a smaller engineering ask than adding a fresh
-secp256k1 ECDSA precompile, since the BIP-340 primitive is
-already wired into the runtime; analogous to shape D's
-cost-conditional precompile follow-on). It would *not* unblock
-private-execution pull: a runtime host function lives outside the
-ZK proof boundary, so anything inside the RISC-V zkVM circuit
-(including private-execution proofs) cannot call it; the same
-structural argument that forecloses private pull under D2 applies
-to a hypothetical Schnorr host primitive. **Shape B's benefit**
-**relative to shape D is therefore at most a public-mode CU**
-**advantage conditional on the runtime exposure; it does not change**
-**the private-pull picture, which is gated on a RISC0 zkVM**
-**circuit-level accelerator or a different signature primitive that**
-**admits acceptable in-circuit cost on RISC0, not on a runtime host**
-**function.** Combined with the green-field FROST R&D risks listed
-below, this is not the right call as the day-one path.
+**Assumption to validate by PoC: the runtime accepts the**
+**federation's FROST-aggregated BIP-340 signature as a normal LEZ**
+**transaction witness.** FROST output is byte-identical to a single
+BIP-340 signature under an aggregate public key, so the runtime's
+existing tx-admission BIP-340 primitive should validate it without
+changes. If that assumption holds, the federation's write tx pays
+only the standard tx-admission verification cost (host-program
+BIP-340 verification, runs outside the RISC-V zkVM circuit), and
+the price-aggregator program does no in-program signature
+verification on the write side. The compute-unit cost of pushing
+a price update is therefore lower than under shape D, where the
+aggregator program verifies an upstream data signature in RISC-V
+code at in-circuit cost. If the assumption fails (the runtime
+rejects the FROST-aggregated witness for some reason, or
+operationally the federation cannot be set up to sign LEZ
+transactions directly), the federation would have to fall back to
+verifying a data signature in program code, raising the
+public-mode push CU cost to the in-circuit Schnorr cost the bench
+measures (5:22 E2E private TX vs 7:26 ECDSA at 3-of-N on consumer
+CPU,
+[`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench)).
+The reasons such a fallback might be forced are an open question
+that the PoC has to surface.
+
+**Either way, shape B is push-only mode. It does not unlock**
+**private-execution pull.** Pull mode for a private consumer means
+the consumer's own private transaction authenticates the upstream
+data inside its own ZK circuit. Shape B authenticates a *write*
+transaction submitted by the federation; the data the private
+transaction reads is the public price account written by the
+federation. Private-mode reads under shape B are identical to
+push-mode reads under shape D: read the slot, no signature work
+in the read path. Private pull (the consumer's private tx
+verifies an upstream signature inline) remains foreclosed under
+shape B for the same reason it is under shape D: the upstream
+signature still has to be verified somewhere, and putting it in
+the consumer's privacy circuit is what the bench rules out.
 
 No price-oracle product is deployed in this shape today. Public
 framing of FROST by its implementers and grant funders is
@@ -581,27 +606,19 @@ wallet-custody threat model rather than an oracle-shaped one.
 publishers emit BIP-340 attestations natively.
 
 Two disqualifiers apply, either of which is sufficient on its own.
-First, shape C carries the same runtime dependency as shape B:
-verifying a DLC attestation requires the guest program to verify
-BIP-340 Schnorr in-circuit, multiplied by N (the bit-precision of
-the numeric DLC encoding). Exposing the runtime BIP-340 primitive
-to guest programs as a host function would lower the public-mode
-write-side CU cost and turn the N-multiplier from a dominant
-cost into a constant overhead, but would *not* help private
-execution: a host function lives outside the ZK proof boundary,
-so private-execution proofs cannot call it (same D2 structural
-argument). Pursuing shape C as the day-one path is therefore not
-the right call: the in-circuit cost is at parity with shape D's
-ECDSA path (the bench measures Schnorr secp256k1 at ~9% cheaper
-per-sig), and any public-mode CU advantage is conditional on a
-runtime change that LEZ has not committed to. Second, even with
-a cheap Schnorr host primitive in public mode, the structural fit
-of the DLC attestation model is prediction markets and
-discrete-outcome contracts (which is what the format was designed
-for), not streaming price feeds for DeFi protocols. Either
-condition alone moves shape C out of scope for the current
-oracle work; the description below documents the ecosystem state
-for reference and for a future prediction-market RFP.
+First, shape C carries the same in-circuit cost question as shape
+D: verifying a DLC attestation requires the guest program to
+verify BIP-340 Schnorr in-circuit at unmeasured cost, multiplied
+by N (the bit-precision of the numeric DLC encoding). Pursuing
+shape C is therefore not the right call unless LEZ later exposes
+Schnorr verification to guest programs at acceptable cost. Second, even
+with cheap Schnorr verification, the structural fit of the DLC
+attestation model is prediction markets and discrete-outcome
+contracts (which is what the format was designed for), not
+streaming price feeds for DeFi protocols. Either condition alone
+moves shape C out of scope for the current oracle work; the
+description below documents the ecosystem state for reference and
+for a future prediction-market RFP.
 
 A DLC oracle pre-announces nonce points (R-values) for a future
 event with a known maturity time, then at maturity publishes the
@@ -709,15 +726,12 @@ update on LEZ. As
 noted in the Signature Verification Schemes section, BIP-340
 verification is not exposed to guest programs on LEZ, so each of
 those 18 verifications runs in-circuit; the per-update cost is
-therefore 18× the bench's measured in-circuit BIP-340 cost
-(roughly 271K user cycles per signature, 5:22 E2E private TX at
-3-of-N on consumer CPU). If LEZ later exposes Schnorr
-verification as a host primitive at low cost, the multiplier
-becomes a constant overhead instead of dominating *for the
-public-mode write side*; the private-execution picture is
-unchanged because a host function cannot be called from inside the
-privacy circuit. Until then, shape C inherits the same
-in-circuit cost question that shape D's ECDSA path does.
+therefore 18× whatever in-circuit BIP-340 + SHA-256 verification
+costs in RISC0 (currently unmeasured). If LEZ later exposes
+Schnorr verification as a host primitive at low cost, the
+multiplier becomes a constant overhead instead of dominating; until
+then, shape C inherits the same in-circuit cost question that
+shape D's ECDSA path does.
 
 #### Trust and decentralisation
 
