@@ -741,13 +741,15 @@ and no scheme in the four-way matrix (ECDSA secp256k1, Schnorr
 secp256k1, ECDSA P-256, Ed25519) lands under 30 s. That rules
 out private-execution pull mode under D1 absent a RISC0-specific
 signature-verification accelerator or GPU / Bonsai proving.
-Public-mode cost remains the open variable RFP-020 measures: the
-bench's local-prove number for ECDSA secp256k1 at N=3 (no
-privacy wrap) is **4:20** on the same machine, but real LEZ
-devnet measurement is what RFP-020 commits to. Public-mode cost
-amortises across all downstream reads, so a write-side cost that
-would be unworkable per-private-transaction may still be
-acceptable per heartbeat.
+Public-mode cost remains the open variable RFP-020 measures.
+The bench above is a proving-cost benchmark (private-execution
+path); the public-mode aggregator does no proving, so its
+write-side cost is in LEZ runtime compute units rather than
+proof time and is not captured by these numbers. Real LEZ
+devnet measurement of the aggregator's compute-unit cost is
+what RFP-020 commits to. Public-mode cost amortises across all
+downstream reads, so a write-side cost that would be unworkable
+per-private-transaction may still be acceptable per heartbeat.
 
 For reference, the bench's per-signature user-cycle deltas
 (N=1, sub-noop) and end-to-end private-TX rankings at 3-of-N:

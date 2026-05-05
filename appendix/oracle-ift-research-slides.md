@@ -110,7 +110,7 @@ RedStone runs in both modes natively (50+ push deployments, 120+ pull deployment
 Verification path is the same shape in both: signers sign data packages, an on-chain verifier recovers M-of-N signatures, verified price is published.
 
 |               | **Pyth**                                                                      | **RedStone**                          |
-| ------------- | ----------------------------------------------------------------------------- | ------------------------------------- |
+|---------------|-------------------------------------------------------------------------------|---------------------------------------|
 | Mode          | Pull (Wormhole)                                                               | Push + Pull                           |
 | Quorum        | 13-of-19                                                                      | typically 3-of-N                      |
 | Scheme        | secp256k1 ECDSA + double-keccak256 (single keccak256 on Solana), Wormhole VAA | secp256k1 ECDSA + keccak256, calldata |
@@ -134,7 +134,7 @@ calldata: the signed price packages are just appended to the consmer tx's callda
 
 - LEZ is a RISC-V zkVM (built on RISC0)
 - One signature primitive wired into the runtime: **single-key BIP-340 Schnorr over SHA-256**
-- That primitive validates **transaction witnesses only** — it is **not exposed to guest programs**
+- That primitive validates **transaction witnesses only**; it is **not exposed to guest programs**
 - No threshold / aggregate primitives, no ECDSA, no ed25519 callable from program code
 
 → Any signature a program needs to verify (BIP-340 from a DLC publisher, ECDSA-keccak from RedStone or Pyth, ed25519 from Switchboard) runs **in-circuit**. The bench [`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench) covers four schemes on a CPU-only Ryzen 9 7940HS (no CUDA, no Bonsai): end-to-end private TX for the RedStone scheme (ECDSA secp256k1, 3-of-N) lands at **7:26**, and no scheme in the matrix hits sub-30s interactive UX. Numbers next slide.
@@ -155,11 +155,12 @@ The next slide gives the bench numbers, then we walk the four adaptor shapes.
 # Signature verification cost on RISC0 — measured
 
 Bench: CPU-only AMD Ryzen 9 7940HS, 16 threads, no CUDA, no Bonsai. Source: [`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench).
+Disclaimer: LLM-generated code.
 
 Local prove (no privacy wrap), N = signatures verified per call:
 
 | Scheme                                    | N=1 prove | N=3 prove | user cycles / sig (N=1) |
-| ----------------------------------------- | --------- | --------- | ----------------------- |
+|-------------------------------------------|-----------|-----------|-------------------------|
 | ECDSA secp256k1 (RedStone, Pyth)          | 2:26      | 4:20      | 303 K                   |
 | Schnorr secp256k1 (BIP-340, FROST output) | 1:12      | 2:26      | 271 K                   |
 | ECDSA P-256                               | 1:09      | 2:22      | 198 K                   |
@@ -168,7 +169,7 @@ Local prove (no privacy wrap), N = signatures verified per call:
 End-to-end private TX (privacy wrap + sequencer roundtrip), 3-of-N:
 
 | Scheme            | E2E (3-of-N) |
-| ----------------- | ------------ |
+|-------------------|--------------|
 | ECDSA P-256       | 4:58         |
 | Schnorr secp256k1 | 5:22         |
 | ECDSA secp256k1   | **7:26**     |
@@ -181,7 +182,7 @@ This is the data that pins down the design choice on the next four slides. Three
 
 1. **Private-execution pull is off the table on CPU for every scheme in scope.** RedStone's ECDSA secp256k1 at 3-of-N is 7:26 end-to-end on a 16-thread Ryzen. The cheapest scheme (P-256) is still 4:58. Sub-30s interactive UX needs CUDA / Bonsai or a precompile, both of which are out of scope for RFP-020 day one.
 
-2. **For the public-mode aggregator's write side, the relevant number is local prove, not E2E.** The aggregator runs without the privacy wrapper; ECDSA secp256k1 N=3 is 4:20 of CPU prove time per update, amortised across all downstream reads. Whether that's acceptable at production cadence is what RFP-020's first deliverable measures on real LEZ infrastructure (not just this bench laptop).
+2. **The bench measures proving cost; the public-mode aggregator does no proving.** Public-mode pushes are validator-executed; their cost is in LEZ compute units, not proof time, and this bench doesn't cover that path. Both the local-prove and E2E columns above are private-execution costs (E2E adds the outer privacy-preserving circuit and sequencer roundtrip; local-prove is the inner kernel alone). RFP-020's first deliverable measures the public-mode aggregator's compute-unit cost on real LEZ infrastructure; the bench numbers establish the private-execution ceiling, which is what makes private pull infeasible.
 
 3. **Cross-scheme ranking is meaningful for any future "private-mode-friendly upstream" follow-on.** If consumer demand for private-execution pull is established later (the LSC stablecoin in RFP-013 currently constrains parts of its flow to public execution for unrelated reasons, so demand is unconfirmed), the bench data identifies the candidate primitives to consider on the upstream side: P-256 first, Schnorr secp256k1 second. Ed25519 is the most expensive of the four in this RISC0 stack despite curve25519-dalek's accelerated backend, because Edwards arithmetic plus in-algorithm sha512 (no precompile) dominates.
 
@@ -362,7 +363,7 @@ LEZ is a RISC-V zkVM built on RISC0. The runtime's existing BIP-340 signature pr
 
 RedStone's data nodes sign price packages with secp256k1 ECDSA over keccak256. RFP-020 implements that verification path in RISC-V program code using existing Rust crates (k256 / sha3 / equivalents) and proves it via RISC0 alongside the rest of the program. The structural choice is push-mode aggregator: the verifier runs once per update on the write side, prices land in a public price account, and private accounts compose by reading the slot. Pull mode for private accounts is not on the menu — verifying a signature inside the privacy circuit forfeits batching benefits, and putting it in the transaction journal breaks privacy.
 
-Bench data ([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench)) already establishes that naive in-circuit ECDSA in RISC0 is slow enough to rule out private-execution pull mode on consumer CPU (7:26 end-to-end at 3-of-N for ECDSA secp256k1 on a Ryzen 9 7940HS, with no scheme in the four-way matrix landing under 30 s). Public-mode write-side cost is the open variable, since amortisation across all reads can make a per-update cost workable that would be unworkable per-private-transaction. The bench's local-prove number for ECDSA secp256k1 at N=3 is 4:20 on the same machine, but a real LEZ devnet measurement is what RFP-020 commits to. Measurement of the public-mode cost is the first deliverable. Two outcomes:
+Bench data ([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench)) already establishes that naive in-circuit ECDSA in RISC0 is slow enough to rule out private-execution pull mode on consumer CPU (7:26 end-to-end at 3-of-N for ECDSA secp256k1 on a Ryzen 9 7940HS, with no scheme in the four-way matrix landing under 30 s). The bench measures proving cost (private-execution path); the public-mode aggregator does no proving, so its write-side cost is in LEZ runtime compute units rather than proof time and is not captured here. That public-mode cost is the open variable RFP-020 measures on real LEZ infrastructure, and amortisation across all downstream reads is what makes a per-update cost workable that would be unworkable per-private-transaction. Measurement of the public-mode cost is the first deliverable. Two outcomes:
 
 1. **Cost is acceptable.** The adaptor ships on the runtime as it stands.
 2. **Cost is unacceptable.** The measurement becomes the input to a follow-on RFP that proposes adding a secp256k1 ECDSA + keccak256 precompile to LEZ for public-execution mode. The applicant should design the verification path so that swapping in a precompile later is a localised change.
