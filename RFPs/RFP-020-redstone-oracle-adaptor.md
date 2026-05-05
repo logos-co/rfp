@@ -56,7 +56,7 @@ Out of scope at the Overview level (full list under Out of Scope below):
 
 - The on-chain TWAP tier and the canonical oracle price account standard, owned by [RFP-019](./RFP-019-twap-oracle.md).
 - A Pyth adaptor: depends on Wormhole on LEZ, deferred to a future RFP.
-- Pull-mode reads from inside private execution: blocked on a RISC0 signature accelerator, a LEZ secp256k1 + keccak256 precompile, or a different upstream signature scheme that admits acceptable in-circuit cost on RISC0; none of these exist today. A precompile is the subject of a possible cost-conditional public-mode follow-on RFP, and an alternative private-mode-friendly signature scheme (with the corresponding upstream publisher work) is the subject of a possible separate follow-on RFP.
+- Pull-mode reads from inside private execution: blocked on a RISC0 signature accelerator, a LEZ secp256k1 + keccak256 precompile, or a different upstream signature scheme that admits acceptable in-circuit cost on RISC0; none of these exist today. A precompile is the subject of a possible cost-conditional public-mode follow-on RFP, and an alternative private-mode-friendly signature scheme (with the corresponding upstream publisher work) is the subject of a possible separate follow-on RFP. Whether either follow-on is warranted depends on consumer-protocol demand for private-execution pull, which is not yet established: some consumer protocols (notably the LSC stablecoin in [RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)) already constrain specific actions to public transactions for their own design reasons, so the capability is worth reaching for only if a downstream consumer actually needs it.
 
 ## 🔥 Why This Matters
 
@@ -280,6 +280,13 @@ modifying an existing oracle network to publish in it or
 standing up a new publisher set that does, is the subject of a
 possible separate follow-on RFP. It is independent of the
 public-mode precompile question and out of scope for this RFP.
+Whether such a follow-on is worth pursuing depends on whether
+any consumer protocol actually needs private-execution pull,
+which is not yet confirmed: consumer protocols may already
+have design reasons to keep specific actions in public
+transactions, with the LSC stablecoin in
+[RFP-013](./RFP-013-reflexive-stablecoin-protocol.md) as one
+concrete example.
 
 ### Why RedStone first
 
@@ -554,7 +561,13 @@ elsewhere:
   pull-mode reads from inside private transactions and is the
   subject of a possible separate follow-on RFP. It is independent
   of the public-mode precompile question above and is not a
-  deliverable of this RFP.
+  deliverable of this RFP. The follow-on is itself contingent on
+  consumer-protocol demand for private-execution pull mode, which
+  is not yet confirmed: parts of the LSC stablecoin design in
+  [RFP-013](./RFP-013-reflexive-stablecoin-protocol.md), for
+  instance, already constrain specific actions to public
+  transactions, so the capability is worth pursuing only if a
+  downstream consumer actually requires it.
 - The choice between LSC/USD direct and LGS/USD + LGS/LSC
   composite for the LSC stablecoin
   ([RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)). That

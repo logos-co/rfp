@@ -810,6 +810,24 @@ Pull-mode reads are therefore deliberately out of scope:
   unavailable (precompile cannot be called from inside the
   privacy circuit). Out of scope.
 
+A clarification on the demand side. The framing above treats
+private-execution pull mode as a desirable capability that the
+current paths foreclose; whether any consumer protocol on LEZ
+actually needs it is a separate question, and not one that has
+been settled. Some consuming protocols already have design
+reasons to keep specific actions in public transactions: the
+LSC stablecoin in
+[RFP-013](../RFPs/RFP-013-reflexive-stablecoin-protocol.md), for
+example, places parts of its flow in public execution for
+constraints unrelated to oracle access, so a private-execution
+pull path would not change how the stablecoin reads prices for
+those actions. A future follow-on RFP that proposes either a
+RISC0-friendly upstream signature scheme or any other route to
+private-execution pull should therefore start by establishing
+that some downstream consumer genuinely needs the capability,
+not just by selecting a primitive that admits cheaper in-circuit
+verification.
+
 #### Broader open issues with adding a secp256k1 primitive (path D2 only)
 
 Beyond the oracle adaptor, the broader question of "what does a
