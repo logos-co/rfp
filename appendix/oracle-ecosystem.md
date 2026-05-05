@@ -507,19 +507,35 @@ libraries (Zcash Foundation FROST [45], Blockstream `bip-frost-dkg`
 reference implementation), and ZF is actively building FROST
 tooling for Zcash, which aligns with the privacy-asset focus.
 
-**This shape is conditional on LEZ exposing BIP-340 Schnorr**
-**verification to guest programs at acceptable cost.** The runtime's
-existing BIP-340 primitive validates transaction witnesses only;
-it is not callable from a guest program running inside the
-RISC-V zkVM. An adaptor that consumes a FROST-aggregated BIP-340
-attestation would therefore have to verify the Schnorr signature
-in-circuit, with the same unmeasured ZK-proving cost that ECDSA
-verification faces under shape D. The "natively verifiable
-without a runtime change" framing only holds if Schnorr
-verification is later exposed to guest programs as a host
-primitive; **absent that, shape B carries the same cost-question as**
-**shape D plus the open R&D risks listed below. Pursuing shape B**
-**without that runtime exposure is therefore not the right call.**
+**The benefit of LEZ exposing the runtime BIP-340 primitive to**
+**guest programs is public-mode CU only, not private-execution pull.**
+The runtime's existing BIP-340 primitive validates transaction
+witnesses only; it is not callable from a guest program running
+inside the RISC-V zkVM. An adaptor that consumes a
+FROST-aggregated BIP-340 attestation therefore has to verify the
+Schnorr signature in-circuit; the cross-scheme bench
+([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench))
+measures Schnorr secp256k1 at roughly 9% cheaper per-sig than
+ECDSA secp256k1 (5:22 E2E private TX vs 7:26 at 3-of-N on
+CPU-only Ryzen 9 7940HS), neither under 30 s. Exposing the
+runtime primitive as a guest-callable host function would lower
+the public-mode aggregator's write-side compute-unit cost
+(potentially a smaller engineering ask than adding a fresh
+secp256k1 ECDSA precompile, since the BIP-340 primitive is
+already wired into the runtime; analogous to shape D's
+cost-conditional precompile follow-on). It would *not* unblock
+private-execution pull: a runtime host function lives outside the
+ZK proof boundary, so anything inside the RISC-V zkVM circuit
+(including private-execution proofs) cannot call it; the same
+structural argument that forecloses private pull under D2 applies
+to a hypothetical Schnorr host primitive. **Shape B's benefit**
+**relative to shape D is therefore at most a public-mode CU**
+**advantage conditional on the runtime exposure; it does not change**
+**the private-pull picture, which is gated on a RISC0 zkVM**
+**circuit-level accelerator or a different signature primitive that**
+**admits acceptable in-circuit cost on RISC0, not on a runtime host**
+**function.** Combined with the green-field FROST R&D risks listed
+below, this is not the right call as the day-one path.
 
 No price-oracle product is deployed in this shape today. Public
 framing of FROST by its implementers and grant funders is
@@ -567,17 +583,25 @@ publishers emit BIP-340 attestations natively.
 Two disqualifiers apply, either of which is sufficient on its own.
 First, shape C carries the same runtime dependency as shape B:
 verifying a DLC attestation requires the guest program to verify
-BIP-340 Schnorr in-circuit at unmeasured cost, multiplied by N
-(the bit-precision of the numeric DLC encoding). Pursuing shape C
-is therefore not the right call unless LEZ later exposes Schnorr
-verification to guest programs at acceptable cost. Second, even
-with cheap Schnorr verification, the structural fit of the DLC
-attestation model is prediction markets and discrete-outcome
-contracts (which is what the format was designed for), not
-streaming price feeds for DeFi protocols. Either condition alone
-moves shape C out of scope for the current oracle work; the
-description below documents the ecosystem state for reference and
-for a future prediction-market RFP.
+BIP-340 Schnorr in-circuit, multiplied by N (the bit-precision of
+the numeric DLC encoding). Exposing the runtime BIP-340 primitive
+to guest programs as a host function would lower the public-mode
+write-side CU cost and turn the N-multiplier from a dominant
+cost into a constant overhead, but would *not* help private
+execution: a host function lives outside the ZK proof boundary,
+so private-execution proofs cannot call it (same D2 structural
+argument). Pursuing shape C as the day-one path is therefore not
+the right call: the in-circuit cost is at parity with shape D's
+ECDSA path (the bench measures Schnorr secp256k1 at ~9% cheaper
+per-sig), and any public-mode CU advantage is conditional on a
+runtime change that LEZ has not committed to. Second, even with
+a cheap Schnorr host primitive in public mode, the structural fit
+of the DLC attestation model is prediction markets and
+discrete-outcome contracts (which is what the format was designed
+for), not streaming price feeds for DeFi protocols. Either
+condition alone moves shape C out of scope for the current
+oracle work; the description below documents the ecosystem state
+for reference and for a future prediction-market RFP.
 
 A DLC oracle pre-announces nonce points (R-values) for a future
 event with a known maturity time, then at maturity publishes the
@@ -685,12 +709,15 @@ update on LEZ. As
 noted in the Signature Verification Schemes section, BIP-340
 verification is not exposed to guest programs on LEZ, so each of
 those 18 verifications runs in-circuit; the per-update cost is
-therefore 18× whatever in-circuit BIP-340 + SHA-256 verification
-costs in RISC0 (currently unmeasured). If LEZ later exposes
-Schnorr verification as a host primitive at low cost, the
-multiplier becomes a constant overhead instead of dominating; until
-then, shape C inherits the same in-circuit cost question that
-shape D's ECDSA path does.
+therefore 18× the bench's measured in-circuit BIP-340 cost
+(roughly 271K user cycles per signature, 5:22 E2E private TX at
+3-of-N on consumer CPU). If LEZ later exposes Schnorr
+verification as a host primitive at low cost, the multiplier
+becomes a constant overhead instead of dominating *for the
+public-mode write side*; the private-execution picture is
+unchanged because a host function cannot be called from inside the
+privacy circuit. Until then, shape C inherits the same
+in-circuit cost question that shape D's ECDSA path does.
 
 #### Trust and decentralisation
 
