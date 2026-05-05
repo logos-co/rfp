@@ -56,7 +56,7 @@ Out of scope at the Overview level (full list under Out of Scope below):
 
 - The on-chain TWAP tier and the canonical oracle price account standard, owned by [RFP-019](./RFP-019-twap-oracle.md).
 - A Pyth adaptor: depends on Wormhole on LEZ, deferred to a future RFP.
-- Pull-mode reads from inside private execution: blocked on a RISC0 signature accelerator or a LEZ secp256k1 + keccak256 precompile, neither of which exists today. A precompile is the subject of a possible cost-conditional follow-on RFP.
+- Pull-mode reads from inside private execution: blocked on a RISC0 signature accelerator, a LEZ secp256k1 + keccak256 precompile, or a different upstream signature scheme that admits acceptable in-circuit cost on RISC0; none of these exist today. A precompile is the subject of a possible cost-conditional public-mode follow-on RFP, and an alternative private-mode-friendly signature scheme (with the corresponding upstream publisher work) is the subject of a possible separate follow-on RFP.
 
 ## 🔥 Why This Matters
 
@@ -263,6 +263,23 @@ The applicant should therefore design the verification path so
 that swapping in a precompile in a later release is a localised
 change (a single trait implementation or syscall wrapper), not a
 restructuring of the program.
+
+The precompile path addresses public-mode write-side cost only;
+private-execution pull mode is foreclosed under it for the same
+structural reason it is foreclosed under the in-program path
+(a precompile lives outside the ZK proof boundary, so it is not
+callable from inside a private transaction). If a signature
+scheme exists, or can be selected, that yields acceptable
+in-circuit cost on RISC0 (a RISC0-friendly hash and curve
+combination, or a different signature primitive that admits
+cheaper in-circuit verification), pull-mode reads from inside
+private execution become reachable and the public-mode
+aggregator becomes one option among several rather than the only
+viable shape. Identifying or building such a scheme, and either
+modifying an existing oracle network to publish in it or
+standing up a new publisher set that does, is the subject of a
+possible separate follow-on RFP. It is independent of the
+public-mode precompile question and out of scope for this RFP.
 
 ### Why RedStone first
 
@@ -528,6 +545,16 @@ elsewhere:
   becomes a candidate for a follow-on RFP if and only if the cost
   measurement in this RFP shows the in-program path is too
   expensive for production cadence.
+- Switching the upstream signature scheme to one that yields
+  acceptable in-circuit cost for private execution on RISC0
+  (RISC0-friendly hash and curve, or a different signature
+  primitive entirely). If such a scheme exists or can be selected,
+  modifying an existing oracle network to publish in it, or
+  standing up a new publisher set that does, would unlock
+  pull-mode reads from inside private transactions and is the
+  subject of a possible separate follow-on RFP. It is independent
+  of the public-mode precompile question above and is not a
+  deliverable of this RFP.
 - The choice between LSC/USD direct and LGS/USD + LGS/LSC
   composite for the LSC stablecoin
   ([RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)). That
