@@ -1,7 +1,7 @@
 ---
 title: "Oracles on LEZ — TWAP and Off-Chain Adaptors"
 description: "Talk-track for RFP-019 + RFP-020"
-tags: presentation, oracles, lez, rfp
+tags: [presentation, oracles, lez, rfp]
 slideOptions:
   theme: white
   transition: fade
@@ -92,7 +92,7 @@ Cardinality: how many past observations the pool stores. Default is 1; can be ex
 - **Doesn't work for off-chain assets** (no on-chain pool for USD, XMR, ZEC)
 
 Note:
-This is the load-bearing slide for "why we still need off-chain". TWAP's security comes from the cost of moving the pool price and holding it. On a $100M pool, that's expensive. On a $1M pool, it's cheap.
+This is the load-bearing slide for "why we still need off-chain". TWAP's security comes from the cost of moving the pool price and holding it. On a $100M pool, that's expensive. On a $1M pool, it's cheaper.
 
 The PoS multi-block attack is the cleanest example: under PoS, validators know one epoch ahead whether they control consecutive blocks. A validator with two consecutive blocks can move the price in block N, accumulator records it, then move it back in block N+1. Cost ≈ round-trip swap fees + price impact + the foregone arbitrage. Cheaper than people think.
 
@@ -125,6 +125,9 @@ Both Pyth and RedStone sign with secp256k1 ECDSA over keccak256 — same primiti
 
 The next slide covers what LEZ has wired into its runtime, what guest programs can actually call, and what that means for the in-program cost of verifying these schemes.
 
+VAA = Verified Action Approval - Wormhole's standard cross-chain message format, signed by the guardians.
+calldata: the signed price packages are just appended to the consmer tx's calldata.
+
 ---
 
 # LEZ verification primitives — what's there
@@ -134,7 +137,7 @@ The next slide covers what LEZ has wired into its runtime, what guest programs c
 - That primitive validates **transaction witnesses only** — it is **not exposed to guest programs**
 - No threshold / aggregate primitives, no ECDSA, no ed25519 callable from program code
 
-→ Any signature a program needs to verify (BIP-340 from a DLC publisher, ECDSA-keccak from RedStone or Pyth, ed25519 from Switchboard) runs **in-circuit**. Prototype work on secp256k1 ECDSA inside RISC0 ([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench)) shows proof generation in the order of minutes on consumer hardware; private-execution pull is infeasible, public-mode write-side cost amortises across reads.
+→ Any signature a program needs to verify (BIP-340 from a DLC publisher, ECDSA-keccak from RedStone or Pyth, ed25519 from Switchboard) runs **in-circuit**. The bench [`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench) covers four schemes on a CPU-only Ryzen 9 7940HS (no CUDA, no Bonsai): end-to-end private TX for the RedStone scheme (ECDSA secp256k1, 3-of-N) lands at **7:26**, and no scheme in the matrix hits sub-30s interactive UX. Numbers next slide.
 
 Note:
 This is the slide that reframes the rest of the deck.
@@ -145,7 +148,44 @@ Every general-purpose price oracle in production today (RedStone, Pyth via Wormh
 
 The cost question is therefore the same shape across signature schemes: any in-program verification has to run as RISC-V code inside the RISC0 zkVM. Some primitives are more expensive to prove than others (ECDSA recovery and keccak256 in particular), but none get the "free precompile" treatment.
 
-The next slide covers the four shapes available for closing this gap.
+The next slide gives the bench numbers, then we walk the four adaptor shapes.
+
+---
+
+# Signature verification cost on RISC0 — measured
+
+Bench: CPU-only AMD Ryzen 9 7940HS, 16 threads, no CUDA, no Bonsai. Source: [`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench).
+
+Local prove (no privacy wrap), N = signatures verified per call:
+
+| Scheme                                    | N=1 prove | N=3 prove | user cycles / sig (N=1) |
+| ----------------------------------------- | --------- | --------- | ----------------------- |
+| ECDSA secp256k1 (RedStone, Pyth)          | 2:26      | 4:20      | 303 K                   |
+| Schnorr secp256k1 (BIP-340, FROST output) | 1:12      | 2:26      | 271 K                   |
+| ECDSA P-256                               | 1:09      | 2:22      | 198 K                   |
+| Ed25519 (Switchboard)                     | 2:40      | 7:40      | 803 K                   |
+
+End-to-end private TX (privacy wrap + sequencer roundtrip), 3-of-N:
+
+| Scheme            | E2E (3-of-N) |
+| ----------------- | ------------ |
+| ECDSA P-256       | 4:58         |
+| Schnorr secp256k1 | 5:22         |
+| ECDSA secp256k1   | **7:26**     |
+| Ed25519           | 11:09        |
+
+→ **No scheme fits sub-30s interactive UX on CPU.** P-256 is ~32% cheaper per-sig than secp256k1 ECDSA; Schnorr secp256k1 is ~9% cheaper. CUDA / Bonsai would compress these meaningfully; CPU alone is too heavy for low-latency private pull.
+
+Note:
+This is the data that pins down the design choice on the next four slides. Three takeaways:
+
+1. **Private-execution pull is off the table on CPU for every scheme in scope.** RedStone's ECDSA secp256k1 at 3-of-N is 7:26 end-to-end on a 16-thread Ryzen. The cheapest scheme (P-256) is still 4:58. Sub-30s interactive UX needs CUDA / Bonsai or a precompile, both of which are out of scope for RFP-020 day one.
+
+2. **For the public-mode aggregator's write side, the relevant number is local prove, not E2E.** The aggregator runs without the privacy wrapper; ECDSA secp256k1 N=3 is 4:20 of CPU prove time per update, amortised across all downstream reads. Whether that's acceptable at production cadence is what RFP-020's first deliverable measures on real LEZ infrastructure (not just this bench laptop).
+
+3. **Cross-scheme ranking is meaningful for any future "private-mode-friendly upstream" follow-on.** If consumer demand for private-execution pull is established later (the LSC stablecoin in RFP-013 currently constrains parts of its flow to public execution for unrelated reasons, so demand is unconfirmed), the bench data identifies the candidate primitives to consider on the upstream side: P-256 first, Schnorr secp256k1 second. Ed25519 is the most expensive of the four in this RISC0 stack despite curve25519-dalek's accelerated backend, because Edwards arithmetic plus in-algorithm sha512 (no precompile) dominates.
+
+Caveats: synthetic same-message fixtures, no batch-verify shortcuts, AI-assisted research bench (must not ship to mainnet). Real LEZ devnet numbers are part of RFP-020's Deliverable D1.
 
 ---
 
@@ -167,7 +207,7 @@ A — A LEZ-side process pulls RedStone/Pyth payloads, verifies them off-chain, 
 
 The structural test that distinguishes A from B/C/D: **whose signature authenticates the LEZ transaction**. A's transaction is signed by the re-signer (runtime handles verification). B/C/D's transactions carry an upstream publisher's signature inside calldata, distinct from the transaction sender — the guest program has to verify it in-circuit.
 
-B — A t-of-n federation does DKG and produces one BIP-340-verifiable Schnorr signature per price update. Libraries exist (ZF FROST, Blockstream bip-frost-dkg, jesseposner FROST-BIP340) but no oracle is using FROST in production today; FrostOracle (Chen et al., IEEE iThings 2023) is the lone academic proposal, and the closest production precedent is iBTC/DLC.Link's federation for *contract-outcome* attestation, not price feeds. Crucially, BIP-340 verification is not exposed to guest programs on LEZ either (the runtime primitive is for transaction witness only), so a guest program consuming a FROST-aggregated signature has to verify it in-circuit — same in-circuit cost question shape D faces with ECDSA. **Shape B is therefore not the right call unless LEZ later exposes Schnorr verification to guest programs at acceptable cost**; without that, you're paying the same in-circuit cost as D plus the green-field R&D risk.
+B — A t-of-n federation does DKG and produces one BIP-340-verifiable Schnorr signature per price update. Libraries exist (ZF FROST, Blockstream bip-frost-dkg, jesseposner FROST-BIP340) but no oracle is using FROST in production today; FrostOracle (Chen et al., IEEE iThings 2023) is the lone academic proposal, and the closest production precedent is iBTC/DLC.Link's federation for *contract-outcome* attestation, not price feeds. Crucially, BIP-340 verification is not exposed to guest programs on LEZ either (the runtime primitive is for transaction witness only), so a guest program consuming a FROST-aggregated signature has to verify it in-circuit. The bench measures Schnorr secp256k1 in-circuit at ~9% cheaper per-sig than ECDSA secp256k1 (5:22 E2E vs 7:26 E2E at 3-of-N on CPU); neither lands under 30 s, so the in-circuit cost question is the same shape as D. **Shape B is therefore not the right call unless LEZ later exposes Schnorr verification to guest programs at acceptable cost**; without that, you're paying ~91% of D's in-circuit cost plus the green-field R&D risk.
 
 C — Bitcoin DLC oracles (Pythia, Sibyls, Suredbits, Ernest Oracle) publish BIP-340 attestations. Two disqualifiers, either sufficient on its own. First, same runtime dependency as B: each verification runs in-circuit at unmeasured cost, and the numeric DLC encoding multiplies that by N (bit-precision of the price), so shape C is not the right call unless LEZ later exposes Schnorr verification to guest programs at acceptable cost. Second, even with cheap Schnorr verification the structural fit is prediction markets and discrete-outcome contracts, not streaming price feeds. Better positioned for a future prediction-market RFP than for the current oracle work. The DLC info is in the appendix for reference.
 
@@ -198,7 +238,7 @@ The reasoning differs slightly between D1 (in-program verify) and D2 (precompile
 Note:
 The push-mode aggregator pattern is the right design under both implementation paths. The reasoning differs.
 
-**Under D1 (RISC-V in-program ECDSA, day-1 path):** in-program verification is reachable from private execution (the same RISC-V code can run inside a user's private proof), but prototype data ([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench)) puts proof generation in the order of minutes on consumer hardware. That rules out private-execution pull mode in practice, absent a RISC0-specific signature-verification accelerator. Push mode amortises the public-mode write-side cost across all downstream reads. Pull mode from public execution is technically possible but pays full proving cost per consumer transaction with no amortisation, strictly worse than reading the public price account.
+**Under D1 (RISC-V in-program ECDSA, day-1 path):** in-program verification is reachable from private execution (the same RISC-V code can run inside a user's private proof), but prototype data ([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench)) puts end-to-end private TX time at **7:26 for ECDSA secp256k1 at 3-of-N** on a CPU-only Ryzen 9 7940HS, with no scheme in the four-way matrix landing under 30 s. That rules out private-execution pull mode in practice, absent a RISC0-specific signature-verification accelerator or GPU / Bonsai proving. Push mode amortises the public-mode write-side cost across all downstream reads. Pull mode from public execution is technically possible but pays full proving cost per consumer transaction with no amortisation, strictly worse than reading the public price account.
 
 **Under D2 (precompile follow-on, only if D1's measurement forces it):** the asymmetry becomes structural rather than economic. A precompile is unreachable from private execution because anything in a private transaction has to be expressible inside the RISC-V zkVM circuit, and a host function lives outside it. Private execution would have to either (a) verify in the privacy circuit (forfeits batching, defeats the precompile's purpose) or (b) place the signature in the transaction journal and break privacy. Neither option preserves both efficiency and privacy. So under D2, push mode is not a preference — it's the only design that works.
 
@@ -318,11 +358,11 @@ Soft blocker: LP-0012 (event emission) for dashboard / monitoring; not critical.
 Tier M · ~6–10 weeks · no Wormhole dependency · no runtime change required
 
 Note:
-LEZ is a RISC-V zkVM built on RISC0. The runtime's existing BIP-340 signature primitive validates transaction witnesses only; it is not exposed to guest programs, and there is no callable ECDSA / keccak host function either. So any signature a program needs to verify runs in-circuit. Prototype work on secp256k1 ECDSA inside RISC0 ([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench)) shows proof generation in the order of minutes on consumer hardware: private-execution pull mode is therefore not on the table, and the adaptor design has to be push-mode aggregator with the verification cost amortised across reads.
+LEZ is a RISC-V zkVM built on RISC0. The runtime's existing BIP-340 signature primitive validates transaction witnesses only; it is not exposed to guest programs, and there is no callable ECDSA / keccak host function either. So any signature a program needs to verify runs in-circuit. The cross-scheme bench ([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench), CPU-only Ryzen 9 7940HS, no CUDA, no Bonsai) measures four schemes; ECDSA secp256k1 at 3-of-N (the RedStone shape) is **7:26 end-to-end private TX**, with no scheme in scope landing under 30 s. Private-execution pull mode is therefore not on the table on consumer CPU, and the adaptor design has to be push-mode aggregator with the verification cost amortised across reads.
 
 RedStone's data nodes sign price packages with secp256k1 ECDSA over keccak256. RFP-020 implements that verification path in RISC-V program code using existing Rust crates (k256 / sha3 / equivalents) and proves it via RISC0 alongside the rest of the program. The structural choice is push-mode aggregator: the verifier runs once per update on the write side, prices land in a public price account, and private accounts compose by reading the slot. Pull mode for private accounts is not on the menu — verifying a signature inside the privacy circuit forfeits batching benefits, and putting it in the transaction journal breaks privacy.
 
-Prototype data ([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench)) already establishes that naive in-circuit ECDSA in RISC0 is slow enough to rule out private-execution pull mode (proof generation in the order of minutes on consumer hardware). Public-mode write-side cost is the open variable, since amortisation across all reads can make a per-update cost workable that would be unworkable per-private-transaction. Measurement of the public-mode cost is the first deliverable. Two outcomes:
+Bench data ([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench)) already establishes that naive in-circuit ECDSA in RISC0 is slow enough to rule out private-execution pull mode on consumer CPU (7:26 end-to-end at 3-of-N for ECDSA secp256k1 on a Ryzen 9 7940HS, with no scheme in the four-way matrix landing under 30 s). Public-mode write-side cost is the open variable, since amortisation across all reads can make a per-update cost workable that would be unworkable per-private-transaction. The bench's local-prove number for ECDSA secp256k1 at N=3 is 4:20 on the same machine, but a real LEZ devnet measurement is what RFP-020 commits to. Measurement of the public-mode cost is the first deliverable. Two outcomes:
 
 1. **Cost is acceptable.** The adaptor ships on the runtime as it stands.
 2. **Cost is unacceptable.** The measurement becomes the input to a follow-on RFP that proposes adding a secp256k1 ECDSA + keccak256 precompile to LEZ for public-execution mode. The applicant should design the verification path so that swapping in a precompile later is a localised change.
@@ -413,11 +453,11 @@ Anticipated questions and the short answer:
 
 **Q: Why does the adaptor implement ECDSA verification in program code rather than relying on a precompile?** Because LEZ doesn't currently expose any signature primitive to guest programs (the runtime's BIP-340 primitive validates transaction witnesses, not program-callable). LEZ is RISC0-based, so any signature scheme can be implemented in program code; the open question is whether the resulting cost is acceptable. RFP-020's first deliverable is to measure that cost. If it's acceptable for the push-mode aggregator's update cadence, the adaptor ships. If it's not, a follow-on RFP proposes adding a secp256k1 ECDSA + keccak256 precompile for public-execution mode.
 
-**Q: What about private execution? Can a private transaction verify a RedStone payload inline (pull mode)?** No. Prototype data ([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench)) puts proof generation for in-circuit secp256k1 ECDSA in the order of minutes on consumer hardware, which rules pull mode out in practice. Putting the signature in the transaction journal would break privacy. Even if a precompile is added later, it would live outside the ZK proof boundary and remain callable only from public execution. Private accounts compose by reading the public price account that the push-mode aggregator writes to.
+**Q: What about private execution? Can a private transaction verify a RedStone payload inline (pull mode)?** No. Bench data ([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench)) puts end-to-end private TX time for ECDSA secp256k1 at 3-of-N at **7:26** on a CPU-only Ryzen 9 7940HS, with no scheme in the four-way matrix landing under 30 s, which rules pull mode out in practice on consumer CPU. Putting the signature in the transaction journal would break privacy. Even if a precompile is added later, it would live outside the ZK proof boundary and remain callable only from public execution. Private accounts compose by reading the public price account that the push-mode aggregator writes to.
 
 **Q: Why not just sign in BIP-340 Schnorr+SHA-256 at the oracle, since that matches LEZ's transaction-witness primitive?** Two reasons. First, the runtime's BIP-340 primitive is not exposed to guest programs either, so a program verifying a BIP-340 signature also pays in-circuit cost — same shape as the ECDSA case. Second, no production price oracle signs in BIP-340 today; the candidates that did or do (Pythia is the only live publisher; Sibyls operator is dead, Ernest on hiatus, Suredbits dormant) are single-operator BTC/USD publishers built around discrete-event attestation, and none publish XMR/USD or ZEC/USD. See appendix shape A through D for the full analysis.
 
-**Q: What about FROST? Threshold Schnorr that emits one BIP-340 signature?** Same in-circuit cost question as ECDSA, plus no oracle is using FROST in production today (closest precedent is iBTC/DLC.Link's federation for *contract-outcome* attestation, not price feeds). Pursuing this is the right call only if LEZ later exposes Schnorr verification to guest programs at low cost. Without that, it carries the same in-circuit cost as the ECDSA path plus green-field R&D risk.
+**Q: What about FROST? Threshold Schnorr that emits one BIP-340 signature?** Bench data has Schnorr secp256k1 at ~9% cheaper per-sig than ECDSA secp256k1 in the RISC0 stack (5:22 E2E vs 7:26 E2E at 3-of-N on CPU), so the in-circuit cost question is the same shape as D, just modestly cheaper, and neither lands under 30 s on consumer CPU. Plus no oracle is using FROST in production today (closest precedent is iBTC/DLC.Link's federation for *contract-outcome* attestation, not price feeds). Pursuing this is the right call only if LEZ later exposes Schnorr verification to guest programs at low cost. Without that, it carries ~91% of the ECDSA path's in-circuit cost plus green-field R&D risk.
 
 **Q: What about DLC oracles (shape C)?** Documented in the appendix for reference. Structurally a fit for prediction markets and discrete-outcome contracts, not streaming price feeds. Same in-circuit cost question multiplied by N bits of precision (numeric DLC encoding signs the outcome bit-by-bit). Better positioned for a future prediction-market RFP.
 

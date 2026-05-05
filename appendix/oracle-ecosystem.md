@@ -731,16 +731,50 @@ ECDSA recovery and keccak256 hashing as program code running
 inside the RISC0 zkVM, using existing Rust crates (k256 / sha3 /
 equivalents) proved by RISC0 along with the rest of the program.
 This is what RFP-020 commits to for the public-mode write side.
-No runtime change required. Early prototype work
-([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench)) is already enough to establish that
-naive in-circuit ECDSA is slow on consumer hardware (proof
-generation in the order of minutes for a private read), which
-rules out private-execution pull mode under D1 absent a
-RISC0-specific signature-verification accelerator. Public-mode
-cost remains the open variable RFP-020 measures: it amortises
-across all downstream reads, so a write-side cost that would be
-unworkable per-private-transaction may still be acceptable per
-heartbeat.
+No runtime change required. The cross-scheme bench
+[`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench)
+establishes naive in-circuit ECDSA is slow on consumer CPU:
+end-to-end private TX time (privacy wrap plus sequencer
+roundtrip) for ECDSA secp256k1 at 3-of-N is **7:26** on a
+CPU-only AMD Ryzen 9 7940HS (16 threads, no CUDA, no Bonsai),
+and no scheme in the four-way matrix (ECDSA secp256k1, Schnorr
+secp256k1, ECDSA P-256, Ed25519) lands under 30 s. That rules
+out private-execution pull mode under D1 absent a RISC0-specific
+signature-verification accelerator or GPU / Bonsai proving.
+Public-mode cost remains the open variable RFP-020 measures: the
+bench's local-prove number for ECDSA secp256k1 at N=3 (no
+privacy wrap) is **4:20** on the same machine, but real LEZ
+devnet measurement is what RFP-020 commits to. Public-mode cost
+amortises across all downstream reads, so a write-side cost that
+would be unworkable per-private-transaction may still be
+acceptable per heartbeat.
+
+For reference, the bench's per-signature user-cycle deltas
+(N=1, sub-noop) and end-to-end private-TX rankings at 3-of-N:
+
+| Scheme | user cycles / sig (N=1) | E2E private TX (3-of-N) |
+|---|---:|---:|
+| ECDSA P-256 | 198 K | 4:58 |
+| Schnorr secp256k1 | 271 K | 5:22 |
+| ECDSA secp256k1 | 303 K | 7:26 |
+| Ed25519 | 803 K | 11:09 |
+
+P-256 is roughly 32% cheaper per-sig than secp256k1 ECDSA in
+this stack (sha256 prehash vs keccak256 dominates the gap).
+Schnorr secp256k1 is roughly 9% cheaper than ECDSA secp256k1 on
+the same precompile path. Ed25519 is the most expensive of the
+four, despite curve25519-dalek's accelerated RISC0 backend,
+because Edwards arithmetic plus the in-algorithm sha512 (no
+zkVM precompile) dominates. These per-sig deltas matter for any
+future "private-mode-friendly upstream" follow-on; they do not
+change the day-one D1 picture, which is gated by
+private-execution pull being infeasible at every scheme on CPU.
+
+Caveats: synthetic same-message fixtures, no batch-verify
+shortcuts, and the bench is an AI-assisted research repository
+explicitly not intended for mainnet. The numbers are
+order-of-magnitude indicators; production LEZ measurement is
+RFP-020 Deliverable D1.
 
 **Path D2 (cost-conditional follow-on): an accelerated precompile
 or host function in public-execution mode.** Triggered only if D1
@@ -765,13 +799,16 @@ end-state design is identical.
 
 Under D1, in-program verification is technically reachable from
 private execution (the same RISC-V code can run inside a user's
-private proof), but prototype data ([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench))
-establishes the proof-generation cost is in the order of minutes
-on consumer hardware. That makes private-execution pull mode
-infeasible in practice, not merely expensive, absent a
-RISC0-specific signature-verification accelerator. Push mode
-amortises the cost once across all downstream reads on the
-public-mode write side instead.
+private proof), but bench data
+([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench))
+puts end-to-end private TX time at 7:26 for ECDSA secp256k1 at
+3-of-N on a CPU-only Ryzen 9 7940HS, with no scheme in the
+four-way matrix landing under 30 s. That makes private-execution
+pull mode infeasible in practice on consumer CPU, not merely
+expensive, absent a RISC0-specific signature-verification
+accelerator or GPU / Bonsai proving. Push mode amortises the
+cost once across all downstream reads on the public-mode write
+side instead.
 
 Under D2, the asymmetry becomes structural rather than economic.
 A precompile is unreachable from private execution: anything in a
