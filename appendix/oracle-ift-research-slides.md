@@ -67,7 +67,9 @@ Off-chain: someone outside the chain (Chainlink, Pyth, RedStone) signs a price a
 
 ---
 
-# On-chain TWAP — how it works
+# On-chain TWAP: how it works
+
+**TWAP = Time-Weighted Average Price** (i.e., not a spot price)
 
 - Pool stores running accumulator: `price × elapsed_time`
 - Reader takes accumulator at T1 and T2
@@ -76,15 +78,15 @@ Off-chain: someone outside the chain (Chainlink, Pyth, RedStone) signs a price a
 - Cardinality up to 65,535 observations (~9 days at Ethereum's 12s blocks)
 
 Note:
-Whiteboard moment if needed. Two values stored in the pool, both monotonically increasing. To get a TWAP, you read at two points in time and divide.
+Whiteboard moment if needed. Two values stored in the pool, both monotonically increasing. To get a **mean price** over an interval, you read the accumulator at two points in time and divide. The result is the time-weighted **average** of all prices in that period.
 
-Geometric mean is what Uniswap V3 switched to (V2 was arithmetic). The reason: an attacker who pushes the price 10x up in one block and 10x back in the next leaves zero impact on the geometric mean, but pushes the arithmetic mean way up. Geometric mean is the right shape for multiplicative price processes.
+Geometric mean is what Uniswap V3 switched to (V2 was arithmetic). The reason: an attacker who pushes the price 10x up in one block and 10x back in the next leaves zero impact on the geometric mean, but pushes the arithmetic mean way up. **Geometric mean is the right shape for computing averages on multiplicative price processes.**
 
 Cardinality: how many past observations the pool stores. Default is 1; can be expanded up to 65,535 at a one-time storage cost. At 12-second blocks that's ~9 days of history.
 
 ---
 
-# On-chain TWAP — the catch
+# On-chain TWAP: the catch
 
 - Security scales **linearly with pool depth**
 - Two-block validator attack costs ≈ round-trip swap fees + price impact
@@ -100,26 +102,42 @@ And the killer: TWAP only works for pairs that exist as pools on the chain. If y
 
 ---
 
-# Off-chain oracles — push vs pull, and how verification works
+# Off-chain oracles: push vs pull
 
-**Push:** oracle nodes write prices on-chain on heartbeat / threshold (Chainlink classic, Chronicle). Needs dedicated node operators.
-**Pull:** consumer submits signed price data at txn time (Pyth; RedStone in pull mode). No dedicated oracle infrastructure on chain.
+**Push:** oracles write prices on-chain regularly (Chainlink classic, Chronicle).
+**Pull:** consumer submits signed price data at txn time (Pyth; RedStone in pull mode).
 
 RedStone runs in both modes natively (50+ push deployments, 120+ pull deployments per the appendix survey).
 
-Verification path is the same shape in both: signers sign data packages, an on-chain verifier recovers M-of-N signatures, verified price is published.
-
-|               | **Pyth**                                                                      | **RedStone**                          |
-|---------------|-------------------------------------------------------------------------------|---------------------------------------|
-| Mode          | Pull (Wormhole)                                                               | Push + Pull                           |
-| Quorum        | 13-of-19                                                                      | typically 3-of-N                      |
-| Scheme        | secp256k1 ECDSA + double-keccak256 (single keccak256 on Solana), Wormhole VAA | secp256k1 ECDSA + keccak256, calldata |
-| Bridge needed | Wormhole                                                                      | none                                  |
 
 Note:
 Push is the chicken-and-egg model for new chains: push oracles need node operators, operators need TVL, TVL needs DeFi, DeFi needs oracles. Pull flips it — the consumer pays per update, no permanent infrastructure layer required, works on day one.
 
-LEZ-specific wrinkle covered next slide: classical pull mode (verify-inside-the-consumer-tx) doesn't transfer cleanly because of the zkVM's in-circuit cost profile. We end up with a push-mode aggregator that consumers (including private accounts) read, regardless of whether the upstream is delivered as push or pull on its native chain.
+Regular write can be on heartbeat or threshold
+
+
+---
+
+# Off-chain oracle: verification
+
+Signers sign data packages, an on-chain verifier recovers M-of-N signatures, verified price is published.
+
+---
+
+# Off-chain oracle: verification
+
+|               | **Pyth**                                                                      | **RedStone**                          |
+|---------------|-------------------------------------------------------------------------------|---------------------------------------|
+| Mode          | Pull (Wormhole)                                                               | Push + Pull                           |
+| Quorum        | 13-of-19                                                                      | 3-of-N\*                      |
+| Scheme        | secp256k1 ECDSA + 2*keccak256\*\*, Wormhole VAA | secp256k1 ECDSA + keccak256, calldata |
+| Bridge needed | Wormhole                                                                      | none                                  |
+
+\*typically
+\*\*single keccak256 on Solana
+
+Note:
+LEZ-specific wrinkle: classical pull mode (verify-inside-the-consumer-tx) doesn't transfer cleanly because of the zkVM's in-circuit cost profile. We end up with a push-mode aggregator that consumers (including private accounts) read, regardless of whether the upstream is delivered as push or pull on its native chain.
 
 Both Pyth and RedStone sign with secp256k1 ECDSA over keccak256 — same primitive, different wrapping. Pyth wraps in Wormhole VAAs (13 ECDSA recoveries + Merkle proof per update + guardian-set tracking on-chain). RedStone is calldata-only: the signed package is just bytes, the verifier recovers signers and checks against a registered allowlist. No bridge.
 
@@ -130,14 +148,36 @@ calldata: the signed price packages are just appended to the consmer tx's callda
 
 ---
 
-# LEZ verification primitives — what's there
+# Privacy needs
+
+| | | |
+| --- | ------ |---|
+|Push | Public | Make price available to everyone|
+|Push | Private | (!) Doesn't make sense|
+|Pull | Public | For stablecoin needs and other public pools|
+|Pull | Private | (?) Private program that uses oracle|
+
+Note:
+Pull private might be interesting for prediction markets, where one could claim an outcome privately?
+
+Private pull can always re-use pushed data.
+
+---
+
+# LEZ verification primitives (1)
 
 - LEZ is a RISC-V zkVM (built on RISC0)
 - One signature primitive wired into the runtime: **single-key BIP-340 Schnorr over SHA-256**
 - That primitive validates **transaction witnesses only**; it is **not exposed to guest programs**
 - No threshold / aggregate primitives, no ECDSA, no ed25519 callable from program code
 
-→ Any signature a program needs to verify (BIP-340 from a DLC publisher, ECDSA-keccak from RedStone or Pyth, ed25519 from Switchboard) runs **in-circuit**. The bench [`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench) covers four schemes on a CPU-only Ryzen 9 7940HS (no CUDA, no Bonsai): end-to-end private TX for the RedStone scheme (ECDSA secp256k1, 3-of-N) lands at **7:26**, and no scheme in the matrix hits sub-30s interactive UX. Numbers next slide.
+---
+
+# LEZ verification primitives (2)
+
+Any signature a program needs to verify (BIP-340 from a DLC publisher, ECDSA-keccak from RedStone or Pyth, ed25519 from Switchboard) runs in RISC0: in-circuit (private), CU (public).
+
+The bench [`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench) covers four schemes on a CPU-only Ryzen 9 7940HS (16 threads): private TX for the RedStone scheme (ECDSA secp256k1, 3-of-N) lands at **7:26**, and no scheme in the matrix hits sub-30s interactive UX.
 
 Note:
 This is the slide that reframes the rest of the deck.
@@ -152,19 +192,16 @@ The next slide gives the bench numbers, then we walk the four adaptor shapes.
 
 ---
 
-# Signature verification cost on RISC0 — measured
+Local prove (no privacy wrap), N = signatures verified:
 
-Bench: CPU-only AMD Ryzen 9 7940HS, 16 threads, no CUDA, no Bonsai. Source: [`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench).
-Disclaimer: LLM-generated code.
-
-Local prove (no privacy wrap), N = signatures verified per call:
-
-| Scheme                                    | N=1 prove | N=3 prove | user cycles / sig (N=1) |
+| Scheme                                    | N=1 prove | N=3 prove | user cycles / sig |
 |-------------------------------------------|-----------|-----------|-------------------------|
-| ECDSA secp256k1 (RedStone, Pyth)          | 2:26      | 4:20      | 303 K                   |
-| Schnorr secp256k1 (BIP-340, FROST output) | 1:12      | 2:26      | 271 K                   |
+| ECDSA secp256k1: RedStone, Pyth          | 2:26      | 4:20      | 303 K                   |
+| Schnorr secp256k1: BIP-340, FROST | 1:12      | 2:26      | 271 K                   |
 | ECDSA P-256                               | 1:09      | 2:22      | 198 K                   |
 | Ed25519 (Switchboard)                     | 2:40      | 7:40      | 803 K                   |
+
+---
 
 End-to-end private TX (privacy wrap + sequencer roundtrip), 3-of-N:
 
@@ -175,7 +212,7 @@ End-to-end private TX (privacy wrap + sequencer roundtrip), 3-of-N:
 | ECDSA secp256k1   | **7:26**     |
 | Ed25519           | 11:09        |
 
-→ **No scheme fits sub-30s interactive UX on CPU.** P-256 is ~32% cheaper per-sig than secp256k1 ECDSA; Schnorr secp256k1 is ~9% cheaper. CUDA / Bonsai would compress these meaningfully; CPU alone is too heavy for low-latency private pull.
+**No scheme fits sub-30s interactive UX on CPU.** P-256 is ~32% cheaper per-sig than secp256k1 ECDSA; Schnorr secp256k1 is ~9% cheaper. CUDA / Bonsai would compress these meaningfully.
 
 Note:
 This is the data that pins down the design choice on the next four slides. Three takeaways:
@@ -190,16 +227,49 @@ Caveats: synthetic same-message fixtures, no batch-verify shortcuts, AI-assisted
 
 ---
 
-# Four adaptor shapes
+# Options
 
-| Shape                            | What it is                                                                                                | Trust set                    | Engineering                       | In-circuit cost question                              |
-|----------------------------------|-----------------------------------------------------------------------------------------------------------|------------------------------|-----------------------------------|-------------------------------------------------------|
-| **A** Re-signer relayer          | Relayer's signature authenticates the LEZ tx itself; program does an equality check on the caller         | 1 operator                   | small                             | avoided (runtime-handled, not in-program)             |
-| **B** FROST federation (tx-sign) | t-of-n federation FROST-signs the LEZ tx itself, emitting one BIP-340 sig as the tx witness               | t honest signers             | green-field R&D + PoC             | avoided under PoC assumption (runtime-handled tx sig) |
-| **C** DLC-oracle extension       | BIP-340-native publisher (Pythia, etc.)                                                                   | 1 op (or M-of-K independent) | small to medium                   | yes (in-circuit Schnorr × N bits)                     |
-| **D** secp256k1 ECDSA on LEZ     | RedStone/Pyth ECDSA-keccak verified in program code (day 1); precompile is the cost-conditional follow-on | upstream signers             | implementation + cost measurement | yes (in-circuit ECDSA)                                |
+1. ECDSA Verification: RedStone, Pyth
+2. Centralised Relayer Re-Signs
+3. t-of-n federation (off-chain threshold) using FROST-signs
+4. Bitcoin DLC Oracles
 
-→ **RFP-020 picks D.** RFP-019 (on-chain TWAP) is structurally separate from this choice. Shape A is rejected (trust collapse to one re-signer). Shape B is the federated alternative on the tx-signing path: a PoC has to prove the runtime accepts the FROST-aggregated BIP-340 witness; if it does, the public-mode push CU is lower than D, but it stays push-only and does not unlock private pull. Shape C is documented; structurally a fit for prediction markets, not current oracle work.
+---
+
+# 1. ECDSA Verification
+
+1. Push and pull are the same
+2. Potentially high cost for push and pull
+3. Private pull very costly/slow
+4. Precompile can help reduce cost (public only)
+5. Re-use existing Oracle networks
+
+---
+
+# 2. Relay re-signs (Schnorr)
+
+1. Push: valid tx sig = valid data, cheapest transactions
+2. Pull, private: slightly cheaper than ECDSA
+3. Highly trusted centralised party
+4. Re-use existing Oracle networks
+
+---
+
+# 3. t-of-n federation Schnorr threshold
+
+1. Push: valid tx sig = valid data, cheapest transactions
+2. Pull, private: slightly cheaper than ECDSA
+3. New Oracle Network
+4. Would need to confirm feasible (use FROST/Schnorr threshold for LEZ transactions)
+
+---
+
+# 4. Bitcoin DLC Oracles
+
+1. Push: BIP-340 tx sig = valid data, cheapest transactions (needs adaptor)
+2. Discrete-outcome (prediction markets), not regular price feed
+3. Need to confirm feasibility
+
 
 Note:
 Quick walk-through of the four:
@@ -212,13 +282,9 @@ B — A t-of-n federation jointly FROST-signs the LEZ transaction itself (not th
 
 C — Bitcoin DLC oracles (Pythia, Sibyls, Suredbits, Ernest Oracle) publish BIP-340 attestations. Two disqualifiers, either sufficient on its own. First, same in-circuit cost question as D: each verification runs in-circuit at unmeasured cost, and the numeric DLC encoding multiplies that by N (bit-precision of the price), so shape C is not the right call unless LEZ later exposes Schnorr verification to guest programs at acceptable cost. Second, even with cheap Schnorr verification the structural fit is prediction markets and discrete-outcome contracts, not streaming price feeds. Better positioned for a future prediction-market RFP than for the current oracle work. The DLC info is in the appendix for reference.
 
-D — Implement RedStone's secp256k1 ECDSA + keccak256 verification as RISC-V program code inside the RISC0 zkVM. Push-mode aggregator: write side does the verify once per update, private accounts read the resulting public price account. The cost is the open variable; measuring it is the first deliverable of RFP-020. If measured cost is acceptable, the adaptor ships on the runtime as it stands. If not, a follow-on RFP proposes adding a secp256k1 ECDSA + keccak256 precompile (public-mode only). The precompile is therefore an optimisation path, not a precondition.
-
-RFP-019 reads on-chain AMM pool state and accumulates observations — no external publisher signature is involved, so the LEZ-native primitive is sufficient and the off-chain signature question doesn't apply.
-
 ---
 
-# Push mode on LEZ — same end-state design under D1 and D2
+# Push mode on LEZ
 
 - Public-mode aggregator does the verify **once** per update
 - Stores price + timestamp in a public price account
@@ -233,8 +299,6 @@ Private account:
   reads public price account
   → no signature work in the private path
 ```
-
-The reasoning differs slightly between D1 (in-program verify) and D2 (precompile follow-on); the design is the same.
 
 Note:
 The push-mode aggregator pattern is the right design under both implementation paths. The reasoning differs.
@@ -255,17 +319,17 @@ A note on demand: the framing here treats private-execution pull as a capability
 
 ---
 
-# TWAP vs off-chain — head to head
+# TWAP vs off-chain
 
-|                           | **TWAP**             | **Off-chain pull**    |
+|                           | **TWAP**             | **Off-chain**    |
 |---------------------------|----------------------|-----------------------|
 | Trust assumption          | DEX liquidity        | signer set honesty    |
-| Day-one viable on LEZ     | no (DEX comes later) | yes                   |
+| Day-one viable on LEZ     | risky (liquidity)    | yes                   |
 | Privacy assets (XMR, ZEC) | no                   | yes                   |
-| Cost per query            | very cheap           | calldata + sig verify |
+| Cost per query            | cheap                | data + sig verify |
 | Manipulation defence      | depth-dependent      | M-of-N signers        |
 
-→ **Best practice: use both.** Production protocols cross-check.
+**Best practice: use both.** Production protocols cross-check.
 
 Note:
 Walk through the row by row. They're complementary, not competing. The production norm in EVM DeFi is multi-tier:
@@ -291,14 +355,10 @@ Funding models:
 
 # The two oracle RFPs
 
-|               | **RFP-019**            | **RFP-020**                                                      |
-| ------------- | ---------------------- | ---------------------------------------------------------------- |
-| Subject       | On-chain TWAP          | RedStone off-chain adaptor (RISC-V in-program verify)            |
-| Tier          | L                      | M                                                                |
-| Duration      | 8–12 wks               | 6–10 wks (adaptor) + LEZ runtime work                            |
-| Hard blockers | RFP-004 (DEX), LP-0015 | None at runtime level (precompile is cost-conditional follow-on) |
+- **RFP-019**: On-chain TWAP
+- **RFP-020**: RedStone off-chain adaptor (RISC-V in-program verify)
 
-Both feed into RFP-008 (lending), RFP-013 (stablecoin), RFP-004 (DEX consumers).
+Both needed for RFP-008 (lending) and RFP-013 (stablecoin)
 
 Note:
 Why two RFPs and not one: different dependency profiles, different timelines.
@@ -313,19 +373,16 @@ Awarding them as one combined RFP would have forced a single team to wait on the
 
 ---
 
-# RFP-019 — On-Chain TWAP Oracle
+## RFP-019: On-Chain TWAP Oracle
 
 **What it ships**
 - Reads DEX pool accumulators; computes geometric-mean TWAP
 - Defines **canonical oracle price account standard** (SVM IDL)
-- **Circuit breaker** against external feeds via that standard
 
 **Why it matters**
 - Single-source feeds = single point of failure
 - Layered defence = on-chain + off-chain cross-check (production norm)
 - Unlocks **LSC composite oracle path** (RFP-013 Path B)
-
-Tier L · ~8–12 weeks · gated on RFP-004 (DEX) + LP-0015
 
 Note:
 RFP-019 is structurally separate from the off-chain primitive question covered in earlier slides. It reads LEZ-native AMM pool state, accumulates price observations, and exposes them through a program account. No external publisher signature is involved; the LEZ-native single-sig primitive (used for transaction authentication, not data attestation) is sufficient.
@@ -343,15 +400,14 @@ Soft blocker: LP-0012 (event emission) for dashboard / monitoring; not critical.
 
 ---
 
-# RFP-020 — RedStone Off-Chain Adaptor (shape D)
+## RFP-020: RedStone Off-Chain Adaptor
 
 - **Day 1**: implement secp256k1 ECDSA + keccak256 verification as RISC-V program code inside RISC0
 - **Push-mode aggregator** → public price account → private accounts read
-- **Cost measurement is a primary deliverable** (compute units, RISC0 proof time + size)
+- **Cost measurement is a primary deliverable** (compute units)
 - Precompile is a **cost-conditional follow-on**, not a hard blocker
-- **Day-one delivery: XMR/USD and ZEC/USD**
+- **Day-one delivery: XMR/USD, ZEC/USD, BTC/USD, ETH/USD (TBC)**
 
-Tier M · ~6–10 weeks · no Wormhole dependency · no runtime change required
 
 Note:
 LEZ is a RISC-V zkVM built on RISC0. The runtime's existing BIP-340 signature primitive validates transaction witnesses only; it is not exposed to guest programs, and there is no callable ECDSA / keccak host function either. So any signature a program needs to verify runs in-circuit. The cross-scheme bench ([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench), CPU-only Ryzen 9 7940HS, no CUDA, no Bonsai) measures four schemes; ECDSA secp256k1 at 3-of-N (the RedStone shape) is **7:26 end-to-end private TX**, with no scheme in scope landing under 30 s. Private-execution pull mode is therefore not on the table on consumer CPU, and the adaptor design has to be push-mode aggregator with the verification cost amortised across reads.
@@ -369,9 +425,9 @@ XMR and ZEC are mandatory deliverables. RedStone was chosen because both feeds a
 
 ---
 
-# RFP-020 — Why RedStone as upstream source?
+## RFP-020: Why RedStone?
 
-Coverage matrix for XMR/USD + ZEC/USD upstream of LEZ:
+XMR/USD + ZEC/USD feeds:
 
 | Provider     | Both feeds? | Self-serve?           | Bridge needed? |
 | ------------ | ----------- | --------------------- | -------------- |
@@ -396,39 +452,12 @@ Reviewer note: seugu (anon-comms) reviewed PR #37 and pushed back on the oracle 
 
 ---
 
-# How the two RFPs fit together
+# Next Steps
 
-```
-                   RFP-019 (TWAP)
-                   defines + populates
-                          │
-      Canonical oracle price account standard (SVM IDL)
-                          │
-                   ┌──────┴──────┐
-                   │             │
-            RFP-020 RedStone   future Pyth RFP
-            populates          populates
-
-Consumers (lending, stablecoin, DEX) read **one** struct.
-```
-
-Note:
-The architectural payoff. Consuming protocols don't care which oracle source provides the price — they read the canonical account, get price + timestamp + source ID + confidence + dispute flag, and act.
-
-If we add Pyth later, the wrapped token RFP, or anything else, the consumers don't need to update. The standard is append-friendly so it can grow without breaking existing consumers.
-
-The circuit-breaker logic in RFP-019 also lives at this layer: when both TWAP and at least one external source are registered for a pair, divergence triggers the dispute flag.
-
----
-
-# Timeline + next steps
-
-- RFP-019: open immediately; build deferred until RFP-004 lands
-- RFP-020: builds on LEZ as it stands today (no runtime change required up front)
+- **RFP-019**: open immediately; build deferred until RFP-004 lands
+- **RFP-020**: builds on LEZ as it stands today (no runtime change required up front)
 - Cost measurement is a primary deliverable; if measured cost is unacceptable, a follow-on RFP proposes the precompile
 - Canonical price account standard (RFP-019) and adaptor (RFP-020) can be designed in parallel
-
-TODO: calendar dates, application window, review cadence, funding numbers.
 
 Note:
 TODO: get from user — actual timelines, funding numbers, go-live dates. $XXXXX placeholders still in both RFPs. Also confirm whether these RFPs need approval from a specific committee.
