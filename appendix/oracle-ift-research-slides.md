@@ -56,7 +56,7 @@ Anchor stat: 36 documented flash-loan oracle attacks have caused $418M in cumula
 | Source         | DEX pool state      | external publishers           |
 | Trust          | math + liquidity    | signer set                    |
 | Day-one viable | needs deep pools    | needs only verifier program   |
-| Coverage       | only on-chain pairs | any asset (USD, XMR, ZEC, FX) |
+| Coverage       | only on-chain pairs | any asset (other chain) or event |
 
 Note:
 This is the core dichotomy. Not strict — there are hybrids — but useful for explaining tradeoffs.
