@@ -13,6 +13,8 @@ category: Developer Tooling & Infrastructure
 
 ## 🧭 Overview
 
+TODO: review day 1 feed expectations (add BTC, ETH, others?)
+
 Build a RedStone off-chain oracle adaptor for LEZ: a public-mode
 LEZ program that verifies RedStone-signed data packages, exposes
 the resulting prices through the canonical oracle price account
