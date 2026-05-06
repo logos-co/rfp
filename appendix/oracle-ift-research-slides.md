@@ -258,7 +258,7 @@ Caveats: synthetic same-message fixtures, no batch-verify shortcuts, AI-assisted
 # 3. t-of-n federation Schnorr threshold
 
 1. Push: valid tx sig = valid data, cheapest transactions
-2. Pull, private: slightly cheaper than ECDSA
+2. Pull, private: slightly cheaper than ECDSA (if using normal signal, not witness sig)
 3. New Oracle Network
 4. Would need to confirm feasible (use FROST/Schnorr threshold for LEZ transactions)
 
