@@ -138,14 +138,57 @@ multiplicative price processes. The observation buffer is a circular
 array of up to 65,535 slots, expandable via
 `increaseObservationCardinalityNext()` at a one-time gas cost [9].
 
-Note on Uniswap v4: v4 removed the oracle from core pool state and
-moved it to an optional hook, so pools that do not need an oracle
-no longer pay the per-swap accumulator-update gas. The v3 design
-described above remains the production reference for on-chain TWAP
-(v3 is still the dominant AMM by deployed volume), and is what an
-LEZ-side TWAP program would emulate. v4's hook-based oracle is a
-deployment choice on top of the same accumulator pattern, not a
-replacement for it.
+### Uniswap v4 truncated oracle hook
+
+Uniswap v4 removed the oracle from core pool state and moved it to
+an optional hook, so pools that do not need an oracle no longer pay
+the per-swap accumulator-update gas. The v3 design described above
+remains the production reference for on-chain TWAP (v3 is still the
+dominant AMM by deployed volume), and the v4 hook builds on the same
+tick-accumulator pattern rather than replacing it.
+
+The notable evolution in v4 is the **truncated oracle hook**, which
+caps the per-block tick movement that the accumulator records [61].
+Before each swap, the hook compares the pool's current tick against
+the previous-block tick stored by the hook. If the absolute
+difference exceeds a threshold (the Uniswap reference implementation
+uses 9,116 ticks, corresponding to roughly a 2.39x price move per
+block), the value written to the accumulator is clamped to
+±threshold rather than the raw observed tick. The geometric-mean
+TWAP formula is otherwise identical to v3.
+
+Concretely:
+
+```
+observedTick   = pool.currentTick
+previousTick   = hook.lastObservedTick
+delta          = observedTick - previousTick
+clampedDelta   = clamp(delta, -MAX_TICK_DELTA, +MAX_TICK_DELTA)
+recordedTick   = previousTick + clampedDelta
+tickCumulative += recordedTick * timeElapsed
+```
+
+The effect is that a single-block manipulation can shift the
+accumulator by at most `MAX_TICK_DELTA * timeElapsed`, regardless of
+how far the attacker actually moved the pool. To produce the same
+oracle distortion that an unbounded v3 accumulator would record from
+one manipulated block, an attacker must sustain a manipulated price
+across many consecutive blocks (Uniswap's reference scenario cites
+roughly 15 blocks for the oracle to "catch up" to a large move),
+during which arbitrage bots compete on the unclamped pool price and
+erode the attacker's position [61]. The truncated hook does not
+eliminate the cost-vs-window tradeoff (long sustained manipulation
+on a thin pool is still feasible), but it raises the per-block cost
+floor and is currently the strongest in-AMM mitigation against
+single-block and PoS multi-block oracle attacks (see "TWAP
+Manipulation Vectors" below).
+
+For LEZ, this is directly relevant: an LEZ-side on-chain TWAP that
+emulates v3's raw accumulator inherits v3's vulnerability to thin
+pools at chain launch. Porting the truncation logic is a low-cost
+addition (one tick-delta comparison and clamp per accumulator
+update) that materially raises the manipulation floor without
+requiring an external feed.
 
 ### Geometric vs arithmetic mean
 
@@ -207,6 +250,20 @@ An attacker sustains a manipulated price across multiple blocks for
 the duration of a short TWAP window (e.g. 5 minutes). This is more
 expensive than single-block manipulation but feasible on low-liquidity
 pools [10]. The cost scales with both window length and pool depth.
+
+### Mitigation: tick-delta truncation (Uniswap v4)
+
+The Uniswap v4 truncated oracle hook (described above under
+"Uniswap v4 truncated oracle hook") clamps per-block tick movement
+written to the accumulator [61]. This directly raises the cost of
+flash-loan and PoS multi-block attacks: a single manipulated block
+contributes at most `MAX_TICK_DELTA * blockTime` to the accumulator
+regardless of the actual price excursion, forcing an attacker to
+sustain manipulation across many blocks and pay arbitrage costs each
+block. It does not address the short-window-on-thin-pool case, where
+the attacker is willing to sustain price across the full window;
+defending that case still requires either deeper liquidity or a
+divergence check against an external feed.
 
 ### Historical losses
 
@@ -1425,3 +1482,5 @@ The TWAP tier's role evolves with liquidity:
     31892 / 1892 / 10041); kind 1009 is informal and not in
     the official NIPs registry.
     https://github.com/nostr-protocol/nips/pull/1658
+61. Uniswap, "v4 Truncated Oracle Hook" blog post.
+    https://blog.uniswap.org/uniswap-v4-truncated-oracle-hook

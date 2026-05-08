@@ -84,6 +84,27 @@ in the next leaves no net impact on the geometric mean, whereas an
 arithmetic mean would be skewed upward [9]. LEZ's TWAP oracle
 should adopt the v3 approach.
 
+### Per-block tick-delta truncation
+
+Raw v3 accumulators record whatever tick the pool reaches at the end
+of each block, which leaves the oracle exposed on thin pools at
+chain launch: a single PoS multi-block validator or flash-loan
+operator can move the pool by an arbitrary amount and have the full
+excursion written into the accumulator. Uniswap v4's truncated
+oracle hook addresses this by clamping the per-block tick delta
+written to the accumulator to a fixed maximum (the v4 reference
+value is 9,116 ticks per block, roughly a 2.39x price move). An
+attacker therefore cannot inject more than `MAX_TICK_DELTA *
+blockTime` of distortion per block regardless of how far they push
+the pool, and must sustain manipulation across many blocks while
+arbitrage erodes their position. See the appendix
+([Uniswap v4 truncated oracle hook](../appendix/oracle-ecosystem.md#uniswap-v4-truncated-oracle-hook),
+[Mitigation: tick-delta truncation](../appendix/oracle-ecosystem.md#mitigation-tick-delta-truncation-uniswap-v4))
+for the full mechanism. LEZ's TWAP oracle adopts this truncation as
+a hard requirement: the cost is one tick-delta comparison and clamp
+per accumulator update, and it materially raises the manipulation
+floor on the thin pools that LEZ will have at launch.
+
 ### Configurable cardinality
 
 Uniswap v3 pools default to storing a single observation
@@ -320,11 +341,14 @@ ongoing subsidies once LEZ reaches moderate TVL.
 3. Every hard requirement in Functionality, Usability, Reliability,
    and Performance has at least one corresponding test. The test
    suite must include: TWAP computation correctness (known
-   accumulator values produce expected prices), manipulation
-   detection (circuit breaker triggers when TWAP and an external
-   source diverge beyond threshold), staleness rejection (prices
-   older than `maxAge` are rejected), and registration / dispute
-   state transitions.
+   accumulator values produce expected prices), tick-delta
+   truncation (a synthetic price excursion exceeding
+   `MAX_TICK_DELTA` is clamped in the accumulator and the
+   resulting TWAP matches the truncated trajectory, not the raw
+   one), manipulation detection (circuit breaker triggers when
+   TWAP and an external source diverge beyond threshold),
+   staleness rejection (prices older than `maxAge` are rejected),
+   and registration / dispute state transitions.
 4. A README documents end-to-end usage: deployment steps, program
    addresses, and step-by-step instructions for querying prices,
    expanding cardinality, and registering feed sources via CLI and
@@ -352,6 +376,18 @@ ongoing subsidies once LEZ reaches moderate TVL.
    use is documented, with a manipulation-cost analysis for
    representative LEZ liquidity levels ($1M, $10M, $50M, and $100M
    pool depth).
+3. Implement per-block tick-delta truncation on accumulator updates,
+   following the Uniswap v4 truncated-oracle-hook design (see
+   Design Rationale, "Per-block tick-delta truncation"). Each
+   accumulator update must clamp the recorded tick delta against
+   the previous block's recorded tick to a configurable
+   `MAX_TICK_DELTA` (default: 9,116 ticks per block, matching the
+   v4 reference). The clamp must be applied before the
+   `tickCumulative` update, and `MAX_TICK_DELTA` must be governable
+   per pool by the oracle program owner so it can be tuned to LEZ
+   block time and per-pair volatility. The manipulation-cost
+   analysis required by item 2 must report costs both with and
+   without truncation, so the tradeoff is explicit.
 
 ### Soft Requirements
 
