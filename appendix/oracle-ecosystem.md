@@ -23,12 +23,12 @@ prediction markets, not streaming price feeds.
 | Protocol | TVS | Chains | Model | Feed Count | Key Feature |
 |----------|-----|--------|-------|------------|-------------|
 | Chainlink | $66B-$75B (May 2025) | 27 push / 60+ via CCIP | Push (OCR/DON) | 1,000+ | Decentralised Oracle Network with VWAP from premium data aggregators |
-| Chronicle | $10.2B+ (per [2]); Messari Q1 2025 cites $12.6B | 13 | Push | Limited | MakerDAO-native; concentrated TVS from Sky's $10B+ TVL |
+| Chronicle | $10.2B+ (per [2]) | 13 | Push | Limited | MakerDAO-native; concentrated TVS from Sky's $10B+ TVL |
 | Pyth | $8.6B+ | 50+ via Wormhole | Pull (Wormhole) | 2,800+ | First-party data from 120+ institutional publishers; confidence intervals |
 | RedStone | $10B+ | 50+ push / 120+ pull | Pull (calldata) | 1,000+ | No bridge dependency; modular push+pull; fastest-growing oracle |
 | Switchboard | $3B+ [1] | 9 | Pull (TEE) | Permissionless | TEE (SGX/SEV) security; permissionless custom feed creation |
 | Supra | $650M+ [1]; Supra positioning cites 50+ networks | 45 | Push+Pull | N/A | Newer entrant; DORA (Distributed Oracle Agreement) consensus |
-| DLC oracles (Pythia live; Sibyls, P2PDerivatives, Ernest, Magnolia, others non-public or dormant) | N/A (not DeFi-TVS measured) | Bitcoin native; BIP-340 attestations portable to any verifying chain | Event-driven attestation (pre-announced R-points, signed at maturity) | Limited (BTC/USD; some chain metrics) | Native BIP-340 Schnorr; live ecosystem split between plain SHA-256 (Pythia, P2PDerivatives, rust-dlc) and tagged SHA-256 (Kormir, Ernest, Sibyls dlc_v0 mode); structural fit is prediction markets, not streaming price feeds |
+| DLC oracles (Pythia live; Sibyls operator wound down and repo deleted; P2PDerivatives dormant; Ernest on hiatus; Magnolia closed source) | N/A (not DeFi-TVS measured) | Bitcoin native; BIP-340 attestations portable to any verifying chain | Event-driven attestation (pre-announced R-points, signed at maturity) | Limited (BTC/USD; some chain metrics) | Native BIP-340 Schnorr; live ecosystem split between plain SHA-256 (Pythia, P2PDerivatives, rust-dlc) and tagged SHA-256 (Kormir, Ernest, Sibyls dlc_v0 mode); structural fit is prediction markets, not streaming price feeds |
 
 ## Scale and Traction
 
@@ -48,9 +48,10 @@ publishers; per Pyth's own April 2026 positioning, the network reaches
 "100+ blockchains" via Wormhole, with cross-chain support
 established on roughly 50+ chains in production. RedStone has the
 fastest growth trajectory, driven by explicit support for L2s,
-appchains, and rollups; RedStone reports no oracle-induced mispricing
-on its flagship integrations (Ethena, Gearbox) through early 2026
-[2][3][17].
+appchains, and rollups. Per RedStone's own reporting [3][17],
+no oracle-induced mispricing has occurred on its flagship integrations
+(Ethena, Gearbox) through early 2026; no independent post-incident
+review corroborates this absence claim.
 
 ### Per-protocol adoption
 
@@ -85,7 +86,9 @@ model attaches signed data to EVM calldata; the on-chain contract
 verifies node signatures without requiring a bridge or dedicated
 relay infrastructure [3]. Fastest-growing oracle in 2024 to 2025,
 with deployments on Monad, Hyperliquid (HyperStone), and 120+ pull
-chains. Zero reported mispricing incidents as of early 2026 [3][17].
+chains. Per RedStone's own reporting [3][17], zero mispricing
+incidents through early 2026; no independent post-incident review
+corroborates this.
 Expanding into RWA feeds (BlackRock BUIDL, VanEck VBILL) and risk
 ratings via Credora acquisition.
 
@@ -152,8 +155,8 @@ caps the per-block tick movement that the accumulator records [61].
 Before each swap, the hook compares the pool's current tick against
 the previous-block tick stored by the hook. If the absolute
 difference exceeds a threshold (the Uniswap reference implementation
-uses 9,116 ticks, corresponding to roughly a 2.39x price move per
-block), the value written to the accumulator is clamped to
+uses 9,116 ticks, corresponding to roughly a 2.49x price move per
+block: `1.0001^9116 ≈ 2.49`), the value written to the accumulator is clamped to
 ±threshold rather than the raw observed tick. The geometric-mean
 TWAP formula is otherwise identical to v3.
 
@@ -353,6 +356,200 @@ market coverage.
 | Confidence interval | No | Yes | No | No |
 | Real-world assets | No | Yes | Yes (RWA feeds) | Yes |
 
+## Infrastructure Requirements for External Oracles on LEZ
+
+The architectural choice (push vs pull, bridge vs direct signature)
+determines what Logos has to deploy, host, or coordinate to make
+each external oracle available on LEZ. This section is operational:
+it answers "who runs what, where does the data come from, and what
+happens if it breaks." It complements the higher-level model
+comparison above.
+
+The summary up front: **RedStone is a self-deploy task** (port a
+verifier program, optionally run a relayer); **Pyth is a
+multi-party governance task** gated on Wormhole guardian-set support
+for LEZ; **Chainlink is impractical at launch** (DON onboarding has
+no public path for new chains without months of integration work
+and high-availability RPC providers in place).
+
+### Side-by-side: bringing an external oracle live on LEZ
+
+| Dimension                         | RedStone (Pull)                                                            | RedStone (Push)                                                                      | Pyth                                                                                                       | Chainlink                                                                               |
+| --------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Relayer service required?         | No (user attaches signed payload to their tx)                              | Yes (a service writes prices on-chain on a schedule)                                 | No scheduled relayer (Hermes is a read-only cache)                                                         | Yes (DON node operators write on-chain)                                                 |
+| Off-chain data endpoint           | RedStone DDL HTTPS gateways                                                | Same                                                                                 | Hermes HTTPS REST/SSE                                                                                      | DON gossip + private aggregator data                                                    |
+| Bridge / cross-chain trust layer  | None: signatures verified directly                                         | None                                                                                 | Wormhole (19 guardians, 13/19 threshold)                                                                   | None for the price flow itself, but DON nodes coordinate via Wormhole-free P2P          |
+| New-chain onboarding type         | Self-deploy: any team ports the verifier                                   | Self-deploy: same plus a relayer                                                     | Multi-party: Wormhole governance proposal, Core Contract port, guardian observation, Pyth Receiver port    | Multi-party: Chainlink integration program, DON spin-up, RPC provider qualification [4] |
+| Contracts to deploy on LEZ        | One verifier module per consumer (or one shared `ConsumerBase`-equivalent) | Same plus `PriceFeedsAdapter`-equivalent                                             | Wormhole Core port + Pyth Receiver port                                                                    | DON aggregator contract per feed                                                        |
+| Who runs the off-chain infra      | RedStone (default DDL gateways)                                            | RedStone, Logos ecosystem, or a consumer protocol can run relayer instances          | Pyth Data Association (default Hermes) or third-party node providers (Triton, P2P, extrnode, Liquify) [62] | Chainlink + node operator coalition                                                     |
+| Gas paid by                       | Consumer on every read (calldata + verification)                           | Relayer wallet, per update                                                           | Consumer on every update (VAA verification + Merkle proof)                                                 | Effectively the consumer (heartbeat cost socialised across all readers)                 |
+| Logos ongoing operational burden  | None on LEZ side                                                           | Relayer instances + signing wallet gas + monitoring                                  | Optional: self-hosted Hermes mirror for low latency; otherwise none on LEZ side                            | Continuous: DON nodes, RPC infrastructure, integration support                          |
+| Time-to-live for a new chain      | Weeks (verifier port + audit)                                              | Same                                                                                 | Months (Wormhole governance + cross-runtime port)                                                          | Months to quarters, gated on Chainlink integration program                              |
+| Trust assumptions added           | RedStone authorised signer set (~3-of-N per `dataServiceId`); RedStone DDL HTTPS gateways for liveness (censorship/outage; signatures still protect against falsified data — see "HTTPS portals are a centralisation risk") | Same plus the relayer (only for liveness; data is still signature-verified on-chain); DDL gateway liveness as above | Pythnet validators + 13-of-19 Wormhole guardians + publisher set; Hermes HTTPS gateway for liveness (same caveat as RedStone DDL) | Chainlink node operator set + premium aggregator licensing chain                        |
+| Documented LEZ-relevant precedent | None for LEZ-native SVM runtime; EVM port pattern is mature                | Same                                                                                 | No SVM-non-Solana port of the Pyth receiver is documented as of May 2026                                   | No new-chain integration without Chainlink-side prioritisation                          |
+
+### Where the signed data comes from
+
+#### RedStone
+
+The signed data lives in RedStone's **Data Distribution Layer
+(DDL)**, a set of public HTTPS gateways operated by RedStone.
+The SDK and any relayer fetch from URLs hardcoded in
+[`packages/sdk/src/data-services-urls.ts`](https://github.com/redstone-finance/redstone-oracles-monorepo/blob/main/packages/sdk/src/data-services-urls.ts)
+[63]:
+
+- `https://oracle-gateway-1.a.redstone.finance` (AWS, production, metadata, no historical)
+- `https://oracle-gateway-2.a.redstone.finance` (AWS, production, metadata, historical)
+- `https://oracle-gateway-1.a.redstone.vip` (GCP, production, no metadata, no historical)
+
+A request specifies a `dataServiceId` (e.g. `redstone-primary-prod`),
+the feed IDs to fetch (e.g. `BTC`, `ETH`), and the minimum number of
+unique signers required (typically 3). The response is a signed
+data package: per signer, a payload over `(feedId, value,
+timestamp)` plus an ECDSA signature, with packages concatenated. No
+authentication on the read paths.
+
+#### Pyth
+
+The signed data is exposed via **Hermes**, an HTTPS REST + SSE
+service that mirrors Wormhole-signed Pyth Merkle roots [62]:
+
+- `https://hermes.pyth.network` (public, operated by Pyth Data Association, 20 req / 10 s per IP)
+- Third-party node providers for production: Triton, P2P, extrnode, Liquify [62]
+
+The v2 API exposes `/v2/updates/price/latest`,
+`/v2/updates/price/{publish_time}`, and an SSE stream at
+`/v2/updates/price/stream`. The payload is a binary VAA (base64 or
+hex), submittable directly as calldata to the on-chain Pyth Receiver
+contract.
+
+### HTTPS portals are a centralisation risk
+
+Both RedStone DDL and Pyth Hermes are **HTTPS gateways**, not P2P
+networks. There is no gossip layer, no DHT, no decentralised
+fan-out: every consumer of signed data fetches from a small set of
+DNS-resolved endpoints controlled by the oracle provider or one of
+its named third-party hosts. This has three direct consequences:
+
+- **Censorship**. The operator (and the network operator
+  upstream) can withhold responses to specific clients, geographies,
+  or asset IDs. Signature verification still protects against
+  *falsified* data, but does not protect against *withheld*
+  data: a censored consumer simply cannot fetch the latest update
+  and their transaction will revert.
+- **Outage**. DNS resolution, TLS certificate validity, and
+  HTTP availability all become liveness dependencies. A regional
+  cloud outage at AWS (most RedStone gateways) or at the Pyth Data
+  Association's Hermes hosting takes the oracle offline for
+  affected users.
+- **Observability**. The gateway sees who is reading what.
+  Even though Logos's confidential execution model keeps the
+  on-chain *use* of a price private, the off-chain *fetch* of a
+  signed payload is fully observable to the gateway operator.
+
+These are inherent properties of the HTTPS-portal design, not
+implementation bugs. They are present on every chain that uses
+RedStone or Pyth today; LEZ inherits them by adopting either
+oracle. Mitigations available to a consumer:
+
+- Run a local mirror of the gateway (RedStone supports
+  `OVERRIDE_DIRECT_CACHE_SERVICE_URLS`; Pyth supports running a
+  private Hermes instance against Pythnet + Wormhole feeds).
+- Query multiple gateway hosts in parallel (the RedStone SDK
+  default; Pyth recommends third-party node providers).
+- Maintain a recent-price fallback on-chain (last verified update
+  served until a new one arrives), accepting staleness risk for
+  liveness.
+
+None of these mitigations eliminate the centralisation; they
+reduce specific failure modes at the cost of additional
+infrastructure or risk acceptance.
+
+### RedStone relayer setup (Push mode), end to end
+
+The reference relayer is open source in
+[`redstone-finance/redstone-oracles-monorepo`](https://github.com/redstone-finance/redstone-oracles-monorepo),
+Node.js/TypeScript. Per cycle it:
+
+1. Polls a DDL gateway via the SDK for signed packages
+   matching the configured `dataServiceId` and feed IDs.
+2. Compares against the last on-chain value. Writes a new
+   transaction when either trigger fires: heartbeat
+   (`UPDATE_PRICE_INTERVAL`, e.g. 5 min) or deviation
+   (`MIN_DEVIATION_PERCENTAGE`, e.g. 0.5%).
+3. Packs the concatenated signed packages as transaction data
+   targeting the on-chain adapter; signs with the relayer's hot
+   wallet (`PRIVATE_KEY` env var).
+4. Submits, monitors, repeats.
+
+The on-chain adapter, on receipt, verifies each signer's signature
+against the known signer set, checks the package timestamp is fresh
+(within a configurable window), takes the median across signers,
+and writes the result.
+
+For LEZ specifically, three artefacts are needed beyond the
+RedStone reference code:
+
+- A SPEL port of the `PriceFeedsAdapter` writing to the canonical
+  price account from RFP-019 (populating `base_asset`,
+  `quote_asset`, price, timestamp, source, confidence).
+- A SPEL port of the consumer-base library if Pull mode is offered
+  alongside Push.
+- LEZ-specific transaction-building and signing bindings in the
+  relayer (most likely via the same SDK that consumer programs use).
+
+Operational footprint per Push deployment:
+
+- 1+ relayer process (a few hundred MB RAM each; cloud or
+  bare metal). RedStone recommends 2+ independent instances for
+  redundancy.
+- 1 hot wallet on LEZ per instance, funded with gas.
+- Monitoring: feed freshness on-chain, wallet balance, gateway
+  reachability, transaction failure rate.
+
+Typical per-update verification cost on EVM is 100-200k gas; the
+LEZ-side equivalent under SVM CU pricing should fall in the same
+range as the pull-mode verification cost documented in the
+[Signature Verification Schemes](#signature-verification-schemes)
+section, since the verification work is identical and only the cost
+allocation differs (relayer vs consumer).
+
+### Who runs the relayer
+
+RedStone's documentation says the relayer is permissionless: "anyone
+could run the service as the data is eventually validated on-chain"
+[64]. In practice on a new chain, the operating party is usually
+one of:
+
+1. **RedStone itself**, as part of an integration package.
+   Monad mainnet (24 Nov 2025) is the recent precedent: RedStone
+   shipped 50+ feeds and ran the infrastructure from day one [65].
+2. **The chain ecosystem**, funding and running the relayer as
+   shared infrastructure.
+3. **A consuming protocol**, if it wants exclusive control over
+   its oracle update cadence.
+
+For LEZ, the realistic at-launch posture is (1) for primary, with
+(2) as redundancy for liveness insurance. RFP-020 covers the SVM
+adapter port; running additional relayer instances is a separate
+operational commitment that is **not** required to use RedStone on
+LEZ in Pull mode.
+
+### Pull vs Push: when does Push become worth the cost
+
+Push trades persistent ecosystem-paid gas for cheaper per-consumer
+reads. The break-even depends on read volume on each pair: if a
+feed is read N times per heartbeat interval and the per-update gas
+is roughly equal to per-read calldata gas, the crossover is around
+N=1 reads per heartbeat. In practice, dedicated feeds for a single
+high-throughput lending protocol can justify Push at LEZ scale;
+shared feeds consumed by occasional dapps typically cannot.
+
+At chain launch with no TVL, Pull is the right default. Push
+becomes worth revisiting once a specific feed sees concentrated,
+sustained read demand that exceeds the gas budget of a typical
+relayer cadence.
+
 ## Signature Verification Schemes
 
 The cost of verifying oracle signatures on-chain dictates whether
@@ -483,7 +680,7 @@ Per-chain verification cost (single signature):
 |-------|------------------------|--------|
 | Ethereum / EVM | 3,000 gas (precompile) plus calldata | [23] |
 | Solana | approximately 6,690 compute units | [24][25] |
-| Stellar (Soroban) | 2.3M CPU instructions | [32] |
+| Stellar (Soroban) | approximately 2.3M CPU instructions (2,315,295) | [32] |
 
 For an M-of-N RedStone payload with the recommended threshold
 of three unique signers [30], total verification cost on EVM is
@@ -1377,8 +1574,12 @@ The TWAP tier's role evolves with liquidity:
 31. Sui Documentation, "Module sui::ecdsa_k1"
     (secp256k1_ecrecover Move builtin).
     https://docs.sui.io/references/framework/sui_sui/ecdsa_k1
-32. Stellar, "CAP-0051: Smart Contract Host Functionality"
-    (recover_key_ecdsa_secp256k1, 2.3M CPU instructions).
+32. Stellar, `rs-soroban-env` budget metering calibration table
+    (`RecoverEcdsaSecp256k1Key` const cost 2,315,295 CPU
+    instructions). CAP-0051 ("Smart Contract Host Functionality")
+    defines the host function; the calibrated cost is in the
+    `rs-soroban-env` test fixture below.
+    https://github.com/stellar/rs-soroban-env/blob/main/soroban-env-host/src/test/budget_metering.rs
     https://github.com/stellar/stellar-protocol/blob/master/core/cap-0051.md
 33. Veridise, "RedStone Stellar Connector" security assessment,
     Oct 2025.
@@ -1441,13 +1642,17 @@ The TWAP tier's role evolves with liquidity:
     https://blog.dlcmarkets.com/dlc-markets-open-sources-its-oracle-pythia/
     https://github.com/dlc-markets/pythia
 50. Lava, `sibyls` (DLC oracle implementing BIP-340 attestation
-    over numeric outcomes).
+    over numeric outcomes). URL no longer resolves as of 2026-05;
+    see body discussion at "State of the live publishers" for
+    operator and repo status. Third-party mirror at
+    `briefgaming/sibyls` (unaffiliated).
     https://github.com/lava-xyz/sibyls
-51. iBTC Network (formerly DLC.Link / dlcBTC), "FROST at DLC.Link:
-    Pioneering Advanced Security for DLCs"; technical stack
-    documentation describing the 5-of-7 attestor federation.
-    https://www.ibtc.network/blog/frost-at-dlc-link-pioneering-advanced-security-for-dlcs
+51. iBTC Network (formerly DLC.Link / dlcBTC), technical stack
+    documentation describing the attestor federation (10-of-15 on
+    EVM, 7-of-10 on Canton). Companion FROST blog post URL no
+    longer resolves as of 2026-05; tech-stack page remains live.
     https://docs.dlc.link/tech-stack
+    https://www.ibtc.network/blog/frost-at-dlc-link-pioneering-advanced-security-for-dlcs
 52. Chainflip, "FROST Signature Scheme" protocol documentation
     (100-of-150 threshold for cross-chain vault signing).
     https://docs.chainflip.io/protocol/frost-signature-scheme
@@ -1484,3 +1689,18 @@ The TWAP tier's role evolves with liquidity:
     https://github.com/nostr-protocol/nips/pull/1658
 61. Uniswap, "v4 Truncated Oracle Hook" blog post.
     https://blog.uniswap.org/uniswap-v4-truncated-oracle-hook
+62. Pyth Network Documentation, "Hermes API Instances and
+    Providers" (public endpoint at hermes.pyth.network, 20 req /
+    10 s rate limit, third-party node providers Triton, P2P,
+    extrnode, Liquify).
+    https://docs.pyth.network/price-feeds/core/api-instances-and-providers/hermes
+63. RedStone SDK, hardcoded DDL gateway URLs (`oracle-gateway-1.a.
+    redstone.finance`, `oracle-gateway-2.a.redstone.finance`,
+    `.vip` GCP mirror).
+    https://github.com/redstone-finance/redstone-oracles-monorepo/blob/main/packages/sdk/src/data-services-urls.ts
+64. RedStone Documentation, "Standardized Access for DeFi
+    Interoperability" (Push model; permissionless relayer service).
+    https://docs.redstone.finance/docs/dapps/redstone-push/
+65. RedStone blog, "RedStone on Monad: The Real-Time Data Layer
+    for High-Speed DeFi," 27 Nov 2025.
+    https://blog.redstone.finance/2025/11/27/redstone-on-monad-the-real-time-data-layer-for-high-speed-defi/
