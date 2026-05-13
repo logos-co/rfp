@@ -13,13 +13,12 @@ category: Developer Tooling & Infrastructure
 
 ## 🧭 Overview
 
-TODO: review day 1 feed expectations (add BTC, ETH, others?)
-
 Build a RedStone off-chain oracle adaptor for LEZ: a public-mode
 LEZ program that verifies RedStone-signed data packages, exposes
 the resulting prices through the canonical oracle price account
 standard defined in [RFP-019](./RFP-019-twap-oracle.md), and
-supports day-one delivery of XMR/USD and ZEC/USD feeds. RedStone's
+supports day-one delivery of BTC/USD, ETH/USD, SOL/USD, XMR/USD,
+and ZEC/USD feeds. RedStone's
 data packages are signed with secp256k1 + keccak256 by its data
 nodes; verification on LEZ runs as in-program code inside the
 RISC-V zkVM (no cross-chain bridge, no Wormhole dependency). The
@@ -51,20 +50,21 @@ precompile to LEZ.
 In scope:
 
 - The RedStone off-chain oracle adaptor as a public-mode push aggregator on LEZ.
-- Day-one XMR/USD and ZEC/USD feeds, registered and exercised on LEZ devnet/testnet.
+- Day-one BTC/USD, ETH/USD, SOL/USD, XMR/USD, and ZEC/USD feeds, registered and exercised on LEZ devnet/testnet.
 - Cost measurement of the in-program RISC-V verification path as a primary deliverable.
 
 Out of scope at the Overview level (full list under Out of Scope below):
 
 - The on-chain TWAP tier and the canonical oracle price account standard, owned by [RFP-019](./RFP-019-twap-oracle.md).
 - A Pyth adaptor: depends on Wormhole on LEZ, deferred to a future RFP.
-- Pull-mode reads from inside private execution: blocked on either a RISC0 zkVM circuit-level accelerator (e.g. a future `risc0-ecdsa` extension that lowers in-circuit verification cost) or a different upstream signature scheme that admits acceptable in-circuit cost on RISC0; neither exists today. A LEZ secp256k1 + keccak256 *precompile* (a runtime host function) is the subject of a possible cost-conditional public-mode follow-on RFP; that precompile lives outside the ZK proof boundary, so it lowers public-mode write-side cost but does *not* unblock private-execution pull (a host function cannot be called from inside the privacy circuit). An alternative private-mode-friendly signature scheme (with the corresponding upstream publisher work) is the subject of a possible separate follow-on RFP. Whether either follow-on is warranted depends on consumer-protocol demand for private-execution pull, which is not yet established: some consumer protocols (notably the LSC stablecoin in [RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)) already constrain specific actions to public transactions for their own design reasons, so the capability is worth reaching for only if a downstream consumer actually needs it.
+- Pull-mode reads from inside private execution: blocked on either a RISC0 zkVM circuit-level accelerator (e.g. a future `risc0-ecdsa` extension that lowers in-circuit verification cost) or a different upstream signature scheme that admits acceptable in-circuit cost on RISC0; neither exists today. A LEZ secp256k1 + keccak256 *precompile* (a runtime host function) is the subject of a possible cost-conditional public-mode follow-on RFP; that precompile lives outside the ZK proof boundary, so it lowers public-mode write-side cost but does *not* unblock private-execution pull (a host function cannot be called from inside the privacy circuit). An alternative private-mode-friendly signature scheme (with the corresponding upstream publisher work) is the subject of a possible separate follow-on RFP. Whether either follow-on is warranted depends on consumer-protocol demand for private-execution pull, which is not yet established: some consumer protocols (notably the reflexive stablecoin in [RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)) already constrain specific actions to public transactions for their own design reasons, so the capability is worth reaching for only if a downstream consumer actually needs it.
 
 ## 🔥 Why This Matters
 
 Private DeFi is what LEZ is positioned to support, and reliable
 USD reference prices for privacy collateral, in particular Monero
-(XMR) and Zcash (ZEC), are a necessary step. The LSC stablecoin
+(XMR) and Zcash (ZEC), are a necessary step. The reflexive
+stablecoin
 ([RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)), the
 privacy-preserving DEX
 ([RFP-004](./RFP-004-privacy-preserving-dex.md)), wrapped privacy
@@ -79,6 +79,9 @@ controlling two consecutive blocks can manipulate the accumulator
 at a cost roughly equal to the round-trip swap fees and price
 impact, which on a $1M pool is cheap (see
 [Appendix: TWAP Manipulation Vectors](../appendix/oracle-ecosystem.md)).
+This applies even to majors like BTC/USD, ETH/USD, and SOL/USD:
+those pairs will exist as pools on LEZ, but at chain launch their
+pool depth will not yet be sufficient for TWAP to stand alone.
 More structurally, TWAP only produces a price for pairs that
 exist as pools on LEZ; XMR/USD and ZEC/USD don't, because XMR and
 ZEC aren't natively on LEZ. An off-chain feed is the only way to
@@ -112,7 +115,7 @@ production norm in DeFi is to layer them. This RFP delivers the
 off-chain adaptor as a swappable building block in that layered
 stack: production-grade code on its own terms, paired with the
 TWAP tier from [RFP-019](./RFP-019-twap-oracle.md) on the
-consumer side. Consuming protocols (the LSC stablecoin in
+consumer side. Consuming protocols (the reflexive stablecoin in
 [RFP-013](./RFP-013-reflexive-stablecoin-protocol.md), the
 lending market in
 [RFP-008](./RFP-008-lending-borrowing-protocol.md), the DEX in
@@ -286,7 +289,7 @@ Whether such a follow-on is worth pursuing depends on whether
 any consumer protocol actually needs private-execution pull,
 which is not yet confirmed: consumer protocols may already
 have design reasons to keep specific actions in public
-transactions, with the LSC stablecoin in
+transactions, with the reflexive stablecoin in
 [RFP-013](./RFP-013-reflexive-stablecoin-protocol.md) as one
 concrete example.
 
@@ -329,17 +332,56 @@ for the full per-scheme analysis and citations.
 The canonical oracle price account standard is owned by RFP-019
 (see "LEZ oracle data standard" in that RFP's Design Rationale).
 The RedStone adaptor populates the same struct as the on-chain
-TWAP source: price, timestamp, source identifier, confidence
-interval (zero, since RedStone does not publish one), and
-circuit-breaker dispute flag. Consuming protocols query a single
-data layout and remain agnostic to whether the price came from
-TWAP, RedStone, or any future provider.
+TWAP source: `base_asset`, `quote_asset`, price, timestamp, source
+identifier, and confidence interval (zero, since RedStone does not
+publish one). Consuming protocols query a single data layout and
+remain agnostic to whether the price came from TWAP, RedStone, or
+any future provider; cross-source policy lives in the consumer per
+RFP-019, Design Rationale ("Multi-source coexistence").
 
 If RFP-019 has not yet shipped the canonical struct when this RFP
 is delivered, the team must define a forward-compatible minimal
 struct using append-friendly account-data conventions, so that a
 later RFP-019 release can extend the struct without breaking
 consumers.
+
+### HTTPS data path: centralisation and censorship
+
+Signed RedStone data packages are fetched from the RedStone Data
+Distribution Layer (DDL) over **HTTPS, not P2P**. The default
+gateway URLs are DNS-resolved endpoints under
+`*.redstone.finance` and `*.redstone.vip` (see the SDK source at
+`packages/sdk/src/data-services-urls.ts` and the appendix section
+"Infrastructure Requirements for External Oracles on LEZ"). This
+applies whether the data reaches LEZ via the relayer (push) or
+inline as transaction calldata (pull). Two consequences follow:
+
+- **Censorship surface.** A gateway operator (and its upstream
+  network) can withhold responses to specific clients,
+  geographies, or asset IDs. On-chain signature verification
+  protects against falsified data, not against withheld data: a
+  censored consumer cannot obtain a signed payload, and any
+  transaction depending on it reverts.
+- **Liveness dependency.** DNS, TLS validity, and HTTPS
+  availability at RedStone's hosts (AWS, GCP) all become LEZ
+  oracle liveness dependencies. Regional outages at these
+  providers can take the feed offline.
+
+Implementers must document, as part of the relayer operator
+journey, the mitigations the operator chooses: multiple parallel
+gateway queries (SDK default), the use of RedStone private
+gateways via the `OVERRIDE_DIRECT_CACHE_SERVICE_URLS` mechanism
+where available, and recent-price fallback policy if no gateway
+responds within the operator's tolerance. None of these
+mitigations eliminate the structural centralisation; they reduce
+specific failure modes.
+
+This caveat is inherent to RedStone's design and to every oracle
+in the survey that uses an HTTPS portal (Pyth Hermes has the same
+property). It is not an objection to RedStone; it is the trade-off
+LEZ accepts by adopting any HTTPS-served signed-data oracle, and
+must be communicated to consumer protocols so they can size their
+liveness assumptions accordingly.
 
 ### Fee structure
 
@@ -386,16 +428,41 @@ policy that forecloses these choices.
    does not match the registered feed.
 4. Publish the verified price into a canonical oracle price
    account conforming to the standard defined in RFP-019. The
-   adaptor must populate price, timestamp, source identifier (a
-   constant identifying RedStone), confidence interval (zero), and
-   circuit-breaker dispute flag (always cleared at write time;
-   the TWAP program in RFP-019 owns dispute-state transitions).
+   adaptor must populate `base_asset`, `quote_asset`, price,
+   timestamp, source identifier (a constant identifying RedStone),
+   and confidence interval (zero; RedStone does not publish
+   confidence intervals in its standard data packages).
 5. The adaptor program owner can register new RedStone feeds (by
    asset identifier, M-of-N threshold, and authorised signer set),
    update an existing feed's signer set on RedStone roster
    changes, and deregister feeds.
-6. XMR/USD and ZEC/USD feeds must be registered and exercised on
-   LEZ devnet/testnet as part of the deliverable.
+6. BTC/USD, ETH/USD, SOL/USD, XMR/USD, and ZEC/USD feeds must be
+   registered and exercised on LEZ devnet/testnet as part of the
+   deliverable.
+7. **Relayer module.** Provide a relayer service that fetches signed
+   RedStone data packages from the RedStone Data Distribution Layer
+   gateways (see Appendix, "Infrastructure Requirements for External
+   Oracles on LEZ") and submits them to the LEZ adaptor. The
+   relayer must be implemented as a **Logos module accompanied by a
+   Logos Core headless CLI/daemon** (same packaging model as the
+   liquidator bot in RFP-008 Functionality #13), so that operators
+   (RedStone, the Logos ecosystem, or consuming protocols) can run
+   it as a standalone long-running process without requiring a
+   user-facing app. The daemon must support: configurable
+   `dataServiceId` (default `redstone-primary-prod`), configurable
+   feed list and update triggers per feed (heartbeat interval and
+   deviation threshold), parallel querying of multiple DDL gateways
+   with first-success selection, retry and back-off on transient
+   gateway or LEZ errors, structured logging of submitted updates
+   and rejections (with the on-chain rejection reason where
+   available), wallet-balance monitoring, and a clean shutdown
+   path. Document the operator journey end-to-end: install,
+   configure, run, monitor. The operator documentation must
+   explicitly cover the HTTPS data-path centralisation discussed
+   in Design Rationale ("HTTPS data path: centralisation and
+   censorship"): which gateways are queried, what the operator's
+   policy is when none respond, and how the operator detects
+   selective censorship.
 
 #### Usability
 
@@ -411,37 +478,32 @@ policy that forecloses these choices.
 3. Provide a CLI that covers core functionality: submit a data
    package, query the verified price, register and deregister
    feeds, update signer sets.
-4. Provide a relayer daemon (runnable from the CLI) that fetches
-   signed RedStone data packages from the RedStone gateway for the
-   registered feeds, pushes them to the LEZ adaptor on a
-   configurable cadence, and is suitable for an operator to run as
-   a long-running process. The daemon must support: configurable
-   feed list and update cadence per feed, retry and back-off on
-   transient gateway or LEZ errors, structured logging of submitted
-   updates and rejections (with the on-chain rejection reason where
-   available), and a clean shutdown path. Document the operator
-   journey end-to-end: install, configure, run, monitor.
-5. Provide an IDL for the adaptor program and the canonical
+4. Provide an IDL for the adaptor program and the canonical
    oracle price account standard (re-exported from RFP-019, not
    forked), using the
    [SPEL framework](https://github.com/logos-co/spel).
-6. Return clear, actionable error messages for all failure modes:
+5. Return clear, actionable error messages for all failure modes:
    stale data package, signer-threshold not met, signer not in
-   authorised set, asset identifier mismatch, malformed package,
-   invalid signature, zero or negative price.
-7. Provide a **reference consumer program**: a minimal LEZ program
+   authorised set, asset identifier mismatch (`base_asset` or
+   `quote_asset` does not match the registered feed), malformed
+   package, invalid signature, zero or negative price.
+6. Provide a **reference consumer program**: a minimal LEZ program
    (or equivalently a documented program-side code snippet plus
    tests) that demonstrates the recommended consumer-side
    integration pattern for reading the canonical price account
-   populated by this adaptor. The reference must show: reading
-   price and timestamp from the account, rejecting prices older
-   than the consumer's chosen `maxAge`, refusing to act on a
-   price whose dispute flag is set (the dispute flag is owned by
-   RFP-019's circuit breaker), and the recommended response when
-   a price is unavailable (typically: refuse the action, do not
-   fall back to an unsafe default). This is a guidance artefact
-   for downstream consumer protocols (RFP-008, RFP-013, RFP-004),
-   not a production product on its own.
+   populated by this adaptor. The reference must show: verifying
+   the `(base_asset, quote_asset)` pair matches the consumer's
+   expectation, reading price and timestamp from the account,
+   rejecting prices older than the consumer's chosen `maxAge`, and
+   the recommended response when a price is unavailable
+   (typically: refuse the action, do not fall back to an unsafe
+   default). Cross-source policy (combining the RedStone feed with
+   an on-chain TWAP or another external source) is the consumer
+   protocol's responsibility per RFP-019, Design Rationale
+   ("Multi-source coexistence"); this reference must not bundle a
+   divergence policy. This is a guidance artefact for downstream
+   consumer protocols (RFP-008, RFP-013, RFP-004), not a
+   production product on its own.
 
 #### Reliability
 
@@ -486,18 +548,21 @@ policy that forecloses these choices.
    asset-identifier mismatch rejection, zero or negative price
    rejection, and feed registration / signer-set update transitions.
 4. A README documents end-to-end usage: deployment steps, program
-   addresses, initial XMR/USD and ZEC/USD feed registrations, and
-   step-by-step instructions for submitting data packages and
-   querying prices via CLI and mini-app.
+   addresses, initial BTC/USD, ETH/USD, SOL/USD, XMR/USD, and
+   ZEC/USD feed registrations, and step-by-step instructions for
+   submitting data packages and querying prices via CLI and
+   mini-app.
 5. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
    for the SDK, covering the developer integration journey for
    submitting RedStone data packages and reading verified prices,
    **plus a "Recommended Consumer Pattern" section** that walks a
    downstream protocol developer through the reference consumer
-   program from Usability #7: staleness handling, dispute-flag
-   handling, behaviour when no valid non-disputed price is
-   available, and the recommended pairing with the on-chain TWAP
-   tier from RFP-019 for divergence checking.
+   program from Usability #6: `(base_asset, quote_asset)`
+   verification, staleness handling, behaviour when a price is
+   unavailable, and an example multi-source policy pairing the
+   RedStone feed with the on-chain TWAP tier from RFP-019. The
+   doc must state explicitly that cross-source policy is owned by
+   the consumer protocol, not by this adaptor.
 6. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
    for the CLI, covering the core operator/user journey.
 7. Provide Figma designs or equivalent for the mini-app GUI
@@ -520,11 +585,13 @@ policy that forecloses these choices.
 1. Multi-feed batched verification: amortise calldata and
    signature recovery overhead across multiple feeds in a single
    instruction (analogous to Pyth's Perseus amortisation).
-2. Circuit-breaker integration test against the on-chain TWAP
-   tier from RFP-019 once the TWAP program is available: confirm
-   that divergence between the RedStone-published price and the
-   TWAP-published price triggers the dispute flag as specified in
-   RFP-019.
+2. Multi-source integration test against the on-chain TWAP tier
+   from RFP-019 once the TWAP program is available: confirm that
+   a consumer reading both the RedStone price account and the
+   TWAP price account for the same `(base_asset, quote_asset)`
+   pair can apply an example cross-source policy (primary plus
+   fallback, divergence cross-check) without the adaptor
+   participating in that policy.
 
 ### Out of Scope
 
@@ -565,15 +632,23 @@ elsewhere:
   of the public-mode precompile question above and is not a
   deliverable of this RFP. The follow-on is itself contingent on
   consumer-protocol demand for private-execution pull mode, which
-  is not yet confirmed: parts of the LSC stablecoin design in
-  [RFP-013](./RFP-013-reflexive-stablecoin-protocol.md), for
+  is not yet confirmed: parts of the reflexive stablecoin design
+  in [RFP-013](./RFP-013-reflexive-stablecoin-protocol.md), for
   instance, already constrain specific actions to public
   transactions, so the capability is worth pursuing only if a
   downstream consumer actually requires it.
-- The choice between LSC/USD direct and LGS/USD + LGS/LSC
-  composite for the LSC stablecoin
-  ([RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)). That
-  is a business decision left to the RFP-013 implementer.
+- Price feed composition (combining two or more price accounts
+  whose denominations chain together, e.g. computing
+  `LGS/USD = LGS/wBTC × wBTC/USD`). RFP-019's canonical standard
+  exposes `base_asset` and `quote_asset` to make composition
+  checkable, but neither RFP-019 nor this adaptor specifies or
+  implements the composition itself. Composition becomes relevant
+  only once token wrapping is defined on LEZ; a future RFP, likely
+  an evolution of this one or a dedicated token-wrapping RFP, is
+  expected to specify a canonical composition pattern (confidence-
+  interval and staleness rules across legs). Until then,
+  consumer protocols that cross denominations are responsible for
+  their own composition logic.
 
 ## ⚠ Platform Dependencies
 
@@ -667,11 +742,10 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [RFP-008 — Lending & Borrowing Protocol](./RFP-008-lending-borrowing-protocol.md)
   (primary consumer of price feeds)
 - [RFP-013 — Reflexive Stablecoin Protocol](./RFP-013-reflexive-stablecoin-protocol.md)
-  (LSC stablecoin; either Path A direct LSC/USD or Path B
-  composite uses this adaptor)
+  (reflexive stablecoin; consumer of external-price feeds for
+  any wrapped-asset collateral path)
 - [RFP-019 — On-Chain TWAP Oracle](./RFP-019-twap-oracle.md)
-  (defines the canonical oracle price account standard and
-  circuit-breaker interface)
+  (defines the canonical oracle price account standard)
 - [Appendix: Oracle Ecosystem](../appendix/oracle-ecosystem.md)
 - [RedStone Documentation](https://docs.redstone.finance/)
 - [RedStone token registry](https://github.com/redstone-finance/redstone-api/blob/main/docs/ALL_SUPPORTED_TOKENS.md)

@@ -235,14 +235,19 @@ scope of work. The Recommended Consumer Pattern in the SDK doc
 packet (Supportability #5) provides a canonical example that
 consumers can adopt or replace.
 
-### Fee structure
+### Economic model
 
-Proposals must specify a fee model covering: who pays for oracle
-updates (consumer, protocol, or subsidised), when fees are charged
-(per query, per update, or per registration), the fee rate or
-formula, and where fees are routed (protocol treasury, oracle
-operators, or burned). The fee model should be sustainable without
-ongoing subsidies once LEZ reaches moderate TVL.
+A pull-based TWAP oracle has a different cost structure to a
+push-based feed: observation history is written as a side effect of
+swaps (paid by swappers via gas), `observe()` is a view call (no
+metering possible without a paywall contract), and the main explicit
+cost is cardinality expansion (rent for additional observation
+slots). Proposals must specify the economic model for oracle
+operation: who bears the cost of maintaining observation history
+(swappers via gas, pool deployers via cardinality rent, or protocol
+subsidy), and whether any explicit fees are charged for pool
+registration or cardinality expansion. The model should be
+sustainable without ongoing subsidies once LEZ reaches moderate TVL.
 
 ## ✅ Scope of Work
 
