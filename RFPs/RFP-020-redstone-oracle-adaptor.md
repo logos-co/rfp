@@ -91,13 +91,13 @@ depth: on a new chain where liquidity is thin, a validator controlling two
 consecutive blocks can manipulate the accumulator at a cost roughly equal to
 the round-trip swap fees and price impact, which on a $1M pool is cheap (see
 [Appendix: TWAP Manipulation Vectors](../appendix/oracle-ecosystem.md)).
-This applies even to majors like BTC/USD, ETH/USD, and SOL/USD: those pairs
-will exist as pools on LEZ, but at chain launch their pool depth will not yet
-be sufficient for TWAP to stand alone. More structurally, TWAP only produces a
-price for pairs that exist as pools on LEZ; XMR/USD and ZEC/USD don't, because
-XMR and ZEC aren't natively on LEZ. An off-chain feed is the only way to get
-those prices on chain at all, and pairing it with TWAP for the pairs where
-TWAP does work is the production norm for layered oracle defence.
+This applies even to major pairs like BTC/USD, ETH/USD, and SOL/USD: those
+pairs will exist as pools on LEZ, but at chain launch their pool depth will
+not yet be sufficient for TWAP to stand alone. More structurally, TWAP only
+produces a price for pairs that exist as pools on LEZ; XMR/USD and ZEC/USD
+don't, because XMR and ZEC aren't natively on LEZ. An off-chain feed is the
+only way to get those prices on chain at all, and pairing it with TWAP for the
+pairs where TWAP does work is the production norm for layered oracle defence.
 
 Across the surveyed off-chain oracle providers, RedStone is the only one that
 combines: support for both XMR and ZEC in its public token registry, a
