@@ -3,7 +3,7 @@ id: RFP-012
 title: Advanced Lending Features
 tier: L
 funding: $XXXXX
-status: draft
+status: open
 dependencies: RFP-008
 category: Applications & Integrations
 ---
@@ -59,13 +59,14 @@ alternative to established chains for advanced lending use cases.
    (e.g. stablecoin pairs, LST/underlying) with elevated LTV and
    liquidation threshold ratios. Borrowers automatically receive eMode
    parameters when all collateral and debt assets belong to the same
-   eMode category. eMode categories are configurable by the protocol
+   eMode category. eMode categories are configurable by an admin
    authority.
 
-3. **Isolated markets** — list higher-risk assets in isolated pools
-   with independent debt ceilings. Bad debt from an isolated market
-   does not propagate to cross-market pools. Each isolated asset has
-   its own debt ceiling enforced on-chain.
+3. **Isolated markets** — an admin authority can list higher-risk
+   assets in isolated pools with independent debt ceilings. Bad debt
+   from an isolated market does not propagate to cross-market pools.
+   Each isolated asset has its own debt ceiling set and enforced
+   on-chain by an admin authority.
 
 4. **Multiple collateral per position** — a single borrower can
    deposit multiple distinct assets as collateral. Aggregate borrowing
@@ -76,8 +77,8 @@ alternative to established chains for advanced lending use cases.
 5. **All risk parameters adjustable without program upgrade** — every
    configurable parameter (interest rate model slope, eMode LTV,
    isolated market debt ceiling, flash loan fee, reserve factor, etc.)
-   must be updatable by the protocol authority via a governance
-   instruction without redeploying the program.
+   must be updatable by an admin authority without redeploying the
+   program.
 
 #### Usability
 
@@ -122,6 +123,12 @@ alternative to established chains for advanced lending use cases.
 4. A README addendum documents the new features: configuration steps,
    eMode category setup, isolated market listing process, and a
    flash loan integration guide.
+5. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+   for each new SDK feature (flash loans, eMode, isolated markets, multiple
+   collateral), covering the developer integration journey.
+6. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+   for the CLI additions covering the new features.
+7. Provide Figma designs or equivalent for all GUI additions to the mini-app.
 
 ### Soft Requirements
 
@@ -157,7 +164,7 @@ If possible.
 
 ## ⚠ Platform Dependencies
 
-This RFP remains in **draft** until the following is satisfied:
+This RFP is open for proposal submission. However, development is blocked until the following is satisfied:
 
 1. **RFP-008 is live on LEZ mainnet/testnet** — this RFP extends the
    deployed protocol; it cannot proceed without the base layer.
@@ -209,8 +216,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 ## Resources
 
 - [RFP-008 — Lending & Borrowing Protocol](./RFP-008-lending-borrowing-protocol.md)
-- [RFP-001 — Admin Authority](./RFP-001-admin-authority-poc.md)
-- [RFP-002 — Freeze Authority](./RFP-002-freeze-authority-poc.md)
+- [RFP-001 — Admin Authority Library](./RFP-001-admin-authority-lib.md)
+- [RFP-002 — Freeze Authority Library](./RFP-002-freeze-authority-lib.md)
 - TODO: Oracle integration guide for LEZ
 - TODO: SPEL framework documentation
 

@@ -3,7 +3,7 @@ id: RFP-008
 title: Lending & Borrowing Protocol
 tier: XL
 funding: $XXXXX
-status: draft
+status: open
 dependencies: See Platform Dependencies section
 category: Applications & Integrations
 ---
@@ -84,15 +84,15 @@ foundation.
    permissionlessly liquidate the position by repaying a portion of
    the debt and receiving equivalent collateral at a discount.
    Liquidation is partial (configurable close factor per transaction).
-8. Each asset has independently configurable risk parameters: LTV,
-   liquidation threshold, liquidation bonus, reserve factor, and
-   supply/borrow caps.
+8. An admin authority can independently configure risk parameters per
+   asset: LTV, liquidation threshold, liquidation bonus, reserve
+   factor, and supply/borrow caps.
 9. A reserve factor diverts a percentage of borrow interest into
    protocol reserves as a buffer against bad debt.
 10. Price feeds from at least one oracle provider are integrated for
     collateral valuation and liquidation triggers.
-11. Per-asset supply and borrow caps are enforced and adjustable
-    without program upgrade.
+11. Per-asset supply and borrow caps are enforced and adjustable by
+    an admin authority without program upgrade.
 12. A liquidator bot that continuously monitors all borrower
     positions and executes liquidations when health factors drop
     below 1. The bot is the protocol's solvency mechanism — without
@@ -171,6 +171,12 @@ foundation.
 5. A README documents end-to-end usage: deployment steps, program
    addresses, and step-by-step instructions for interacting with
    the program via CLI and mini-app.
+6. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+   for the SDK, covering the developer integration journey for supply,
+   borrow, repay, withdraw, and liquidation.
+7. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+   for the CLI, covering the core operator/user journey.
+8. Provide Figma designs or equivalent for the mini-app GUI.
 
 #### + Privacy
 
@@ -280,7 +286,7 @@ For every protocol operation (supply, borrow, repay, withdraw):
 
 ## ⚠ Platform Dependencies
 
-This RFP remains in **draft** until the dependencies below are resolved.
+This RFP is open for proposal submission. However, development is blocked until the dependencies below are resolved.
 LEZ has similar programming capabilities to Solana but several
 primitives required by a lending protocol are not yet available.
 
@@ -376,8 +382,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 
 ## Resources
 
-- [RFP-001 — Admin Authority](/RFPs/RFP-001-admin-authority-poc.md)
-- [RFP-002 — Freeze Authority](/RFPs/RFP-002-freeze-authority-poc.md)
+- [RFP-001 — Admin Authority Library](/RFPs/RFP-001-admin-authority-lib.md)
+- [RFP-002 — Freeze Authority Library](/RFPs/RFP-002-freeze-authority-lib.md)
 - TODO: LEE official doc
 - TODO: Oracle integration guide for LEZ
 - TODO: SPEL framework documentation
