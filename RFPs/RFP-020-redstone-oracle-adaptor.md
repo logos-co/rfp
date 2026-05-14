@@ -301,10 +301,21 @@ Three reasons specific to LEZ's constraints:
    in RedStone's public token registry, and the RedStone connector
    pattern is fully self-serve: deployment does not require an
    oracle-team engagement, a bridge, or a per-chain registration
-   step. LEZ can deploy and exercise these feeds without touching
-   any external infrastructure. Pyth and DIA both cover the same
-   assets but require either Wormhole (Pyth) or bespoke per-chain
-   deployment (DIA Lumina) before they work on a new chain.
+   step. As far as we can see from the public SDK
+   ([`@redstone-finance/sdk` on npm](https://www.npmjs.com/package/@redstone-finance/sdk))
+   and the [RedStone Pull docs](https://docs.redstone.finance/docs/dapps/redstone-pull/),
+   consuming the live data-package gateways requires no account,
+   API key, or signup at the technical level; use is governed by
+   the public
+   [RedStone Terms of Use](https://redstone.finance/terms-of-use)
+   (acceptance implied by use). Whoever uses or runs the resulting
+   software is the party bound by those Terms; see "Operator-side
+   T&C considerations" below. LEZ can
+   deploy and exercise these
+   feeds without touching any external infrastructure. Pyth and DIA
+   both cover the same assets but require either Wormhole (Pyth)
+   or bespoke per-chain deployment (DIA Lumina) before they work
+   on a new chain.
 2. **Single verification primitive, no bridge.** RedStone's
    signature scheme is plain m-of-N secp256k1 ECDSA over keccak256
    (typically 3-of-N). Verification on LEZ is in-program ECDSA
@@ -366,6 +377,19 @@ inline as transaction calldata (pull). Two consequences follow:
   availability at RedStone's hosts (AWS, GCP) all become LEZ
   oracle liveness dependencies. Regional outages at these
   providers can take the feed offline.
+- **Privacy leak in pull mode.** Pull-mode consumers fetch the
+  signed data package directly from the RedStone DDL gateway
+  before submitting it inline with their on-chain transaction.
+  This reveals the consumer's IP (and timing, and which asset
+  pair was requested) to the gateway operator *before* the
+  on-chain action, even when the on-chain action itself runs in
+  private execution. The push-aggregator shape this RFP commits
+  to confines this exposure to the relayer operator: the
+  relayer's IP is visible to RedStone, but downstream consumers
+  read from the public price account on LEZ with no gateway
+  contact. This is an additional reason to prefer the
+  push-aggregator pattern over pull mode on LEZ, separate from
+  the in-circuit cost argument.
 
 Implementers must document, as part of the relayer operator
 journey, the mitigations the operator chooses: multiple parallel
@@ -382,6 +406,37 @@ property). It is not an objection to RedStone; it is the trade-off
 LEZ accepts by adopting any HTTPS-served signed-data oracle, and
 must be communicated to consumer protocols so they can size their
 liveness assumptions accordingly.
+
+### Operator-side T&C considerations
+
+This RFP scopes the delivery of *software* (the adaptor program,
+the relayer module, the SDK and consumer-pattern documentation).
+It does not itself execute any data-fetch request against
+RedStone's gateways. The party that uses or runs the resulting
+software (in particular the relayer that fetches data packages
+from `*.redstone.finance` and `*.redstone.vip`) is the party
+bound by the
+[RedStone Terms of Use](https://redstone.finance/terms-of-use)
+and must abide by them.
+
+The Terms restrict commercial use and do not describe a
+self-serve application process. Contact paths for a commercial
+agreement (current as of this writing, may move):
+
+- `redstone.finance/contact` (general partnership / integration
+  enquiry form).
+- `redstone.finance/institutional` ("Contact Institutional Sales"
+  form, oriented at SLAs, custom feeds, and paid partnerships).
+- `dev@redstone.finance` (the only email surfaced in the Terms;
+  appropriate for general enquiries).
+
+This RFP does not require the implementer to obtain a commercial
+agreement; the implementer's deliverable is software. The
+implementer's documentation **must**, however, surface the
+Terms of Use to relayer operators as part of the operator
+journey (see Functionality #7 and Supportability), so any
+operator deploying the relayer is on notice that they are the
+party bound by the Terms.
 
 ### Fee structure
 
@@ -462,7 +517,13 @@ policy that forecloses these choices.
    in Design Rationale ("HTTPS data path: centralisation and
    censorship"): which gateways are queried, what the operator's
    policy is when none respond, and how the operator detects
-   selective censorship.
+   selective censorship. The operator documentation must also
+   surface the
+   [RedStone Terms of Use](https://redstone.finance/terms-of-use)
+   commercial-use clause discussed in Design Rationale
+   ("Operator-side T&C considerations"), so any operator
+   deploying the relayer is on notice that fee-charging operation
+   may require a separate commercial agreement with RedStone.
 
 #### Usability
 
