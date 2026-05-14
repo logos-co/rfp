@@ -3,7 +3,7 @@ id: RFP-013
 title: Reflexive Stablecoin Protocol
 tier: XL
 funding: $XXXXX
-status: draft
+status: open
 dependencies: RFP-001 (Admin Authority), RFP-002 (Freeze Authority)
 category: Applications & Integrations
 ---

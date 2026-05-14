@@ -3,7 +3,7 @@ id: RFP-014
 title: Liquidation & Auction Engine
 tier: L
 funding: $XXXXX
-status: draft
+status: open
 dependencies: RFP-001 (Admin Authority), RFP-002 (Freeze Authority), RFP-013 (Reflexive Stablecoin Protocol or equivalent CDP host)
 category: Applications & Integrations
 ---
