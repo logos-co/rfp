@@ -20,10 +20,14 @@ through the canonical oracle price account standard defined in
 ETH/USD, SOL/USD, XMR/USD, and ZEC/USD feeds. RedStone's data packages are
 signed with secp256k1 + keccak256 by its data nodes; verification on LEZ runs
 as in-program code inside the RISC-V zkVM (no cross-chain bridge, no Wormhole
-dependency). The adaptor uses a push-mode aggregator pattern: a public-mode
+dependency). The adaptor delivers **both modes** that the RedStone connector
+model supports on a public runtime: a **push-mode aggregator** (a public-mode
 program verifies signatures on the write side, stores the result in a public
-price account, and consumers (including private-execution programs) read the
-slot.
+price account, and consumers read the slot) and **public-mode pull** (a
+public consumer transaction carries a signed RedStone payload and verifies it
+inline against the same authorised signer set, without writing a shared price
+account). Both modes share a single verification path so the cost profile and
+audit surface are common.
 
 LEZ is RISC0-based, so any signature scheme can be implemented in program
 code. Early prototype work on in-program secp256k1 ECDSA verification inside
@@ -31,50 +35,43 @@ RISC0 ([`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-si
 shows the verification is slow enough that **pull-mode reads from inside a
 private transaction are not feasible on consumer hardware** (a private
 consumer would spend several minutes generating the proof for each read),
-absent a RISC0-specific signature-verification accelerator. The push-mode
-aggregator pattern is therefore the working assumption: the verifier runs once
-per update on the write side in public execution; consumers (public or
-private) read the resulting public price account without doing any signature
-work. Cost measurement remains a primary deliverable for the public-mode write
-side, where amortisation across all downstream reads can make in-program
-verification workable; if the measured public-mode cost is unacceptable the
-measurement becomes the input to a follow-on RFP that proposes adding a
+absent a RISC0-specific signature-verification accelerator. Pull mode is
+therefore delivered for **public execution only**: a public consumer
+transaction can verify a signed payload inline at the cost measured in this
+RFP, while private-execution composition continues to go via the public price
+account written by the push aggregator. Cost measurement remains a primary
+deliverable for both modes: the push-mode write side, where amortisation
+across all downstream reads can make in-program verification workable, and
+the public-mode pull path, where the per-read cost is paid by every consumer
+transaction. If the measured public-mode cost is unacceptable on either path,
+the measurement becomes the input to a follow-on RFP that proposes adding a
 secp256k1 ECDSA + keccak256 precompile to LEZ.
 
 ### Scope
 
 In scope:
 
-- The RedStone off-chain oracle adaptor as a public-mode push aggregator on
-  LEZ.
+- The RedStone off-chain oracle adaptor on LEZ, delivered in two modes:
+  - **Push-mode aggregator** (public-mode program owns a canonical public
+    price account).
+  - **Public-mode pull** (a consumer-side verification library / on-chain
+    helper that verifies a signed payload inline inside a public consumer
+    transaction).
 - Day-one BTC/USD, ETH/USD, SOL/USD, XMR/USD, and ZEC/USD feeds, registered
-  and exercised on LEZ devnet/testnet.
+  and exercised on LEZ devnet/testnet in both modes.
 - Cost measurement of the in-program RISC-V verification path as a primary
-  deliverable.
+  deliverable, covering both the push-aggregator write side and the
+  public-mode pull per-read cost.
 
 Out of scope at the Overview level (full list under Out of Scope below):
 
 - The on-chain TWAP tier and the canonical oracle price account standard,
   owned by [RFP-019](./RFP-019-twap-oracle.md).
-- A Pyth adaptor: depends on Wormhole on LEZ, deferred to a future RFP.
-- Pull-mode reads from inside private execution: blocked on either a RISC0
-  zkVM circuit-level accelerator (e.g. a future `risc0-ecdsa` extension that
-  lowers in-circuit verification cost) or a different upstream signature
-  scheme that admits acceptable in-circuit cost on RISC0; neither exists
-  today. A LEZ secp256k1 + keccak256 *precompile* (a runtime host function) is
-  the subject of a possible cost-conditional public-mode follow-on RFP; that
-  precompile lives outside the ZK proof boundary, so it lowers public-mode
-  write-side cost but does *not* unblock private-execution pull (a host
-  function cannot be called from inside the privacy circuit). An alternative
-  private-mode-friendly signature scheme (with the corresponding upstream
-  publisher work) is the subject of a possible separate follow-on RFP.
-  Whether either follow-on is warranted depends on consumer-protocol demand
-  for private-execution pull, which is not yet established: some consumer
-  protocols (notably the reflexive stablecoin in
-  [RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)) already constrain
-  specific actions to public transactions for their own design reasons, so
-  the capability is worth reaching for only if a downstream consumer actually
-  needs it.
+- Pull-mode reads from inside *private* execution (public-mode pull is in
+  scope above): blocked on either a RISC0 zkVM circuit-level accelerator
+  (e.g. a future `risc0-ecdsa` extension that lowers in-circuit verification
+  cost) or a different upstream signature scheme that admits acceptable
+  in-circuit cost on RISC0; neither exists today.
 
 ## 🔥 Why This Matters
 
@@ -93,13 +90,8 @@ the round-trip swap fees and price impact, which on a $1M pool is cheap (see
 [Appendix: TWAP Manipulation Vectors](../appendix/oracle-ecosystem.md)). This
 applies to every pair on a new chain, not just to privacy assets. More
 structurally, TWAP only produces a price for pairs that exist as pools on
-LEZ. Privacy assets like XMR and ZEC are not natively on LEZ, so the only
-LEZ pools that could quote them are pools of wrapped representations against
-another wrapped asset (e.g. wXMR/USDC), which only inherits the underlying
-USD reference price if that reference comes from somewhere else. An off-chain
-feed is the only way to get an XMR/USD or ZEC/USD reference on chain at all,
-and pairing it with TWAP for the pairs where TWAP does work is the production
-norm for layered oracle defence.
+LEZ. An off-chain feed is the only way to get an XMR/USD or ZEC/USD reference
+on chain at all, and pairing it with TWAP for the pairs where TWAP does work is the production norm for layered oracle defence.
 
 Across the surveyed off-chain oracle providers, RedStone is the only one that
 combines: support for both XMR and ZEC in its public token registry, a
@@ -134,40 +126,56 @@ standard from RFP-019 keeping swap-out cheap if those choices change later.
 
 ## 🏗 Design Rationale
 
-### Public-mode aggregator with private-account composability
+### Push aggregator and public-mode pull
 
-The adaptor runs as a public-mode LEZ program with no confidential state.
-Signature verification, data-package decoding, and price publication are all
-visible to any caller. Any LEZ dapp can read the same canonical price.
+The adaptor runs entirely in public execution and ships two consumption
+patterns over a single verification path:
 
-This shape is determined by where signature verification can run on LEZ. LEZ
-is a RISC-V zkVM built on RISC0; any code that runs inside a private
-transaction has to be expressible inside the RISC-V zkVM circuit, so a private
-transaction that wants to verify a secp256k1 ECDSA signature has two options,
-both unappealing: verify the signature inside the privacy circuit (forfeits
-the batching benefits that make ZK proof amortisation work; RISC0
-elliptic-curve performance for this primitive is currently unmeasured), or
-place the signature in the transaction journal where it is publicly disclosed
-(breaks the privacy of the transaction). Neither option preserves both
-efficiency and privacy.
+1. **Push-mode aggregator.** A public-mode LEZ program owns a canonical price
+   account. A relayer (or any caller) submits a signed RedStone payload; the
+   program verifies signatures and the M-of-N threshold and writes price plus
+   timestamp to the public price account. Cost is paid once per update and amortises across all downstream reads, public and private. Private-execution consumers compose with the price by reading the public account.
+2. **Public-mode pull.** A public consumer transaction carries a signed
+   RedStone payload as part of its own input and runs the same verification
+   path inline (as a library call from the consumer program), without
+   touching the aggregator account. The verified price is consumed in the
+   same transaction and is **not** written through to the canonical price
+   account. Cost is paid per consumer transaction; the price is fresh at
+   the moment of consumption.
 
-The adaptor therefore runs the verifier in a public-mode aggregator:
-signatures are recovered once per update on the write side, and the verified
-price plus timestamp are stored in a public price account. Private-execution
-programs compose with the price by reading the public account, not by
-carrying signed payloads inline. Cost is paid once per update and amortises
-across all downstream reads, public and private. Confidential execution is
-reserved for application-layer protocols that consume oracle prices (for
-example, private DEX swaps in
-[RFP-004](./RFP-004-privacy-preserving-dex.md)); the price feed itself stays
-public.
+Both modes share the same in-program secp256k1 ECDSA + keccak256
+verification, the same authorised signer-set configuration, and the same
+data-package decoder. The aggregator is a thin wrapper that calls the
+shared verifier and writes a canonical price account; the public-mode pull
+helper exposes the same verifier as a library that a consumer program can
+call. This keeps the cost profile and audit surface common between the two.
 
-Pull-mode reads (where a public consumer transaction carries a signed payload
-and verifies inline) remain technically possible on LEZ inside public
-execution, but are out of scope for this RFP because they don't extend to
-private execution and because the push-mode aggregator gives strictly better
-cost amortisation for the LEZ DeFi consumer set. They can be revisited in a
-follow-on once measured cost data is in.
+Pull from inside *private* execution is a different story, and is foreclosed
+on LEZ today regardless of which mode the caller picks. LEZ is a RISC-V zkVM
+built on RISC0; any code that runs inside a private transaction has to be
+expressible inside the RISC-V zkVM circuit, so a private transaction that
+wants to verify a secp256k1 ECDSA signature has two options, both
+unappealing: verify the signature inside the privacy circuit (forfeits the
+batching benefits that make ZK proof amortisation work; the prototype work
+referenced in the Overview shows several minutes of proof time per read on
+consumer hardware), or place the signature in the transaction journal where
+it is publicly disclosed (breaks the privacy of the transaction). Neither
+option preserves both efficiency and privacy. Private-execution programs
+therefore compose with the feed by reading the public price account written
+by the push aggregator, not by carrying signed payloads inline.
+
+Public-mode pull is delivered because the LEZ consumer set includes
+public-execution programs (administrative actions, public-mode market
+operations, integration tests, and any consumer protocol that has chosen to
+run a given action in public execution for its own reasons) for which the
+per-read freshness of pull and the absence of a shared write-side dependency
+are real value, not noise. Aggregator and pull are not redundant: pull
+removes the shared-account update cadence as a dependency for any consumer
+that prefers to pay per read; the aggregator removes the per-read
+verification cost for any consumer (especially private-execution consumers)
+that prefers to amortise. Shipping both lets each consumer protocol choose
+the trade-off, and the cost numbers from the measurement deliverable give
+that choice a quantitative basis.
 
 See [Appendix: Oracle Ecosystem, Implications for LEZ](../appendix/oracle-ecosystem.md#implications-for-lez)
 for the full four-shape analysis (trusted re-signer, FROST-BIP340 federation,
@@ -185,17 +193,6 @@ transaction time" property for private consumers without paying the
 in-circuit cost in the privacy proof. The adaptor program already
 accommodates this: any caller can submit a valid signed payload and the
 program writes if signatures and timestamps check out.
-
-The same mechanism enables a **consumer-pays push variant** that does not
-require a dedicated relayer at all. Users push when they need a fresh price;
-idle periods incur zero update cost; the aggregator only advances when
-someone needs it. This is operationally pull (consumer-pays, on-demand) but
-structurally push (the program owns the public price account that downstream
-private consumers read from). Whether to run a heartbeat relayer in addition
-(RedStone's own pusher, a sovereign relayer, or neither) is a deployment-time
-choice: a heartbeat keeps the slot[]() warm for read-only consumers;
-consumer-pays push keeps the cost model strictly proportional to demand. Both
-can coexist; the program logic does not distinguish between them.
 
 The two-transaction split (public push, then private read) is distinct from
 the rejected "put the signature in the journal" option. The signature is
@@ -232,50 +229,60 @@ private-execution pull mode in any practical sense for the in-program path,
 absent a RISC0-specific signature-verification accelerator (e.g. a future
 `risc0-ecdsa` extension or a secp256k1 precompile wired into the zkVM proving
 system itself). The first concrete deliverable of this RFP refines this
-picture for the public-mode write side: implement the verifier in RISC-V, run
-it on LEZ, document the cost (compute units, proof time, proof size,
-per-update bytes) for both the per-signature recovery and the full 3-of-N
-aggregator write, and characterise where the public-mode cost lands relative
-to the production-cadence budget. Public-mode cost is the cost that matters
-for shipping the adaptor: it amortises across all downstream reads.
+picture for the two delivered modes: implement the verifier in RISC-V, run
+it on LEZ in both the push aggregator and a representative public-mode pull
+consumer transaction, and document the cost (compute units, proof time,
+proof size, per-update / per-read bytes) for the per-signature recovery,
+the full 3-of-N aggregator write, and the full 3-of-N pull-mode read.
+Characterise where each lands relative to the production-cadence budget.
+The two modes amortise cost differently and the measurement must keep them
+distinct: aggregator cost is paid once per update and divided across all
+downstream reads; pull cost is paid by every consumer transaction.
 
-Two outcomes are possible from that measurement:
+Three outcomes are possible from that measurement:
 
-1. **Measured cost is acceptable for the push-mode aggregator.** The adaptor
-   ships on the runtime as it stands. The aggregator's update cadence
-   amortises the per-update cost across all downstream reads. No runtime
-   change required.
-2. **Measured cost is unacceptable.** The measurement becomes the input to a
-   follow-on RFP that proposes adding a secp256k1 ECDSA + keccak256 precompile
-   to LEZ for use by public-execution programs. A precompile lives outside the
-   ZK proof boundary and is invoked as native validator code, so the cost goes
-   from "ZK-proven elliptic-curve operations" to "native ECDSA recovery +
-   keccak", which is the cost profile RedStone's existing connectors assume on
-   every other chain. The precompile is an optimisation path conditional on
-   the measurement, not a precondition for this RFP.
+1. **Measured cost is acceptable for both modes.** The adaptor ships on the
+   runtime as it stands. No runtime change required.
+2. **Measured cost is acceptable for the push-mode aggregator but not for
+   public-mode pull.** The adaptor still ships with both modes available
+   (the pull library is documented as a fit only for low-frequency or
+   high-value consumer transactions that can absorb the per-read cost),
+   but the cost measurement becomes the input to the follow-on RFP in
+   outcome 3.
+3. **Measured cost is unacceptable in either mode.** The measurement
+   becomes the input to a follow-on RFP that proposes adding a secp256k1
+   ECDSA + keccak256 precompile to LEZ for use by public-execution
+   programs. A precompile lives outside the ZK proof boundary and is
+   invoked as native validator code, so the cost goes from "ZK-proven
+   elliptic-curve operations" to "native ECDSA recovery + keccak", which
+   is the cost profile RedStone's existing connectors assume on every
+   other chain. The precompile is an optimisation path conditional on the
+   measurement, not a precondition for this RFP; because the two modes
+   share the verification core, the precompile lowers cost in both
+   simultaneously.
 
 The applicant should therefore design the verification path so that swapping
 in a precompile in a later release is a localised change (a single trait
 implementation or syscall wrapper), not a restructuring of the program.
 
-The precompile path addresses public-mode write-side cost only;
-private-execution pull mode is foreclosed under it for the same structural
-reason it is foreclosed under the in-program path (a precompile lives outside
-the ZK proof boundary, so it is not callable from inside a private
-transaction). If a signature scheme exists, or can be selected, that yields
-acceptable in-circuit cost on RISC0 (a RISC0-friendly hash and curve
-combination, or a different signature primitive that admits cheaper
-in-circuit verification), pull-mode reads from inside private execution
-become reachable and the public-mode aggregator becomes one option among
-several rather than the only viable shape. Identifying or building such a
-scheme, and either modifying an existing oracle network to publish in it or
-standing up a new publisher set that does, is the subject of a possible
-separate follow-on RFP. It is independent of the public-mode precompile
-question and out of scope for this RFP. Whether such a follow-on is worth
-pursuing depends on whether any consumer protocol actually needs
-private-execution pull, which is not yet confirmed: consumer protocols may
-already have design reasons to keep specific actions in public transactions,
-with the reflexive stablecoin in
+The precompile path addresses public-mode cost (in both push and pull, via
+the shared verification core); private-execution pull mode is foreclosed
+under it for the same structural reason it is foreclosed under the
+in-program path (a precompile lives outside the ZK proof boundary, so it is
+not callable from inside a private transaction). If a signature scheme
+exists, or can be selected, that yields acceptable in-circuit cost on RISC0
+(a RISC0-friendly hash and curve combination, or a different signature
+primitive that admits cheaper in-circuit verification), pull-mode reads
+from inside private execution become reachable as a third deployment mode
+alongside the push aggregator and public-mode pull this RFP delivers.
+Identifying or building such a scheme, and either modifying an existing
+oracle network to publish in it or standing up a new publisher set that
+does, is the subject of a possible separate follow-on RFP. It is
+independent of the public-mode precompile question and out of scope for
+this RFP. Whether such a follow-on is worth pursuing depends on whether
+any consumer protocol actually needs private-execution pull, which is not
+yet confirmed: consumer protocols may already have design reasons to keep
+specific actions in public transactions, with the reflexive stablecoin in
 [RFP-013](./RFP-013-reflexive-stablecoin-protocol.md) as one concrete example.
 
 ### Why RedStone first
@@ -357,13 +364,15 @@ calldata (pull). Two consequences follow:
   package directly from the RedStone DDL gateway before submitting it inline
   with their on-chain transaction. This reveals the consumer's IP (and
   timing, and which asset pair was requested) to the gateway operator
-  *before* the on-chain action, even when the on-chain action itself runs in
-  private execution. The push-aggregator shape this RFP commits to confines
-  this exposure to the relayer operator: the relayer's IP is visible to
-  RedStone, but downstream consumers read from the public price account on
-  LEZ with no gateway contact. This is an additional reason to prefer the
-  push-aggregator pattern over pull mode on LEZ, separate from the
-  in-circuit cost argument.
+  *before* the on-chain action. Public-mode pull is in scope in this RFP,
+  so this exposure is a real caveat for any consumer that picks it; the
+  push aggregator confines the same exposure to the relayer operator (the
+  relayer's IP is visible to RedStone, but downstream aggregator consumers
+  read from the public price account on LEZ with no gateway contact). The
+  pull-mode SDK and reference consumer must document this trade-off, and
+  consumer protocols choosing pull should consider IP-anonymising fetch
+  paths (Tor, mixnets, gateway proxies) or accept the exposure as
+  appropriate to their threat model.
 
 Implementers must document, as part of the relayer operator journey, the
 mitigations the operator chooses: multiple parallel gateway queries (SDK
@@ -390,17 +399,6 @@ bound by the
 [RedStone Terms of Use](https://redstone.finance/terms-of-use) and must abide
 by them.
 
-The Terms restrict commercial use and do not describe a self-serve
-application process. Contact paths for a commercial agreement (current as of
-this writing, may move):
-
-- `redstone.finance/contact` (general partnership / integration enquiry
-  form).
-- `redstone.finance/institutional` ("Contact Institutional Sales" form,
-  oriented at SLAs, custom feeds, and paid partnerships).
-- `dev@redstone.finance` (the only email surfaced in the Terms; appropriate
-  for general enquiries).
-
 This RFP does not require the implementer to obtain a commercial agreement;
 the implementer's deliverable is software. The implementer's documentation
 **must**, however, surface the Terms of Use to relayer operators as part of
@@ -410,13 +408,15 @@ the Terms.
 
 ### Fee structure
 
-In the push-aggregator shape this RFP commits to, the on-chain verification
-cost is paid once per update by whoever submits the signed data package to
-the aggregator, and is amortised across all downstream reads (public and
-private). RedStone itself does not publish prices on-chain; a relayer fetches
-the signed packages from the RedStone gateway and pushes them, so "whoever
-pays for an update" in practice means whoever runs (or pays for) the relayer.
-The adaptor does not need to fund a dedicated node operator pool.
+Verification cost lands differently in the two modes. In push mode, the
+on-chain verification cost is paid once per update by whoever submits the
+signed data package to the aggregator, and is amortised across all
+downstream reads (public and private); RedStone itself does not publish
+prices on-chain, so "whoever pays for an update" in practice means whoever
+runs (or pays for) the relayer. In public-mode pull, the verification cost
+is paid by each consumer transaction on every read, with no shared
+amortisation but no relayer dependency either. The adaptor does not need to
+fund a dedicated node operator pool for either mode.
 
 Beyond that structural point, this RFP does not prescribe a fee model.
 Downstream users of the adaptor (consuming protocols, relayer operators,
@@ -438,7 +438,10 @@ should not bake in policy that forecloses these choices.
    the configured set of authorised RedStone data nodes for the requested
    feed. Structure the verification path so that swapping the in-program
    recovery for a future host primitive (precompile or syscall) is a
-   localised change.
+   localised change. The verification routine must be packaged as a
+   library callable both from this program (push mode) and from third-party
+   consumer programs (public-mode pull, Functionality #8), so a single
+   audited implementation backs both modes.
 2. Verify the M-of-N signer threshold for each feed (configurable at
    registration; default 3-of-N consistent with RedStone's reference
    parameters) and reject any data package that does not meet the threshold.
@@ -483,20 +486,61 @@ should not bake in policy that forecloses these choices.
    considerations"), so any operator deploying the relayer is on notice
    that fee-charging operation may require a separate commercial agreement
    with RedStone.
+8. **Public-mode pull verification library.** Expose the verification path
+   from Functionality #1 as a reusable library that a public-mode consumer
+   program can call inline. Given a signed RedStone payload, a configured
+   `(dataServiceId, feedId, authorised signer set, M-of-N threshold,
+   maxAge)`, and the consumer's expected `(base_asset, quote_asset)`, the
+   library returns the verified price and timestamp on success or a typed
+   error on failure (same failure modes as the aggregator: invalid
+   signature, signer not in set, threshold not met, stale package, asset
+   mismatch, malformed package, zero or negative value). The library must
+   not depend on the aggregator's price account; a consumer using only pull
+   must be able to integrate without registering a feed against the
+   aggregator program. The library **must not** write the verified price
+   through to the canonical price account, even when a matching feed is
+   registered: pull is consumer-local by design (see Design Rationale,
+   "Push aggregator and public-mode pull"); a consumer that wants shared
+   slot semantics uses the consumer-pays push variant explicitly via the
+   aggregator program. The library must share its verification core with
+   the aggregator (single implementation, single audit surface). Document
+   the consumer-side fetch path (querying the RedStone DDL gateways for a
+   signed payload before sending the consumer transaction) and the
+   gateway-IP privacy caveat from Design Rationale ("HTTPS data path").
+9. BTC/USD, ETH/USD, SOL/USD, XMR/USD, and ZEC/USD feeds must be
+   exercised in both modes on LEZ devnet/testnet: registered against the
+   aggregator (per #6), and consumed via the pull library by an
+   end-to-end public-mode pull test that fetches a live signed payload and
+   verifies it inline.
 
 #### Usability
 
-1. Provide an SDK that can be used to build Logos modules for submitting
-   RedStone data packages and reading verified prices from the canonical
-   price account.
+1. Provide an SDK that can be used to build Logos modules for:
+   submitting RedStone data packages to the push aggregator; reading
+   verified prices from the canonical price account; and consuming the
+   public-mode pull verification library (Functionality #8) from a public
+   consumer program. The SDK must expose both modes through ergonomic
+   helpers so a developer can switch between them without changing the
+   payload-handling code.
 2. Provide a Logos mini-app GUI (off-chain feed dashboard) with local build
    instructions, downloadable assets, and loadable in Logos app (Basecamp)
-   via git repo. The dashboard must display: live prices for each registered
-   feed, the configured signer set, the current M-of-N threshold, the latest
-   data-package timestamp, and the staleness of each feed.
-3. Provide a CLI that covers core functionality: submit a data package,
-   query the verified price, register and deregister feeds, update signer
-   sets.
+   via git repo. The dashboard must display, for the push aggregator: live
+   prices for each registered feed, the configured signer set, the current
+   M-of-N threshold, the latest data-package timestamp, and the staleness
+   of each feed. It must additionally provide a public-mode pull dry-run
+   panel that fetches a signed payload from the DDL for a chosen
+   `(dataServiceId, feedId)` and shows what the pull verification library
+   would return on-chain (verified price and timestamp, or typed error),
+   so developers and operators can exercise the pull path without
+   submitting a consumer transaction.
+3. Provide a CLI that covers core functionality for both modes: submit a
+   data package to the push aggregator, query the verified price from the
+   canonical price account, register and deregister feeds, update signer
+   sets, and (for pull mode) fetch a signed payload from the RedStone DDL
+   and run an off-chain dry-run of the public-mode pull verification path
+   for a given `(dataServiceId, feedId, base_asset, quote_asset, maxAge)`
+   tuple. The dry-run output must report the same typed error codes the
+   on-chain pull library returns.
 4. Provide an IDL for the adaptor program and the canonical oracle price
    account standard (re-exported from RFP-019, not forked), using the
    [SPEL framework](https://github.com/logos-co/spel).
@@ -505,21 +549,30 @@ should not bake in policy that forecloses these choices.
    identifier mismatch (`base_asset` or `quote_asset` does not match the
    registered feed), malformed package, invalid signature, zero or negative
    price.
-6. Provide a **reference consumer program**: a minimal LEZ program (or
-   equivalently a documented program-side code snippet plus tests) that
-   demonstrates the recommended consumer-side integration pattern for
-   reading the canonical price account populated by this adaptor. The
-   reference must show: verifying the `(base_asset, quote_asset)` pair
-   matches the consumer's expectation, reading price and timestamp from the
-   account, rejecting prices older than the consumer's chosen `maxAge`, and
-   the recommended response when a price is unavailable (typically: refuse
-   the action, do not fall back to an unsafe default). Cross-source policy
-   (combining the RedStone feed with an on-chain TWAP or another external
-   source) is the consumer protocol's responsibility per RFP-019, Design
-   Rationale ("Multi-source coexistence"); this reference must not bundle a
-   divergence policy. This is a guidance artefact for downstream consumer
-   protocols (RFP-008, RFP-013, RFP-004), not a production product on its
-   own.
+6. Provide **two reference consumer programs**, one per mode (or one
+   reference program with two clearly separated entry points), each a
+   minimal LEZ program (or equivalently a documented program-side code
+   snippet plus tests) that demonstrates the recommended consumer-side
+   integration pattern:
+   - **Aggregator-read reference.** Reads the canonical price account
+     populated by the push aggregator. Must show: verifying the
+     `(base_asset, quote_asset)` pair matches the consumer's expectation,
+     reading price and timestamp from the account, rejecting prices older
+     than the consumer's chosen `maxAge`, and the recommended response
+     when a price is unavailable (typically: refuse the action, do not
+     fall back to an unsafe default).
+   - **Public-mode pull reference.** Calls the public-mode pull
+     verification library from Functionality #8 with a signed payload
+     carried in the consumer transaction's input. Must show: passing the
+     expected `(base_asset, quote_asset)`, signer set, M-of-N threshold,
+     and `maxAge` to the library, handling each typed error code, and the
+     same "refuse on unavailable" pattern.
+   Cross-source policy (combining the RedStone feed with an on-chain TWAP
+   or another external source) is the consumer protocol's responsibility
+   per RFP-019, Design Rationale ("Multi-source coexistence"); neither
+   reference must bundle a divergence policy. These are guidance artefacts
+   for downstream consumer protocols (RFP-008, RFP-013, RFP-004), not
+   production products on their own.
 
 #### Reliability
 
@@ -534,19 +587,26 @@ should not bake in policy that forecloses these choices.
 1. End-to-end signature verification and price publication for a single
    3-of-N RedStone data package must complete within a single LEZ public
    transaction at the per-transaction compute and proof budget in force on
-   LEZ at delivery time.
+   LEZ at delivery time. This applies to both modes: the push-aggregator
+   write and a representative public-mode pull consumer transaction.
 2. Cost measurement is a primary deliverable, not a side report. The
    applicant must measure and document, for the RISC-V in-program
-   verification path: per-signer ECDSA recovery cost (compute units, RISC0
-   proof time, RISC0 proof size), keccak256 hashing cost, package decoding
-   cost, signer-set membership check, canonical price account write, and
-   feed registration. Numbers must be reproducible from the test suite.
+   verification path, for **both modes** (push aggregator write and
+   public-mode pull per-read): per-signer ECDSA recovery cost (compute
+   units, RISC0 proof time, RISC0 proof size), keccak256 hashing cost,
+   package decoding cost, signer-set membership check, and (push mode
+   only) canonical price account write and feed registration. The
+   measurement must explicitly report the per-read cost a public-mode pull
+   consumer incurs, so a consumer protocol can decide which mode fits its
+   cadence and budget. Numbers must be reproducible from the test suite.
 3. Document the cost delta between the in-program path and a hypothetical
    native ECDSA + keccak256 precompile, using existing per-chain reference
    points (for example, the RedStone EVM end-to-end gas range of 50K to
    100K, and the per-recovery cost profile on chains that expose a native
-   primitive). The delta informs whether a follow-on precompile RFP is
-   warranted.
+   primitive). Report the delta separately for the two modes (because the
+   per-read pull path and the per-update aggregator path amortise the same
+   precompile speed-up differently across the consumer set). The delta
+   informs whether a follow-on precompile RFP is warranted.
 
 #### Supportability
 
@@ -555,25 +615,38 @@ should not bake in policy that forecloses these choices.
    mode) and are included in CI; CI must be green on the default branch.
 3. Every hard requirement in Functionality, Usability, Reliability, and
    Performance has at least one corresponding test. The test suite must
-   include: valid signature acceptance, invalid signature rejection,
+   include, for **both modes** (push aggregator and public-mode pull where
+   applicable): valid signature acceptance, invalid signature rejection,
    signer-threshold enforcement (M-of-N, including boundary cases),
    stale-package rejection (`maxAge`), asset-identifier mismatch rejection,
-   zero or negative price rejection, and feed registration / signer-set
-   update transitions.
-4. A README documents end-to-end usage: deployment steps, program addresses,
-   initial BTC/USD, ETH/USD, SOL/USD, XMR/USD, and ZEC/USD feed
-   registrations, and step-by-step instructions for submitting data packages
-   and querying prices via CLI and mini-app.
+   zero or negative price rejection, and (push mode only) feed
+   registration / signer-set update transitions. The pull-mode tests must
+   exercise the library inside a representative public consumer program
+   (the pull reference consumer from Usability #6), not just as a unit
+   test of the verification function.
+4. A README documents end-to-end usage for both modes: deployment steps,
+   program addresses, initial BTC/USD, ETH/USD, SOL/USD, XMR/USD, and
+   ZEC/USD feed registrations, step-by-step instructions for submitting
+   data packages to the push aggregator and querying prices via CLI and
+   mini-app, and step-by-step instructions for integrating the
+   public-mode pull verification library into a consumer program
+   (including how to fetch a signed payload from the DDL and how to
+   handle each failure mode).
 5. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-   for the SDK, covering the developer integration journey for submitting
-   RedStone data packages and reading verified prices, **plus a "Recommended
-   Consumer Pattern" section** that walks a downstream protocol developer
-   through the reference consumer program from Usability #6:
-   `(base_asset, quote_asset)` verification, staleness handling, behaviour
-   when a price is unavailable, and an example multi-source policy pairing
-   the RedStone feed with the on-chain TWAP tier from RFP-019. The doc must
-   state explicitly that cross-source policy is owned by the consumer
-   protocol, not by this adaptor.
+   for the SDK, covering the developer integration journey for both modes:
+   submitting RedStone data packages to the push aggregator, reading
+   verified prices from the canonical price account, and integrating the
+   public-mode pull verification library, **plus a "Recommended Consumer
+   Pattern" section** that walks a downstream protocol developer through
+   both reference consumer programs from Usability #6:
+   `(base_asset, quote_asset)` verification, staleness handling, typed
+   error handling for the pull path, behaviour when a price is
+   unavailable, the gateway-IP privacy caveat for pull-mode consumers,
+   and an example multi-source policy pairing either or both RedStone
+   modes with the on-chain TWAP tier from RFP-019. The doc must include a
+   "When to use push vs pull" decision guide grounded in the cost
+   measurement deliverable, and must state explicitly that cross-source
+   policy is owned by the consumer protocol, not by this adaptor.
 6. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
    for the CLI, covering the core operator/user journey.
 7. Provide Figma designs or equivalent for the mini-app GUI (off-chain feed
@@ -581,13 +654,23 @@ should not bake in policy that forecloses these choices.
 
 #### + Adaptor Security
 
-1. The adaptor must reject any data package whose recovered signer is not in
-   the configured authorised signer set for the requested feed.
-2. The signer set must be updatable only by the program owner; the update
-   path itself must be tested.
-3. The minimum recommended `maxAge` for production use is documented, with a
-   manipulation analysis covering signer compromise, replay of stale
-   packages, and signer-set update delays.
+1. The adaptor must reject any data package whose recovered signer is not
+   in the authorised signer set for the requested feed. This applies in
+   both modes: the aggregator program for push, and the pull verification
+   library (Functionality #8) for public-mode pull.
+2. In push mode, the signer set stored on the aggregator program must be
+   updatable only by the program owner; the update path itself must be
+   tested. In pull mode, the signer set is supplied by the consumer
+   program per call (or sourced from a consumer-owned configuration
+   account); the pull library must not silently accept a signer set
+   passed by the data-package author or otherwise sourced from the
+   payload.
+3. The minimum recommended `maxAge` for production use is documented for
+   both modes, with a manipulation analysis covering signer compromise,
+   replay of stale packages, and (push mode) signer-set update delays.
+   The pull-mode guidance must include the consumer-side responsibility
+   of keeping the authorised signer set fresh (since pull bypasses the
+   aggregator's centrally administered set).
 
 ### Soft Requirements
 
@@ -595,11 +678,13 @@ should not bake in policy that forecloses these choices.
    overhead across multiple feeds in a single instruction (analogous to
    Pyth's Perseus amortisation).
 2. Multi-source integration test against the on-chain TWAP tier from RFP-019
-   once the TWAP program is available: confirm that a consumer reading both
-   the RedStone price account and the TWAP price account for the same
-   `(base_asset, quote_asset)` pair can apply an example cross-source policy
-   (primary plus fallback, divergence cross-check) without the adaptor
-   participating in that policy.
+   once the TWAP program is available, covering at least one variant per
+   RedStone mode: confirm that a consumer reading the RedStone price
+   account (push) plus the TWAP price account, and a consumer running
+   public-mode pull verification plus reading the TWAP price account, for
+   the same `(base_asset, quote_asset)` pair can each apply an example
+   cross-source policy (primary plus fallback, divergence cross-check)
+   without the adaptor participating in that policy.
 
 ### Out of Scope
 
@@ -615,11 +700,13 @@ The following are explicitly excluded from this RFP and addressed elsewhere:
   Switchboard, Supra). None of these match the combination of privacy-asset
   coverage, single-primitive verification, and bridge independence that
   motivates this RFP. Future RFPs may add them.
-- Pull-mode reads from inside private execution. A private transaction that
-  wants to verify a secp256k1 signature inline cannot do so without
-  forfeiting batching benefits or breaking privacy (see Design Rationale).
-  Private composability is via reading the public price account that the
-  push-mode aggregator writes to.
+- Pull-mode reads from inside *private* execution. Public-mode pull is
+  delivered (see Functionality #8 and the Design Rationale section "Push
+  aggregator and public-mode pull"). A private transaction that wants to
+  verify a secp256k1 signature inline cannot do so without forfeiting
+  batching benefits or breaking privacy. Private composability with the
+  feed is via reading the public price account that the push aggregator
+  writes to.
 - Adding a secp256k1 ECDSA + keccak256 precompile to LEZ. The RISC-V
   in-program path is the deliverable here. A precompile becomes a candidate
   for a follow-on RFP if and only if the cost measurement in this RFP shows
@@ -664,13 +751,15 @@ is required to deliver the adaptor.
 #### secp256k1 ECDSA + keccak256 precompile in public-execution mode
 
 If the cost measurement deliverable shows that in-program ECDSA recovery and
-keccak256 hashing in RISC0 are too expensive for the push-mode aggregator's
-production cadence, a follow-on RFP can propose adding a precompile (or
-accelerated host function) to LEZ for use by public-execution programs. That
-RFP would substitute for the in-program verification path in this adaptor via
-the localised swap-out described in the Functionality requirements. The
-precompile would be public-mode only; private execution paths are unaffected
-because they do not call this primitive.
+keccak256 hashing in RISC0 are too expensive at production cadence (for the
+push-mode aggregator's write side, for the public-mode pull per-read path,
+or for both), a follow-on RFP can propose adding a precompile (or
+accelerated host function) to LEZ for use by public-execution programs.
+That RFP would substitute for the in-program verification path in this
+adaptor via the localised swap-out described in Functionality #1, taking
+effect in both modes simultaneously because they share the verification
+core. The precompile would be public-mode only; private execution paths
+are unaffected because they do not call this primitive.
 
 The LEZ runtime team has noted that supporting a secp256k1 primitive raises a
 broader set of design questions (nullifier tracking for replay,
@@ -719,10 +808,11 @@ Estimated duration: **6 to 10 weeks**.
 The adaptor has no hard runtime dependencies; it builds on LEZ as it stands
 today. The canonical price account standard is a soft dependency on RFP-019
 with a documented fallback. The cost measurement deliverable resolves the
-open question of whether in-program ECDSA + keccak256 in RISC0 is fast enough
-for the push-mode aggregator at production cadence; if not, a follow-on RFP
-for a secp256k1 precompile becomes the optimisation path, with this adaptor
-as the immediate consumer.
+open question of whether in-program ECDSA + keccak256 in RISC0 is fast
+enough at production cadence for both the push-mode aggregator and
+public-mode pull; if not for either, a follow-on RFP for a secp256k1
+precompile becomes the optimisation path, with this adaptor as the
+immediate consumer in both modes.
 
 ## 🌍 Open Source Requirement
 
