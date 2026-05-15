@@ -95,6 +95,28 @@ Licensed under either of:
  
 at your option.
 
+## Formatting
+
+Markdown files in this repository are formatted with
+[mdformat](https://mdformat.readthedocs.io/). The configuration lives in
+`.mdformat.toml` at the repo root.
+
+Install mdformat along with the GitHub-Flavored Markdown and frontmatter
+plugins:
+
+```bash
+pip install mdformat mdformat-gfm mdformat-frontmatter
+```
+
+Format all markdown files before committing:
+
+```bash
+mdformat .
+```
+
+Please run `mdformat` on any markdown you change before opening a pull
+request, so reviews focus on content rather than formatting noise.
+
 ## How to add a new RFP
 
 To create a new Request For Proposal, follow the [RFP creation guide](/NEW_RFP.md)
