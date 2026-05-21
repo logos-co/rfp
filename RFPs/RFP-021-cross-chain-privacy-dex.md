@@ -15,7 +15,7 @@ category: Applications & Integrations
 
 Build a cross-chain privacy DEX on LEZ that custodies external assets (BTC, ETH, XMR, and others) via a threshold signature scheme held by the LEZ validator set, executes swaps natively against an AMM, and adds LEZ-specific privacy primitives (shielded swap intents, sealed-bid batch matching, stealth outbound addresses) that the existing comparators (Thorchain, Serai, Maya, Chainflip) do not offer.
 
-The design follows the **federated-signer middle chain** pattern that Thorchain ($112B cumulative volume since 2021) and Serai (pre-mainnet, post-audit as of 2026-04) have converged on. RFP-021 inherits that pattern's well-understood AMM-style liquidity and one-step user experience, then layers LEZ's privacy execution primitives on top to close the privacy gap that every comparator leaves open: even Serai's middle-chain state is publicly readable, and Thorchain's source-chain memos link source and destination addresses on transparent ledgers before the middle chain even sees them.
+The design follows the **federated-signer middle chain** pattern that Thorchain (over $120B cumulative volume since 2021 per DefiLlama, accessed 2026-05-21) and Serai (pre-mainnet, post-cryptographic-audit by Cypher Stack in May 2025) have converged on. RFP-021 inherits that pattern's well-understood AMM-style liquidity and one-step user experience, then layers LEZ's privacy execution primitives on top to close the privacy gap that every comparator leaves open: even Serai's middle-chain state is publicly readable, and Thorchain's source-chain memos link source and destination addresses on transparent ledgers before the middle chain even sees them.
 
 This is the most ambitious option in the cross-chain bundle. It is also the one with the strongest empirical case (volume, user experience, asset coverage) and the strongest custody risk.
 
@@ -70,7 +70,7 @@ flowchart TB
 
 ## Pros
 
-- **Highest deployed-volume model.** Thorchain has cleared $112B cumulative cross-chain volume since 2021 ([DefiLlama Thorchain DEX](https://defillama.com/protocol/thorchain-dex)). The AMM-style middle-chain pattern wins on liquidity gravity and user experience over every atomic-swap competitor.
+- **Highest deployed-volume model.** Thorchain has cleared over $120B cumulative cross-chain volume since 2021 ([DefiLlama Thorchain DEX](https://defillama.com/protocol/thorchain-dex), accessed 2026-05-21). The AMM-style middle-chain pattern wins on liquidity gravity and user experience over every atomic-swap competitor.
 - **Sub-block-time settlement on the middle chain.** Only destination-chain finality and the TSS keysign delay the outbound. No multi-hour timelock windows.
 - **Arbitrary asset pairs.** Pair coverage is reduced to "does the validator set run an observer for chain X". BTC, ETH, XMR all in scope at launch.
 - **Cryptoeconomic recourse.** Misbehaviour is slashable. The economic security argument is explicit and bounded.
@@ -79,15 +79,15 @@ flowchart TB
 
 ## Cons
 
-- **Custody risk is real and realised.** Thorchain's GG20 TSS vault was drained in May 2026 ($10.8M) via a TSSHOCK-class implementation weakness. Wormhole's Solana bridge was drained in February 2022 ($326M) via a per-chain contract bug; Jump Crypto re-deposited the loss out of pocket. The federated middle-chain pattern has a non-zero historical loss rate.
+- **Custody risk is real and realised.** Thorchain's GG20 TSS vault was drained on 2026-05-15 ($10.8M) via a TSSHOCK-class implementation weakness. Wormhole's Solana bridge was drained on 2022-02-02 ($326M) via a per-chain contract bug (`load_instruction_at`); Jump Crypto re-deposited the loss out of pocket. The federated middle-chain pattern has a non-zero historical loss rate.
 - **Signer federation is a chokepoint.** Validators are identifiable; the validator set is a target for out-of-protocol pressure (legal, regulatory, kinetic). The federation cannot be made "fully decentralised" in the sense that an atomic-swap design can.
 - **Pre-economic-security bootstrap.** Serai's mint-on-bootstrap design illustrates that the slashable-bond argument does not bind until the validator-stake pool catches up with custody. The launch window is a real risk.
 - **XMR privacy compromise.** Any TSS custody of Monero is necessarily view-key-shared: the validator set learns the LEZ-side Monero deposit history. This is the same compromise Serai accepts (FROSTLASS over CLSAG); it must be called out plainly to users, not papered over.
-- **Engineering surface is large.** Building a new chain, a per-external-chain observer fleet, a TSS scheme with serious audit posture, churn/migration logic, and an emergency halt is a multi-year programme. Serai took roughly six years from inception to post-audit pre-mainnet.
+- **Engineering surface is large.** Building a new chain, a per-external-chain observer fleet, a TSS scheme with serious audit posture, churn/migration logic, and an emergency halt is a multi-year programme. Serai took roughly five years from inception (around 2021) to post-cryptographic-audit pre-mainnet status (Cypher Stack audits completed May 2025; mainnet not yet launched as of 2026-05-21).
 
 ## Risks
 
-- **TSS implementation failure.** The May 2026 Thorchain incident is the canonical example. Mitigation: choose FROST over GG20 (Serai's choice, and the lesson Thorchain's incident reinforces); budget for at least one Cypher Stack-equivalent audit of the chosen scheme; design with FROSTLASS-grade Monero support from the start rather than retrofitting.
+- **TSS implementation failure.** The 2026-05-15 Thorchain incident is the canonical example. Mitigation: choose FROST over GG20 (Serai's choice, and the lesson Thorchain's incident reinforces); budget for at least one Cypher Stack-equivalent audit of the chosen scheme; design with FROSTLASS-grade Monero support from the start rather than retrofitting.
 - **Per-external-chain contract risk.** Wormhole's 2022 incident bypassed rather than broke the trust model: a Solana-side `load_instruction_at` bug let an attacker forge VAAs. Every integrated chain adds an attack surface independent of the LEZ consensus. Mitigation: minimise per-chain on-chain components; lean on TSS-signed outputs to chains with no LEZ-deployed contract.
 - **Validator-set capture.** A small or homogeneous validator set is a censorship and coercion target. Mitigation: stake-weighted permissionless entry; geographic and jurisdictional diversity as a soft target.
 - **Pre-mainnet economic-security gap.** Slashable-bond security depends on stake value catching up with custody value. Mitigation: explicit caps on custody until the bond-to-custodied ratio binds; transparent on-protocol ratio enforcement (Thorchain's Incentive Pendulum is one mechanism).
@@ -105,12 +105,14 @@ See [appendix/cross-chain-trust-model-contrast.md](../appendix/cross-chain-trust
 
 ## References
 
-- [DefiLlama Thorchain DEX (volume figures)](https://defillama.com/protocol/thorchain-dex)
-- [Serai AMM docs](https://docs.serai.exchange/amm/)
-- [Serai blog: Announcing monero-oxide (2025-09-09)](https://serai.exchange/2025/09/09/monero-serai-oxide.html)
-- [Serai Validator Sets spec](https://github.com/serai-dex/serai/blob/develop/spec/protocol/Validator%20Sets.md)
-- [Thorchain Medium: Why Cross-Chain bridges are superior to Atomic Swaps (2019)](https://medium.com/thorchain/why-cross-chain-bridges-are-superior-to-atomic-swaps-aebde263103c)
-- [Thorchain docs: Continuous Liquidity Pools](https://docs.thorchain.org/technical-documentation/thorchain-finance/continuous-liquidity-pools)
-- [Crypto Times: $10.8M drained from Thorchain (2026-05-17)](https://www.cryptotimes.io/2026/05/17/10-8-million-drained-inside-the-thorchain-exploit-that-froze-cross-chain-defi-for-13-hours/)
-- [Halborn: Wormhole Hack February 2022](https://www.halborn.com/blog/post/explained-the-wormhole-hack-february-2022)
-- [FROST paper (Komlo and Goldberg)](https://eprint.iacr.org/2020/852)
+- [DefiLlama Thorchain DEX (volume figures)](https://defillama.com/protocol/thorchain-dex) (accessed 2026-05-21)
+- [Serai AMM docs](https://docs.serai.exchange/amm/) (accessed 2026-05-21)
+- [Serai blog: Announcing monero-oxide (2025-09-09)](https://serai.exchange/2025/09/09/monero-serai-oxide.html) (accessed 2026-05-21)
+- [Serai Validator Sets spec](https://github.com/serai-dex/serai/blob/develop/spec/protocol/Validator%20Sets.md) (accessed 2026-05-21)
+- [Serai blog: How Far We've Come (2023-10-06)](https://serai.exchange/2023/10/06/how-far-weve-come.html) (accessed 2026-05-21)
+- [Thorchain Medium: Why Cross-Chain bridges are superior to Atomic Swaps (2019)](https://medium.com/thorchain/why-cross-chain-bridges-are-superior-to-atomic-swaps-aebde263103c) (accessed 2026-05-21)
+- [Thorchain docs: Continuous Liquidity Pools](https://docs.thorchain.org/technical-documentation/thorchain-finance/continuous-liquidity-pools) (accessed 2026-05-21)
+- [Thorchain docs: RUNE (bond-to-pooled ratio)](https://docs.thorchain.org/understanding-thorchain/rune) (accessed 2026-05-21)
+- [Crypto Times: $10.8M drained from Thorchain on 2026-05-15](https://www.cryptotimes.io/2026/05/17/10-8-million-drained-inside-the-thorchain-exploit-that-froze-cross-chain-defi-for-13-hours/) (accessed 2026-05-21)
+- [Halborn: Wormhole Hack February 2022](https://www.halborn.com/blog/post/explained-the-wormhole-hack-february-2022) (accessed 2026-05-21)
+- [FROST: Flexible Round-Optimized Schnorr Threshold Signatures (Komlo and Goldberg, SAC 2020 / IACR 2020/852)](https://eprint.iacr.org/2020/852) (accessed 2026-05-21)

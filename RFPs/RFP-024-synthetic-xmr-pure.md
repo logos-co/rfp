@@ -15,7 +15,7 @@ category: Applications & Integrations
 
 Build a synthetic XMR token (sXMR) on LEZ that tracks the XMR price via oracle, is composable across LEZ DeFi, and redeems to real XMR via peer-to-peer atomic swap. The protocol holds no XMR, runs no signer set, and offers no redemption SLA.
 
-The wedge: this is the only synthetic in the published landscape where the redemption path itself preserves privacy. sBTC (Stacks) redeems to public BTC; every other commodity synthetic (sETH, sLINK, perpetuals-collateralised positions) redeems to traceable transparent assets. sXMR is the first design where a successful redemption deposits real XMR on Monero L1, severing the public trail.
+The wedge: this is the only currently published, live synthetic whose redemption deposits real XMR on Monero L1 *non-custodially, via peer-to-peer atomic swap*. sBTC (Stacks) redeems to a user-supplied public Bitcoin address (per [docs.stacks.co: sBTC-to-BTC withdrawal](https://docs.stacks.co/more-guides/sbtc/bridging-bitcoin/sbtc-to-btc), accessed 2026-05-21); every other commodity synthetic (sETH, sLINK, perpetuals-collateralised positions) redeems to traceable transparent assets. The closest prior art is custodial: Synthetix's historical sXMR token paired with the Secret Network Monero Bridge offered XMR-L1 redemption under signer-set custody (the same trust model RFP-025 option 2b accepts); Haven Protocol's xAsset family offered synthetics on a dedicated privacy chain but closed in December 2024 and never offered xXMR. RFP-024 is the first design where the redemption path itself preserves privacy *and* avoids custody.
 
 The honest framing: this is a synthetic with a soft, market-clearing peg, not a hard-redeemable synthetic. The oracle is the *quoted* price; the *achievable* price is whatever an XMR LP will swap for, when one is willing. Structurally closer to a DEX trading pair than to sBTC (Stacks). The product fits a privacy-maximalist audience that wants XMR-shaped exposure inside LEZ DeFi without depending on protocol-held custody.
 
@@ -79,9 +79,9 @@ A user deposits a stable (or other LEZ-accepted asset) into the sXMR collateral 
 
 - **Soft peg widens under stress without bound.** The achievable redemption price is the marginal LP quote. If LPs vanish, sXMR can trade at any discount to oracle; the protocol cannot intervene.
 - **No redemption SLA.** Users who want guaranteed redemption (institutions, market makers, structured products) cannot use sXMR directly under Goal 1; they need RFP-025.
-- **Demand asymmetry.** It is easy to mint sXMR (privacy-curious DeFi users want XMR exposure inside LEZ); it is harder to source LPs (XMR maximalists may not want a public LP role at all, even pseudonymous). The LP side is the structural bottleneck.
-- **Adverse selection of LPs.** LPs only show up when oracle is below true market XMR price (free money for them on the redemption leg) and vanish when oracle is above (would-be loss). Redemption availability is asymmetric across regimes.
-- **Atomic-swap UX inherited.** 30 to 60 minutes per swap, both parties online. The intent layer over Logos Delivery softens this but cannot remove it.
+- **Predicted demand asymmetry.** Mint demand is expected to be easy (privacy-curious DeFi users want XMR exposure inside LEZ); LP supply is expected to be harder to source (XMR maximalists may not want a public LP role at all, even pseudonymous). The LP side is the predicted structural bottleneck; applicants should validate against early LP onboarding before scaling.
+- **Predicted adverse selection of LPs.** LPs are expected to show up when oracle is below true market XMR price (free money for them on the redemption leg) and to vanish when oracle is above (would-be loss). Redemption availability is expected to be asymmetric across regimes; analogous to uncollateralised peer-to-peer market-making in other venues but unverified for this product.
+- **Atomic-swap UX inherited.** Settlement time is dominated by Monero block confirmations, typically under an hour but with variance from network conditions; both parties online for the duration. The intent layer over Logos Delivery softens this but cannot remove it.
 - **No protocol-side enforcement of LP behaviour.** Refusing to proceed is *valid behaviour* under the atomic-swap protocol; the protocol cannot distinguish malicious refusal from connectivity loss. Reputation (RFP-023) is the only available restraint, and even then it operates as soft pressure, not enforcement.
 - **Oracle dependency.** The oracle is the only price signal; oracle attack or stale price degrades minting accuracy. Mitigation lives outside this RFP (existing oracle RFPs in the bundle, or oracle aggregation patterns).
 
@@ -111,7 +111,11 @@ See [appendix/sxmr-design-space.md](../appendix/sxmr-design-space.md) for the fu
 - [RFP-003: Atomic Swaps with LEZ](./RFP-003-atomic-swaps.md)
 - [appendix/sxmr-design-space.md](../appendix/sxmr-design-space.md)
 - [appendix/cross-chain-trust-model-contrast.md](../appendix/cross-chain-trust-model-contrast.md)
-- [Synthetix V3 documentation (CDP-style collateral reference)](https://docs.synthetix.io/v/v3/)
-- [Bitcoin to Monero atomic swaps (getmonero.org)](https://www.getmonero.org/2021/08/20/atomic-swaps.html)
-- [eigenwallet/core (XMR atomic swap fork of comit-network/xmr-btc-swap)](https://github.com/eigenwallet/core)
-- [Farcaster project (XMR atomic swap, community-scale active)](https://github.com/farcaster-project)
+- [Synthetix SIP-302: V3 collateral and snxUSD minting (CDP-style reference)](https://sips.synthetix.io/sips/sip-302/) (accessed 2026-05-21)
+- [Bitcoin to Monero atomic swaps (getmonero.org, 2021-08-20)](https://www.getmonero.org/2021/08/20/atomic-swaps.html) (accessed 2026-05-21)
+- [eigenwallet/core (XMR atomic swap, active fork of comit-network/xmr-btc-swap; v4.6.1, 2026-05-15)](https://github.com/eigenwallet/core) (accessed 2026-05-21)
+- [Stacks docs: sBTC overview](https://docs.stacks.co/learn/sbtc) (accessed 2026-05-21)
+- [Stacks docs: sBTC-to-BTC withdrawal](https://docs.stacks.co/more-guides/sbtc/bridging-bitcoin/sbtc-to-btc) (accessed 2026-05-21)
+- [Secret Network Monero Bridge (custodial XMR-to-Secret Network reference, structural counter-example for the wedge)](https://docs.scrt.network/) (accessed 2026-05-21)
+- [Haven Protocol shutdown notice (December 2024)](https://havenprotocol.org/) (accessed 2026-05-21)
+- [Farcaster project (XMR atomic swap; low-velocity, last release v0.8.4 on 2023-01-16, last `farcaster-node` commit Aug 2024)](https://github.com/farcaster-project/farcaster-node) (accessed 2026-05-21)

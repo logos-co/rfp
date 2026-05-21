@@ -76,7 +76,7 @@ The protocol holds an XMR reserve in a threshold-signer multisig on Monero. Rede
                   (n-of-m, bonded signers, view-key-shared)
 ```
 
-At this point the design has reinvented sBTC (Stacks) with an oracle bolted on. The atomic swap is the wire format; trust lives in the signer set. The same view-key-shared TSS custody constraint applies as in RFP-021: honest-but-curious signers learn the protocol-side deposit history. This is the structural trade-off option 2b accepts in exchange for the redemption SLA. The signer set must be bonded and slashable to make the trust assumption explicit.
+At this point the design has adopted sBTC's (Stacks) threshold-signer custody model, with an oracle-priced peg layer replacing sBTC's 1:1 redemption peg. The structural overlap is the custody side (a bonded n-of-m signer set holding the underlying asset on its native chain); the peg semantics differ (sBTC is 1:1 redemption-backed, this design is oracle-priced). The atomic swap is the wire format; trust lives in the signer set. The same view-key-shared TSS custody constraint applies as in RFP-021: honest-but-curious signers learn the protocol-side deposit history. This is the structural trade-off option 2b accepts in exchange for the redemption SLA. The signer set must be bonded and slashable to make the trust assumption explicit.
 
 ## High-level functionality and flow (common)
 
@@ -123,7 +123,7 @@ Identical to RFP-024. User deposits accepted LEZ collateral; protocol mints sXMR
 ## Cons (both options)
 
 - **Some form of trust returns.** RFP-024 (pure) trusts only the oracle and the atomic-swap protocol; RFP-025 trusts additionally an LP set (option 2a) or a signer set (option 2b). The cypherpunk story is weaker.
-- **Atomic-swap UX is still inherited.** 30 to 60 minutes per redemption, both parties online. The SLA constrains the *availability* of the counterparty but not the cryptographic settlement time.
+- **Atomic-swap UX is still inherited.** Settlement time is dominated by Monero block confirmations, typically under an hour but with variance from network conditions; both parties online for the duration. The SLA constrains the *availability* of the counterparty but not the cryptographic settlement time.
 - **Oracle dependency is sharper.** With an SLA on oracle-priced redemption, an oracle failure has SLA-breaking consequences, not just mint-side accuracy consequences.
 - **Regulatory exposure is higher.** A protocol that commits to redeeming a privacy coin on demand draws more scrutiny than RFP-024's price-feed-plus-matching-board posture.
 
@@ -136,9 +136,9 @@ Identical to RFP-024. User deposits accepted LEZ collateral; protocol mints sXMR
 
 ## Cons (option 2b-specific)
 
-- **Custodial.** A signer set holds real XMR on Monero. Custody risk is real: signer collusion, key compromise, or signing-software bug can drain the reserve. This is exactly the failure mode that hit Thorchain in May 2026 and Wormhole in February 2022.
+- **Custodial.** A signer set holds real XMR on Monero. Custody risk is real: signer collusion, key compromise, or signing-software bug can drain the reserve. This is the failure mode that hit Thorchain on 2026-05-15 (TSS implementation weakness, $10.8M). The Wormhole February 2022 incident ($326M) is a related-but-distinct category: a per-chain bridge-contract bug (`load_instruction_at` on Solana) bypassed the signer set entirely rather than compromising it; the lesson is that per-chain contract surface adds attack vectors independent of the TSS itself.
 - **View-key-shared custody leaks Monero deposit history to signers.** The same compromise RFP-021 makes. Honest-but-curious signers learn the protocol-side Monero deposit history; this is the structural cost of TSS custody of XMR with current cryptography.
-- **Effectively recreates sBTC (Stacks) with an oracle.** The novelty of the design is small relative to existing custodial XMR wraps (other than the LEZ privacy execution on the sXMR token side).
+- **Adopts sBTC (Stacks)'s threshold-signer custody model, with an oracle-priced peg replacing 1:1 redemption.** The custody novelty is small relative to existing custodial XMR wraps (the differentiator is the LEZ privacy execution on the sXMR token side, plus the explicit slashable-signer-bond posture).
 - **Reserve undercollateralisation breaks the peg.** If the reserve is drawn down faster than it can be replenished from fees, redemption capacity goes to zero; sXMR loses its peg.
 - **Signer-set membership is gated.** Lower decentralisation than option 2a; signer set is a censorship and coercion target.
 
@@ -158,7 +158,7 @@ Identical to RFP-024. User deposits accepted LEZ collateral; protocol mints sXMR
 
 - **Signer-set compromise.** A captured signer set can drain the entire reserve. Mitigation: large signer set (Serai uses up to 600; Thorchain ~100); permissionless entry; high bond-to-custodied ratio; emergency halt mechanism; geographic diversity.
 - **Signer-set offline event.** If the signer set cannot reach threshold to sign (network partition, mass node failure), redemption SLA breaks even with no malice. Mitigation: redundant signer geographic placement; documented signer SLOs; emergency-halt mechanism that pauses redemption gracefully rather than failing under load.
-- **TSS implementation bug.** Thorchain's GG20 TSS exploit (May 2026, $10.8M) is the canonical example. Mitigation: choose FROST over GG20; budget for Cypher Stack-equivalent audit; isolate signer-software dependencies.
+- **TSS implementation bug.** Thorchain's GG20 TSS exploit on 2026-05-15 ($10.8M) is the canonical example. Mitigation: choose FROST over GG20; budget for Cypher Stack-equivalent audit; isolate signer-software dependencies.
 
 ## Relationship to other RFPs in this bundle
 
@@ -176,8 +176,9 @@ See [appendix/sxmr-design-space.md](../appendix/sxmr-design-space.md) for the Go
 - [RFP-003: Atomic Swaps with LEZ](./RFP-003-atomic-swaps.md)
 - [appendix/sxmr-design-space.md](../appendix/sxmr-design-space.md)
 - [appendix/cross-chain-trust-model-contrast.md](../appendix/cross-chain-trust-model-contrast.md)
-- [sBTC (Stacks) Bitcoin layer documentation](https://docs.stacks.co/concepts/sbtc)
-- [Synthetix V3 (CDP-style collateral reference)](https://docs.synthetix.io/v/v3/)
-- [Crypto Times: Thorchain TSS exploit (2026-05-17)](https://www.cryptotimes.io/2026/05/17/10-8-million-drained-inside-the-thorchain-exploit-that-froze-cross-chain-defi-for-13-hours/)
-- [Halborn: Wormhole Hack February 2022](https://www.halborn.com/blog/post/explained-the-wormhole-hack-february-2022)
-- [FROST paper (Komlo and Goldberg)](https://eprint.iacr.org/2020/852)
+- [sBTC (Stacks) Bitcoin layer documentation](https://docs.stacks.co/learn/sbtc) (accessed 2026-05-21)
+- [sBTC withdrawal to a user-supplied Bitcoin address](https://docs.stacks.co/more-guides/sbtc/bridging-bitcoin/sbtc-to-btc) (accessed 2026-05-21)
+- [Synthetix SIP-302: V3 collateral and snxUSD minting (CDP-style reference)](https://sips.synthetix.io/sips/sip-302/) (accessed 2026-05-21)
+- [Crypto Times: $10.8M drained from Thorchain on 2026-05-15](https://www.cryptotimes.io/2026/05/17/10-8-million-drained-inside-the-thorchain-exploit-that-froze-cross-chain-defi-for-13-hours/) (accessed 2026-05-21)
+- [Halborn: Wormhole Hack on 2022-02-02 (technical analysis)](https://www.halborn.com/blog/post/explained-the-wormhole-hack-february-2022) (accessed 2026-05-21)
+- [FROST: Flexible Round-Optimized Schnorr Threshold Signatures (Komlo and Goldberg, SAC 2020 / IACR 2020/852)](https://eprint.iacr.org/2020/852) (accessed 2026-05-21)

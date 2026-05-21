@@ -18,18 +18,18 @@ Extend RFP-003 (Atomic Swaps with LEZ, open) with a maker/taker bond layer on LE
 The design splits into two tiers that reflect a structural asymmetry in the underlying cryptography:
 
 - **Tier 1 (LEZ to BTC, LEZ to ETH).** Both sides' locks are verifiable on LEZ via a chain-watching light-client module. Both Alice's and Bob's bonds are slashable on default; full bilateral free-option mitigation.
-- **Tier 2 (LEZ to XMR).** Alice's XMR lock cannot be proven on LEZ without view-key disclosure to public state, because Monero has no SPV-style proof primitive that does not reveal the per-tx private key and blinding factor. Bob's lock (on LEZ) remains observable, so Bob's bond is slashable; Alice's bond is slashable only on her LEZ-observable abandonment (failure to reveal after Bob has locked Logos). Alice keeps a residual pre-XMR-lock free option that only reputation (RFP-023) can constrain.
+- **Tier 2 (LEZ to XMR).** Alice's XMR lock cannot be proven on LEZ without revealing either the per-tx private key or the recipient view key (plus the output blinding factor), each of which is sufficient to deanonymise the swap output once submitted to world-readable LEZ state. Monero's bilateral `check_tx_proof` (OutProofV2 or InProofV2 variants per [Zero to Monero 2.0 §Payment Proofs](https://www.getmonero.org/library/Zero-to-Monero-2-0-0.pdf)) is the canonical disclosure-requiring proof; no SPV-style alternative exists pre-FCMP++. Bob's lock (on LEZ) remains observable, so Bob's bond is slashable; Alice's bond is slashable only on her LEZ-observable abandonment (failure to reveal after Bob has locked Logos). Alice keeps a residual pre-XMR-lock free option that only reputation (RFP-023) can constrain.
 
 The Bond layer is a strict superset of RFP-003. Builders should consume the per-pair SDKs from RFP-003 unchanged; this RFP adds the bond escrow contract, the bond accounting, and the LEZ-side proof verification primitives.
 
 ## Desired properties
 
 - **Non-custodial.** No vault holds external assets; no signer set. Bonds live in LEZ-native assets on LEZ.
-- **Free-option mitigation (Tier 1).** Symmetric bonding makes both sides' optionality strictly EV-negative when bonds are sized above the option value (`σ × √T × notional`, around 2 to 5% of trade notional for 1-hour windows).
+- **Free-option mitigation (Tier 1).** Symmetric bonding makes both sides' optionality strictly EV-negative when bonds are sized above the option value (`σ × √T × notional` is the standard option-pricing heuristic; an indicative range is 2 to 5% of trade notional for 1-hour windows, to be validated by applicants against actual observed BTC/ETH volatility).
 - **Free-option mitigation (Tier 2).** Bob's optionality is closed by his slashable bond. Alice's post-Bob-lock optionality is closed by her bond. Alice's pre-XMR-lock optionality is *not* closed; this is the structural limit of the asymmetry.
 - **Unauthenticated proof submitter.** Either party can broadcast the other's signed lock transaction (broadcasting is permissionless on every supported chain). The LEZ inclusion-proof submitter is also unauthenticated. This eliminates "attest or be slashed" grief vectors: a malformed lock simply never lands, the state machine times out, no slashing dispute occurs.
 - **Bondless taker entry path.** First-time takers can complete a capped first swap (worked example: US$100 equivalent notional) without posting a taker bond. After the first swap, the taker has LEZ-denominated assets they can post as bond against larger swap sizes. This is enforceable by the LEZ escrow program directly; no reputation registry needed.
-- **Upgrade clause for Tier 2.** When a non-disclosing Monero proof primitive becomes production-ready (FCMP++ or equivalent), Tier 2 collapses into Tier 1: Alice's XMR lock becomes verifiable on LEZ without view-key disclosure, and the residual free option closes.
+- **Upgrade clause for Tier 2.** When a non-disclosing Monero proof primitive becomes production-ready (FCMP++ or equivalent; in specification phase per [Monero, FCMP++ announcement, 2024-04-27](https://www.getmonero.org/2024/04/27/fcmps.html), accessed 2026-05-21), Tier 2 collapses into Tier 1: Alice's XMR lock becomes verifiable on LEZ without view-key disclosure, and the residual free option closes.
 - **Composes with RFP-023 reputation.** Maker reputation (and zk-membership-proof taker reputation if available) compounds the cost of defection. In Tier 2 specifically, taker reputation is load-bearing because it is the only restraint on Alice's pre-lock free option.
 
 ## High-level functionality and flow
@@ -130,14 +130,17 @@ See [appendix/cross-chain-trust-model-contrast.md](../appendix/cross-chain-trust
 ## References
 
 - [RFP-003: Atomic Swaps with LEZ](./RFP-003-atomic-swaps.md)
-- [eth-lez-atomic-swaps reference implementation](https://github.com/logos-co/eth-lez-atomic-swaps)
-- [Bitcoin to Monero atomic swaps (getmonero.org, 2021-08-20)](https://www.getmonero.org/2021/08/20/atomic-swaps.html)
-- [Hoenisch and del Pino, Atomic Swaps between Bitcoin and Monero, IACR 2020/1126](https://eprint.iacr.org/2020/1126.pdf)
-- [Adaptor signatures, Lloyd Fournier](https://github.com/LLFourn/one-time-vrf/blob/master/main.pdf)
-- [Scriptless Scripts, Andrew Poelstra](https://github.com/apoelstra/scriptless-scripts)
-- [BIP-340: Schnorr signatures for secp256k1](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki)
-- [BIP-341: Taproot](https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki)
-- [Citrea Clementine LCP](https://citrea.xyz/learn/clementine)
-- [ZeroSync](https://zerosync.org/)
-- [Monero whitepaper: Zero to Monero 2.0](https://www.getmonero.org/library/Zero-to-Monero-2-0-0.pdf)
-- [Monero FCMP overview](https://www.getmonero.org/resources/moneropedia/fcmp.html)
+- [eth-lez-atomic-swaps reference implementation](https://github.com/logos-co/eth-lez-atomic-swaps) (accessed 2026-05-21)
+- [Bitcoin to Monero atomic swaps (getmonero.org, 2021-08-20)](https://www.getmonero.org/2021/08/20/atomic-swaps.html) (accessed 2026-05-21)
+- [Gugger, Bitcoin-Monero Cross-chain Atomic Swap, IACR 2020/1126](https://eprint.iacr.org/2020/1126.pdf) (accessed 2026-05-21)
+- [Hoenisch and del Pino, Atomic Swaps between Bitcoin and Monero, arXiv:2101.12332 (2021-01-29)](https://arxiv.org/abs/2101.12332) (accessed 2026-05-21)
+- [comit-network/xmr-btc-swap (BTC-XMR adaptor-signature reference implementation; unmaintained since 2024-11)](https://github.com/comit-network/xmr-btc-swap) (accessed 2026-05-21)
+- [eigenwallet/core (active fork of comit-network/xmr-btc-swap; v4.6.1, 2026-05-15)](https://github.com/eigenwallet/core) (accessed 2026-05-21)
+- [LLFourn one-time-VES: Verifiably Encrypted Signatures (Lloyd Fournier, adaptor signatures)](https://github.com/LLFourn/one-time-VES/blob/master/main.pdf) (accessed 2026-05-21)
+- [apoelstra/scriptless-scripts: atomic-swap protocol notes (Andrew Poelstra)](https://github.com/apoelstra/scriptless-scripts/blob/master/md/atomic-swap.md) (accessed 2026-05-21)
+- [BIP-340: Schnorr signatures for secp256k1](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki) (accessed 2026-05-21)
+- [BIP-341: Taproot](https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki) (accessed 2026-05-21)
+- [Citrea Clementine: Trust-Minimized Bitcoin Bridge](https://docs.citrea.xyz/essentials/clementine-trust-minimized-bitcoin-bridge) (accessed 2026-05-21)
+- [ZeroSync](https://zerosync.org/) (accessed 2026-05-21)
+- [Monero, Zero to Monero 2.0 (whitepaper, §Payment Proofs)](https://www.getmonero.org/library/Zero-to-Monero-2-0-0.pdf) (accessed 2026-05-21)
+- [Monero, FCMP++ announcement (2024-04-27)](https://www.getmonero.org/2024/04/27/fcmps.html) (accessed 2026-05-21)

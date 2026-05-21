@@ -13,8 +13,8 @@ Examples: Thorchain (live since 2021), Serai (pre-mainnet as of 2026-05), Maya, 
 What the user trusts:
 
 1. A threshold of the validator set will not collude to spend from the vault.
-2. The cryptographic primitive used to combine signer contributions is sound. Not a free assumption: Thorchain's GG20 TSS failed in production in May 2026, draining $10.8M from an Asgard vault via a TSSHOCK-class weakness. Source: [Crypto Times, 2026-05-17](https://www.cryptotimes.io/2026/05/17/10-8-million-drained-inside-the-thorchain-exploit-that-froze-cross-chain-defi-for-13-hours/).
-3. The implementations on every external chain are correct. Not a free assumption either: a Solana-side `load_instruction_at` bug let an attacker forge a Wormhole VAA in February 2022 and mint 120k wETH unbacked ($326M). Source: [Halborn](https://www.halborn.com/blog/post/explained-the-wormhole-hack-february-2022).
+2. The cryptographic primitive used to combine signer contributions is sound. Not a free assumption: Thorchain's GG20 TSS failed in production on 2026-05-15, draining $10.8M from an Asgard vault via a TSSHOCK-class weakness. Source: [Crypto Times, 2026-05-17](https://www.cryptotimes.io/2026/05/17/10-8-million-drained-inside-the-thorchain-exploit-that-froze-cross-chain-defi-for-13-hours/) (accessed 2026-05-21).
+3. The implementations on every external chain are correct. Not a free assumption either: on 2022-02-02 a Solana-side `load_instruction_at` bug let an attacker forge a Wormhole VAA and mint 120k wETH unbacked ($326M). Source: [Halborn](https://www.halborn.com/blog/post/explained-the-wormhole-hack-february-2022) (accessed 2026-05-21).
 
 Pros:
 
@@ -22,7 +22,7 @@ Pros:
 - One-step user experience: deposit-with-memo, await outbound. No counterparty interactivity, no refund flows, no online-availability requirement past broadcast.
 - Sub-block-time settlement on the middle chain; only destination-chain finality and the TSS keysign delay the outbound.
 - Arbitrary asset pairs at protocol-set pricing.
-- Cryptoeconomic recourse: misbehaviour is slashable. Thorchain runs 2:1 bonded plus 1:1 pooled. Serai caps custody at 33% of allocated validator stake. Source: [Serai Validator Sets spec](https://github.com/serai-dex/serai/blob/develop/spec/protocol/Validator%20Sets.md).
+- Cryptoeconomic recourse: misbehaviour is slashable. Thorchain runs 2:1 bonded plus 1:1 pooled, per [Thorchain docs: RUNE](https://docs.thorchain.org/understanding-thorchain/rune) (accessed 2026-05-21). Serai caps custody at 33% of allocated validator stake, per [Serai Validator Sets spec](https://github.com/serai-dex/serai/blob/develop/spec/protocol/Validator%20Sets.md) (accessed 2026-05-21).
 
 Cons:
 
@@ -34,7 +34,7 @@ Cons:
 
 ### Atomic swap
 
-Examples: COMIT Network (xmr-btc-swap, archived as of 2024-11), Farcaster, AtomicDEX (rebranded to Komodo Wallet, no recent volume), Liquality (discontinued 2024-06-15). All but Farcaster have wound down. The cryptographic primitive: HTLC for script-compatible pairs; adaptor signatures with cross-curve DLEQ proofs for Monero pairs.
+Examples: COMIT Network (xmr-btc-swap, unmaintained since 2024-11 with archival pending per issue #1791), Farcaster (low-velocity since 2024), AtomicDEX (rebranded to Komodo Wallet, no recent volume), Liquality (discontinued 2024-06-15). All but Farcaster have wound down. The cryptographic primitive: HTLC for script-compatible pairs; adaptor signatures with cross-curve DLEQ proofs for Monero pairs.
 
 What the user trusts: nothing beyond the soundness of the cryptographic construction and the liveness of the two parties for the duration of the swap.
 
@@ -50,13 +50,13 @@ Cons:
 2. **Settlement time dominated by the slowest chain.** A single swap can take 30 minutes to several hours to finalise because confirmations stack across both chains. Refund timelocks are measured in hours, not minutes.
 3. **Mandatory interactivity for both parties.** Both parties must be online for lock, reveal, and (in adversarial paths) refund. If Alice goes offline mid-swap, Bob waits out the refund window, and vice versa.
 4. **Per-trade matching.** No protocol-owned liquidity, no AMM pricing; each swap requires a willing counterparty for the exact pair and exact size.
-5. **Pair coverage.** HTLC requires compatible scripting on both chains. BTC-XMR specifically required about five years of cryptographic work (2017 proposal to 2021 working implementation via adaptor signatures over Ed25519 and secp256k1). Source: [getmonero.org: Bitcoin to Monero atomic swaps are now live, 2021-08-20](https://www.getmonero.org/2021/08/20/atomic-swaps.html); [Hoenisch and del Pino, IACR 2020/1126](https://eprint.iacr.org/2020/1126.pdf).
+5. **Pair coverage.** HTLC requires compatible scripting on both chains. BTC-XMR specifically required about four years of cryptographic work (2017 proposal to 2021 working implementation via adaptor signatures over Ed25519 and secp256k1). Sources: [getmonero.org: Bitcoin to Monero atomic swaps are now live, 2021-08-20](https://www.getmonero.org/2021/08/20/atomic-swaps.html) (accessed 2026-05-21); [Gugger, Bitcoin-Monero Cross-chain Atomic Swap, IACR 2020/1126](https://eprint.iacr.org/2020/1126.pdf) (accessed 2026-05-21); [Hoenisch and del Pino, Atomic Swaps between Bitcoin and Monero, arXiv:2101.12332](https://arxiv.org/abs/2101.12332) (accessed 2026-05-21).
 
 Cons (1) through (3) are the ones the design space can plausibly attack without abandoning the atomic-swap model entirely. (4) is structural: "fixing" it by adding protocol-owned liquidity reinvents the middle-chain DEX. (5) is a per-pair engineering cost paid once.
 
 ### Why the federated middle chain has won the volume race
 
-Thorchain has processed $112B cumulative volume since 2021. The four most-cited atomic-swap projects have collectively produced roughly $35M in volume over the same period (Liquality lifetime figure, [defiprime.com: Liquality](https://defiprime.com/liquality)). The structural reasons:
+Thorchain has processed over $118B cumulative volume by December 2025 (per [Messari: THORChain State of the Network Q4 2025](https://messari.io/report/state-of-thorchain-q4-2025)) and over $120B by May 2026 (per [DefiLlama Thorchain DEX dashboard](https://defillama.com/protocol/thorchain-dex), accessed 2026-05-21). The four most-cited atomic-swap projects have collectively produced roughly $35M in volume over the same period (Liquality marketing copy widely cited but not anchored to a primary source). The structural reasons:
 
 - Liquidity gravity. Peer-to-peer matching requires a counterparty per trade; AMM pools concentrate liquidity into a single state machine.
 - User experience. Multi-hour timelocks, online-availability requirements, refund flows, and command-line tooling have prevented retail adoption.
@@ -80,7 +80,7 @@ Important scoping:
 Feasibility per chain:
 
 - For chains with public outputs (BTC, ETH), a 1:1 wrap via light-client proofs is principled. The LEZ-side mint primitive is a Risc0 program that verifies an inclusion proof against a header chain (forkable from ZeroSync or Citrea's Clementine LCP for BTC; from existing Ethereum light-client work for ETH).
-- For Monero, no principled wrap is feasible today. Monero has no SPV-style proof primitive that can demonstrate "address Y received amount X" without view-key sharing: ring signatures, RingCT, and one-time stealth addresses defeat external observation by design. Monero's bilateral `check_tx_proof` works in a private wallet-to-wallet context but cannot be lifted to a public LEZ contract without disclosing the per-tx private key and blinding factor to world-readable state, which is mathematically equivalent to view-key disclosure for the swap output. The FCMP++ (full-chain membership and metadata-private proofs) research direction may unlock a non-disclosing variant; it is pre-production. Source: [Monero stealth address documentation](https://www.getmonero.org/library/Zero-to-Monero-2-0-0.pdf); [Monero FCMP++ overview](https://www.getmonero.org/resources/moneropedia/fcmp.html).
+- For Monero, no principled wrap is feasible today. Monero has no SPV-style proof primitive that can demonstrate "address Y received amount X" without view-key sharing: ring signatures, RingCT, and one-time stealth addresses defeat external observation by design. Monero's bilateral `check_tx_proof` (which can be either an OutProofV2 that requires the per-tx private key, or an InProofV2 that requires the recipient view key) works in a private wallet-to-wallet context but cannot be lifted to a public LEZ contract without disclosing either the per-tx private key or the view key (plus the output blinding factor) to world-readable state, which is sufficient to deanonymise the swap output. The FCMP++ (full-chain membership and metadata-private proofs) research direction may unlock a non-disclosing variant; it is pre-production. Sources: [Monero, Zero to Monero 2.0 §Payment Proofs](https://www.getmonero.org/library/Zero-to-Monero-2-0-0.pdf) (accessed 2026-05-21); [Monero, FCMP++ (2024-04-27)](https://www.getmonero.org/2024/04/27/fcmps.html) (accessed 2026-05-21).
 
 Where Mitigation 1 fits in the bundle:
 
@@ -143,7 +143,7 @@ Tier 2 user experience: "Bob is bonded; Alice is reputation-gated only" under th
 
 ### Mitigation 3: maker and taker reputation
 
-A maker is a repeat participant; a long history of completed swaps is itself a slashable asset because losing the reputation forfeits all future fee revenue. This is the same argument that secures Wormhole's Guardians without bonded stake (reputation as economic gravity) but applied to a maker registry rather than a signer set. The proposed primitive is the subject of RFP-023.
+A maker is a repeat participant; a long history of completed swaps is itself a slashable asset because losing the reputation forfeits all future fee revenue. The closest deployed instance of reputation substituting for bonded stake is Wormhole's Guardian set, which operates as a Proof-of-Authority committee of named validator companies; the framing applies *the economic argument* (reputation can substitute for bond) to a different mechanism (a permissionless maker registry that accrues reputation per swap, rather than a governance-curated whitelist). The proposed primitive is the subject of RFP-023.
 
 #### Maker reputation: trivially linkable
 
@@ -204,17 +204,19 @@ A reader choosing between the RFPs should ask:
 
 ## References
 
-- [Bitcoin to Monero atomic swaps are now live (getmonero.org, 2021-08-20)](https://www.getmonero.org/2021/08/20/atomic-swaps.html)
-- [Hoenisch and del Pino, Atomic Swaps between Bitcoin and Monero, IACR 2020/1126](https://eprint.iacr.org/2020/1126.pdf)
-- [Decred blog: On-Chain Atomic Swaps (2017)](https://blog.decred.org/2017/09/20/On-Chain-Atomic-Swaps/)
-- [comit-network/xmr-btc-swap (archived 2024-11)](https://github.com/comit-network/xmr-btc-swap)
-- [Thorchain Medium: Why Cross-Chain bridges are superior to Atomic Swaps (2019-07-02)](https://medium.com/thorchain/why-cross-chain-bridges-are-superior-to-atomic-swaps-aebde263103c)
-- [Thorchain docs: Continuous Liquidity Pools](https://docs.thorchain.org/technical-documentation/thorchain-finance/continuous-liquidity-pools)
-- [Serai Validator Sets spec](https://github.com/serai-dex/serai/blob/develop/spec/protocol/Validator%20Sets.md)
-- [Serai AMM docs](https://docs.serai.exchange/amm/)
-- [Halborn: Wormhole Hack February 2022](https://www.halborn.com/blog/post/explained-the-wormhole-hack-february-2022)
-- [Crypto Times: $10.8M drained from Thorchain (2026-05-17)](https://www.cryptotimes.io/2026/05/17/10-8-million-drained-inside-the-thorchain-exploit-that-froze-cross-chain-defi-for-13-hours/)
-- [Monero whitepaper: Zero to Monero 2.0](https://www.getmonero.org/library/Zero-to-Monero-2-0-0.pdf)
-- [Monero FCMP overview](https://www.getmonero.org/resources/moneropedia/fcmp.html)
-- [defiprime.com: Liquality](https://defiprime.com/liquality)
-- [Liquality discontinuation announcement (2024-05-20)](https://x.com/Liquality_io/status/1792678368694985162)
+- [Bitcoin to Monero atomic swaps are now live (getmonero.org, 2021-08-20)](https://www.getmonero.org/2021/08/20/atomic-swaps.html) (accessed 2026-05-21)
+- [Gugger, Bitcoin-Monero Cross-chain Atomic Swap, IACR 2020/1126](https://eprint.iacr.org/2020/1126.pdf) (accessed 2026-05-21)
+- [Hoenisch and del Pino, Atomic Swaps between Bitcoin and Monero, arXiv:2101.12332 (2021-01-29)](https://arxiv.org/abs/2101.12332) (accessed 2026-05-21)
+- [Decred blog: On-Chain Atomic Swaps, 2017-09-20 (first on-chain atomic swap, Decred-Litecoin)](https://blog.decred.org/2017/09/20/On-Chain-Atomic-Swaps/) (accessed 2026-05-21)
+- [comit-network/xmr-btc-swap (unmaintained since 2024-11; archival pending per issue #1791)](https://github.com/comit-network/xmr-btc-swap) (accessed 2026-05-21)
+- [Thorchain Medium: Why Cross-Chain bridges are superior to Atomic Swaps (2019-07-02)](https://medium.com/thorchain/why-cross-chain-bridges-are-superior-to-atomic-swaps-aebde263103c) (accessed 2026-05-21)
+- [Thorchain docs: Continuous Liquidity Pools](https://docs.thorchain.org/technical-documentation/thorchain-finance/continuous-liquidity-pools) (accessed 2026-05-21)
+- [Thorchain docs: RUNE (bond-to-pooled ratio)](https://docs.thorchain.org/understanding-thorchain/rune) (accessed 2026-05-21)
+- [Serai Validator Sets spec](https://github.com/serai-dex/serai/blob/develop/spec/protocol/Validator%20Sets.md) (accessed 2026-05-21)
+- [Serai AMM docs](https://docs.serai.exchange/amm/) (accessed 2026-05-21)
+- [Halborn: Wormhole Hack February 2022 (technical analysis)](https://www.halborn.com/blog/post/explained-the-wormhole-hack-february-2022) (accessed 2026-05-21)
+- [Crypto Times: $10.8M drained from Thorchain on 2026-05-15](https://www.cryptotimes.io/2026/05/17/10-8-million-drained-inside-the-thorchain-exploit-that-froze-cross-chain-defi-for-13-hours/) (accessed 2026-05-21)
+- [Monero, Zero to Monero 2.0 (whitepaper)](https://www.getmonero.org/library/Zero-to-Monero-2-0-0.pdf) (accessed 2026-05-21)
+- [Monero, FCMP++ announcement (2024-04-27)](https://www.getmonero.org/2024/04/27/fcmps.html) (accessed 2026-05-21)
+- [defiprime.com: Liquality](https://defiprime.com/liquality) (accessed 2026-05-21)
+- [Liquality discontinuation announcement (2024-05-20)](https://x.com/Liquality_io/status/1792678368694985162) (accessed 2026-05-21)

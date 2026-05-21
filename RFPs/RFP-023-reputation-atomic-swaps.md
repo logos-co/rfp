@@ -15,7 +15,7 @@ category: Applications & Integrations
 
 Extend RFP-003 (Atomic Swaps with LEZ, open) with an on-chain reputation registry that constrains the free-option problem inherent to atomic swaps, *without* requiring bonded collateral as the primary cost-of-defection.
 
-The premise: a maker who has completed N successful swaps with zero defections has built up a reputation asset whose net present value (discounted future fee revenue) exceeds the expected value of any single grief attack. The protocol does not need to slash bonded collateral; the *market* effectively slashes the maker by refusing future trades. Reputation is therefore a long-tailed bond the protocol does not have to size, hold, or directly enforce.
+The premise (a design conjecture to be validated in implementation, not a proven theorem): a maker who has completed N successful swaps with zero defections has built up a reputation asset whose net present value (discounted future fee revenue) plausibly exceeds the expected value of any single grief attack. The protocol does not need to slash bonded collateral; the *market* effectively slashes the maker by refusing future trades. Reputation is therefore a long-tailed bond the protocol does not have to size, hold, or directly enforce. The closest deployed instance is Wormhole's Guardian set (Proof-of-Authority committee), which operates on the same economic argument under a different mechanism.
 
 The cryptographic challenge is taker reputation. Takers should be unlinkable across swaps (a privacy-positioned cross-chain DEX should not require its users to maintain a persistent on-chain identity that can be deanonymised). The RFP requires applicants to address two complementary design paths: a capped-pseudonym path (linkable, simple) and a zero-knowledge reputation path (unlinkable, complex, reusing the LEZ Risc0 zkVM that RFP-003 already establishes).
 
@@ -142,7 +142,8 @@ See [appendix/cross-chain-trust-model-contrast.md](../appendix/cross-chain-trust
 ## References
 
 - [RFP-003: Atomic Swaps with LEZ](./RFP-003-atomic-swaps.md)
-- [Wormhole Guardian set design (reputation-as-bond at scale)](https://wormhole.com/docs/learn/security/)
-- [Sparse Merkle Tree (Vitalik Buterin, "Optimizing sparse Merkle trees")](https://ethresear.ch/t/optimizing-sparse-merkle-trees/3751)
-- [Risc0 zkVM](https://dev.risczero.com/)
-- [Logos Delivery and Logos Chat (referenced from RFP-003)](https://github.com/logos-co/logos-docs)
+- [Wormhole Guardian set (reputation-substituting-for-bond under Proof-of-Authority)](https://wormhole.com/docs/protocol/infrastructure/guardians/) (accessed 2026-05-21)
+- [Wormhole 101: Guardians (supporting context)](https://wormhole.com/blog/wormhole-101-guardians) (accessed 2026-05-21)
+- [Sparse Merkle Tree (Vitalik Buterin, "Optimizing sparse Merkle trees", ethresear.ch, 2018-10-09)](https://ethresear.ch/t/optimizing-sparse-merkle-trees/3751) (accessed 2026-05-21)
+- [Risc0 zkVM](https://dev.risczero.com/) (accessed 2026-05-21)
+- [Logos Delivery and Logos Chat (referenced from RFP-003)](https://github.com/logos-co/logos-docs) (accessed 2026-05-21)
