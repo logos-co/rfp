@@ -36,34 +36,39 @@ The Bond layer is a strict superset of RFP-003. Builders should consume the per-
 
 ### Tier 1: LEZ to BTC (example)
 
-```
-Phase                  Alice              LEZ contract           Bob
-                                                                       
-0. Quote               <----------- Logos Delivery ---------->
-                       Joint-key setup for 2-of-2 Taproot output
-                       
-1. Commit              post B_alice
-                       (LEZ-side bond)    -->  receives B_alice
-                       
-2. Lock-BTC            sign BTC lock tx --> over Waku -->         broadcast to BTC
-                                                                  
-                       <-- inclusion proof from anyone --> verifies PoW, merkle, scriptpubkey, amount
-                       
-                       slash window opens                         if Bob does not advance:
-                                                                  B_bob_slice goes to Alice
-                       
-3. Lock-Logos          (waits)            <-- receives           Bob locks trade_amount
-                                          trade_amount +         + B_bob_slice
-                                          B_bob_slice            conditioned on secret s
-                       
-4. Reveal              publishes adaptor sig --> reveals s
-                                                                  if Alice does not reveal:
-                                                                  B_alice goes to Bob
-                       
-5. Settle              <-- Alice's bond                          Bob claims BTC using s
-                       refunds
-                       Bob's bond slice
-                       releases
+```mermaid
+sequenceDiagram
+    participant Alice
+    participant LEZ as LEZ swap contract
+    participant BTC as Bitcoin network
+    participant Bob
+
+    Note over Alice,Bob: Phase 0 - Quote
+    Alice->>Bob: Quote request (Logos Delivery)
+    Bob->>Alice: Signed quote (price, expiry, swap_id, refund_pubkeys)
+    Note over Alice,Bob: Joint-key setup for 2-of-2 Taproot output
+
+    Note over Alice,LEZ: Phase 1 - Commit
+    Alice->>LEZ: Post B_alice referencing swap_id
+
+    Note over Alice,Bob: Phase 2 - Lock-BTC
+    Alice->>Bob: Signed BTC lock tx bytes (over Waku)
+    Bob->>BTC: Broadcast lock tx (or Alice broadcasts herself if Bob stalls)
+    BTC-->>LEZ: Inclusion proof (submitted by anyone:<br/>headers + merkle + raw_tx)
+    LEZ->>LEZ: Verify PoW, inclusion, scriptpubkey, amount
+    Note over LEZ: Slash window opens<br/>If Bob does not advance:<br/>B_bob_slice -> Alice
+
+    Note over LEZ,Bob: Phase 3 - Lock-Logos
+    Bob->>LEZ: Lock trade_amount + B_bob_slice conditioned on s
+
+    Note over Alice,LEZ: Phase 4 - Reveal
+    Alice->>LEZ: Publish adaptor signature (reveals s)
+    Note over LEZ: If Alice does not reveal in window:<br/>B_alice -> Bob
+
+    Note over Bob,BTC: Phase 5 - Settle
+    Bob->>BTC: Claim BTC using s
+    LEZ-->>Alice: Refund B_alice
+    LEZ-->>Bob: Release B_bob_slice
 ```
 
 The unauthenticated proof submitter property: Bob can broadcast Alice's signed BTC lock himself; the LEZ inclusion-proof submitter is also unauthenticated (Bob, Alice, or a watchtower service can post the proof). If Alice signs a malformed lock (wrong amount, wrong scriptpubkey), Bob does not broadcast; the tx never lands on Bitcoin; the inclusion proof never materialises; the LEZ state machine quietly times out. No slashing dispute, no fraud-proof window. The swap fails closed because the precondition for state advancement (a real BTC lock) never holds.

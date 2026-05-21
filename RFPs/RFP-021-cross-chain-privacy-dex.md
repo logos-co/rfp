@@ -31,22 +31,33 @@ This is the most ambitious option in the cross-chain bundle. It is also the one 
 
 ## High-level functionality and flow
 
-```
-                LEZ validator set (~100-600 nodes, bonded)
-                FROST threshold signatures per external curve
-                
-                                   
-         ETH vault          BTC vault          XMR vault
-         (secp256k1)        (secp256k1)        (Ed25519, FROSTLASS over CLSAG)
-                                   
-                          AMM pools on LEZ
-                          (xy=k, native asset settlement)
-                                   
-                          + Privacy layer:
-                          - shielded swap intents
-                          - sealed-bid batch matching
-                          - stealth outbound addresses
-                          - Waku transport for orderflow
+```mermaid
+flowchart TB
+    subgraph Validators["LEZ validator set (100-600 nodes, bonded)"]
+        direction LR
+        V1["Validator 1"]
+        V2["Validator 2"]
+        Vn["Validator N"]
+        V1 --- V2 --- Vn
+    end
+
+    subgraph Vaults["TSS vaults (FROST threshold signatures, per curve)"]
+        direction LR
+        ETHVault["ETH vault<br/>(secp256k1)"]
+        BTCVault["BTC vault<br/>(secp256k1)"]
+        XMRVault["XMR vault<br/>(Ed25519, FROSTLASS over CLSAG)"]
+    end
+
+    subgraph Execution["LEZ execution"]
+        direction TB
+        AMM["AMM pools<br/>(xy=k, native-asset settlement)"]
+        Privacy["Privacy layer:<br/>- shielded swap intents<br/>- sealed-bid batch matching<br/>- stealth outbound addresses<br/>- Waku transport for orderflow"]
+        AMM --- Privacy
+    end
+
+    Validators -->|"co-sign deposits/outbounds"| Vaults
+    Vaults -->|"observed deposits feed swap engine"| Execution
+    Execution -->|"queued outbounds signed via TSS"| Vaults
 ```
 
 **Happy path.** User sends BTC to a vault address on Bitcoin, carrying a memo (or, with LEZ privacy primitives, a commitment) that specifies the destination asset and address. LEZ validators observe the deposit, reach consensus via their consensus protocol, route the swap through the appropriate AMM pool, queue the outbound, and the threshold signature group co-signs an outbound transaction on the destination chain. Outbound is broadcast to a stealth address derived from the destination address. Total wall-clock time: source-chain finality plus LEZ consensus plus destination-chain finality, typically minutes.

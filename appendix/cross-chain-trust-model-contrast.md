@@ -50,7 +50,7 @@ Cons:
 2. **Settlement time dominated by the slowest chain.** A single swap can take 30 minutes to several hours to finalise because confirmations stack across both chains. Refund timelocks are measured in hours, not minutes.
 3. **Mandatory interactivity for both parties.** Both parties must be online for lock, reveal, and (in adversarial paths) refund. If Alice goes offline mid-swap, Bob waits out the refund window, and vice versa.
 4. **Per-trade matching.** No protocol-owned liquidity, no AMM pricing; each swap requires a willing counterparty for the exact pair and exact size.
-5. **Pair coverage.** HTLC requires compatible scripting on both chains. BTC-XMR specifically required about five years of cryptographic work (2017 proposal to 2021 working implementation via adaptor signatures over Ed25519 and secp256k1). Source: [getmonero.org: Bitcoin to Monero atomic swaps are now live, 2021-08-20](https://www.getmonero.org/2021/08/20/atomic-swaps.html); [Hoenisch and del Pino, IACR 2021/441](https://eprint.iacr.org/2020/1126.pdf).
+5. **Pair coverage.** HTLC requires compatible scripting on both chains. BTC-XMR specifically required about five years of cryptographic work (2017 proposal to 2021 working implementation via adaptor signatures over Ed25519 and secp256k1). Source: [getmonero.org: Bitcoin to Monero atomic swaps are now live, 2021-08-20](https://www.getmonero.org/2021/08/20/atomic-swaps.html); [Hoenisch and del Pino, IACR 2020/1126](https://eprint.iacr.org/2020/1126.pdf).
 
 Cons (1) through (3) are the ones the design space can plausibly attack without abandoning the atomic-swap model entirely. (4) is structural: "fixing" it by adding protocol-owned liquidity reinvents the middle-chain DEX. (5) is a per-pair engineering cost paid once.
 
