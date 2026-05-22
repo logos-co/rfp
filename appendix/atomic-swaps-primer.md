@@ -75,11 +75,11 @@ Refund and claim windows are conventionally measured in hours. A swap that proce
 
 - **COMIT `xmr-btc-swap`**: original reference implementation, [unmaintained since 2024-11, archival pending per issue #1791](https://github.com/comit-network/xmr-btc-swap) (accessed 2026-05-21).
 - **eigenwallet `core`**: active fork of `xmr-btc-swap`; v4.6.1 released 2026-05-15. [github.com/eigenwallet/core](https://github.com/eigenwallet/core) (accessed 2026-05-21).
-- **Farcaster (farcaster-project/farcaster-node)**: independent XMR-BTC implementation, low-velocity; last release v0.8.4 on 2023-01-16. [github.com/farcaster-project/farcaster-node](https://github.com/farcaster-project/farcaster-node) (accessed 2026-05-21).
-- **AtomicDEX / Komodo Wallet**: rebranded; no significant recent BTC-XMR volume.
-- **Liquality**: discontinued 2024-06-15.
+- **Farcaster Project (`farcaster-project/farcaster-node`)**: independent BTC-XMR implementation. Still listed as actively maintained as of 2026, with Lightning BTC support added to reduce BTC-side confirmation time. Community-scale rather than volume-scale operation. Sources: [xgram.io: Best Monero atomic swap platforms 2026](https://xgram.io/blog/best-xmr-atomic-swaps-and-community-services-2026) (accessed 2026-05-19); [github.com/farcaster-project](https://github.com/farcaster-project) (accessed 2026-05-19).
+- **AtomicDEX / Komodo Wallet**: rebranded to "Komodo Wallet" in 2025. Public trackers report no recent volume; Nomics' last published 24-hour volume figure is approximately USD 5,737 from November 2021. Source: [Nomics: AtomicDEX](https://nomics.com/exchanges/atomicdex) (accessed 2026-05-19).
+- **Liquality**: consumer atomic-swap wallet extension discontinued effective 2024-06-15. Sources: [Liquality on X, 2024-05-20](https://x.com/Liquality_io/status/1792678368694985162) (accessed 2026-05-19); [Rootstock Helpdesk: Liquality](https://helpdesk.rootstock.io/solutions/liquality.html) (accessed 2026-05-19).
 
-The XMR-BTC corridor is real and operational, but adoption is small relative to bridge volumes. See the [trust-model contrast appendix](./cross-chain-trust-model-contrast.md) for volume comparison.
+The XMR-BTC corridor is operational but at community scale. See the [trust-model contrast appendix](./cross-chain-trust-model-contrast.md) for cumulative-volume comparison against federated-signer protocols.
 
 ## The free-option problem
 
