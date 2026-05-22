@@ -55,15 +55,30 @@ peer-to-peer atomic-swap redemption. Source:
 noting: the same ring-signature properties that protect users prevent
 post-incident wallet identification and freezing.
 
+**Inspired by existing prior art.** The minting side follows the well-known
+**Synthetix CDP design** (SIP-302 Pools V3 for the V3 reference; the wider
+sUSD/SNX collateralisation pattern dating to 2018). See
+[appendix/synthetics-design-space.md](../appendix/synthetics-design-space.md)
+§Oracle-priced over-collateralised synthetics for the deployed-protocol survey.
+The redemption side follows the **eigenwallet/COMIT BTC-XMR atomic-swap
+pattern** (peer-to-peer adaptor-signature swap, open LP set, no custody); see
+the [atomic-swaps primer](../appendix/atomic-swaps-primer.md). The novelty is
+the *combination*: a Synthetix-style CDP minted against stable collateral,
+redeemed via an eigenwallet-style atomic swap to real XMR, with no protocol-held
+custody at any step. Neither half is new; the join is.
+
 **Trade-off accepted up front.** This RFP deliberately leaves the free option of
-the redemption-leg atomic swap unpriced. RFP-022's LEZ bond and RFP-026's
-external-chain fee-burn both price that option but at the cost of LP capital
-efficiency or refund-branch principal loss. Goal 1's premise is that a
+the redemption-leg atomic swap unpriced. Goal 1's premise is that a
 privacy-maximalist user base will tolerate variable redemption availability (LPs
 may be slow to show up, spreads may widen under stress) in exchange for the
 cleanest non-custody story. The unpriced free option is the explicit cost the
-protocol pays for that positioning; LPs bear it. If you want the option priced,
-choose RFP-022, RFP-026, or RFP-025 instead.
+protocol pays for that positioning; LPs bear it. Anti-spam mechanisms that price
+the option (see lambda prize
+[LP-0018](../lambda-prizes/LP-0018-atomic-swap-anti-spam.md)) and off-chain
+maker reputation (see
+[LP-0019](../lambda-prizes/LP-0019-atomic-swap-maker-reputation.md)) may be
+layered on top once available, but neither is a precondition of this RFP. If the
+SLA matters more than non-custody, choose RFP-025 instead.
 
 This RFP positions itself as the first design where the redemption path itself
 is both privacy-preserving (deposits real XMR on Monero L1) and non-custodial
@@ -155,7 +170,8 @@ freely.
 - **Cleanest privacy story in the bundle.** Successful redemption ends with real
   XMR on Monero L1. No protocol-side custody, no signer-set deposit-history leak
   (the RFP-021 and RFP-025 option 2b weakness), no view-key disclosure (the
-  RFP-022 Tier 2 constraint).
+  Monero unobservability constraint inherited from the underlying atomic-swap
+  primitive; see [atomic-swaps primer](../appendix/atomic-swaps-primer.md)).
 - **Cryptographic non-custody is full.** No vault, no bond, no SLA. The trust
   assumption is the oracle (for pricing) and the soundness of the RFP-003
   atomic-swap protocol. The protocol cannot lose user funds in a custody breach
@@ -199,8 +215,10 @@ freely.
   Delivery softens this but cannot remove it.
 - **No protocol-side enforcement of LP behaviour.** Refusing to proceed is
   *valid behaviour* under the atomic-swap protocol; the protocol cannot
-  distinguish malicious refusal from connectivity loss. Reputation (RFP-023) is
-  the only available restraint, and even then it operates as soft pressure, not
+  distinguish malicious refusal from connectivity loss. Off-chain maker
+  reputation (see lambda prize
+  [LP-0019](../lambda-prizes/LP-0019-atomic-swap-maker-reputation.md)) is the
+  only available restraint, and even then it operates as soft pressure, not
   enforcement.
 - **Oracle dependency.** The oracle is the only price signal; oracle attack or
   stale price degrades minting accuracy. Mitigation lives outside this RFP
@@ -230,11 +248,16 @@ freely.
   jurisdiction. The protocol itself is insulated (it does not handle XMR) but
   the LP economy may concentrate in friendlier jurisdictions. Strategic, not
   technical.
-- **Atomic-swap maker burnout.** The free-option problem RFP-022 addresses
-  applies here too: LPs can be free-optioned by takers. Without bonds (Goal 1's
-  premise), this can drive LPs away. Mitigation: optional layered consumption of
-  RFP-022 Tier 2 (bonded XMR atomic swaps) or RFP-023 (reputation) for the
-  redemption leg, as separate products on top of the same sXMR token.
+- **Atomic-swap maker burnout.** The free-option problem
+  ([atomic-swaps primer §The free-option problem](../appendix/atomic-swaps-primer.md#the-free-option-problem))
+  applies here too: LPs can be free-optioned by takers. The pure design accepts
+  this as the cost of Goal 1's non-custody positioning. Mitigation: optional
+  layered consumption of the anti-spam mechanism
+  ([LP-0018](../lambda-prizes/LP-0018-atomic-swap-anti-spam.md)) or off-chain
+  maker reputation
+  ([LP-0019](../lambda-prizes/LP-0019-atomic-swap-maker-reputation.md)) for the
+  redemption leg, as separate products on top of the same sXMR token. Neither is
+  a precondition.
 - **No protocol-side fee revenue capture.** Open LP set means LPs capture the
   spread; the protocol's only revenue is mint and burn fees on sXMR itself.
   Sustainability depends on mint/burn volume, which depends on LEZ DeFi
@@ -250,13 +273,15 @@ freely.
   targets the SLA-needing audience accepting custody risk. The two together
   cover the synthetics design space. A reader should pick one or both based on
   which user segment they want to serve.
-- **RFP-022 (bonded atomic swaps)** could optionally be consumed by RFP-024 as
-  the redemption-leg primitive: instead of bare atomic swaps, redemption uses
-  bonded atomic swaps. This compounds LP commitment but adds bond friction on
-  the LP side. The pure design in this RFP does not require this layering.
-- **RFP-023 (reputation-based atomic swaps)** could optionally be consumed for
-  LP-discovery UX (takers see LP reputation before initiating). Not strictly
-  required for the core product.
+- **Lambda prize
+  [LP-0018 (atomic-swap anti-spam mechanism)](../lambda-prizes/LP-0018-atomic-swap-anti-spam.md)**
+  could be layered on the redemption-leg atomic swap if and when a winning
+  mechanism ships. Not a precondition; the pure design works without it.
+- **Lambda prize
+  [LP-0019 (off-chain maker reputation)](../lambda-prizes/LP-0019-atomic-swap-maker-reputation.md)**
+  could provide LP-discovery UX (takers see LP reputation before initiating).
+  Not a precondition; the open LP set with no reputation works for the
+  privacy-maximalist user base.
 - **RFP-021 (cross-chain privacy DEX)** is orthogonal. RFP-021 offers real-XMR
   cross-chain swaps with federated custody; RFP-024 offers synthetic-XMR
   exposure with atomic-swap redemption. Different products; same broad audience

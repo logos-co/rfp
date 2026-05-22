@@ -72,22 +72,26 @@ routed to an LP, they must complete the atomic swap within a window. If they
 default, their bond is slashed and paid to the redeemer. LPs may leave the set,
 but only after a notice period that exceeds the redemption SLA.
 
-**Distinguish this bond from RFP-022's swap-bond.** RFP-022's bond prices the
-*free option on a single in-flight swap* and refunds at swap completion. Option
-2a's bond is a *persistent performance bond against the LP's SLA across many
-swaps*; it is locked for the LP's tenure plus the notice period. An LP that
-adopts both layers carries both bonds against each redemption (RFP-022's bond
-escrowed for the duration of the specific swap; option 2a's bond locked across
-the LP's tenure). Applicants must address how the two bonds compose: are they
-additive against per-redemption notional, or does the SLA-bond subsume the
-swap-bond? Aggregate bond load matters for LP economics and must be sized
-against expected concurrent-redemption load, not just per-swap option value.
+**Inspired by existing prior art.** Option 2a's bonded-LP design is closest in
+shape to **Thorchain's bonded-validator model**: a set of operators each post
+slashable stake (Thorchain RUNE bonded ≥ ~2× pooled liquidity) and the protocol
+enforces performance on the stake. See
+[appendix/cross-chain-trust-model-contrast.md](../appendix/cross-chain-trust-model-contrast.md)
+§Federated-signer middle chain for the Thorchain trust-model survey including
+the May 2026 GG20/TSSHOCK exploit. The Logos adaptation differs in two respects:
+(1) the bonded operators are *XMR sellers committing to redemption SLA*, not
+protocol validators co-signing custody; (2) the LP bond is locked for the LP's
+tenure plus the notice period, *separate* from any per-swap collateralisation.
+The bond is a persistent performance bond against the LP's SLA across many
+swaps, not a per-swap collateral. Option 2a inherits Thorchain's structural
+problem — slashing requires attribution, and the protocol cannot adjudicate the
+attribution from atomic-swap state alone (see the Enforceability caveat below).
 
 ```
                     sXMR LEZ program
                     + LP registry
-                    + slashing logic (consumes RFP-023 reputation
-                      for default attribution)
+                    + slashing logic (depends on an off-chain
+                      attribution layer; see LP-0019)
                     
        redemption                          LP bond
        request                             
@@ -98,7 +102,7 @@ against expected concurrent-redemption load, not just per-swap option value.
                           (adaptor-sig)    forfeits bond
                                            
        if LP defaults: bond paid out as compensation,
-       attribution layered via RFP-023 reputation
+       attribution layered via LP-0019 reputation system
 ```
 
 **Enforceability caveat.** "LP defaulted" is not a verdict an on-chain program
@@ -106,13 +110,14 @@ can render from atomic-swap state alone (per the cross-cutting analysis in
 [appendix/cross-chain-trust-model-contrast.md](../appendix/cross-chain-trust-model-contrast.md)).
 Refusing to proceed is *valid behaviour* under the atomic-swap protocol; the LEZ
 contract cannot distinguish malicious refusal from connectivity loss. The
-realistic implementation consumes the RFP-023 reputation primitive as the
-attribution layer: an LP who repeatedly fails to honour redemptions loses
+realistic implementation depends on the off-chain reputation system that lambda
+prize [LP-0019](../lambda-prizes/LP-0019-atomic-swap-maker-reputation.md) is
+expected to deliver: an LP who repeatedly fails to honour redemptions loses
 reputation; the bond is slashed against the *attested* default condition, not
-against atomic-swap state directly. Without RFP-023 (or an equivalent attestor
-mechanism), the bond can be used only to gate participation (priority, fee
-tiers, future-slot access), not slashed with cryptographic certainty on a single
-failed swap.
+against atomic-swap state directly. Without LP-0019 (or an equivalent off-chain
+attestation mechanism), the bond can be used only to gate participation
+(priority, fee tiers, future-slot access), not slashed with cryptographic
+certainty on a single failed swap.
 
 ## Option 2b: protocol XMR reserve
 
@@ -136,16 +141,27 @@ settlement rail between the reserve custodian and the redeemer.
                   (n-of-m, bonded signers, view-key-shared)
 ```
 
-At this point the design has adopted sBTC's (Stacks) threshold-signer custody
-model, with an oracle-priced peg layer replacing sBTC's 1:1 redemption peg. The
-structural overlap is the custody side (a bonded n-of-m signer set holding the
-underlying asset on its native chain); the peg semantics differ (sBTC is 1:1
-redemption-backed, this design is oracle-priced). The atomic swap is the wire
-format; trust lives in the signer set. The same view-key-shared TSS custody
-constraint applies as in RFP-021: honest-but-curious signers learn the
-protocol-side deposit history. This is the structural trade-off option 2b
-accepts in exchange for the redemption SLA. The signer set must be bonded and
-slashable to make the trust assumption explicit.
+**Inspired by existing prior art.** Option 2b directly adopts **sBTC's (Stacks)
+threshold-signer custody model**: a federation of bonded signers (15-signer, 70%
+threshold in SIP-028; 14 currently operating with 10-of-14) holds the underlying
+asset on its native chain and produces redemptions on-demand. See
+[appendix/synthetics-design-space.md](../appendix/synthetics-design-space.md)
+§Redeem-to-underlying with custody for the sBTC trust-shape survey. Option 2b
+adds an **oracle-priced peg layer** on top of the sBTC-style custody, replacing
+sBTC's 1:1 redemption with oracle-tracked redemption. The structural overlap
+with sBTC is the custody side; the peg semantics differ. The same
+view-key-shared TSS custody constraint applies as in RFP-021: honest-but-curious
+signers learn the protocol-side deposit history. This is the structural
+trade-off option 2b accepts in exchange for the redemption SLA. The signer set
+must be bonded and slashable to make the trust assumption explicit.
+
+The TSS custody design itself follows **Serai's FROST-over-CLSAG** approach for
+the Monero case (rather than Thorchain's GG20 ECDSA, which suffered the May 2026
+TSSHOCK exploit; see
+[appendix/cross-chain-trust-model-contrast.md](../appendix/cross-chain-trust-model-contrast.md)
+§Federated-signer middle chain). Serai is pre-mainnet as of 2026-05; option 2b
+applicants should track Serai's monero-oxide work as the production-ready
+FROSTLASS instantiation.
 
 ## High-level functionality and flow (common)
 
@@ -163,9 +179,9 @@ at oracle price; collateral sits in vault.
    LEZ-XMR SDK within the SLA window.
 4. On success, Alice's sXMR is burned, LP claims the released collateral as
    their payout.
-5. On failure (LP times out): bond slashing is triggered. RFP-023 reputation
-   attestation establishes that the failure was the LP's fault (not the
-   redeemer's); slashed bond is paid to the redeemer as compensation; LP's
+5. On failure (LP times out): bond slashing is triggered. LP-0019 off-chain
+   reputation attestation establishes that the failure was the LP's fault (not
+   the redeemer's); slashed bond is paid to the redeemer as compensation; LP's
    reputation is decremented.
 
 ### Redemption (option 2b)
@@ -236,9 +252,9 @@ at oracle price; collateral sits in vault.
 ## Cons (option 2a-specific)
 
 - **Slashing requires off-chain attribution.** The LEZ contract cannot
-  adjudicate "LP defaulted" from atomic-swap state. RFP-023 reputation is the
-  realistic attribution mechanism; without it, the bond gates participation but
-  does not slash on single defaults.
+  adjudicate "LP defaulted" from atomic-swap state. LP-0019 off-chain reputation
+  is the realistic attribution mechanism; without it, the bond gates
+  participation but does not slash on single defaults.
 - **Bond opportunity cost limits LP supply.** Locking stable collateral against
   XMR commitment is expensive; LP yield must clear the opportunity cost.
   Realistic capacity is constrained by the LP economy's appetite for the
@@ -287,16 +303,19 @@ at oracle price; collateral sits in vault.
   jurisdiction's stance.
 - **First-swap cap evasion.** A redeemer could split a large redemption into
   many capped first-redemptions under fresh pseudonyms. Mitigation: rate limits
-  enforced at the LEZ escrow program; combine with reputation gating (RFP-023)
-  for higher tiers.
+  enforced at the LEZ escrow program; combine with off-chain reputation gating
+  (LP-0019) for higher tiers.
 
 ## Risks (option 2a-specific)
 
-- **RFP-023 dependency.** Without a reputation primitive, the bond is not
-  actually slashable on default. If RFP-023 ships later than RFP-025 option 2a,
-  the protocol launches with a weaker enforcement story than its marketing
-  implies. Mitigation: sequence RFP-023 first, or include a stub-reputation
-  mechanism in RFP-025 itself.
+- **Off-chain reputation dependency (LP-0019).** Without an off-chain
+  attribution mechanism, the bond is not actually slashable on default. If
+  lambda prize
+  [LP-0019](../lambda-prizes/LP-0019-atomic-swap-maker-reputation.md) is not yet
+  awarded when option 2a ships, the protocol launches with a weaker enforcement
+  story than its marketing implies. Mitigation: sequence LP-0019 first, or
+  include a stub-attestor mechanism in RFP-025 itself (with the limitations of
+  stub-attestor centralisation documented honestly).
 - **Reputation gaming attacks on the LP side.** An LP can build reputation
   cheaply by completing many small redemptions then default on a large one.
   Mitigation: notional-weighted reputation; cap per-LP redemption size
@@ -329,12 +348,17 @@ at oracle price; collateral sits in vault.
   RFP-025.
 - **RFP-003 (Atomic Swaps with LEZ, open)** is the foundation: the LEZ-XMR
   atomic-swap SDK is the redemption settlement layer for both options.
-- **RFP-023 (reputation-based atomic swaps)** is a hard dependency for option
-  2a's slashing mechanism. The reputation primitive is what makes "LP defaulted"
-  attributable.
-- **RFP-022 (bonded atomic swaps)** could optionally be consumed by either
-  option as the bonded-redemption-leg primitive on the atomic-swap settlement,
-  layered on top of the LP-side or reserve-side bond.
+- **Lambda prize
+  [LP-0019 (off-chain maker reputation)](../lambda-prizes/LP-0019-atomic-swap-maker-reputation.md)**
+  is a hard dependency for option 2a's slashing mechanism. The off-chain
+  attribution it produces is what makes "LP defaulted" attributable; without it,
+  the bond gates participation but cannot be slashed on a single failed swap
+  with cryptographic certainty.
+- **Lambda prize
+  [LP-0018 (atomic-swap anti-spam mechanism)](../lambda-prizes/LP-0018-atomic-swap-anti-spam.md)**
+  could optionally be layered on the redemption-leg atomic swap to deter
+  taker-side griefing. Not strictly required for either option; the LP-side bond
+  / reserve already addresses maker-side performance.
 - **RFP-021 (cross-chain privacy DEX)** is orthogonal: it offers real-asset
   cross-chain swaps with federated custody; this RFP offers synthetic-XMR
   exposure with managed redemption. Option 2b shares the view-key-shared TSS
