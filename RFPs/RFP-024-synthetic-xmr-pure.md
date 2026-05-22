@@ -55,6 +55,16 @@ peer-to-peer atomic-swap redemption. Source:
 noting: the same ring-signature properties that protect users prevent
 post-incident wallet identification and freezing.
 
+**Trade-off accepted up front.** This RFP deliberately leaves the free option of
+the redemption-leg atomic swap unpriced. RFP-022's LEZ bond and RFP-026's
+external-chain fee-burn both price that option but at the cost of LP capital
+efficiency or refund-branch principal loss. Goal 1's premise is that a
+privacy-maximalist user base will tolerate variable redemption availability (LPs
+may be slow to show up, spreads may widen under stress) in exchange for the
+cleanest non-custody story. The unpriced free option is the explicit cost the
+protocol pays for that positioning; LPs bear it. If you want the option priced,
+choose RFP-022, RFP-026, or RFP-025 instead.
+
 This RFP positions itself as the first design where the redemption path itself
 is both privacy-preserving (deposits real XMR on Monero L1) and non-custodial
 (atomic-swap rather than signer-set bridge). See

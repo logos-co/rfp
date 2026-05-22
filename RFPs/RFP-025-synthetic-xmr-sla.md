@@ -72,6 +72,17 @@ routed to an LP, they must complete the atomic swap within a window. If they
 default, their bond is slashed and paid to the redeemer. LPs may leave the set,
 but only after a notice period that exceeds the redemption SLA.
 
+**Distinguish this bond from RFP-022's swap-bond.** RFP-022's bond prices the
+*free option on a single in-flight swap* and refunds at swap completion. Option
+2a's bond is a *persistent performance bond against the LP's SLA across many
+swaps*; it is locked for the LP's tenure plus the notice period. An LP that
+adopts both layers carries both bonds against each redemption (RFP-022's bond
+escrowed for the duration of the specific swap; option 2a's bond locked across
+the LP's tenure). Applicants must address how the two bonds compose: are they
+additive against per-redemption notional, or does the SLA-bond subsume the
+swap-bond? Aggregate bond load matters for LP economics and must be sized
+against expected concurrent-redemption load, not just per-swap option value.
+
 ```
                     sXMR LEZ program
                     + LP registry

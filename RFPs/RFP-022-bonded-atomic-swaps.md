@@ -32,14 +32,19 @@ no premium owed). Bond sized at or above option value (`σ × √T × notional`;
 [atomic-swaps primer](../appendix/atomic-swaps-primer.md#notation-for-option-value))
 makes the abort branch EV-negative and closes the free option.
 
-Locking order is fixed by the cryptographic primitive, not by design choice. The
-[atomic-swaps primer §Generalising the locks-first rule across pairs](../appendix/atomic-swaps-primer.md#generalising-the-locks-first-rule-across-pairs)
-sets out the rule; the specific lock-ordering for LEZ↔BTC and LEZ↔XMR is part of
-the applicant's design output and must be justified against the primer's
-framing. In the worked examples below, Alice locks first on the external chain
-and Bob locks second on LEZ; this is the BTC-XMR convention lifted directly.
-Applicants targeting other pairs (LEZ↔ETH especially, where both chains have
-full scripting) must state the locking-order choice explicitly.
+Locking order is driven by the **draining-attack economic analysis** (Hoenisch
+and del Pino 2021 §4): the party who locks first incurs the on-chain
+refund-transaction fee under adversarial counterparty behaviour, so the party
+who can absorb that cost should lock first. See
+[atomic-swaps primer §How locking order generalises across pairs](../appendix/atomic-swaps-primer.md#how-locking-order-generalises-across-pairs).
+The choice is *not* fixed by the cryptographic primitive; reverse variants are
+constructible given the appropriate adaptor-signature primitives on each chain.
+For the worked examples below, Alice is the BTC-side party and locks first on
+the external chain (matching the deployed COMIT/eigenwallet convention); Bob is
+the LEZ-side party and locks second on LEZ. Applicants targeting other pairs
+(LEZ↔ETH especially, where both chains have full scripting) must state the
+locking-order choice explicitly and justify it against the draining-attack
+analysis.
 
 The design splits into two tiers that reflect a structural asymmetry in the
 underlying cryptography:
@@ -308,6 +313,16 @@ the LEZ escrow program:
 - **Bond opportunity cost.** Makers must lock LEZ-denominated bond capital,
   which yields nothing during the lock window. This raises maker spreads
   relative to the unbonded (free-option) atomic swap of RFP-003.
+- **Bond can exceed spread in high-volatility regimes.** For pairs with
+  annualised volatility around 0.8 (a plausible regime for XMR) and the ~28h
+  deployed refund window, the option value `σ × √T × notional` works out to
+  roughly 4-5% of notional, which exceeds typical maker spreads on the BTC-XMR
+  corridor (1-2%). The bond is not a free-option closure under those regimes; it
+  shifts the problem from "makers are griefed" to "makers stop quoting because
+  the bond load exceeds their margin". Applicants must address what happens in
+  this regime: dynamic bond sizing, spread widening, fallback to fee-burn-only
+  (RFP-026), or accept the consequence that the design has a working-volatility
+  range it cannot serve.
 - **Bond denomination friction.** First-time takers need LEZ-denominated bond
   assets. The bondless-taker capped-entry path mitigates this but only for the
   first swap.
@@ -367,6 +382,14 @@ the LEZ escrow program:
 - **RFP-024 (sXMR pure)** and **RFP-025 (sXMR with SLA)** are orthogonal. They
   target synthetic XMR exposure inside LEZ DeFi; this RFP targets real-asset
   atomic swaps. They could be deployed alongside.
+- **RFP-026 (fee-burn atomic swaps)** is the *substitute* option-pricing
+  mechanism, not a complement. RFP-026's fee-burn lives in the external-chain
+  refund branch; RFP-022's bond lives on LEZ at Commit. They price the same free
+  option using different escrow locations. RFP-022's bond dominates on Tier 1
+  (capital-efficient because it refunds on honest completion); RFP-026's
+  fee-burn dominates on Tier 2 (it can price the off-LEZ residual option that
+  Tier 2's bond cannot). Layering both on the same option boundary is
+  double-counting.
 
 See [appendix/atomic-swaps-primer.md](../appendix/atomic-swaps-primer.md) for
 the underlying cryptographic mechanics, the free-option framing, and the
