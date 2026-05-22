@@ -118,20 +118,22 @@ governance body.
 
 #### Usability
 
-1. All vault features are exposed in the SDK, CLI, and mini-app built
-   in RFP-008; no separate front-end is required, only extension of
-   the existing one.
-2. The mini-app displays per-vault: current APY, total deposits,
+1. All vault features are exposed by extending the **core module**
+   delivered in RFP-008 (the headless business-logic module that the
+   GUI, CLI, and reference services all consume). The CLI and GUI
+   built in RFP-008 are extended to surface the new vault features;
+   no separate front-end is required.
+2. The GUI displays per-vault: current APY, total deposits,
    allocated markets with individual utilisation, supply caps and
    remaining capacity, and the curator's performance fee.
-3. The mini-app displays per-user: vault share balance, current value
+3. The GUI displays per-user: vault share balance, current value
    in underlying token, and accrued yield since deposit.
 4. When interacting via a private account, the SDK must handle the
    atomic deshield (deposit token + native gas) as a single
    indivisible user action, consistent with the RFP-008 privacy
    pattern.
 5. When interacting via a private account, before each vault
-   operation, the mini-app must show the estimated transaction fee and
+   operation, the GUI must show the estimated transaction fee and
    confirm that the user's shielded balance covers both the deposit
    amount and fees within the single deshield action.
 6. Vault share tokens must be usable as collateral in RFP-008 lending
@@ -167,7 +169,7 @@ governance body.
    transaction-atomic price feeds across every allocated market.
    Applicants must document this asymmetry in the privacy and
    properties document (Supportability #8) and surface it in the
-   mini-app's risk disclosures, so depositors understand that the
+   GUI's risk disclosures, so depositors understand that the
    first interaction after a market loss bears a disproportionate
    cost.
 
@@ -196,7 +198,7 @@ governance body.
    integration journey.
 6. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
    for the CLI additions covering the vault features.
-7. Provide Figma designs or equivalent for all GUI additions to the mini-app.
+7. Provide Figma designs or equivalent for all GUI additions to the GUI.
 8. Update the privacy and anonymisation properties document delivered
    by RFP-008 to cover the vault layer: what vault state and operations
    are visible to observers; what data is protected when the private
@@ -219,13 +221,13 @@ governance body.
 
 #### + Privacy
 
-1. The mini-app and SDK must support both direct public account
+1. The GUI and SDK must support both direct public account
    interaction and the deshield→interact→reshield pattern for private
    account interaction with vaults. When a user chooses the private
    account path, the SDK must enforce the complete
    deshield→interact→reshield pattern; the reshield step must not be
    skippable.
-2. When using the private account path, the mini-app must display a
+2. When using the private account path, the GUI must display a
    pre-confirmation summary for each vault operation that clearly
    identifies what will be visible on-chain (deposit/withdrawal
    amount, vault address, vault share mint/burn, ephemeral

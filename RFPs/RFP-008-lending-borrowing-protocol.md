@@ -100,9 +100,9 @@ structured products are built on.
    five parameters. Market creation is permissionless; no admin
    approval is required. The oracle program is chosen by the market
    creator and is not gated by the admin authority: the trust model
-   assumes lenders evaluate the oracle before supplying. The mini-app
+   assumes lenders evaluate the oracle before supplying. The GUI
    must surface the oracle program ID per market so lenders can verify
-   it (related to U6, U7).
+   it (related to U7, U8).
 4. Users can supply the loan token to a specific market. The protocol
    tracks supply shares internally per market per account (no receipt
    token at the core level). Supply shares represent a proportional
@@ -192,33 +192,47 @@ structured products are built on.
 
 1. Build the program using the [SPEL framework](https://github.com/logos-co/spel), which
    generates the IDL and client code from the program definition.
-2. Provide a Logos mini-app GUI with local build instructions,
-   downloadable assets, and loadable in Logos app (Basecamp) via
-   git repo.
-3. Provide a CLI that covers core functionality of the program.
-   The CLI may have fewer features than the GUI mini-app but must
-   support all essential operations.
-4. The reference liquidator (F15) and reference risk monitor (F16)
-   are implemented as Logos modules with headless CLIs/daemons,
-   suitable for third parties to fork and run independently.
-5. The mini-app supports creating markets, supplying, borrowing,
+2. **Logos app architecture.** Deliver the user-facing application
+   as two composable modules:
+   (a) a **core module** containing all business logic, transaction
+   construction, state querying, and SDK-level operations, with no
+   GUI dependencies; and
+   (b) a **GUI module** in QML + C++ that consumes the core module
+   and is loadable in the Logos app (Basecamp) via a git repo.
+   The core module must be the single source of truth for protocol
+   interaction logic and must be directly reusable by headless
+   consumers (CLI, reference liquidator, reference risk monitor)
+   without any GUI dependency. The two modules must build and ship
+   independently; the GUI must contain no business logic that is
+   not also accessible through the core module.
+3. Provide local build instructions and downloadable assets for the
+   GUI, loadable in the Logos app (Basecamp) via git repo.
+4. Provide a CLI that covers core functionality of the program. The
+   CLI consumes the same core module as the GUI. The CLI may have
+   fewer features than the GUI but must support all essential
+   operations.
+5. The reference liquidator (F15) and reference risk monitor (F16)
+   are built on the same core module as the GUI and CLI, exposed as
+   headless daemons suitable for third parties to fork and run
+   independently. No GUI dependency.
+6. The GUI supports creating markets, supplying, borrowing,
    repaying, withdrawing, and viewing position health per market.
-6. Position LTV is displayed per market per borrower, queryable
-   on-chain and surfaced in both CLI and mini-app.
-7. Current supply APY, borrow APR, and utilisation are displayed per
-   market in the mini-app and CLI.
-8. When interacting via a private account, the SDK must handle the
+7. Position LTV is displayed per market per borrower, queryable
+   on-chain and surfaced in both CLI and GUI.
+8. Current supply APY, borrow APR, and utilisation are displayed per
+   market in the GUI and CLI.
+9. When interacting via a private account, the SDK must handle the
    atomic deshield (deposit token + native gas) as a single
    indivisible user action, preventing accidental privacy leaks from
    externally funding the intermediate account.
-9. When interacting via a private account, before each operation the
-   mini-app must show the estimated transaction fee and confirm that
-   the user's shielded balance covers both the operation amount and
-   fees within the single deshield action. If the balance is
-   insufficient, a clear, actionable error must be shown before any
-   transaction is submitted, preventing partial deshields that could
-   leave funds stranded in an ephemeral account.
-10. The mini-app must preview the position LTV impact of a borrow or
+10. When interacting via a private account, before each operation the
+    GUI must show the estimated transaction fee and confirm that
+    the user's shielded balance covers both the operation amount and
+    fees within the single deshield action. If the balance is
+    insufficient, a clear, actionable error must be shown before any
+    transaction is submitted, preventing partial deshields that could
+    leave funds stranded in an ephemeral account.
+11. The GUI must preview the position LTV impact of a borrow or
     withdrawal before the user confirms: displaying both the current
     LTV and the projected LTV after the operation.
 
@@ -274,13 +288,13 @@ structured products are built on.
    and Performance has at least one corresponding test.
 5. A README documents end-to-end usage: deployment steps, program
    addresses, and step-by-step instructions for interacting with
-   the program via CLI and mini-app.
+   the program via CLI and GUI.
 6. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
    for the SDK, covering the developer integration journey for supply,
    borrow, repay, withdraw, and liquidation.
 7. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
    for the CLI, covering the core operator/user journey.
-8. Provide Figma designs or equivalent for the mini-app GUI.
+8. Provide Figma designs or equivalent for the GUI.
 9. Provide a privacy and anonymisation properties document covering:
    what on-chain state and transaction data is visible to observers;
    what data is protected when the private account path is used; trust
@@ -304,12 +318,12 @@ structured products are built on.
 
 #### + Privacy
 
-1. The mini-app and SDK must support both direct public account
+1. The GUI and SDK must support both direct public account
    interaction and the deshield→interact→reshield pattern for private
    account interaction. When a user chooses the private account path,
    the SDK must enforce the complete deshield→interact→reshield
    pattern; the reshield step must not be skippable.
-2. When using the private account path, the mini-app must display a
+2. When using the private account path, the GUI must display a
    pre-confirmation summary for each operation that clearly identifies
    what will be visible on-chain (amounts, asset type, market address,
    ephemeral intermediary account) and what will remain private (the
@@ -408,7 +422,7 @@ deliberate architectural choice: public state enables permissionless
 liquidation, oracle integration, and composability without open
 cryptographic research challenges.
 
-User privacy is optionally enforced at the UX layer. The mini-app and
+User privacy is optionally enforced at the UX layer. The GUI and
 SDK support both direct public account interaction and private account
 interaction via the deshield, interact, reshield pattern. When users
 opt to interact from a private account, the SDK must enforce the
