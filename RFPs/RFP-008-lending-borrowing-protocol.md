@@ -41,9 +41,9 @@ supply, borrow, repay, withdraw, liquidation, interest accrual, oracle
 integration, flash loans), plus reference implementations of a
 liquidator and risk monitor for third parties to fork. Mainnet
 deployment, choice of the LLTV grid that production markets can use,
-choice of approved oracles and IRMs, the admin authority on mainnet,
-and any related governance are explicitly out of scope and will be
-handled by Logos through a separate process. The curation layer
+choice of admin-whitelisted IRMs on mainnet, the admin authority on
+mainnet, and any related governance are explicitly out of scope and
+will be handled through a separate process. The curation layer
 (single-asset deposit vaults that allocate across multiple markets,
 vault share tokens, supply and borrow caps) is addressed in
 [RFP-012](./RFP-012-curated-lending-vaults.md). The applying team
@@ -366,12 +366,15 @@ If possible.
 The following are explicitly excluded from this RFP.
 
 This RFP funds **software**. The mainnet deployment of that software,
-and the governance around it, is handled by Logos through a separate
-process. The following are therefore out of scope:
+and the governance around it, is handled through a separate process.
+The following are therefore out of scope:
 
 - Mainnet deployment of the lending program.
 - The choice of the LLTV grid that production markets can use.
-- The choice of approved oracle programs and IRMs on mainnet.
+- The choice of the IRM implementations the admin authority enables
+  on mainnet (the oracle for each market is chosen by that market's
+  creator at creation time per F3, not gated by the admin authority,
+  so it is not on a mainnet approval list).
 - Holder, custody, or rotation policy for the admin authority on
   mainnet.
 - Any governance design (token, DAO, multisig) around the admin
