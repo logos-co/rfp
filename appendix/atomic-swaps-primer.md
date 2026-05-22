@@ -48,7 +48,7 @@ sequenceDiagram
 
     Note over A,B: 3. Reveal and Settle
     A->>BTC: Publish adaptor signature (allows Bob to claim BTC)
-    B->>BTC: Claim BTC; broadcast reveals the scalar
+    B->>BTC: Claim BTC, broadcasting the scalar to Alice
     A->>XMR: Use the revealed scalar to claim XMR
 ```
 
