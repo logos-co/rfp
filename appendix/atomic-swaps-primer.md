@@ -48,8 +48,8 @@ sequenceDiagram
 
     Note over A,B: 3. Reveal and Settle
     A->>BTC: Publish adaptor signature (allows Bob to claim BTC)
-    B->>BTC: Claim BTC; broadcast reveals scalar s
-    A->>XMR: Use s to claim XMR
+    B->>BTC: Claim BTC; broadcast reveals the scalar
+    A->>XMR: Use the revealed scalar to claim XMR
 ```
 
 ### Why BTC is locked first
