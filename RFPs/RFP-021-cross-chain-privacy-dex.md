@@ -14,6 +14,13 @@ category: Applications & Integrations
 > RFP-024, RFP-025, and RFP-026. Hard requirements, FURPS detail, team profile,
 > timeline, and contracting details are deliberately omitted; they will be
 > filled in if the design is selected for funding.
+>
+> **RFP-021 is not the preferred standalone design** (the team's preference is
+> the non-custodial atomic-swap path: RFP-024 + RFP-026 on RFP-003). However, it
+> is **complementary to atomic swaps**: the federated middle chain handles
+> high-liquidity bulk trading at AMM UX where users accept federated custody as
+> the trade-off, while atomic swaps handle the privacy-maximalist niche where
+> cryptographic non-custody beats UX convenience. The two can coexist.
 
 ## 🧭 Overview
 
@@ -36,6 +43,18 @@ before the middle chain even sees them.
 This is the most ambitious option in the cross-chain bundle. It is also the one
 with the strongest empirical case (volume, user experience, asset coverage) and
 the strongest custody risk.
+
+**RFP-021 is not the preferred design on its own.** The federated-signer custody
+model trades non-custody for AMM liquidity and one-step UX; the Logos team's
+working preference is the non-custodial atomic-swap path (RFP-003 plus the sXMR
+designs in RFP-024 and RFP-026) where users do not have to trust a validator
+set. However, RFP-021 can be **complementary to atomic swaps**: the AMM-style
+middle chain handles high-liquidity bulk trading where users are willing to
+accept federated custody for better UX, while atomic swaps handle the
+privacy-maximalist niche where users prefer cryptographic non-custody to UX
+convenience. The two designs serve different audiences and can coexist in the
+same LEZ ecosystem, with the user choosing the trust trade-off they want for
+each swap.
 
 ## High-level functionality and flow
 
