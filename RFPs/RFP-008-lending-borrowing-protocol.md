@@ -27,9 +27,10 @@ Lending is the capital-efficiency engine of any DeFi ecosystem. It
 unlocks idle assets by letting holders earn yield and borrowers access
 liquidity without selling. Morpho Blue demonstrated the power of this
 minimal, isolated-market approach: its core contract is approximately
-600 lines of Solidity, yet the protocol accumulated ~$6.8B TVL across
-200+ markets on Ethereum and Base by 2026-04, with the full Morpho
-stack reaching $11.78B TVL and ~$4B active loans by 2026-05. For the
+600 lines of Solidity, yet the Morpho Blue core accumulated ~$4.9B
+TVL across 200+ markets on Ethereum and Base by 2026-04, with the
+full Morpho stack (Blue + MetaMorpho vaults) reaching $11.78B TVL
+and ~$4B active loans by 2026-05. For the
 Logos ecosystem, a lending protocol creates demand for assets deployed
 on LEZ, drives TVL, and provides a composability surface that other
 programs can build on.
@@ -126,9 +127,16 @@ structured products are built on.
 10. When a borrower's position LTV exceeds the market's LLTV, any
     account can permissionlessly liquidate the position by repaying a
     portion of the debt and receiving equivalent collateral plus a
-    liquidation incentive. The liquidation incentive factor is derived
-    from the market's LLTV (higher LLTV markets have smaller
-    incentives; lower LLTV markets have larger incentives).
+    liquidation incentive. The liquidation incentive factor (LIF) is
+    derived from the market's LLTV via the Morpho Blue formula:
+    `LIF = min(M, 1 / (β·LLTV + (1−β)))` with cursor β = 0.3 and
+    maximum bound M = 1.15. Higher LLTV markets yield smaller
+    incentives; lower LLTV markets yield larger incentives, capped at
+    M. Reference:
+    [Morpho docs: Liquidation](https://docs.morpho.org/morpho/concepts/liquidation/).
+    Applicants may deviate from these parameters only with explicit
+    justification; the formula shape (LIF derived from LLTV with a
+    cursor and a max bound) is fixed.
 11. **Admin scope and non-scope.** An admin authority manages a
     bounded set of protocol-level functions:
     (a) enabling LLTV values that market creators can select from,
@@ -162,8 +170,11 @@ structured products are built on.
     the entire transaction reverts atomically and no funds leave the
     market. There is no synchronous reentrancy: control hands off
     fully at each tail call, so the EVM concepts of CEI ordering and
-    reentrancy locks do not apply. The flash loan fee is set by the
-    admin authority.
+    reentrancy locks do not apply. Flash loans are **zero-fee**,
+    matching Morpho Blue's deployed implementation (the deployed
+    `Morpho.sol` collects exactly `assets` on repayment with no
+    premium). Repayment must equal the principal exactly; no fee is
+    charged.
 15. **Reference liquidator.** Ship a reference liquidator daemon
     that continuously monitors all markets and executes liquidations
     when positions exceed their market's LLTV. This is provided as
@@ -243,10 +254,15 @@ structured products are built on.
    LEZ's block size is limited and this budget may change during
    testnet.
 2. The program scales linearly in the number of markets without
-   per-market state polluting per-user-operation compute. As a
-   reference target, a deployment with 20 active markets must not
-   exceed LEZ compute limits on any single user operation (matches
-   expected initial market diversity for LEZ launch).
+   per-market state polluting per-user-operation compute. The actual
+   per-deployment market count is bounded by LEZ's per-transaction
+   compute budget (see Platform Dependencies, Risks, Compute budget,
+   for the benchmark deliverable). As a reference order of magnitude,
+   Morpho Blue runs 200+ active markets on Ethereum and Base
+   (2026-04); LEZ's per-tx compute envelope will determine how close
+   the singleton can run to that figure. The applicant must report
+   the maximum supported market count after benchmarking, not commit
+   to a fixed figure at proposal time.
 
 #### Supportability
 
@@ -294,7 +310,14 @@ structured products are built on.
 4. The ephemeral public account (account A) created during the
    deshield step must never be reused across operations. Each protocol
    interaction from a private account must use a freshly generated
-   account with no prior on-chain history.
+   account with no prior on-chain history. Because LEZ accounts are
+   keypair-derived (Solana-style), generating an account with no
+   on-chain history is trivial; preventing reuse, however, is an SDK
+   responsibility. Applicants must document how the SDK enforces
+   single-use (for example, fresh-keypair-per-operation, a
+   deterministic single-use derivation scheme tied to a nonce, or a
+   local registry of consumed ephemeral keys) and how it survives
+   client restarts and multi-device usage without reuse.
 
 ### Soft Requirements
 
@@ -339,7 +362,7 @@ Curation layer features, deferred to [RFP-012](./RFP-012-curated-lending-vaults.
 - Vault share tokens (receipt tokens): transferable LEZ fungible
   tokens representing a vault deposit position
 - Supply and borrow caps (enforced at the vault layer, not the core)
-- Allocator and guardian roles for vault governance
+- Allocator and sentinel roles for vault governance
 
 Other exclusions:
 
@@ -493,7 +516,8 @@ liquidations; timely liquidations are gated by efficient indexing.
 #### Compute budget
 
 LEZ currently processes one private transaction per block (as of
-2026-04, pending public LEE documentation; [SOURCE NEEDED]). Liquidation
+2026-04). Public LEE documentation that pins this down is still
+pending; once it lands, link it from the Resources section. Liquidation
 is the most compute-intensive lending operation: it reads the
 borrower's position, collateral balance, oracle price, interest
 indices, and market parameters, then writes updated state. On Solana,

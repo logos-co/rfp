@@ -26,9 +26,12 @@ Morpho Blue's isolated-market core is powerful but requires lenders to
 choose individual markets manually (evaluating collateral quality,
 oracle reliability, LLTV risk). Curated vaults abstract this complexity:
 depositors supply a single token, the curator allocates across vetted
-markets, and depositors earn blended yield. On Ethereum, MetaMorpho
-vaults reached [DATA NEEDED] in deposits. Most passive capital in
-Morpho concentrates in the vault layer rather than in raw markets. The
+markets, and depositors earn blended yield. On Ethereum, the
+MetaMorpho vault layer absorbs the majority of the full Morpho stack
+($11.78B TVL across Blue + vaults by 2026-05, with the Blue core
+itself at ~$4.9B); Coinbase's USDC lending product alone routes
+multi-billion AUM through a single Steakhouse-curated MetaMorpho
+vault. The
 applying team should ideally be the same team that delivered RFP-008,
 or have deep familiarity with the deployed protocol's internals.
 
@@ -98,17 +101,20 @@ governance body.
    provided supply share value and pending-fee accounting reflect
    accrued-but-unclaimed fees on read.
 9. **Timelock for parameter changes**: changes to supply caps, market
-   additions, curator transfer, fee adjustments, and guardian
-   appointment or rotation are subject to a configurable timelock. The
-   timelock duration is set at vault creation and is immutable.
-10. **Guardian role**: the curator can appoint a guardian that can
-    revoke pending (timelocked) parameter changes before they take
-    effect, including a pending guardian rotation (so an incumbent
-    guardian can veto its own replacement). The guardian cannot
-    initiate changes, only cancel them. This is a safety mechanism
-    against compromised curator keys. See
-    [Appendix: MetaMorpho guardian semantics](../appendix/lending-ecosystem.md#guardian-semantics)
-    for the reference design.
+   additions (via adapters), curator transfer, fee adjustments, and
+   sentinel appointment or rotation are subject to a configurable
+   timelock. The timelock duration is set at vault creation and is
+   immutable.
+10. **Sentinel role** (Morpho Vaults V2 semantics): the owner can
+    appoint one or more sentinels whose mandate is risk reduction
+    only. A sentinel can: (a) deallocate assets from any enabled
+    adapter back to the vault's idle balance, (b) instantly decrease
+    absolute or relative caps for any risk id, and (c) revoke any
+    pending timelocked action submitted by the curator. A sentinel
+    **cannot** introduce new risk: it cannot add adapters, increase
+    caps, allocate capital into new markets, or modify fees. This is
+    the safety mechanism against compromised curator keys. Reference:
+    [Morpho Vaults V2 Roles & Capabilities](https://docs.morpho.org/morpho-vaults/concepts/roles/).
 
 #### Usability
 
@@ -142,9 +148,28 @@ governance body.
    the vault's allocated markets covers the requested amount, even if
    individual markets have insufficient liquidity (the vault draws
    from multiple markets in queue order).
-4. If a market in the vault's allocation incurs bad debt, the loss is
-   socialised across all vault depositors proportionally. The vault
-   must track and report realised bad debt per market.
+4. **Bad-debt realisation and socialisation.** If a market in the
+   vault's allocation incurs bad debt, the loss is socialised across
+   all remaining vault depositors proportionally to their share at the
+   time the loss is realised. Bad debt is accounted **on touch**: the
+   vault's exposure to a damaged market is repriced when any operation
+   (deposit, withdrawal, reallocation, fee accrual) next reads that
+   market's state, mirroring the lazy-accrual model of RFP-008. The
+   vault must track and report realised bad debt per market.
+
+   This is the same realisation model Morpho uses and it has a known
+   asymmetry: under the supply queue / withdraw queue model (F5), a
+   depositor who withdraws between the bad-debt event and the
+   next-touch repricing of the affected market can draw against
+   healthy markets in queue order and exit at an inflated share price,
+   passing a larger proportional loss to the depositors who remain.
+   Atomic, cross-market repricing is not feasible without
+   transaction-atomic price feeds across every allocated market.
+   Applicants must document this asymmetry in the privacy and
+   properties document (Supportability #8) and surface it in the
+   mini-app's risk disclosures, so depositors understand that the
+   first interaction after a market loss bears a disproportionate
+   cost.
 
 #### Performance
 
@@ -164,10 +189,10 @@ governance body.
    and Performance has at least one corresponding test.
 4. A README addendum documents the vault features: vault creation,
    curator setup, market allocation, deposit/withdrawal flow, and
-   guardian configuration.
+   sentinel configuration.
 5. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
    for each new SDK feature (vault creation, deposit/withdraw, market
-   allocation, curator/allocator/guardian roles), covering the developer
+   allocation, curator/allocator/sentinel roles), covering the developer
    integration journey.
 6. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
    for the CLI additions covering the vault features.

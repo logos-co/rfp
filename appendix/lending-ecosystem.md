@@ -413,7 +413,7 @@ timelocks.
 |--------|-----------|-----------------|
 | Maximum markets per vault | 30 | Adapter-based, broader |
 | Risk caps | Per-market absolute cap | ID-based caps (collateral asset, market, protocol) |
-| Roles | Owner, Curator, Allocator, Guardian | Same, plus **configurable role segregation** for institutional separation-of-duties |
+| Roles | Owner, Curator, Allocator, Guardian (veto-only on a subset of pending changes) | Owner, Curator, Allocator, **Sentinel** (broader risk-reduction powers: instant deallocate, instant cap decrease, revoke any pending timelocked action) + **configurable role segregation** for institutional separation-of-duties |
 | Timelock | 24h minimum on risk-relevant changes | Same |
 | Inflation attack mitigation | ERC-4626 virtual offset | Same |
 | Redemption | Standard ERC-4626 | **In-kind redemption** via flash loan; users never locked in even when underlying markets are illiquid (a configurable exit penalty applies; the specific cap requires a docs citation, see follow-up) |
