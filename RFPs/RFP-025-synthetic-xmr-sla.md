@@ -346,9 +346,12 @@ for the federated-signer custody analysis that applies to option 2b.
 - [appendix/synthetics-design-space.md](../appendix/synthetics-design-space.md)
 - [appendix/cross-chain-trust-model-contrast.md](../appendix/cross-chain-trust-model-contrast.md)
 - [appendix/atomic-swaps-primer.md](../appendix/atomic-swaps-primer.md)
-- [sBTC (Stacks) Bitcoin layer documentation](https://docs.stacks.co/learn/sbtc)
-  (specific trust-shape claims pending vault verification; see
-  PENDING-atomic-swap-protocol-details.md in the research vault)
+- [docs.stacks.co/concepts/sbtc](https://docs.stacks.co/concepts/sbtc) (accessed
+  2026-05-22) — sBTC is a 1:1 BTC-backed asset on Stacks; custody is a 15-signer
+  federation with a 70% threshold (current operating set 14 signers, 10-of-14 to
+  sign peg-out); withdrawal latency ~6 Bitcoin blocks.
+- [Hiro: Who are the sBTC signers, breaking down SIP-028](https://www.hiro.so/blog/who-are-the-sbtc-signers-breaking-down-sip-028)
+  (accessed 2026-05-22)
 - [Crypto Times: $10.8M drained from Thorchain on 2026-05-15](https://www.cryptotimes.io/2026/05/17/10-8-million-drained-inside-the-thorchain-exploit-that-froze-cross-chain-defi-for-13-hours/)
   (accessed 2026-05-19)
 - [Halborn: Wormhole Hack on 2022-02-02 (technical analysis)](https://www.halborn.com/blog/post/explained-the-wormhole-hack-february-2022)

@@ -28,25 +28,33 @@ Synthetics minted against stable collateral, valued by oracle, settled in
 collateral rather than the tracked asset.
 
 - **Haven Protocol (XHV / xUSD / other xAssets).** Monero-forked L1 launched
-  2018\. Users lock XHV to mint xAssets at oracle price; conversion between
-  xAssets burns the source and mints the destination. Over-collateralised. xUSD
-  has depegged multiple times (notably 2022-2023) due to low liquidity, oracle
-  delays, and market stress. As of 2026-05-22, XHV market cap is approximately
-  $5.5M and xUSD supply approximately $1.2M; daily transactions approximately
-  50-100. Sources:
+  2018\. Users locked XHV to mint xAssets at oracle price; conversion between
+  xAssets burned the source and minted the destination. Over-collateralised.
+  xUSD depegged multiple times (notably 2022-2023) due to low liquidity, oracle
+  delays, and market stress. **Haven announced project closure on 2024-12-12**
+  after discovery of a range-proof validation vulnerability (introduced in the
+  3.2 rebase to Monero, effective from August 2023) that allowed at least 1.3
+  billion XHV to be illicitly minted across at least 42 transactions; at closure
+  the team stated "over 94% of the known supply is now controlled by the
+  attackers" and that "there is no realistic way forward". CoinGecko market-cap
+  and explorer activity since closure reflect residual exchange trading of an
+  unbacked token, not active protocol use. Sources:
+  [Haven Protocol: Project Closure Announcement (2024-12-12)](https://havenprotocol.org/2024/12/12/project-closure-announcement/)
+  (accessed 2026-05-22);
   [Haven Protocol Documentation](https://docs.havenprotocol.org) (accessed
-  2026-05-22);
-  [CoinGecko: Haven (XHV)](https://www.coingecko.com/en/coins/haven) (accessed
-  2026-05-22); [Haven Explorer](https://explorer.havenprotocol.org) (accessed
-  2026-05-22). Note: prior PR-57 appendix text stated Haven shut down in
-  December 2024; this claim has been flagged for vault verification as it does
-  not match the current explorer/market-cap data above.
-- **Synthetix.** SNX stakers mint sUSD and other synthetic equivalents against
-  SNX collateral, debt pooled across all stakers. Used as a reference for
-  "oracle-priced over-collateralised synth" rather than for a specific
-  Monero-relevant property here. Note: prior PR-57 appendix text cited SIP-302
-  as the canonical reference for V3 collateral and snxUSD minting; this citation
-  has been flagged for vault verification.
+  2026-05-22).
+- **Synthetix.** SNX stakers mint snxUSD (V3) or sUSD (V2) and other synthetic
+  equivalents against SNX or governance-approved collateral; in V3, debt is
+  pooled per-pool (V2 socialised debt across all stakers). The canonical V3
+  CDP-minting reference is
+  [SIP-302 (Pools V3)](https://sips.synthetix.io/sips/sip-302) (accessed
+  2026-05-22): *"The Vault Module creates vaults of each collateral type per
+  pool, similar to a CDP (MakerDAO, Liquity), where accounts can delegate their
+  staked collateral to pools by opening staking positions and then mint and burn
+  snxUSD, backed by their collateral."* Used here as a reference for
+  "oracle-priced over-collateralised synth"; Synthetix did list an sXMR synth
+  (Hadar release, 2020-03-30) as an SNX-collateralised oracle-priced Ethereum L1
+  synth — see "Two unrelated sXMR products" below.
 
 What you trust in this design family:
 
@@ -64,20 +72,49 @@ layer, so xAssets cannot be used in DeFi outside Haven itself.
 Synthetics minted against the underlying asset held by a custodial bridge,
 valued by direct redemption.
 
-- **sBTC (Stacks).** Synthetic BTC on Stacks, redeemable to native BTC. The
-  custody arrangement (signer set, threshold scheme, redemption SLA) has been
-  flagged for vault verification before specific claims are made here. Canonical
-  docs page: [docs.stacks.co/learn/sbtc](https://docs.stacks.co/learn/sbtc).
-  This claim and its specific trust-shape characterisation have been added to
-  the pending-research request for PR #57.
+- **sBTC (Stacks).** 1:1 Bitcoin-backed asset on the Stacks L2; users mint by
+  depositing BTC into a federation-controlled multisig UTXO and redeem by
+  burning sBTC on Stacks to trigger a peg-out signed by the federation. Mainnet
+  deposits launched 2024-12-17. **Custody is a 15-signer federation with a 70%
+  threshold (11 of 15 to sign peg-in/peg-out operations, per SIP-028; current
+  operating set is 14 signers with 10-of-14 threshold).** Withdrawal latency is
+  6 Bitcoin blocks (~1 hour). The peg-out releases BTC from the publicly known
+  multisig UTXO to a requester-supplied destination address; there is no
+  protocol-level privacy property on the BTC-side destination. Sources:
+  [docs.stacks.co/concepts/sbtc](https://docs.stacks.co/concepts/sbtc) (accessed
+  2026-05-22);
+  [Hiro: Who are the sBTC signers, breaking down SIP-028](https://www.hiro.so/blog/who-are-the-sbtc-signers-breaking-down-sip-028)
+  (accessed 2026-05-22).
 - **Secret Monero Bridge** (Secret Network). Mainnet launched August 2021.
   Multi-signature Monero wallet operated by consensus-node signers (MSCNOs)
   communicating over I2P; users deposit XMR, receive sXMR (a SNIP-20 token on
-  Secret Network) usable in Secret DeFi (e.g. SecretSwap). Source:
+  Secret Network) usable in Secret DeFi (e.g. SecretSwap). Sources:
   [Bitcoin Insider: Secret Monero Bridge mainnet launch](https://www.bitcoininsider.org/article/123189/secret-network-announces-launch-secret-monero-bridge-mainnet)
   (accessed 2026-05-22);
   [github.com/maxkoda-cpu/Secret-Monero-Bridge](https://github.com/maxkoda-cpu/Secret-Monero-Bridge)
   (accessed 2026-05-22).
+
+#### Two unrelated sXMR products
+
+Two different products have used the ticker "sXMR" historically; they are
+unrelated:
+
+- **Synthetix sXMR (Ethereum L1, 2020).** SNX-collateralised CDP oracle-priced
+  synth tracking the Monero price via Chainlink, listed as part of the Synthetix
+  Hadar release on 2020-03-30 alongside sBCH, sADA, sDASH, sEOS, sETC. Contract:
+  ERC-20 at `0x5299d6F7472DCc137D7f3C4BcfBBB514BaBF341A` on Ethereum. The
+  contract held no Monero — only SNX collateral was at risk. Not redeemable for
+  XMR. Source:
+  [Synthetix blog: New Synths update for the upcoming Hadar release](https://blog.synthetix.io/new-synths-update-for-the-upcoming-hadar-release/)
+  (accessed 2026-05-22).
+- **Secret Network sXMR (Secret Network, 2021).** SNIP-20 wrapped-Monero token
+  issued by the Secret Monero Bridge (above). Federation-custodied real XMR,
+  redeemable to XMR. Different ticker namespace (SNIP-20 on Secret Network, not
+  ERC-20 on Ethereum). Not connected to Synthetix.
+
+The name collision is unfortunate; the products are not related and were not
+paired. Earlier framings that combined them ("Synthetix's sXMR paired with the
+Secret Network Monero Bridge") are incorrect.
 
 What you trust in this design family:
 
@@ -154,6 +191,15 @@ instructive:
    [`maxkoda-cpu/Secret-Monero-Bridge`](https://github.com/maxkoda-cpu/Secret-Monero-Bridge)
    (accessed 2026-05-22).
 
+A separate but adjacent failure case is the **Haven Protocol shutdown**
+(2024-12-12, see above): a privacy-preserving CDP synthetic protocol that ran on
+a Monero-forked L1 was forced to shut down after a range-proof exploit allowed
+unbounded illicit minting of the protocol's native collateral token. The
+ring-signature properties that protect users also prevented post-incident wallet
+identification and freezing. This is a structural failure mode of any
+privacy-preserving CDP / mint-burn synthetic protocol: privacy operates
+symmetrically against attackers and against post-incident forensics.
+
 These are properties of the bridge's design and reception; whether any specific
 lesson applies to a future synthetic depends on the future synthetic's own
 choices and is left to the relevant RFPs.
@@ -194,5 +240,13 @@ Common patterns across the deployed examples:
   (accessed 2026-05-21)
 - [Monero, FCMP++ announcement (2024-04-27)](https://www.getmonero.org/2024/04/27/fcmps.html)
   (accessed 2026-05-21)
-- [docs.stacks.co/learn/sbtc](https://docs.stacks.co/learn/sbtc) (referenced;
-  specific trust-shape claims pending vault verification)
+- [docs.stacks.co/concepts/sbtc](https://docs.stacks.co/concepts/sbtc) (accessed
+  2026-05-22)
+- [Hiro: Who are the sBTC signers, breaking down SIP-028](https://www.hiro.so/blog/who-are-the-sbtc-signers-breaking-down-sip-028)
+  (accessed 2026-05-22)
+- [SIP-302 (Synthetix Pools V3)](https://sips.synthetix.io/sips/sip-302)
+  (accessed 2026-05-22)
+- [Synthetix blog: New Synths update for the upcoming Hadar release](https://blog.synthetix.io/new-synths-update-for-the-upcoming-hadar-release/)
+  (accessed 2026-05-22)
+- [Haven Protocol: Project Closure Announcement (2024-12-12)](https://havenprotocol.org/2024/12/12/project-closure-announcement/)
+  (accessed 2026-05-22)

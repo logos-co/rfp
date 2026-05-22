@@ -23,16 +23,37 @@ swap. The protocol holds no XMR, runs no signer set, and offers no redemption
 SLA.
 
 The wedge: no published, live synthetic redeems to real XMR on Monero L1
-*non-custodially, via peer-to-peer atomic swap*. The closest deployed prior art
-is **custodial**: Secret Network's Secret Monero Bridge (live since August 2021)
-ran sXMR as a SNIP-20 token bridged via a multi-signature Monero wallet operated
-by consensus-node operators; the trust shape is a signer set, not peer-to-peer
-atomicity. Other commodity-tracking synthetics (sBTC on Stacks, sETH-style
-synths) redeem to transparent assets, leaving the destination on a public
-ledger. The Haven Protocol xAsset family (xUSD and other privacy-preserving
-xAssets) runs on a Monero-forked L1 but does not include an xXMR product; its
-design is over-collateralised synthetics minted against XHV, not peer-to-peer
-atomic-swap redemption.
+*non-custodially, via peer-to-peer atomic swap*. Two distinct prior-art families
+exist, neither of which fills this corner:
+
+- **Bridge-custodied real XMR.** Secret Network's Secret Monero Bridge (live
+  since August 2021) ran sXMR as a SNIP-20 token bridged via a multi-signature
+  Monero wallet operated by consensus-node operators; the trust shape is a
+  signer set, not peer-to-peer atomicity. Source:
+  [github.com/maxkoda-cpu/Secret-Monero-Bridge](https://github.com/maxkoda-cpu/Secret-Monero-Bridge)
+  (accessed 2026-05-22).
+- **CDP-collateralised oracle-priced synth, no real XMR.** Synthetix listed sXMR
+  on Ethereum L1 (Hadar release, 2020-03-30) as an SNX-collateralised
+  oracle-priced ERC-20; the contract held no Monero, only SNX collateral was at
+  risk, and the synth was not redeemable to XMR. Source:
+  [Synthetix blog: Hadar release](https://blog.synthetix.io/new-synths-update-for-the-upcoming-hadar-release/)
+  (accessed 2026-05-22). The Synthetix sXMR and the Secret Network sXMR share a
+  ticker but are unrelated products; see
+  [appendix/synthetics-design-space.md](../appendix/synthetics-design-space.md)
+  §Two unrelated sXMR products.
+
+Other commodity-tracking synthetics (sBTC on Stacks, sETH-style synths) redeem
+to transparent assets, leaving the destination on a public ledger. The Haven
+Protocol xAsset family (xUSD and other privacy-preserving xAssets) ran on a
+Monero-forked L1 from 2018 until project closure on 2024-12-12 (a range-proof
+validation vulnerability allowed unbounded illicit minting; >94% of known XHV
+supply was controlled by attackers at closure). Haven never offered an xXMR
+product; its design was over-collateralised synthetics minted against XHV, not
+peer-to-peer atomic-swap redemption. Source:
+[Haven Protocol: Project Closure Announcement (2024-12-12)](https://havenprotocol.org/2024/12/12/project-closure-announcement/)
+(accessed 2026-05-22). Haven's shutdown is a structural failure mode worth
+noting: the same ring-signature properties that protect users prevent
+post-incident wallet identification and freezing.
 
 This RFP positions itself as the first design where the redemption path itself
 is both privacy-preserving (deposits real XMR on Monero L1) and non-custodial
@@ -256,6 +277,11 @@ LP economics.
   (accessed 2026-05-22)
 - [Haven Protocol documentation](https://docs.havenprotocol.org) (accessed
   2026-05-22)
-- [Stacks docs: sBTC overview](https://docs.stacks.co/learn/sbtc) (specific
-  trust-shape claims pending vault verification; see
-  PENDING-atomic-swap-protocol-details.md in the research vault)
+- [docs.stacks.co/concepts/sbtc](https://docs.stacks.co/concepts/sbtc) (accessed
+  2026-05-22)
+- [Hiro: Who are the sBTC signers, breaking down SIP-028](https://www.hiro.so/blog/who-are-the-sbtc-signers-breaking-down-sip-028)
+  (accessed 2026-05-22)
+- [Synthetix blog: New Synths update for the upcoming Hadar release](https://blog.synthetix.io/new-synths-update-for-the-upcoming-hadar-release/)
+  (accessed 2026-05-22)
+- [Haven Protocol: Project Closure Announcement (2024-12-12)](https://havenprotocol.org/2024/12/12/project-closure-announcement/)
+  (accessed 2026-05-22)
