@@ -223,8 +223,8 @@ Atomic-swap protocols:
 - COMIT, Farcaster, AtomicDEX: no comparable cumulative-volume figure published.
   Recent activity in all three is community-scale rather than volume-scale.
 
-The gap is four orders of magnitude on cumulative volume in the published
-evidence.
+The gap is roughly three-to-four orders of magnitude on cumulative volume in the
+published evidence.
 
 ### Stated rationale from the projects themselves
 

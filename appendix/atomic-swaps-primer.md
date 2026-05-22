@@ -221,10 +221,10 @@ This is the **free-option problem** of atomic swaps. It is not a bug in any
 particular implementation; it is the cost of atomicity itself. Han, Lin, and Yu
 2019 prove the atomic swap is formally equivalent to a premium-free American
 Call Option and estimate the implicit premium using the Cox-Ross-Rubinstein
-option-pricing model at approximately 2% of asset value for cryptocurrency pairs
-(vs ~0.3% for stocks and fiat). The paper provides the mechanism and quantifies
-the premium; it does not directly attribute deployed-protocol volume scarcity to
-the free-option problem. Source:
+option-pricing model at 2-3% of asset value for cryptocurrency pairs (vs ~0.3%
+for stocks and fiat). The paper provides the mechanism and quantifies the
+premium; it does not directly attribute deployed-protocol volume scarcity to the
+free-option problem. Source:
 [Han et al., On the optionality and fairness of Atomic Swaps, IACR 2019/896](https://eprint.iacr.org/2019/896)
 (accessed 2026-05-22).
 
