@@ -289,6 +289,18 @@ structured products are built on.
    happens if a user bypasses the expected interaction path. See the
    [Privacy Architecture](#privacy-architecture) section below for the
    baseline this document must align with.
+10. **Audit programme.** The proposal must include a planned audit
+    programme covering the lending program, AdaptiveCurveIRM,
+    bundler (if delivered as a soft requirement), reference
+    liquidator, and reference risk monitor. The proposal must name
+    at least one tier-1 audit firm the applicant intends to engage
+    (for example: OpenZeppelin, Trail of Bits, Spearbit, Cantina,
+    ChainSecurity, Certora, Halborn), include the audit budget as a
+    line item in the proposal, and include the audit timeline ahead
+    of any mainnet recommendation. A second independent audit is
+    strongly preferred for the lending program given immutability.
+    Audit reports must be published with the codebase before mainnet
+    deployment is recommended.
 
 #### + Privacy
 
@@ -350,10 +362,6 @@ process. The following are therefore out of scope:
   mainnet.
 - Any governance design (token, DAO, multisig) around the admin
   authority.
-
-Audits, public security contests, and bug bounties are handled as part
-of the broader RFP and grants process Logos runs around delivery, not
-as deliverables of this RFP.
 
 Curation layer features, deferred to [RFP-012](./RFP-012-curated-lending-vaults.md):
 

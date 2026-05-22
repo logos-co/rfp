@@ -29,7 +29,7 @@ and has since reshaped around four structural axes:
   continue to absorb the majority of consumer flow. A parallel
   *primitive + curator* stack
   ([Morpho Blue](https://morpho.org) +
-  [MetaMorpho](https://docs.morpho.org/learn/concepts/vault-v2/))
+  [Morpho Vaults V2](https://docs.morpho.org/morpho-vaults/))
   absorbs institutional and B2B flow that wants narrower,
   deterministic risk.
 - **Solana** consolidated around [Kamino](https://app.kamino.finance)
@@ -149,17 +149,19 @@ per-market supply caps, and adjusts allocation within constraints
 (timelock, allocator role).
 
 Canonical example:
-[MetaMorpho](https://docs.morpho.org/learn/concepts/vault-v2/) V1
-and V2 above Morpho Blue. Major curators in 2026: Gauntlet,
-Steakhouse Financial, Re7, MEV Capital, Block Analitica, Apostro.
-Curator fees typically 5-15% of yield.
+[Morpho Vaults V2](https://docs.morpho.org/morpho-vaults/) above
+Morpho Blue (launched
+[2025-09-29](https://morpho.org/blog/morpho-vaults-v2-a-new-standard-for-asset-curation/)).
+Major curators in 2026: Gauntlet, Steakhouse Financial, Re7, MEV
+Capital, Block Analitica, Apostro. Curator fees typically 5-15% of
+yield.
 
-MetaMorpho V2 (launched
-[2025-09-30](https://morpho.org/blog/morpho-vaults-v2-a-new-standard-for-asset-curation/))
-adds **ID-based risk caps** (cap total exposure to a risk class such
-as a collateral asset, market, or protocol), configurable role
-segregation for institutional separation-of-duties, and **in-kind
-redemption** via flash loan with an optional exit penalty up to 2%.
+Vaults V2 features: **ID-based risk caps** (cap total exposure to a
+risk class such as a collateral asset, market, or protocol),
+configurable role segregation for institutional separation-of-duties,
+and **in-kind redemption** via flash loan so depositors are not
+locked in even when underlying markets are illiquid (a curator-
+configurable exit penalty applies).
 
 Vaults are also the dominant abstraction in Kamino (Earn vaults) and
 Euler V2 (EVK vaults).
@@ -401,82 +403,82 @@ of mid-2026 for three reasons:
   gas consumption versus existing lending protocols (no specific
   Aave/Compound benchmark is given).
 
-### MetaMorpho (curated vault layer)
+### Morpho Vaults V2 (curated vault layer)
 
-MetaMorpho is the canonical curated-vault layer above Morpho Blue.
-Each vault is an ERC-4626 contract accepting deposits in a single
-loan asset and reallocating them across a curator-whitelisted basket
-of Morpho Blue markets, subject to per-market supply caps and
-timelocks.
+Morpho Vaults V2 (formerly MetaMorpho; launched 2025-09-29) is the
+canonical curated-vault layer above Morpho Blue. Each vault is an
+ERC-4626 contract accepting deposits in a single loan asset and
+reallocating them across a curator-whitelisted basket of Morpho Blue
+markets (via adapters), subject to ID-based risk caps and timelocks.
 
-| Aspect | V1 / V1.1 | V2 (2025-09-29) |
-|--------|-----------|-----------------|
-| Maximum markets per vault | 30 | Adapter-based, broader |
-| Risk caps | Per-market absolute cap | ID-based caps (collateral asset, market, protocol) |
-| Roles | Owner, Curator, Allocator, Guardian (veto-only on a subset of pending changes) | Owner, Curator, Allocator, **Sentinel** (broader risk-reduction powers: instant deallocate, instant cap decrease, revoke any pending timelocked action) + **configurable role segregation** for institutional separation-of-duties |
-| Timelock | 24h minimum on risk-relevant changes | Same |
-| Inflation attack mitigation | ERC-4626 virtual offset | Same |
-| Redemption | Standard ERC-4626 | **In-kind redemption** via flash loan; users never locked in even when underlying markets are illiquid (a configurable exit penalty applies; the specific cap requires a docs citation, see follow-up) |
+| Aspect | Vaults V2 |
+|--------|-----------|
+| Market exposure | Adapter-based; broad set of enabled markets per vault |
+| Risk caps | ID-based: cap absolute or relative exposure to any risk id (collateral asset, market, protocol) |
+| Roles | Owner, Curator, Allocator, Sentinel + configurable role segregation for institutional separation-of-duties |
+| Timelock | 24h minimum on risk-relevant changes |
+| Inflation attack mitigation | ERC-4626 virtual offset |
+| Redemption | Standard ERC-4626 plus **in-kind redemption via flash loan** (`forceDeallocate`) so depositors are never locked in by underlying market illiquidity; a curator-configurable exit penalty applies |
 
-Source: [Morpho Vaults V2 announcement](https://morpho.org/blog/morpho-vaults-v2-a-new-standard-for-asset-curation/).
+Source:
+[Morpho Vaults V2 announcement](https://morpho.org/blog/morpho-vaults-v2-a-new-standard-for-asset-curation/),
+[Morpho Vaults V2 docs](https://docs.morpho.org/morpho-vaults/).
 
-#### Guardian semantics
+#### Role semantics
 
-The Guardian deserves a closer look because the role's safety
-guarantee depends on a subtlety that is easy to miss. The Guardian
-cannot initiate parameter changes, only veto a subset of them, and
-only inside the timelock window before they are accepted. Per the
-Morpho Vaults docs ([Roles & Capabilities](https://docs.morpho.org/morpho-vaults/concepts/roles/)),
-the Guardian can revoke:
+Per
+[Morpho Vaults V2 Roles & Capabilities](https://docs.morpho.org/morpho-vaults/concepts/roles/),
+each role has a strict, bounded scope, and the security model turns
+on the Sentinel as the primary risk-reduction lever.
 
-- a pending **timelock decrease**, until the previous timelock ends
-  and the new timelock is accepted;
-- a pending **guardian** (i.e. a pending replacement of the
-  incumbent), until the timelock ends and the new guardian is
-  accepted by the Owner;
-- each pending **market cap increase**, until the timelock ends and
-  the new cap is accepted by the Owner or the Curator.
+**Owner.** Transfers ownership (`setOwner`), appoints the curator
+(`setCurator`), adds or removes sentinels (`setIsSentinel`), and sets
+the vault's ERC-20 name and symbol. The Owner does **not** inherit
+the powers of other roles: it cannot manage adapters, set caps, or
+allocate capital directly.
 
-The Guardian **cannot** revoke a pending fee change. This is
-material for threat modelling: fee adjustments are the one
-governance lever a compromised owner can push through without
-guardian interference.
+**Curator.** Enables and disables yield sources via adapters
+(timelocked), increases absolute or relative caps for any risk id
+(timelocked), **instantly decreases** absolute or relative caps,
+sets performance and management fees (timelocked), adds and removes
+allocators (timelocked), sets gate contracts (timelocked), and
+modifies timelock durations (timelocked). The Curator cannot
+allocate or deallocate directly.
 
-The interesting property is the second bullet: the incumbent
-guardian can revoke its own replacement. Combined with the timelock,
-this means a single owner-key compromise does not let an attacker
-race the window by also rotating the guardian; the incumbent stays
-in office during the window and can block the malicious change.
-The protection degrades to zero only if owner and guardian are
-compromised simultaneously, which is a stronger threat model than
-either single-key compromise.
+**Allocator.** Allocates capital from idle assets to enabled
+adapters (`allocate`), deallocates capital back to idle
+(`deallocate`), sets and manages the `liquidityAdapter` for user
+deposits and withdrawals, and sets a maximum growth rate
+(`setMaxRate`). The Allocator cannot introduce new, unapproved
+risks.
 
-##### Beyond default settings: making the guardian itself sticky
+**Sentinel.** Risk-reduction only:
 
-Two production deployments have published patterns that further
-constrain who can rotate the guardian. They use **different
-mechanisms** despite often being grouped together:
+- deallocate assets from any enabled adapter back to the vault's
+  idle assets (`deallocate`);
+- instantly decrease absolute or relative caps for any risk id;
+- revoke any pending timelocked action submitted by the Curator
+  (`revoke`).
 
-- **B.Protocol's LP-vote guardian.** A Gnosis Safe with an oSnap
-  (UMA optimistic oracle) module is set as the Guardian. The Safe's
-  Snapshot space uses the vault's own LP token as the single voting
-  token, so vault depositors vote with their share balances. The
-  Safe owner is set to a null address so no individual can rotate
-  the guardian. The B.Protocol article notes the setup is **not
-  fully trustless**: if UMA's optimistic oracle or the oSnap module
-  malfunction, the Guardian becomes passive. See
-  [B.Protocol: A Decentralised Guardian Setup](https://medium.com/b-protocol/a-decentralized-guardian-setup-how-metamorpho-lps-veto-risk-curator-actions-bf6653f6425a).
-- **Steakhouse's Aragon-DAO guardian.** A wrapped governance token
-  (`gsteakETH`) governs an Aragon DAO that holds the Guardian role.
-  Critical Aragon permissions (`UPDATE_VOTING_SETTINGS`,
-  `ROOT_PERMISSION_ID`, `UPGRADE_PLUGIN`) are revoked so no party
-  can change the voting rules or rotate the guardian. See
-  [Steakhouse: Trustless Guardian Upgrade](https://hackmd.io/Ahi_eTrOSm29PJEbvsG0FA).
+A compromised Sentinel can only take actions that **reduce** risk;
+it cannot introduce new risk.
 
-Both achieve a "guardian cannot be rotated by a single party"
-property; neither is fully trustless in the strict sense (each
-depends on its underlying voting infrastructure remaining honest
-and operational).
+**Any address.** Executes timelocked actions after expiration and
+triggers `forceDeallocate` for redemption liquidity.
+
+#### Why the Sentinel design strengthens the threat model
+
+The Sentinel can revoke **any** pending timelocked action submitted
+by the Curator, instantly deallocate exposure from any enabled
+adapter, and instantly decrease absolute or relative caps without
+waiting for a timelock. A risk-reducing intervention does not have
+to wait out a timelock window; it can be applied immediately. The
+remaining attack surface narrows to a simultaneous compromise of
+Owner + Sentinel, which is a stronger threat model than either
+single-key compromise. Owner and Sentinel powers do not overlap
+(the Owner cannot deallocate, cap, or revoke; the Sentinel cannot
+appoint a new curator or rename the vault), so role separation
+across distinct key custody is a meaningful defence.
 
 ### Limitations and criticisms
 
@@ -606,7 +608,7 @@ Primary protocol documentation:
   [Maple Docs](https://docs.maple.finance/),
   [Vaasblock: Maple syrupUSD 2026](https://www.vaasblock.com/research/maple-finance-syrup-token-risks-onchain-credit-2026/)
 - Babylon:
-  [Babylon Docs](https://docs.babylonchain.io),
+  [Babylon Docs](https://docs.babylonlabs.io),
   [PANews BTCFi report](https://www.panewslab.com/en/articles/0mmtz1k6)
 - Lombard:
   [lombard.finance](https://lombard.finance),

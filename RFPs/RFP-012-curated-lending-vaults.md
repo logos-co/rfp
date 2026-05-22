@@ -206,6 +206,16 @@ governance body.
    bypasses the expected interaction path. See
    [RFP-008 — Privacy Architecture](./RFP-008-lending-borrowing-protocol.md#privacy-architecture)
    for the baseline this document must align with.
+9. **Audit programme.** The proposal must include a planned audit
+   programme covering the vault program and the role-permission
+   surface (curator, allocator, sentinel). The proposal must name at
+   least one tier-1 audit firm the applicant intends to engage,
+   include the audit budget as a line item, and include the audit
+   timeline ahead of any mainnet recommendation. Audit reports must
+   be published with the codebase before mainnet deployment is
+   recommended. If RFP-008 and RFP-012 are delivered by the same
+   team, the audit programmes may be combined in a single
+   engagement; the proposal must make the combined scope explicit.
 
 #### + Privacy
 
