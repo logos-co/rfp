@@ -16,11 +16,11 @@ category: Applications & Integrations
 Build a curated vault layer on top of the isolated-market lending
 protocol delivered by [RFP-008](./RFP-008-lending-borrowing-protocol.md).
 Each vault accepts deposits of a single loan token, issues transferable
-vault share tokens (SPL tokens), and allocates deposits across multiple
-Morpho-style lending markets according to a curator-defined strategy.
-This is the MetaMorpho equivalent for LEZ: it transforms raw isolated
-markets into a managed lending product with passive yield, risk
-curation, and composable receipt tokens.
+vault share tokens (LEZ fungible tokens), and allocates deposits across
+multiple Morpho-style lending markets according to a curator-defined
+strategy. This is the MetaMorpho equivalent for LEZ: a vault layer that
+abstracts isolated markets into a single deposit interface for passive
+lenders.
 
 Morpho Blue's isolated-market core is powerful but requires lenders to
 choose individual markets manually (evaluating collateral quality,
@@ -49,11 +49,10 @@ the lending protocol usable for passive depositors who would not
 otherwise interact with raw isolated markets. This widens the
 protocol's addressable market.
 
-Vaults also create a natural role for risk specialists (curators) who
-compete on yield and safety. This decentralises risk management:
-instead of a single governance body deciding which assets are safe,
-multiple curators offer different risk/yield profiles, and depositors
-choose the vault that matches their preference.
+Multiple curators can offer different risk and yield profiles in
+parallel, and depositors choose the vault that matches their
+preference. This avoids concentrating risk decisions in a single
+governance body.
 
 ## ✅ Scope of Work
 
@@ -64,8 +63,8 @@ choose the vault that matches their preference.
 1. **Vault creation**: anyone can create a vault by specifying the
    loan token, a vault name, and a vault symbol. The creator becomes
    the vault's initial curator. Vault creation is permissionless.
-2. **Vault share tokens**: depositors receive SPL tokens representing
-   their proportional share of the vault's total assets. Vault shares
+2. **Vault share tokens**: depositors receive LEZ fungible tokens
+   representing their proportional share of the vault's total assets. Vault shares
    are freely transferable and composable with other LEZ programs.
    The share-to-asset exchange rate increases monotonically as interest
    accrues (absent bad debt).
@@ -81,7 +80,9 @@ choose the vault that matches their preference.
    list of markets for deposits (supply queue) and withdrawals
    (withdraw queue). Deposits flow into markets in supply queue order
    until each market's cap is reached. Withdrawals draw from markets
-   in withdraw queue order.
+   in withdraw queue order. The withdraw queue must cover every market
+   in the vault's allocation set, so that any liquidity supplied by
+   the vault is reachable on withdrawal.
 6. **Curator role**: the curator can update supply caps, reorder
    queues, add or remove markets from the vault's allocation set, and
    set a performance fee. The curator can transfer the curator role to
@@ -92,16 +93,22 @@ choose the vault that matches their preference.
    queues, or fees.
 8. **Performance fee**: a configurable percentage of yield accrued by
    the vault is directed to the curator as a performance fee. The fee
-   is denominated in vault shares and minted to the curator's account
-   on each interaction that triggers interest accrual.
+   is denominated in vault shares. Lazy fee accrual (debit on claim,
+   or batched mint when accrued fees cross a threshold) is acceptable
+   provided supply share value and pending-fee accounting reflect
+   accrued-but-unclaimed fees on read.
 9. **Timelock for parameter changes**: changes to supply caps, market
-   additions, curator transfer, and fee adjustments are subject to a
-   configurable timelock. The timelock duration is set at vault
-   creation and is immutable.
+   additions, curator transfer, fee adjustments, and guardian
+   appointment or rotation are subject to a configurable timelock. The
+   timelock duration is set at vault creation and is immutable.
 10. **Guardian role**: the curator can appoint a guardian that can
     revoke pending (timelocked) parameter changes before they take
-    effect. The guardian cannot initiate changes, only cancel them.
-    This is a safety mechanism against compromised curator keys.
+    effect, including a pending guardian rotation (so an incumbent
+    guardian can veto its own replacement). The guardian cannot
+    initiate changes, only cancel them. This is a safety mechanism
+    against compromised curator keys. See
+    [Appendix: MetaMorpho guardian semantics](../appendix/lending-ecosystem.md#guardian-semantics)
+    for the reference design.
 
 #### Usability
 
@@ -172,7 +179,7 @@ choose the vault that matches their preference.
    specifying which guarantees are enforced by the on-chain program and
    which depend on correct client behaviour; and what happens if a user
    bypasses the expected interaction path. See
-   [Appendix: Lending Platform Context — Privacy Architecture](../appendix/lending-platform.md#privacy-architecture)
+   [RFP-008 — Privacy Architecture](./RFP-008-lending-borrowing-protocol.md#privacy-architecture)
    for the baseline this document must align with.
 
 #### + Privacy
@@ -223,7 +230,12 @@ If possible.
 
 ### Privacy Architecture
 
-See [Appendix: Lending Platform Context](../appendix/lending-platform.md#privacy-architecture).
+This RFP inherits the privacy model defined for the core lending
+protocol. The same deshield, interact, reshield pattern applies to
+every vault operation (deposit, withdraw, vault share transfer). See
+[RFP-008 — Privacy Architecture](./RFP-008-lending-borrowing-protocol.md#privacy-architecture)
+for the full interaction flow, the gas constraint, and the public/
+private observability split.
 
 ## ⚠ Platform Dependencies
 
@@ -235,7 +247,7 @@ This RFP is open for proposal submission. However, development is blocked until 
 All other platform primitives required by this RFP (including LP-0015
 general cross-program calls and an oracle provider) are hard blockers
 for RFP-008 and will therefore be resolved before this RFP opens. See
-[Appendix: Lending Platform Context](../appendix/lending-platform.md#platform-dependencies)
+[RFP-008 — Platform Dependencies](./RFP-008-lending-borrowing-protocol.md#-platform-dependencies)
 for details.
 
 ## 👤 Recommended Team Profile
@@ -265,9 +277,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 ## Resources
 
 - [RFP-008 — Lending & Borrowing Protocol](./RFP-008-lending-borrowing-protocol.md)
-- [RFP-001 — Admin Authority Library](./RFP-001-admin-authority-lib.md) — reference pattern for admin-gated operations (F6, F10)
 - [RFP-002 — Freeze Authority Library](./RFP-002-freeze-authority-lib.md)
-- [Appendix: Lending Platform Context](../appendix/lending-platform.md) — shared privacy architecture and platform dependencies
+- [Appendix: Lending and Borrowing Ecosystem](../appendix/lending-ecosystem.md) — MetaMorpho curated-vault deep dive, curator landscape, Vault V2 design
 - TODO: Oracle integration guide for LEZ
 - TODO: SPEL framework documentation
 
