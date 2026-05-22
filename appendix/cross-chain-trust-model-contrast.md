@@ -133,6 +133,41 @@ Representative protocols (XMR-BTC corridor specifically):
   `eigenwallet/core`. Source:
   [github.com/comit-network/xmr-btc-swap](https://github.com/comit-network/xmr-btc-swap)
   (accessed 2026-05-19).
+- **eigenwallet** (`eigenwallet/core`). Active community fork of
+  `comit-network/xmr-btc-swap`. Latest release v4.6.4 (2026-05-21); 14 releases
+  in 47 days as of 2026-05-22. **Adoption signals**: developer self-report of
+  3,000+ mainnet swaps via the GUI in 2023 alone (per fully-funded Monero CCS
+  proposal "From Prototype to Marketplace"); ~89,400 cumulative binary downloads
+  across `eigenwallet/core` (55,769) and the legacy
+  `eigenwallet/unstoppableswap-gui` (33,661) repos; ~2 visible mainnet makers on
+  the public registry on 2026-05-22. A third-party article attributes "+180%
+  BTC↔XMR atomic-swap volume growth in 2025 (Eigenwallet data)"; no first-party
+  dashboard exists to verify the percentage. Community-scale, BTC-XMR direction
+  only. Sources: [eigenwallet/core](https://github.com/eigenwallet/core)
+  (accessed 2026-05-22);
+  [Monero CCS: From Prototype to Marketplace](https://ccs.getmonero.org/proposals/mature-atomic-swaps-ecosystem.html)
+  (accessed 2026-05-22);
+  [xgram.io: Swap Crypto Between Unlinked Wallets](https://xgram.io/blog/swap-crypto-between-unlinked-wallets)
+  (accessed 2026-05-22; third-party attribution).
+- **Samourai Wallet (atomic-swap GUI)**. Bitcoin privacy wallet that integrated
+  COMIT's `xmr-btc-swap` codebase via a Java wrapper, with Whirlpool CoinJoin
+  auto-applied to redeemed BTC. BTC↔XMR atomic-swap GUI announced 2023-08-14,
+  public beta 2024-01-16; service seized by US authorities on 2024-04-24;
+  founders sentenced to 5 and 4 years in prison in November 2025 for
+  money-laundering conspiracy (the prosecution concerned Whirlpool/Ricochet, not
+  the atomic-swap feature, but the takedown removed the atomic-swap distribution
+  channel with it). **Adoption signals**: Samourai's pre-seizure user base was
+  several hundred thousand Bitcoin-privacy-aware users (larger than the
+  eigenwallet community at the time); the atomic-swap GUI ran for approximately
+  three months between public beta and seizure, and no first-party swap-volume
+  number was ever published. The atomic-swap codebase lives on via two community
+  forks (`noosphere888/samourai-swaps`, `Dezirae-Stark/Atomic-Swaps`); the
+  latter ships under v1.1.0 on 2026-01-12 and is built on libp2p/Next.js, while
+  the former has 7 commits on main and no formal releases. Sources:
+  [DOJ sentencing press release](https://www.justice.gov/usao-sdny/pr/founders-samourai-wallet-cryptocurrency-mixing-service-sentenced-five-and-four-years)
+  (accessed 2026-05-22);
+  [news.bitcoin.com: Samourai unveils BTC↔XMR atomic swaps (2023-08-14)](https://news.bitcoin.com/revolutionizing-bitcoin-privacy-samourai-wallet-unveils-btc-to-xmr-atomic-swaps/)
+  (accessed 2026-05-22).
 - **Farcaster Project** (`farcaster-project/farcaster-node`). Independent
   BTC-XMR implementation. Still listed as actively maintained as of 2026, with
   Lightning BTC support added to reduce BTC-side confirmation time.
@@ -220,11 +255,16 @@ Atomic-swap protocols:
   its wallet and interface" lifetime. Source:
   [defiprime.com: Liquality](https://defiprime.com/liquality) (accessed
   2026-05-19).
-- COMIT, Farcaster, AtomicDEX: no comparable cumulative-volume figure published.
-  Recent activity in all three is community-scale rather than volume-scale.
+- COMIT, eigenwallet, Farcaster, AtomicDEX: no comparable cumulative-volume
+  figure published. Recent activity is community-scale rather than volume-scale.
+  eigenwallet specifically reports 3,000+ mainnet swaps via the GUI in 2023
+  alone (developer self-report in a fully-funded Monero CCS) and ~89k cumulative
+  binary downloads, signals of a real if small user base.
 
-The gap is roughly three-to-four orders of magnitude on cumulative volume in the
-published evidence.
+The cumulative-volume gap is roughly three-to-four orders of magnitude in the
+published evidence. The atomic-swap protocols are not *unused* — they have
+documented community-scale adoption — but they are not volume-competitive with
+the federated-signer middle chains.
 
 ### Stated rationale from the projects themselves
 

@@ -109,32 +109,50 @@ protocols is key generation, not a quote.
 
 In practice, `xmr-btc-swap` and `eigenwallet/core` makers do publish a quote
 over libp2p before swap setup begins (the maker daemon `asb` computes price from
-off-chain ticker data). The quote is not cryptographically signed; it relies on
-libp2p's secure-channel authentication for transport-level integrity. This is an
-implementation-layer convention used by maker software, not a step of the
-protocol.
+off-chain ticker data). It relies on libp2p's secure-channel authentication for
+transport-level integrity. This is an implementation-layer convention used by
+maker software, not a step of the protocol.
 
 ### Locking order
 
-The deployed code locks BTC first, but the order is **not forced by the
-cryptographic primitive**. Gugger 2020 presents an XMR-first variant; Hoenisch
-and del Pino 2021 §4 discuss the same reverse direction. The deployed BTC-first
-direction reflects an **economic constraint, not a cryptographic one**.
+The deployed code locks BTC first, and this is a **protocol-level constraint**
+of the BTC-XMR construction: Monero today provides no on-chain primitive that
+would let it play the locks-first role in any published atomic-swap protocol.
 
-The economic constraint (Hoenisch and del Pino 2021 §4, "draining attack"): the
-party that locks first incurs the on-chain refund-transaction fee if the swap
-aborts. A maker who locks first against an arbitrary counterparty can be
-attacked by an adversary who repeatedly initiates swaps and abandons them,
-forcing the maker to pay refund fees each time until inventory drains. The party
-with the smaller refund-fee burden and the willingness to absorb it should lock
-first; in practice this is the customer (Bob, BTC seller in the deployed
-direction).
+Three primary-source data points support this:
 
-A reverse XMR-first variant is implementable. It requires adaptor signatures
-over Monero's CLSAG ring-signature scheme (rather than over secp256k1 ECDSA).
-Hoenisch and del Pino 2021 §4 describe this construction; it was
-"work-in-progress" as of the 2021 paper and is not present in `xmr-btc-swap` or
-`eigenwallet/core` as of 2026-05.
+- The Monero core team's 2026-05-10 blog post *Deprecating Monero's Custom
+  Transaction Unlock Time* states: *"It is a common misconception that Monero's
+  Unlock Time is useful for known atomic swap or payment channel protocols. To
+  date, no scheme has been specified that utilizes Monero's Unlock Time
+  feature."* Source:
+  [getmonero.org, 2026-05-10](https://www.getmonero.org/2026/05/10/deprecating-unlock-time.html)
+  (accessed 2026-05-22).
+- The eigenwallet team removed the XMR-first chapter from their compiled
+  protocol paper on 2025-11-04 with the explanatory comment: *"We don't care
+  about swaps where the Bitcoin seller is the maker because that is unsupported
+  by the current Monero protocol. It will require a hardfork to work."* Source:
+  [eigenwallet/protocol commit 6151734](https://github.com/eigenwallet/protocol)
+  (accessed 2026-05-22).
+- The upcoming FCMP++ hardfork (mid-2026) is *deprecating* Monero's timelock
+  primitive rather than extending it, and does not introduce any of the
+  candidate primitives (CLSAG-adaptor signatures, DLSAG, hidden timelocks) that
+  an XMR-first construction would need.
+
+The Hoenisch and del Pino 2021 §4 paper describes a reverse XMR-first variant
+that would depend on *"adaptor signatures based on Monero's ring signature
+scheme, which is a work-in-progress"*. Five years later, no peer-reviewed
+Monero-endorsed CLSAG-adaptor construction has been published, and the Monero
+project is not pursuing one. Treat XMR-first BTC↔XMR atomic swaps as
+structurally unavailable for the foreseeable horizon. Source:
+[`projects/xmr-first-required-monero-features.md`](https://github.com/marclawclaw/research-cross-chain-dex)
+documents the underlying primary sources; this primer summarises.
+
+The economic draining-attack analysis (Hoenisch and del Pino 2021 §4)
+complements but does not replace the protocol constraint. Even if Monero gained
+one of the missing primitives, the draining attack would still push the swap to
+BTC-first for any pair where Bitcoin's refund-fee burden is smaller than
+Monero's. Both layers point the same direction.
 
 ### Timelocks and refunds
 
@@ -151,6 +169,29 @@ counterparty then uses to spend the jointly-locked Monero output.
   can publish `tx_punish^btc` to take Bob's BTC if Bob has stayed offline.
 
 Source: [Hoenisch and del Pino 2021 §3.3](https://arxiv.org/abs/2101.12332).
+
+Refund path (when the swap fails to reach reveal):
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as Alice (XMR holder)
+    participant BTC as Bitcoin
+    participant B as Bob (BTC holder)
+
+    Note over A,B: TxLock(BTC) confirmed; swap stalls before reveal
+    Note over A,B: Wait t_1 blocks
+    A->>BTC: Either party publishes TxCancel (consumes TxLock)
+    Note over A,B: TxCancel confirmed; refund window now open
+
+    alt Bob refunds within t_2
+        B->>BTC: Publish TxRefund (consumes TxCancel)
+        Note over A,B: Bob recovers BTC; swap unwinds with no settlement
+    else Bob stays offline past t_2
+        A->>BTC: Publish TxPunish (consumes TxCancel after t_2)
+        Note over A,B: Alice takes Bob's BTC as punishment for non-participation
+    end
+```
 
 Canonical mainnet values:
 
@@ -228,6 +269,15 @@ free-option problem. Source:
 [Han et al., On the optionality and fairness of Atomic Swaps, IACR 2019/896](https://eprint.iacr.org/2019/896)
 (accessed 2026-05-22).
 
+Empirically the free-option problem is a friction rather than an absolute
+blocker. eigenwallet runs a community-scale BTC-XMR atomic-swap market with
+single-digit active makers, ~89k cumulative binary downloads, and developer-
+reported 3,000+ mainnet swaps via the GUI in 2023 alone, demonstrating that the
+protocol is workable for privacy-maximalist user bases even without a
+free-option mitigation. See the
+[trust-model contrast appendix](./cross-chain-trust-model-contrast.md) for
+adoption-scale comparison against federated-signer protocols.
+
 ### Notation for option value
 
 The expected value of a free option held over a timelock window scales as:
@@ -253,17 +303,19 @@ lock-ordering is conventional: both chains can play either role. Operational
 choice usually puts the chain with the **shorter refund-fee burden** or
 **stronger maker-side draining-attack protection** first.
 
-For adaptor-signature swaps where one chain has restricted scripting (BTC-XMR,
-BTC-Grin), the choice is driven by the draining-attack analysis above. The
-deployed `xmr-btc-swap`/`eigenwallet` direction puts the script-bearing chain
-(BTC) first because the customer-as-Bob model places the refund-fee burden on
-the customer, who tolerates it.
+For adaptor-signature swaps **involving Monero**, the locking order is fixed by
+protocol: **the non-Monero side must lock first**, because Monero today provides
+no on-chain primitive that supports the locks-first role in any published
+atomic-swap construction. This is the same constraint analysed under "Locking
+order" above and applies to every XMR↔X pair: X must lock first. The situation
+will not change without a Monero hardfork that adds at least one of: DLSAG,
+hidden timelocks, or a published CLSAG-adaptor construction adopted by the
+Monero project; none of these is on the Monero roadmap as of 2026-05.
 
-A reversed direction is implementable for any pair given the right cryptographic
-primitives (CLSAG-based adaptor signatures for XMR-first; Schnorr adaptor
-signatures for Grin-first, etc.). The choice of direction is not fixed by
-cryptography; it is fixed by the economic constraints of who can absorb the
-refund-fee burden under adversarial counterparty behaviour.
+For adaptor-signature swaps with other restricted-scripting chains (Grin and
+others), the locks-first rule may be driven by primitive availability or by the
+draining-attack economic constraint, depending on what each chain's signature
+scheme supports. Each pair must be analysed individually.
 
 ## A defensible "BTC-XMR took 4 years" claim
 

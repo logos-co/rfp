@@ -84,7 +84,19 @@ valued by direct redemption.
   [docs.stacks.co/concepts/sbtc](https://docs.stacks.co/concepts/sbtc) (accessed
   2026-05-22);
   [Hiro: Who are the sBTC signers, breaking down SIP-028](https://www.hiro.so/blog/who-are-the-sbtc-signers-breaking-down-sip-028)
-  (accessed 2026-05-22).
+  (accessed 2026-05-22). The trust shape is structurally similar to Thorchain's
+  bonded-validator model (see the
+  [trust-model contrast appendix](./cross-chain-trust-model-contrast.md)
+  §Federated-signer middle chain): a set of operators each hold a key in a
+  multisig and produce co-signed outputs on the underlying chain. The
+  differences are in size and recruitment of the signer set (15 elected entities
+  for sBTC vs ~103 active permissionless validators for Thorchain), threshold
+  (70% for sBTC vs 2/3 for Thorchain), and the cryptographic construction
+  (Bitcoin script multisig per Hiro's description for sBTC vs GG20 TSS for
+  Thorchain). Whether to call the difference structural or just operational is
+  debatable; both are "federation of named or staked signers custodying the
+  underlying asset", which is the same trust class as RFP-021-style federated
+  middle chains.
 - **Secret Monero Bridge** (Secret Network). Mainnet launched August 2021.
   Multi-signature Monero wallet operated by consensus-node signers (MSCNOs)
   communicating over I2P; users deposit XMR, receive sXMR (a SNIP-20 token on

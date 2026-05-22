@@ -2,7 +2,7 @@
 
 <!-- Don't forget to add/update this prize in the table in README.md when moved. -->
 
-# LP-0019: Off-Chain Verifiable Reputation for Atomic-Swap Makers [Draft]
+# LP-0019: Taker Reliability for Atomic Swaps [Draft]
 
 **`Status`**:
 
@@ -14,183 +14,160 @@
 
 ## Overview
 
-In any atomic-swap protocol there are abandonment paths the on-chain settlement
-contract cannot adjudicate. The clearest example sits in the LEZ↔XMR direction
-(RFP-003 LEZ atomic-swap protocol's Tier-2 case): a maker who has received a
-counterparty's Monero lock can refuse to advance on LEZ, and the LEZ contract
-cannot tell whether the maker is malicious or the counterparty never actually
-locked. The Monero side is not observable from LEZ without view-key disclosure
-(which would deanonymise the swap output). The protocol falls back to a
-he-said-she-said dispute; the only recourse is *reputation*.
+Atomic-swap markets have a maker/taker architecture (see
+[LP-0018 §Overview](./LP-0018-atomic-swap-anti-spam.md#overview)). The **maker**
+is a persistent identity holding inventory; the **taker** is a one-shot user
+initiating a swap against a maker's quote. This prize addresses the **taker's
+exposure to maker misbehaviour**.
 
-The Logos cross-chain DEX bundle treats this as a real gap in the vanilla
-atomic-swap protocol and does not pretend slashing or attestor-based mechanisms
-can close it without reintroducing trust. This prize is for a **mechanism that
-lets honest counterparties publish third-party-verifiable evidence of maker
-misbehaviour**, so a reputation system built on top of vanilla atomic swaps
-(RFP-003) can be both privacy-respecting and adversarially robust. The Logos
-team does not pre-judge how. Solvers may use view-key disclosure with privacy
-mitigations, FCMP++-grade zk proofs, multi-party attestation schemes, watchtower
-designs, or any combination, as long as the resulting reputation system survives
-the evaluation against the success criteria below.
+Concrete maker misbehaviours that hurt takers include:
+
+- **Quote-and-walk.** Maker publishes a quote, taker initiates a swap, maker
+  refuses to lock the destination asset after the taker locks. Taker's funds are
+  wedged for the full refund window before recovery.
+- **Refusal to advance after taker lock.** Maker received the taker's lock event
+  but chooses not to claim or advance. The protocol unwinds, but the taker pays
+  time and fees.
+- **Selectively serving (maker discriminates).** Maker honours some takers and
+  griefs others, with no protocol-level recourse.
+- **Disappearance mid-swap.** Maker goes offline after partial progress; the
+  swap times out via refund paths but the taker bears the latency cost.
+
+In the LEZ atomic-swap protocol (RFP-003), the on-chain settlement contract can
+detect *some* maker misbehaviour from LEZ state alone (failure to lock the LEZ
+leg before timeout, failure to publish the reveal). For events that LEZ cannot
+see — particularly any event on the Monero side — the protocol cannot adjudicate
+without help.
+
+This prize is for a **mechanism that delivers measurable taker-reliability
+improvement against maker misbehaviour** in the LEZ atomic-swap protocol,
+without specifying the mechanism. The design space is open: solvers may use
+on-chain attestation, off-chain proof bundles, slashable bonds, watchtower
+designs, reputation systems, or any combination, as long as the resulting
+mechanism delivers proven taker-reliability improvement while preserving
+honest-maker and honest-taker reliability.
+
+This prize is the **dual of LP-0018**:
+
+- LP-0018 protects the maker against malicious or spamming *takers*.
+- LP-0019 (this prize) protects the taker against malicious or unreliable
+  *makers*.
+
+Both can be deployed together.
+
+### Scope: XMR↔LEZ, both directions
+
+For XMR↔LEZ, the LEZ side must lock first by protocol (Monero today provides no
+on-chain primitive that supports the locks-first role in any published
+atomic-swap construction; see
+[atomic-swaps primer §Locking order](../appendix/atomic-swaps-primer.md#locking-order)).
+This creates two sub-cases the prize covers:
+
+- **Sub-case A: LEZ-side party is the *taker*** (LEZ→XMR; taker holds Logos,
+  wants XMR). The taker locks LEZ first, then waits for the maker to lock XMR
+  off-chain. The maker can quote-and-walk by never locking XMR. From LEZ alone
+  the protocol cannot tell whether the maker walked or the taker's claim of a
+  quote-and-walk is fabricated. **Mechanisms that improve taker reliability in
+  this sub-case must produce maker-misbehaviour evidence that other parties can
+  verify** (so the taker is not left with a he-said-she-said dispute).
+- **Sub-case B: LEZ-side party is the *maker*** (XMR→LEZ; taker holds XMR, wants
+  Logos). The maker locks LEZ first, then waits for the taker to advance with
+  the reveal. From LEZ the protocol can detect the maker's lock directly;
+  taker-reliability concerns here focus on **maker selective serving** (refusing
+  to quote, refusing to honour a quote, quoting deceptively) and on **liveness**
+  (maker disappearing mid-swap after their LEZ lock has confirmed).
+
+**Scope of this prize: XMR↔LEZ only.** Follow-up prizes may cover other pairs.
+
+**Single prize, two acceptable solution shapes.** Applicants may address
+sub-case A only, sub-case B only, or both. A submission addressing both ranks
+above one addressing only one, but a credible single-sub-case mechanism is
+sufficient to win.
 
 ## Motivation
 
-A reputation system that records only successful swaps is useless: it cannot
-deter misbehaviour because misbehaviour leaves no on-chain trace. A reputation
-system that records every counterparty complaint without filtering is worse than
-useless: a malicious *taker* can manufacture false complaints against an honest
-maker.
-
-The hard problem is producing evidence of "maker received a counterparty lock
-and did not advance" that **any third party with access to the relevant
-blockchain state can verify, without trusting the complainant**. This is
-non-trivial in the LEZ↔XMR case because the Monero output is not directly
-readable from outside the bilateral context, and the natural disclosure
-(view-key + lock-amount) deanonymises the swap.
+In an atomic-swap protocol with no reputation or attribution layer, every taker
+swap is a first-time interaction. A maker who misbehaves once can disappear and
+reappear under a new identity at zero cost; a maker who misbehaves
+systematically against some takers but not others has no protocol-level
+deterrent. Vanilla RFP-003 atomic swaps cannot offer the taker the kind of "I
+know this counterparty has reliably served thousands of swaps" guarantee that
+middle-chain DEXes get for free (their counterparty is the protocol).
 
 A competitive prize is the right mechanism because the design space is large and
-no published solution exists:
-
-- **Naive view-key disclosure**: complainant publishes the shared view key plus
-  the lock transaction so any third party can verify the lock against the
-  maker's signed quote. Cost: the swap output is deanonymised forever to anyone
-  holding the proof bundle.
-- **Selective-disclosure zk proofs over Monero output structure**: prove "an
-  output of the quoted amount exists at the stealth address derived from this
-  quote's joint-key transcript" without exposing the view key. Cost: requires
-  either FCMP++-grade primitives that are pre-production, or a custom proof
-  system over Monero's CLSAG ring-signatures.
-- **Multi-party attestation**: a small committee of attestors observes both
-  chains and signs off on disputed cases. Cost: reintroduces a trust layer the
-  bundle is trying to avoid.
-- **Watchtower designs**: paid third parties run both Monero and LEZ nodes and
-  earn fees for issuing attested verdicts. Cost: the watchtower itself becomes a
-  target.
-- **Hybrid**: tiered reputation where most claims are unverifiable but the
-  highest-stakes claims demand a verifiable proof bundle.
-
-Each carries trade-offs in privacy cost, cryptographic complexity, deployability
-today, and adversarial robustness. The Logos team does not want to pre-judge the
-answer; this prize is open to any approach.
-
-The prize complements but does not depend on LP-0018 (atomic-swap anti-spam
-mechanism): a robust reputation system reduces the need for protocol-level
-deterrents by making repeated misbehaviour visible across swaps; LP-0018's
-mechanisms deter individual misbehaviour without needing cross-swap history.
-Both can coexist.
+the right answer is not obvious. Reputation systems (on-chain or off-chain),
+slashable bonds, watchtower designs, hybrid approaches, or solutions we have not
+anticipated may all qualify. The Logos team does not want to pre-judge.
 
 ## Success Criteria
 
-### Functionality
+- [ ] **Proven taker-reliability improvement.** The submission must include hard
+  stats (e.g. measured taker-side swap-success rate before and after the
+  mechanism, or measured incidence of maker misbehaviour detected/deterred by
+  the mechanism over a stated observation window) and/or testimony from at least
+  two independent active takers running against makers integrated with the
+  mechanism in production. Toy numbers from a testnet alone are not sufficient —
+  the prize requires the solution be polished, used, and adopted.
+- [ ] **No reduction in reliability for honest makers.** An honest maker serving
+  legitimate takers should not experience materially worse liveness, capital
+  efficiency, or quote-distribution reach than under the vanilla RFP-003
+  protocol. Quantify against a baseline.
+- [ ] **No reduction in reliability for honest takers.** The mechanism's own
+  cost to honest takers (latency, gas, complexity) must not exceed the
+  unreliability it removes. Quantify against a baseline.
 
-- [ ] An honest counterparty (taker or maker) can publish a proof bundle for a
-  failed swap that a third party with access to the relevant blockchain state
-  (LEZ + the relevant external chain) can verify *without trusting the
-  complainant*. The verification produces one of: valid complaint, invalid
-  complaint, indeterminate (with documented reason).
-- [ ] Covers at least the LEZ↔BTC and LEZ↔ETH cases. Bonus: covers LEZ↔XMR with
-  documented trade-offs (privacy cost of disclosure, dependency on future Monero
-  primitives if relevant).
-- [ ] The mechanism distinguishes:
-  - The complainant fabricating a quote: caught by signature verification on the
-    quote.
-  - The complainant fabricating a lock: caught by the verifier checking the
-    external-chain lock against the quote's derived stealth-address / script /
-    contract.
-  - The accused successfully rebutting (e.g. presenting their own LEZ activity
-    proving they advanced): caught by the verifier checking LEZ state.
-- [ ] **Sybil resistance.** The cost of building a high-reputation identity to
-  then defect must exceed the expected gain from defecting. Sybil identities
-  should not be able to manufacture clean reputation cheaply.
-- [ ] **Spam resistance.** A malicious taker cannot mass-publish fake complaints
-  to deny-of-service the reputation system. Either the cost of publishing a
-  complaint is bounded below (e.g. micro-fee) or the verifier filters cheaply.
-- [ ] **Aggregation method documented.** A maker's overall reputation score is a
-  function of (verified positive completions, verified valid complaints,
-  possibly weighted by complainant reputation). The submission must specify the
-  function and justify it.
-- [ ] **Privacy on the complainant side.** A taker complaining about a maker
-  should not be forced to reveal which other swaps that taker has done, unless
-  they choose to. (The accused maker is necessarily identifiable since the
-  complaint is about their identity.)
-- [ ] **Existing-project comparison.** The submission must identify at least one
-  existing reputation system (e.g. Wormhole Guardian set behaviour reporting,
-  Thorchain bond-to-pooled slashing rules, decentralised review aggregators,
-  EigenLayer AVS slashing, or other) and explain how the chosen design relates
-  to or differs from it.
+## Design constraints
 
-### Usability
+These are framing, not pass/fail criteria.
 
-- [ ] Provide a module/SDK that can be used to build Logos modules for
-  interacting with the reputation system (querying maker reputation, publishing
-  complaints, generating proof bundles).
-- [ ] Provide a Logos Basecamp app GUI with local build instructions,
-  downloadable assets, and loadable in Logos app (Basecamp).
-- [ ] Provide an IDL for any LEZ programs introduced, using the
-  [SPEL framework](https://github.com/logos-co/spel).
-- [ ] Surface the maker's reputation in a way takers can inspect *before*
-  initiating a swap.
-
-### Reliability
-
-- [ ] Disputed claims (where the verifier returns "indeterminate") are handled
-  with a documented policy: they are recorded as such, not silently dropped, and
-  do not falsely degrade either party's reputation.
-- [ ] The reputation database is censorship-resistant: it does not depend on a
-  single host or central index.
-- [ ] Storage primitives for the proof bundles (where they live, how long they
-  persist) are specified. Logos Delivery is the expected substrate.
-
-### Performance
-
-- [ ] Document the storage and bandwidth cost per complaint, per verification,
-  and per reputation query.
-- [ ] State the latency from publishing a complaint to it being aggregated into
-  the maker's reputation score.
-- [ ] Document compute unit (CU) cost of any on-chain LEZ operations introduced.
-
-### Supportability
-
-- [ ] Any LEZ programs introduced are deployed and tested on LEZ devnet/testnet.
-- [ ] End-to-end integration tests run against a LEZ sequencer (standalone mode)
-  and are included in CI.
-- [ ] CI must be green on the default branch.
-- [ ] A README documents end-to-end usage: how to publish a complaint, how to
-  query reputation, how the verifier works.
-- [ ] A reproducible end-to-end demo script is provided and works against a real
-  local sequencer with `RISC0_DEV_MODE=0`.
-- [ ] A recorded video demo of the end-to-end flow is included in the
-  submission; the recording must show terminal output (including proof
-  generation) to confirm `RISC0_DEV_MODE=0` was active.
-- [ ] The demo includes at least one "valid complaint" scenario and one
-  "fabricated complaint rejected" scenario.
+- **Compatible with the RFP-003 LEZ atomic-swap SDK as the underlying
+  primitive.** Do not require changes to the cryptographic core.
+- **Preserves non-custody.** No third party (signer set, validator, oracle,
+  attestor) holds user funds at any stage. Reintroducing federated trust defeats
+  the purpose; RFP-021 already covers that design space.
+- **Adversarially robust.** The mechanism must distinguish a *fabricated* taker
+  complaint about an honest maker from a *valid* taker complaint about a
+  malicious maker. Either the protocol detects the difference from observable
+  state, or the mechanism produces evidence a third party can verify, or the
+  mechanism penalises false complaints. Any approach is acceptable; the
+  submission must justify it.
+- **Privacy of the taker.** A taker reporting a misbehaving maker should not be
+  forced to reveal which other swaps the taker has done (beyond the disputed
+  one), unless the taker chooses to.
+- **Spam resistance.** A malicious taker should not be able to mass-publish
+  fabricated misbehaviour reports to deny-of-service the mechanism. Either the
+  cost of publishing is bounded below or the verifier filters cheaply.
+- **Survives the LEZ↔XMR Monero-unobservability constraint.** For sub-case A
+  specifically, the Monero side is not directly observable from LEZ. The
+  mechanism must work under this constraint; it may use any approach (view-key
+  disclosure, FCMP++-grade zk proofs, watchtower nodes, multi-party attestation,
+  on-chain attestation by the maker, slashable maker bonds, off-chain proof
+  bundles, etc.).
 
 ## Scope
 
 ### In Scope
 
-- The reputation mechanism: data model, proof-bundle structure, verifier design,
-  aggregation function, anti-spam and anti-sybil mechanisms.
-- Storage and distribution: where proof bundles live (Logos Delivery is the
-  expected substrate); how reputation scores are computed and propagated.
-- Client-side: SDK for publishing complaints, generating proof bundles, and
-  querying reputation.
-- A reference integration with RFP-003 LEZ atomic-swap maker daemon, where the
-  maker's reputation is auto-updated on completed and failed swaps.
-- Documentation: cryptographic approach, privacy guarantees, adversarial model,
-  comparison against at least one existing reputation system in the wild.
+- The taker-reliability mechanism: data model, evidence/attribution scheme,
+  verification approach, aggregation if relevant, anti-spam and anti-fabrication
+  mechanisms.
+- Storage and distribution of any data the mechanism produces (Logos Delivery is
+  the expected substrate for off-chain data; on-chain mechanisms use LEZ).
+- Client-side: SDK for takers to query maker reliability and report
+  misbehaviour; SDK for makers to dispute false reports if applicable.
+- A reference integration with RFP-003 LEZ atomic-swap maker daemon and taker
+  client.
+- A reference deployment with active takers and makers running the mechanism in
+  production long enough to gather the proven-reliability stats / testimony.
 
 ### Out of Scope
 
-- Changing the underlying RFP-003 atomic-swap cryptography.
-- Building a protocol-level slashing mechanism on top of the reputation (that
-  would be the role of LP-0018 (anti-spam mechanism); this prize stops at
-  producing the verifiable evidence and reputation score).
-- A polished consumer UI beyond what's needed for the demo.
-- LEZ↔XMR coverage at FCMP++-grade privacy. A submission that addresses LEZ↔BTC
-  and LEZ↔ETH cleanly is sufficient; LEZ↔XMR with current Monero primitives
-  (potentially involving view-key disclosure) is a bonus.
+- Modifying the underlying RFP-003 atomic-swap cryptography.
+- Building a protocol-level slashing mechanism on top of the reliability
+  evidence (LP-0018 covers the maker-side equivalent; if the mechanisms produce
+  evidence usable for slashing, integration with LP-0018 is welcomed but not
+  required).
+- LEZ↔BTC, LEZ↔ETH, or other non-XMR pairs.
 
 ## Prize Structure
 
@@ -210,40 +187,41 @@ Apache-2.0.
 
 A submission must include:
 
-- A public repository containing the LEZ program(s) (if any), client SDK,
-  proof-bundle format spec, verifier implementation, and aggregation logic.
-- A written design document covering the data model, cryptographic primitives,
-  privacy analysis, adversarial model, and comparison against at least one
-  existing reputation system.
-- A narrated video walkthrough demo showing (a) honest swap completion with
-  reputation update, (b) a valid complaint scenario where the verifier accepts
-  the proof bundle, (c) a fabricated complaint scenario where the verifier
-  rejects it, and (d) the maker reputation score visible to a prospective taker.
-  The demo must show terminal output including any proof generation with
-  `RISC0_DEV_MODE=0`.
-- A FURPS self-assessment (see
-  [solution template](https://github.com/logos-co/lambda-prize/blob/main/solutions/LP-0000.md)).
+- A public repository containing the LEZ program(s) if any, client SDK,
+  integration tests, and any external-chain components.
+- A written design document covering the mechanism, the adversarial model
+  (sybil, spam, fabrication, false-rebuttal), the privacy analysis (what the
+  mechanism reveals about whom), and the LEZ↔XMR-specific handling of Monero
+  unobservability.
+- Proven-reliability evidence: hard stats from a real deployment, and/or signed
+  testimony from at least two independent active takers running against makers
+  integrated with the mechanism.
+- A narrated video walkthrough demo showing (a) honest swap completion with no
+  extra cost, (b) a maker-misbehaviour scenario where the mechanism detects and
+  surfaces the misbehaviour, and (c) a fabricated-complaint scenario where the
+  mechanism rejects or penalises the fabrication.
 
 ## Evaluation Process
 
 By default, submissions are evaluated first-come-first-served against the
 success criteria. The first submission that meets all criteria wins.
 
-Evaluators will independently clone the repository and run the demo script from
-a clean environment; the script must succeed without modification. Evaluators
-will exercise the valid-complaint and fabricated-complaint scenarios themselves.
+Evaluators will independently clone the repository, run the demo, exercise the
+maker-misbehaviour and fabricated-complaint scenarios, and verify the
+proven-reliability evidence.
 
-Because the design space is large and multiple valid approaches exist,
-evaluators may rank tied submissions on:
+Tied submissions may be ranked on:
 
-1. Adversarial robustness: how many distinct attack vectors (sybil, spam,
-   false-complaint, false-rebuttal) the mechanism handles with explicit
-   countermeasures.
-2. Privacy cost: lower disclosure to third parties is preferred.
-3. Deployability today: solutions that work with currently-available Monero
-   primitives (where applicable) rank above solutions that depend on
-   pre-production cryptography.
-4. Integration cleanliness with RFP-003's existing maker daemon.
+1. Coverage across sub-cases (a mechanism addressing both A and B ranks above
+   one addressing only one).
+2. Magnitude of demonstrated reliability improvement and quality of the adoption
+   evidence.
+3. Privacy cost (lower disclosure to third parties is preferred where the
+   mechanism uses disclosure).
+4. Adversarial robustness across more distinct attack vectors (sybil, spam,
+   fabrication, false-rebuttal).
+5. Integration cleanliness with RFP-003's existing maker daemon and taker
+   client.
 
 The following policies apply to all prizes (see
 [evaluation policies](https://github.com/logos-co/lambda-prize/blob/main/README.md#evaluation-policies)):
@@ -256,32 +234,24 @@ The following policies apply to all prizes (see
 ## Resources
 
 - [RFP-003: Atomic Swaps with LEZ](https://github.com/logos-co/rfp/blob/master/RFPs/RFP-003-atomic-swaps.md)
-  — the underlying atomic-swap protocol whose makers this reputation system
-  tracks.
-- [LP-0018: Anti-Spam Mechanism for Atomic Swaps](./LP-0018-atomic-swap-anti-spam.md)
-  — complementary prize on protocol-level deterrence. Both can be deployed
-  together.
+  — the underlying atomic-swap protocol whose makers this mechanism evaluates.
+- [LP-0018: Spam Protection for Atomic-Swap Makers](./LP-0018-atomic-swap-anti-spam.md)
+  — companion prize, the dual problem. Both can be deployed together.
 - [appendix/atomic-swaps-primer.md](https://github.com/logos-co/rfp/blob/master/appendix/atomic-swaps-primer.md)
-  — atomic-swap mechanics; relevant for understanding what events the reputation
-  system records.
+  — atomic-swap mechanics, locking-order protocol constraint, free-option
+  framing.
 - [appendix/cross-chain-trust-model-contrast.md](https://github.com/logos-co/rfp/blob/master/appendix/cross-chain-trust-model-contrast.md)
   — surveys existing reputation-adjacent mechanisms in deployed protocols
-  (Wormhole Guardian set, Thorchain bonded validators).
+  (Wormhole Guardian set, Thorchain bonded validators, sBTC signer federation)
+  as reference points for solvers.
 - [Monero, Zero to Monero 2.0 §Payment Proofs](https://www.getmonero.org/library/Zero-to-Monero-2-0-0.pdf)
-  — `check_tx_proof` family (OutProofV2, InProofV2) for understanding what
-  bilateral disclosure looks like on Monero.
+  — `check_tx_proof` family for understanding what bilateral disclosure looks
+  like on Monero, relevant for sub-case A solvers reasoning about evidence
+  production.
 - [Monero, FCMP++ announcement (2024-04-27)](https://www.getmonero.org/2024/04/27/fcmps.html)
-  — research direction for non-disclosing Monero proofs. Solvers targeting
-  LEZ↔XMR may want to design with FCMP++ readiness in mind.
-- [Wormhole Guardian set](https://wormhole.com/docs/protocol/infrastructure/guardians/)
-  — example of a reputation-substituting-for-bond mechanism (Proof-of-Authority
-  committee of named entities).
-- [Thorchain RUNE bond-to-pooled docs](https://docs.thorchain.org/understanding-thorchain/rune)
-  — example of a slashable reputation mechanism in a federated-signer DEX (the
-  contrast point against atomic-swap-only protocols).
+  — research direction for non-disclosing Monero proofs.
 
 ## Potential for Subsequent λPrizes
 
-If this prize is awarded for a LEZ↔BTC and LEZ↔ETH mechanism, a follow-up prize
-may be opened for LEZ↔XMR coverage once non-disclosing Monero proof primitives
-reach production-ready status (FCMP++ is the leading candidate as of 2026-05).
+If this prize is awarded for an XMR↔LEZ mechanism, follow-up prizes may cover
+other pairs once XMR↔LEZ has a winning mechanism.

@@ -2,7 +2,7 @@
 
 <!-- Don't forget to add/update this prize in the table in README.md when moved. -->
 
-# LP-0018: Anti-Spam Mechanism for Atomic Swaps [Draft]
+# LP-0018: Spam Protection for Atomic-Swap Makers [Draft]
 
 **`Status`**:
 
@@ -14,168 +14,150 @@
 
 ## Overview
 
-Atomic swaps are deliberately symmetric: either party can refuse the next
-message at any stage and both sides refund at timeout. This is the design, not a
-bug. But it lets a malicious taker spam makers: lock funds against a maker's
-quote, wait until the price moves, complete or refund accordingly. The refund
-branch costs the taker only a few external-chain transaction fees, while the
-maker's inventory is wedged for the lock window and the maker absorbs the loss
-when the taker walks. Han et al. (IACR 2019/896) prove this is formally
-equivalent to a premium-free American Call Option and quantify the implicit
-premium at approximately 2% of asset value for crypto pairs.
+Atomic-swap markets have a maker/taker architecture. A **maker** is a persistent
+identity that publishes quotes and holds inventory ready to swap; a **taker** is
+a one-shot user who initiates a swap against a maker's quote. The maker invests
+in identity (discovery, reputation, often capital) over many swaps; the taker
+may be anonymous and one-shot. This asymmetry is the design.
 
-This prize is for an **innovative mechanism that prices out the taker's free
-option** in the LEZ atomic-swap protocol (RFP-003), without specifying the
-mechanism. The bar is a working implementation that demonstrably deters spam and
-free-option exploitation while preserving the non-custodial
-cryptographic-trust-only properties of the underlying atomic swap. Reference
-prior art exists
+But it leaves the maker exposed to **spam by malicious takers**. In every
+direction of an atomic-swap protocol, one side locks first and the other side
+locks second. Whoever locks first incurs the on-chain refund-transaction fee if
+the swap aborts, and the second party gets to observe the first lock and decide
+whether to advance (the free-option problem; see
+[atomic-swaps primer §The free-option problem](../appendix/atomic-swaps-primer.md#the-free-option-problem)).
+When the maker is the locks-first side, an adversarial taker can spam by
+initiating and abandoning swaps repeatedly, costing the maker only the refund
+transaction fee per cycle — exactly the "draining attack" Hoenisch and del Pino
+2021 §4 analyses.
+
+This prize is for a **mechanism that protects atomic-swap makers from taker
+spam** in the LEZ atomic-swap protocol (RFP-003), without specifying the
+mechanism. Solvers are free to design bonds, fee-burns, deposits, reputation,
+slashing schemes, or any combination, as long as the chosen mechanism delivers
+proven spam reduction while preserving honest-taker and honest-maker
+reliability. Reference prior art exists
 ([eigenwallet PR #675](https://github.com/eigenwallet/core/pull/675)); the prize
-does not prescribe that approach. Solvers are free to design bonds, fee-burns,
-reputation, deposits, slashing schemes, or any combination, as long as the
-chosen mechanism survives the evaluation against the success criteria below.
+does not prescribe that approach.
+
+### Scope: XMR↔LEZ, both directions
+
+For BTC-XMR, the protocol design makes the *taker* the locks-first side (BTC
+seller is the customer), which limits spam exposure to the standard
+draining-attack cost. **For XMR↔LEZ this is not freely chooseable.** Monero
+today provides no on-chain primitive that supports the locks-first role in any
+published atomic-swap construction, so **the LEZ side must always lock first**,
+regardless of trade direction. See
+[atomic-swaps primer §Locking order](../appendix/atomic-swaps-primer.md#locking-order);
+the constraint is protocol-level, not economic. This creates two distinct
+sub-cases for XMR↔LEZ:
+
+- **Sub-case A: LEZ-side party is the *taker*** (trade direction LEZ→XMR; user
+  holds Logos, wants XMR). The taker locks LEZ first. The maker holds the
+  post-lock free option — he sees the taker's LEZ lock and decides whether to
+  lock XMR off-chain. The mechanism must price or close the maker's free option
+  without harming the taker's experience. Candidate examples include a fee-burn
+  or non-refundable deposit on the LEZ refund branch (cf. eigenwallet PR #675
+  for BTC). Not prescribed.
+- **Sub-case B: LEZ-side party is the *maker*** (trade direction XMR→LEZ; user
+  holds XMR, wants Logos). The maker locks LEZ first. The taker can spam the
+  maker by repeatedly initiating-and-abandoning swaps — exactly the
+  draining-attack condition the BTC-first ordering is meant to eliminate for
+  BTC-XMR, but which we cannot eliminate for XMR-LEZ in this direction because
+  LEZ must lock first regardless. The mechanism must protect the maker from this
+  spam. Candidate approaches include reputation, taker-side bonds, taker
+  fee-burns, or other.
+
+**Scope of this prize: XMR↔LEZ only.** Follow-up prizes can cover LEZ↔BTC,
+LEZ↔ETH, or other pairs once the XMR↔LEZ case has a winning mechanism.
+
+**Single prize, two acceptable solution shapes.** Applicants may address
+sub-case A only, sub-case B only, or both. A submission that addresses both
+sub-cases coherently ranks above one that addresses only one, but a credible
+single-sub-case mechanism is sufficient to win.
 
 ## Motivation
 
-The atomic-swap branch of the cross-chain DEX design tree has known structural
-weakness on the free-option problem. The Logos cross-chain DEX bundle (RFPs 021,
-024, 025) keeps the vanilla RFP-003 atomic swap as the privacy-non-custodial
-primitive, but vanilla atomic swaps remain economically unattractive for makers
-at any scale because of the free-option exposure. Without a credible anti-spam
-mechanism, the maker side of the LEZ atomic-swap market collapses to a hobbyist
-scale (see [eigenwallet](https://github.com/eigenwallet/core/): community-scale,
+The atomic-swap branch of the cross-chain DEX design tree has a known structural
+weakness on the free-option / spam-the-maker problem. The Logos cross-chain DEX
+bundle (RFPs 021, 024, 025) keeps the vanilla RFP-003 atomic swap as the
+privacy-non-custodial primitive, but vanilla atomic swaps remain economically
+unattractive for makers at scale because of the spam exposure. Without a
+credible spam-protection mechanism, the maker side of the LEZ atomic-swap market
+is likely to remain at hobbyist scale (see
+[eigenwallet](https://github.com/eigenwallet/core/): community-scale,
 single-digit active makers, BTC→XMR direction only).
 
 A competitive prize is the right mechanism because the design space is large and
-the right answer is not obvious:
-
-- **On-LEZ bonds** price the option premium via slashable collateral; they
-  require LEZ-denominated capital from at least one side and they only work at
-  boundaries that LEZ can observe (Tier 1 pairs like LEZ↔BTC, LEZ↔ETH).
-- **External-chain fee-burns on the refund branch**
-  ([eigenwallet PR #675](https://github.com/eigenwallet/core/pull/675)) price
-  the option premium by destroying a fraction of locked principal on the
-  script-bearing chain. They reach boundaries that LEZ cannot observe but they
-  cost real principal on every refund (no refund on honest completion) and they
-  require careful incentive design so the maker cannot weaponise the deposit.
-- **Reputation-based deterrence** (the subject of the companion prize
-  [LP-0019](./LP-0019-atomic-swap-maker-reputation.md)) provides soft pressure
-  on repeat makers; first-time and anonymous takers escape this entirely.
-- **Hybrid designs** combining the above in different proportions.
-
-Each carries trade-offs in capital efficiency, capital denomination, anti-DDoS
-coverage, and how it interacts with the LEZ↔XMR asymmetric case (where the
-XMR-side lock is not LEZ-observable). The Logos team does not want to pre-judge
-the answer; this prize is open to any approach.
+the right answer is not obvious. On-LEZ bonds, external-chain fee-burns,
+reputation gating, hybrid designs, or approaches we have not anticipated may all
+qualify. The Logos team does not want to pre-judge.
 
 ## Success Criteria
 
-### Functionality
+- [ ] **Proven spam reduction.** The submission must include hard stats (e.g.
+  measured per-maker spam-attempt rate before and after the mechanism over a
+  stated observation window) and/or testimony from at least two independent
+  active makers running the mechanism in production. Toy numbers from a testnet
+  alone are not sufficient — the prize requires the solution be polished, used,
+  and adopted.
+- [ ] **No reduction in reliability for honest takers.** An honest taker
+  initiating a legitimate swap should not experience materially worse liveness,
+  settlement time, or failure rate than under the vanilla RFP-003 protocol.
+  Quantify against a baseline.
+- [ ] **No reduction in reliability for honest makers.** An honest maker serving
+  legitimate takers should not experience materially worse liveness or capital
+  efficiency than under the vanilla RFP-003 protocol. Quantify against a
+  baseline.
 
-- [ ] Demonstrably deters a taker who would otherwise lock an external-chain
-  asset against a maker's quote and walk via the refund branch at near-zero
-  cost. The submission must include a clearly-documented adversarial scenario
-  and show how the mechanism makes the abort branch EV-negative for the taker.
-- [ ] Works in at least one trade direction for the LEZ↔BTC pair (the corridor
-  with the most existing prior art) and clearly states which other pairs
-  (LEZ↔ETH, LEZ↔XMR in both directions) the mechanism covers, with justification
-  for any exclusions.
-- [ ] Compatible with the RFP-003 LEZ atomic-swap SDK as the underlying
-  primitive; does not require changes to the cryptographic core (joint-key
-  setup, adaptor signature, lock, reveal).
-- [ ] Preserves non-custody: no third party (signer set, validator, oracle,
-  attestor) holds user funds at any stage. The mechanism cannot reintroduce the
-  federated-custody trust assumption.
-- [ ] Survives the maker-locks-first case (in BTC→XMR direction, the Bitcoin
-  side locks first by deployed convention). The mechanism must price the option
-  held by whichever side locks first.
-- [ ] Burnt or escrowed principal in adverse paths is **not** payable to the
-  counterparty in a way that creates new griefing incentives (e.g. if the maker
-  can profit by provoking a refund, that defeats the purpose). The submission
-  must include an incentive-compatibility argument.
-- [ ] Handles connectivity-loss / honest-refund cases gracefully: an honest
-  party who refunds due to connectivity issues should not lose
-  disproportionately.
-- [ ] Discoverable parameters: the cost the taker faces under the mechanism
-  (deposit fraction, bond size, etc.) is known to the taker before they initiate
-  the swap; quote-level discovery is acceptable.
+## Design constraints
 
-### Usability
+These are framing, not pass/fail criteria. Submissions that violate them are
+unlikely to deliver the success criteria above, but the criteria above are what
+evaluators measure.
 
-- [ ] Provide a module/SDK that can be used to build Logos modules for
-  interacting with the program.
-- [ ] Provide a Logos Basecamp app GUI with local build instructions,
-  downloadable assets, and loadable in Logos app (Basecamp).
-- [ ] Provide an IDL for the LEZ program, using the
-  [SPEL framework](https://github.com/logos-co/spel).
-
-### Reliability
-
-- [ ] The mechanism does not introduce new failure modes that lock user funds
-  permanently in protocol-construction-error states. Every escrowed amount must
-  have a finite-time recovery path under all adversarial choices the
-  counterparty can make.
-- [ ] Race conditions between counterparty actions (e.g. simultaneous refund and
-  claim attempts) are documented and resolved deterministically.
-
-### Performance
-
-- [ ] Document the compute unit (CU) cost of each on-chain operation introduced
-  by the mechanism, on both LEZ devnet/testnet and the external chain (Bitcoin,
-  Ethereum, etc.) if the mechanism touches those.
-- [ ] Quantify the additional transaction count vs vanilla RFP-003 atomic swap
-  (e.g. how many additional Bitcoin transactions does a refund involve).
-- [ ] State the expected external-chain transaction-fee cost ranges under normal
-  and high-fee regimes (Bitcoin mempool congestion in particular).
-
-### Supportability
-
-- [ ] The program is deployed and tested on LEZ devnet/testnet.
-- [ ] End-to-end integration tests run against a LEZ sequencer (standalone mode)
-  and are included in CI.
-- [ ] CI must be green on the default branch.
-- [ ] A README documents end-to-end usage: deployment steps, program addresses,
-  and step-by-step instructions for interacting with the program via CLI and
-  Basecamp app.
-- [ ] A reproducible end-to-end demo script is provided and works against a real
-  local sequencer with `RISC0_DEV_MODE=0`.
-- [ ] A recorded video demo of the end-to-end flow is included in the
-  submission; the recording must show terminal output (including proof
-  generation) to confirm `RISC0_DEV_MODE=0` was active.
-- [ ] The demo includes at least one "adversarial taker spams the maker"
-  scenario where the mechanism deters the attack, plus the honest-completion
-  scenario where the mechanism imposes no cost on honest users.
+- **Compatible with the RFP-003 LEZ atomic-swap SDK as the underlying
+  primitive.** The mechanism should not require changes to the cryptographic
+  core (joint-key setup, adaptor signature, lock, reveal). Solvers may add
+  escrow logic around the swap.
+- **Preserves non-custody.** No third party (signer set, validator, oracle,
+  attestor) should hold user funds at any stage. Reintroducing federated trust
+  defeats the purpose; RFP-021 already covers that design space.
+- **Survives the LEZ-locks-first protocol constraint.** For XMR↔LEZ the LEZ side
+  locks first in both sub-cases (A and B). The mechanism must work under this
+  constraint, not assume it can be reversed.
+- **Burnt or escrowed principal in adverse paths is not payable to the
+  counterparty in a way that creates new griefing incentives.** If a defaulting
+  taker's deposit is paid to the maker, the maker has an incentive to provoke
+  refunds; this defeats the purpose. Burn destinations (unspendable outputs) or
+  rebated-to-protocol designs are acceptable; counterparty-paid designs are not.
+- **Honest-refund / connectivity-loss paths.** An honest party who refunds due
+  to connectivity issues should not lose disproportionately. The mechanism's
+  cost in adverse paths should be bounded.
+- **Discoverable parameters.** The cost the taker faces under the mechanism
+  (deposit fraction, bond size, fee fraction, etc.) should be known to the taker
+  before they initiate the swap. Quote-level discovery is acceptable.
 
 ## Scope
 
 ### In Scope
 
-- The anti-spam mechanism itself: design, on-chain components (LEZ program,
-  external-chain script changes if any), client-side SDK, and integration with
-  RFP-003's per-pair atomic-swap modules.
-- Incentive analysis: a written argument for why the mechanism is
-  incentive-compatible and what attacker strategies it deters or admits.
-- One concrete pair (LEZ↔BTC is the recommended starting point; LEZ↔ETH or
-  LEZ↔XMR is acceptable if justified).
-- A reference integration: working demo of a swap that uses the mechanism,
-  including at least one adversarial path that exercises the deterrent.
+- The spam-protection mechanism itself: design, on-chain components (LEZ
+  program, external-chain script changes if any), client-side SDK, integration
+  with RFP-003's per-pair atomic-swap modules.
+- One or both XMR↔LEZ sub-cases (A and/or B), with an incentive-compatibility
+  argument that explains why the mechanism makes the abort branch EV-negative
+  for the attacker.
+- A reference deployment with active makers and takers running the mechanism in
+  production long enough to gather the proven-reduction stats / testimony.
 
 ### Out of Scope
 
 - Modifying the underlying RFP-003 atomic-swap cryptography (joint-key setup,
-  adaptor signature, lock/reveal). Solvers may add escrow logic around the swap
-  but must not alter the swap primitive itself.
+  adaptor signature, lock/reveal).
 - Reintroducing federated trust (TSS custody, signer sets, oracle attestors).
-  RFP-021 covers the federated-custody design space; this prize is for
-  non-custodial mechanisms.
-- A polished consumer UI beyond what's needed for the demo.
-- Ongoing maintenance, security audit, or mainnet deployment beyond the testnet
-  integration.
-- Solving the LEZ↔XMR direction-symmetry problem in full (the residual off-LEZ
-  option that vanilla atomic swaps inherently leave open; see also the companion
-  prize [LP-0019](./LP-0019-atomic-swap-maker-reputation.md) on the off-chain
-  reputation side of the same problem). A submission that addresses the LEZ↔BTC
-  case cleanly is sufficient; addressing LEZ↔XMR is a bonus.
+  RFP-021 covers that design space.
+- LEZ↔BTC, LEZ↔ETH, or other non-XMR pairs. Follow-up prizes if needed.
 
 ## Prize Structure
 
@@ -196,38 +178,36 @@ Apache-2.0.
 A submission must include:
 
 - A public repository containing the LEZ program(s), client SDK, integration
-  tests, demo script, and any external-chain script changes.
-- A written design document (in the repo) covering the mechanism, the
-  adversarial model, the incentive-compatibility argument, and any honest-refund
-  / connectivity-loss handling.
-- A narrated video walkthrough demo showing (a) honest completion, (b) at least
-  one adversarial-taker scenario where the mechanism deters the attack, and (c)
-  any external-chain transactions involved. The demo must show terminal output
-  including proof generation with `RISC0_DEV_MODE=0`.
-- A FURPS self-assessment (see
-  [solution template](https://github.com/logos-co/lambda-prize/blob/main/solutions/LP-0000.md)).
-- A short comparison section against the reference prior art (at minimum:
-  eigenwallet PR #675), stating what the submission borrows, where it diverges,
-  and why.
+  tests, and any external-chain script changes.
+- A written design document covering the mechanism, the adversarial model, the
+  incentive-compatibility argument, and the honest-refund / connectivity-loss
+  handling.
+- Proven-reduction evidence: hard stats from a real deployment, and/or signed
+  testimony from at least two independent active makers running the mechanism.
+- A narrated video walkthrough demo showing (a) honest completion at no extra
+  cost to honest parties, and (b) at least one adversarial-taker scenario where
+  the mechanism deters the attack.
+- A short comparison against reference prior art (minimum: eigenwallet PR #675),
+  stating what the submission borrows, where it diverges, and why.
 
 ## Evaluation Process
 
 By default, submissions are evaluated first-come-first-served against the
 success criteria. The first submission that meets all criteria wins.
 
-Evaluators will independently clone the repository and run the demo script from
-a clean environment; the script must succeed without modification. Evaluators
-will also exercise at least one adversarial-taker scenario themselves to verify
-the deterrent.
+Evaluators will independently clone the repository, run the demo script,
+exercise at least one adversarial-taker scenario, and verify the
+proven-reduction evidence (cross-checking testimony with the named makers).
 
 Because the design space is large and multiple valid approaches exist,
 evaluators may rank tied submissions on:
 
-1. Coverage across pairs (a mechanism that handles LEZ↔BTC, LEZ↔ETH, and at
-   least one direction of LEZ↔XMR ranks above one that handles only LEZ↔BTC).
-2. Capital efficiency (mechanisms that impose less cost on honest users rank
-   above mechanisms that always impose cost).
-3. Incentive-compatibility argument quality.
+1. Coverage across sub-cases (a mechanism addressing both A and B ranks above
+   one addressing only one).
+2. Magnitude of demonstrated spam reduction and quality of the adoption
+   evidence.
+3. Capital efficiency: mechanisms that impose less cost on honest users rank
+   above mechanisms that always impose cost.
 4. Integration cleanliness with RFP-003's existing per-pair modules.
 
 The following policies apply to all prizes (see
@@ -243,35 +223,32 @@ The following policies apply to all prizes (see
 - [RFP-003: Atomic Swaps with LEZ](https://github.com/logos-co/rfp/blob/master/RFPs/RFP-003-atomic-swaps.md)
   — the vanilla atomic-swap protocol this mechanism builds on.
 - [eigenwallet PR #675: fee-burn on refunds](https://github.com/eigenwallet/core/pull/675)
-  — reference prior art; an open proposal that introduces a non-refundable burn
-  on the refund branch via maker-set deposit fraction, withhold path, and mercy
-  release. Solvers are free to adopt, adapt, or reject this approach.
+  — reference prior art; an open proposal introducing a non-refundable burn on
+  the refund branch via maker-set deposit fraction, withhold path, and mercy
+  release. Solvers may adopt, adapt, or reject.
 - [eigenwallet/core release 4.0.0 anti-spam deposit](https://github.com/eigenwallet/core/releases/tag/4.0.0)
   — shipped narrower mechanism (cancel-timelock reduction plus 30-minute
   withhold/mercy) that PR #675 generalises.
 - [appendix/atomic-swaps-primer.md](https://github.com/logos-co/rfp/blob/master/appendix/atomic-swaps-primer.md)
-  — atomic-swap mechanics, free-option framing, `σ × √T × notional` notation for
-  sizing.
+  — atomic-swap mechanics, free-option framing, locking-order protocol
+  constraint, `σ × √T × notional` notation.
 - [appendix/cross-chain-trust-model-contrast.md](https://github.com/logos-co/rfp/blob/master/appendix/cross-chain-trust-model-contrast.md)
   — the federated-signers-vs-atomic-swaps trust contrast that motivates keeping
   atomic swaps non-custodial.
 - [Han, Lin, Yu, On the optionality and fairness of Atomic Swaps, IACR 2019/896](https://eprint.iacr.org/2019/896)
-  — the canonical free-option-problem paper; proves formal equivalence to a
-  premium-free American Call Option and estimates the implicit premium at ~2% of
-  asset value for crypto pairs.
-- [Gugger, Bitcoin-Monero Cross-chain Atomic Swap, IACR 2020/1126](https://eprint.iacr.org/2020/1126.pdf)
-  — protocol fundamentals; relevant for direction-dependence analysis.
+  — formal proof that an atomic swap is equivalent to a premium-free American
+  Call Option; quantifies the implicit premium at 2-3% of asset value for
+  cryptocurrency pairs.
 - [Hoenisch and del Pino, Atomic Swaps between Bitcoin and Monero, arXiv:2101.12332](https://arxiv.org/abs/2101.12332)
   — §4 covers the draining-attack analysis that determines which side locks
-  first, useful for solvers reasoning about XMR-first variants.
-- [LP-0019: Off-Chain Verifiable Reputation for Atomic-Swap Makers](./LP-0019-atomic-swap-maker-reputation.md)
-  — companion prize that addresses the reputation layer. A submission may
-  consume LP-0019's reputation primitive as part of its design.
+  first under economic considerations, useful for solvers reasoning about
+  sub-cases A and B.
+- [LP-0019: Taker Reliability for Atomic Swaps](./LP-0019-atomic-swap-maker-reputation.md)
+  — companion prize, the dual problem (taker exposure to maker misbehaviour). A
+  submission may consume LP-0019's reputation primitive as part of its design.
 
 ## Potential for Subsequent λPrizes
 
-If this prize is awarded for a LEZ↔BTC-only mechanism, a follow-up prize may be
-opened for LEZ↔XMR coverage once non-disclosing Monero proof primitives (FCMP++
-or equivalent) reach production-ready status, since LEZ↔XMR has structural
-challenges (the off-LEZ lock is not observable from LEZ) that this prize does
-not require solvers to address.
+If this prize is awarded for an XMR↔LEZ mechanism, follow-up prizes may cover
+other pairs (LEZ↔BTC, LEZ↔ETH) where the locks-first constraint is less
+restrictive and the spam-protection design space differs.
