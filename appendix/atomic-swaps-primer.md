@@ -145,7 +145,7 @@ scheme, which is a work-in-progress"*. Five years later, no peer-reviewed
 Monero-endorsed CLSAG-adaptor construction has been published, and the Monero
 project is not pursuing one. Treat XMR-first BTC↔XMR atomic swaps as
 structurally unavailable for the foreseeable horizon. Source:
-[`projects/xmr-first-required-monero-features.md`](https://github.com/marclawclaw/research-cross-chain-dex)
+[`projects/xmr-first-required-monero-features.md`](https://github.com/marclawclaw/research-cross-chain-dex/blob/main/projects/xmr-first-required-monero-features.md)
 documents the underlying primary sources; this primer summarises.
 
 The economic draining-attack analysis (Hoenisch and del Pino 2021 §4)
