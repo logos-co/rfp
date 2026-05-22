@@ -80,7 +80,7 @@ single-sub-case mechanism is sufficient to win.
 
 The atomic-swap branch of the cross-chain DEX design tree has a known structural
 weakness on the free-option / spam-the-maker problem. The Logos cross-chain DEX
-bundle (RFPs 021, 024, 025) keeps the vanilla RFP-003 atomic swap as the
+bundle (RFPs 021, 024, 025, 026) uses the vanilla RFP-003 atomic swap as the
 privacy-non-custodial primitive, but vanilla atomic swaps remain economically
 unattractive for makers at scale because of the spam exposure. Without a
 credible spam-protection mechanism, the maker side of the LEZ atomic-swap market

@@ -10,10 +10,10 @@ category: Applications & Integrations
 # RFP-021 — Cross-Chain Privacy DEX (Federated Middle Layer)
 
 > **Note:** This RFP is a *decision-stage draft*. It exists to help the Logos
-> team and the community compare cross-chain DEX designs across RFP-021 through
-> RFP-025. Hard requirements, team profile, timeline, and contracting details
-> are deliberately omitted; they will be filled in if the design is selected for
-> funding.
+> team and the community compare cross-chain DEX designs across RFP-021,
+> RFP-024, RFP-025, and RFP-026. Hard requirements, FURPS detail, team profile,
+> timeline, and contracting details are deliberately omitted; they will be
+> filled in if the design is selected for funding.
 
 ## 🧭 Overview
 
@@ -36,33 +36,6 @@ before the middle chain even sees them.
 This is the most ambitious option in the cross-chain bundle. It is also the one
 with the strongest empirical case (volume, user experience, asset coverage) and
 the strongest custody risk.
-
-## Desired properties
-
-- **Native cross-chain swap.** User deposits BTC, ETH, or XMR; receives the
-  destination asset on the destination chain in a single user action. No wrapped
-  tokens linger on LEZ after the swap.
-- **AMM-style liquidity.** A single ordered state machine maintains pool
-  invariants (`xy=k` or comparable). Large swaps clear against pooled liquidity,
-  not against a per-trade counterparty.
-- **One-step UX.** Deposit-with-memo, await outbound. No counterparty
-  interactivity, no refund flows, no online-availability requirement past
-  broadcast.
-- **Bonded validator set with slashable misbehaviour.** Validators stake against
-  the assets they custody; the bond-to-custodied-value ratio is enforced in
-  protocol (Serai uses a 33% custody cap; Thorchain uses 2:1 bonded plus 1:1
-  pooled).
-- **LEZ-native privacy execution.** Shielded swap intents (the user's swap is a
-  commitment, not a public memo); sealed-bid batch matching with threshold
-  decryption (collapses identity-based front-running); stealth outbound
-  addresses on destination chains (breaks destination-chain clustering even for
-  chains with no native privacy).
-- **Permissioned-by-stake but censorship-resistant.** Anyone can join the
-  validator set by posting the required stake; validator-set rotation occurs on
-  a known cadence (Thorchain churns every 3 days; Serai per session).
-- **Emergency halt mechanism.** Used three times in Thorchain's history; the
-  protocol must be able to freeze outbounds on suspected custody compromise or
-  consensus fault.
 
 ## High-level functionality and flow
 
@@ -204,10 +177,12 @@ solvency or signing failure.
   LEZ. RFP-021 is *cross-chain* with vault custody. Distinct scopes; the two
   could ship in parallel and serve different user journeys (intra-LEZ shielded
   trading vs cross-chain settlement).
-- **RFP-024 (sXMR pure)** and **RFP-025 (sXMR with SLA)** target a different
-  product: synthetic XMR exposure inside LEZ DeFi, with atomic-swap redemption
-  to real XMR. They are orthogonal to RFP-021 and could ship alongside it,
-  sharing the same LEZ privacy primitives.
+- **RFP-024 (sXMR CDP-backed)**, **RFP-025 (sXMR real-XMR multisig)**, and
+  **RFP-026 (sXMR atomic-swap redemption)** target a different product:
+  synthetic XMR exposure inside LEZ DeFi. They are orthogonal to RFP-021 and
+  could ship alongside it, sharing the same LEZ privacy primitives. RFP-025
+  shares the federated-signer custody pattern with RFP-021 and could share
+  signer-set infrastructure.
 
 See
 [appendix/cross-chain-trust-model-contrast.md](../appendix/cross-chain-trust-model-contrast.md)
