@@ -4,59 +4,63 @@ title: Privacy-Preserving Decentralized Exchange (DEX)
 tier: XL
 funding: $XXXXX
 status: open
+dependencies:
+  - id: LP-0013
+    reason: Hard blocker. Token transfer-authority primitives are required for the DEX program to custody pool reserves, pay swap output, return LP deposits, and route trading fees. Currently open.
+  - id: LP-0015
+    reason: General cross-program calls via tail calls, used to compose token transfers with reserve and state updates within a single atomic swap. Delivered (closed).
+  - id: LP-0014
+    reason: Associated Token Accounts for user-facing token accounts (requirement F.8). Delivered (closed).
+  - id: LP-0012
+    reason: Structured event emission, used by the pool analytics view and third-party indexers to observe pool state changes. Delivered (closed).
 category: Applications & Integrations
 ---
-
 
 # RFP-004 — Privacy-Preserving Decentralized Exchange (DEX)
 
 ## 🧭 Overview
 
-Build a decentralized exchange on LEZ with public AMM liquidity pools.
-Users with public accounts interact with the DEX directly. Users with
-private accounts interact via the deshield→swap→re-shield pattern: the
-SDK deshields tokens to a fresh ephemeral public account, executes the
-swap in a public pool, and re-shields the output back to the user's
-private account. When interacting from a private account, the origin
-and destination of funds are not traceable on-chain, protecting user
-identity without requiring private pool state.
+Build a decentralized exchange on LEZ with public AMM liquidity pools. Users
+with public accounts interact with the DEX directly. Users with private accounts
+interact via the deshield→swap→re-shield pattern: the SDK deshields tokens to a
+fresh ephemeral public account, executes the swap in a public pool, and
+re-shields the output back to the user's private account. When interacting from
+a private account, the origin and destination of funds are not traceable
+on-chain, protecting user identity without requiring private pool state.
 
-A DEX is the most critical application for any new chain ecosystem.
-On Ethereum, Uniswap has processed over $3.4 trillion in cumulative
-volume and holds ~$6.8B in TVL; on Solana, Jupiter has routed over $1
-trillion in cumulative volume, and Solana DEXes processed $326B in Q3
-2025 alone. Trading is the primary activity that bootstraps economic
-activity on any chain.
+A DEX is the most critical application for any new chain ecosystem. On Ethereum,
+Uniswap has processed over $3.4 trillion in cumulative volume and holds ~$6.8B
+in TVL; on Solana, Jupiter has routed over $1 trillion in cumulative volume, and
+Solana DEXes processed $326B in Q3 2025 alone. Trading is the primary activity
+that bootstraps economic activity on any chain.
 
-On transparent chains, this trading comes with severe downsides:
-front-running and sandwich attacks extract hundreds of millions in MEV
-from ordinary users. On LEZ, when users interact from a private account, their identity is
-never linked to a swap on-chain — observers see a trade from an
-ephemeral public account with no prior history, making identity-based
-front-running and wallet-profiling impossible. Sandwich attacks,
-back-running, and CEX-DEX arbitrage remain possible as they depend on
-trade size and pool state rather than user identity; mitigating these
-is out of scope for this RFP. This is a meaningful privacy improvement
-and a key differentiator for the Logos ecosystem.
+On transparent chains, this trading comes with severe downsides: front-running
+and sandwich attacks extract hundreds of millions in MEV from ordinary users. On
+LEZ, when users interact from a private account, their identity is never linked
+to a swap on-chain — observers see a trade from an ephemeral public account with
+no prior history, making identity-based front-running and wallet-profiling
+impossible. Sandwich attacks, back-running, and CEX-DEX arbitrage remain
+possible as they depend on trade size and pool state rather than user identity;
+mitigating these is out of scope for this RFP. This is a meaningful privacy
+improvement and a key differentiator for the Logos ecosystem.
 
-The team building this should have deep experience in AMM or order-book
-design, SVM program development, and MEV-resistant trading mechanisms.
+The team building this should have deep experience in AMM or order-book design,
+SVM program development, and MEV-resistant trading mechanisms.
 
 ## 🔥 Why This Matters
 
-Without a DEX on LEZ, users who bridge assets and hold them in private
-accounts have no way to trade without moving funds off-chain or to a
-centralised exchange, breaking the privacy guarantees that private
-accounts provide. A LEZ-native DEX is the missing link between bridging
-assets in and participating in a private economy.
+Without a DEX on LEZ, users who bridge assets and hold them in private accounts
+have no way to trade without moving funds off-chain or to a centralised
+exchange, breaking the privacy guarantees that private accounts provide. A
+LEZ-native DEX is the missing link between bridging assets in and participating
+in a private economy.
 
-Privacy also enables structural fairness. On Ethereum, ~$290M was
-extracted via sandwich attacks in 2025; on Solana, $370–500M over a
-16-month period. While solutions like Flashbots (Ethereum) and Jito's
-DontFront (Solana) mitigate MEV, they are afterthoughts bolted onto
-transparent systems. On LEZ, MEV resistance is a first-class property
-of the execution environment, making the DEX inherently fairer for all
-participants.
+Privacy also enables structural fairness. On Ethereum, ~$290M was extracted via
+sandwich attacks in 2025; on Solana, $370–500M over a 16-month period. While
+solutions like Flashbots (Ethereum) and Jito's DontFront (Solana) mitigate MEV,
+they are afterthoughts bolted onto transparent systems. On LEZ, MEV resistance
+is a first-class property of the execution environment, making the DEX
+inherently fairer for all participants.
 
 ## ✅ Scope of Work
 
@@ -64,166 +68,268 @@ participants.
 
 #### Functionality
 
-1. Implement an automated market maker (AMM) program on LEZ with
-   public liquidity pools supporting the deshield→swap→re-shield
-   interaction pattern for privacy-preserving trading.
+1. Implement an automated market maker (AMM) program on LEZ with public
+   liquidity pools supporting the deshield→swap→re-shield interaction pattern
+   for privacy-preserving trading.
 2. Support creation of liquidity pools for arbitrary token pairs.
-3. Liquidity providers can add and withdraw liquidity directly from a
-   public account, or via the deshield→interact→reshield pattern from
-   a private account. The LP position is public on-chain; when using a
-   private account, which private account originated or received the
-   funds is not traceable.
+3. Liquidity providers can add and withdraw liquidity directly from a public
+   account, or via the deshield→interact→reshield pattern from a private
+   account. The LP position is public on-chain; when using a private account,
+   which private account originated or received the funds is not traceable.
 4. Traders can swap tokens directly from a public account, or via the
-   deshield→swap→re-shield pattern from a private account. Trade size
-   and direction are visible on-chain; when using a private account,
-   which private account originated the funds or where they go after
-   re-shielding is not traceable.
-5. Traders and LPs using public accounts can interact with the same
-   pools; their transactions are executed transparently on-chain
-   (standard public account behaviour).
-6. The pool creator selects a fee tier at pool creation time (e.g.,
-   0.01%, 0.05%, 0.3%, 1%); the fee tier is immutable per pool.
-   Multiple pools for the same token pair with different fee tiers
-   can coexist. Trading fees are paid by the trader and distributed
-   to LPs.
-7. Implement slippage protection with user-configurable tolerance and
-   minimum output guarantees.
-8. Use Associated Token Accounts (ATAs) for all token interactions —
-   pool token accounts, LP token accounts, and trader token accounts
-   must use the deterministic ATA derivation per `(owner, mint)` pair
-   (see [LP-0014](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0014.md)).
+   deshield→swap→re-shield pattern from a private account. Trade size and
+   direction are visible on-chain; when using a private account, which private
+   account originated the funds or where they go after re-shielding is not
+   traceable.
+5. Traders and LPs using public accounts can interact with the same pools; their
+   transactions are executed transparently on-chain (standard public account
+   behaviour).
+6. The pool creator selects a fee tier at pool creation time (e.g., 0.01%,
+   0.05%, 0.3%, 1%); the fee tier is immutable per pool. Multiple pools for the
+   same token pair with different fee tiers can coexist. Trading fees are paid
+   by the trader and distributed to LPs.
+7. Implement slippage protection with user-configurable tolerance and minimum
+   output guarantees.
+8. The DEX program must be compatible with Associated Token Accounts (ATAs) for
+   user-facing token accounts: when a trader or LP supplies an ATA derived per
+   `(owner, mint)` pair (see
+   [LP-0014](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0014.md)),
+   the program must accept it without requiring an alternative derivation. ATAs
+   must not be forced on users; the program must also accept any valid SPL token
+   account owned by the caller. Pool-side vault accounts may use program-derived
+   addresses (PDAs) rather than ATAs, matching Solana DEX practice.
+9. Implement a permissionless `sync()` function that updates a pool's cached
+   reserves to match the actual vault token balances, absorbing any surplus from
+   unsolicited transfers into the pool for the benefit of LPs. See
+   [Appendix: DEX Ecosystem Behaviour, section 10](../appendix/dex-ecosystem-behaviour.md#10-reserve-reconciliation-sync-and-skim)
+   for rationale and ecosystem precedent.
 
 #### Usability
 
-1. Provide an SDK that can be used to build Logos modules for
-   interacting with the DEX (swapping, pool creation, liquidity
-   management). When the user interacts from a private account, the
-   SDK must handle the atomic deshield — transferring both the swap
-   token and a small amount of native token for gas — as a single
-   indivisible action, preventing accidental privacy leaks from
+1. Provide an SDK that can be used to build Logos modules for interacting with
+   the DEX (swapping, pool creation, liquidity management). When the user
+   interacts from a private account, the SDK must handle the atomic deshield —
+   transferring both the swap token and a small amount of native token for gas —
+   as a single indivisible action, preventing accidental privacy leaks from
    externally funding account A.
-2. Provide a Logos mini-app GUI with local build instructions,
-   downloadable assets, and loadable in Logos app (Basecamp) via
-   git repo.
-3. Provide a pool analytics view showing aggregate volume, TVL, and
-   fee revenue without revealing individual positions.
-4. Documentation must clearly explain what information is public vs.
-   private for each action (trade size and pool used are visible
-   on-chain; the private account that originated or receives the funds
-   is not traceable).
-5. Failed or rejected swaps must return clear, actionable error messages.
-6. Provide an IDL for the DEX program, preferably using the
+2. Provide a Logos mini-app GUI with local build instructions, downloadable
+   assets, and loadable in Logos app (Basecamp) via git repo.
+3. Provide a CLI that covers core functionality of the program (pool creation,
+   swapping, LP management). The CLI may have fewer features than the GUI
+   mini-app but must support all essential operations.
+4. Provide an IDL for the DEX program, preferably using the
    [SPEL framework](https://github.com/logos-co/spel).
-7. Before each swap or liquidity operation, the mini-app must show the
-   estimated transaction fee. When the user interacts from a private
-   account, it must also confirm that the shielded balance covers both
-   the operation amount and fees within the single deshield action; a
-   clear, actionable error must be shown if the balance is insufficient
-   — preventing partial deshields that could leave funds stranded in
-   an ephemeral account.
-8. The mini-app must display a swap preview before the user confirms:
-   estimated output amount, effective price, price impact, and fee
-   taken — so the user can evaluate the trade before confirming.
+5. Provide a pool analytics view showing aggregate volume, TVL, and fee revenue
+   without revealing individual positions.
+6. Documentation must clearly explain what information is public vs. private for
+   each action (trade size and pool used are visible on-chain; the private
+   account that originated or receives the funds is not traceable).
+7. Failed or rejected swaps must return clear, actionable error messages.
+8. Before each swap or liquidity operation, the mini-app must show the estimated
+   transaction fee. When the user interacts from a private account, it must also
+   confirm that the shielded balance covers both the operation amount and fees
+   within the single deshield action; a clear, actionable error must be shown if
+   the balance is insufficient (preventing partial deshields that could leave
+   funds stranded in an ephemeral account).
+9. The mini-app must display a swap preview before the user confirms: estimated
+   output amount, effective price, price impact, and fee taken, so the user can
+   evaluate the trade before confirming.
 
 #### Reliability
 
-1. Pool state must remain consistent under concurrent swap submissions;
-   no double-spend or incorrect pool balance.
+1. Pool state must remain consistent under concurrent swap submissions; no
+   double-spend or incorrect pool balance.
 
 #### Performance
 
-1. A swap against an existing pool completes within a single LEZ
-   transaction.
-2. The transaction size of each operation (swap, add/remove
-   liquidity, pool creation) must be documented; LEZ's block size is
-   limited and this budget may change during testnet.
-3. Pool creation and liquidity operations complete within a single
-   transaction each.
+1. A swap against an existing pool completes within a single LEZ transaction.
+2. Pool creation and liquidity operations complete within a single transaction
+   each.
+3. Compute unit usage and transaction size of each operation (swap, add
+   liquidity, remove liquidity, pool creation) must be documented and
+   benchmarked against LEZ devnet limits; LEZ's per-transaction compute budget
+   and block size may change during testnet.
 
 #### Supportability
 
 1. The DEX program is deployed and tested on LEZ devnet/testnet.
-2. End-to-end integration tests run against a LEZ sequencer (standalone
-   mode) and are included in CI — CI must be green on the default
-   branch.
-3. Every hard requirement in Functionality, Usability, Reliability,
-   and Performance has at least one corresponding test.
-4. A README documents end-to-end usage: deployment steps, program
-   addresses, and step-by-step instructions for interacting with the
-   DEX via CLI and front-end (pool creation, swapping, LP management).
-5. Submit a [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-   for the SDK, covering the developer integration journey for swapping,
-   pool creation, and liquidity management.
-6. Provide Figma designs or equivalent for the mini-app GUI.
+2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
+   and are included in CI.
+3. CI must be green on the default branch.
+4. Every hard requirement in Functionality, Usability, Reliability, and
+   Performance has at least one corresponding test.
+5. A README documents end-to-end usage: deployment steps, program addresses, and
+   step-by-step instructions for interacting with the DEX via CLI and front-end
+   (pool creation, swapping, LP management).
+6. Submit a
+   [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+   for the SDK, covering the developer integration journey for pool creation,
+   swapping, and liquidity management.
+7. Submit a
+   [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+   for the CLI, covering the core operator/user journey.
+8. Provide Figma designs or equivalent for the mini-app GUI.
 
 #### + Privacy
 
-1. The mini-app and SDK must support both direct public account
-   interaction and the deshield→swap→re-shield pattern for private
-   account interaction. When a user interacts from a private account,
-   the SDK must enforce the complete deshield→swap→re-shield pattern
-   — the re-shield step must not be skippable.
-2. When interacting from a private account, the mini-app must display
-   a pre-confirmation summary for each operation that clearly
-   identifies what will be visible on-chain (trade size, direction,
-   pool address, ephemeral intermediary account) and what will remain
-   private (the originating private account, the destination of
-   re-shielded tokens, and any link between separate swaps by the
-   same user).
-3. When interacting from a private account, the SDK must validate
-   that the target account for re-shielding swap output is a private
-   (shielded) account before submitting the transaction, and reject
-   the operation with an explicit error if it is not.
-4. The ephemeral public account (account A) created during the
-   deshield step must never be reused across operations. Each swap
-   or liquidity operation from a private account must use a freshly
-   generated account with no prior on-chain history.
+1. The mini-app and SDK must support both direct public account interaction and
+   the deshield→swap→re-shield pattern for private account interaction. When a
+   user interacts from a private account, the SDK must enforce the complete
+   deshield→swap→re-shield pattern — the re-shield step must not be skippable.
+2. When interacting from a private account, the mini-app must display a
+   pre-confirmation summary for each operation that clearly identifies what will
+   be visible on-chain (trade size, direction, pool address, ephemeral
+   intermediary account) and what will remain private (the originating private
+   account, the destination of re-shielded tokens, and any link between separate
+   swaps by the same user).
+3. When interacting from a private account, the SDK must validate that the
+   target account for re-shielding swap output is a private (shielded) account
+   before submitting the transaction, and reject the operation with an explicit
+   error if it is not.
+4. The ephemeral public account (account A) created during the deshield step
+   must never be reused across operations. Each swap or liquidity operation from
+   a private account must use a freshly generated account with no prior on-chain
+   history.
+
+### Soft Requirements
+
+If possible.
+
+#### Functionality
+
+1. Support multi-hop routing across multiple pools within a single transaction
+   (e.g. flash-accounting style settlement of intermediate hops), reducing
+   slippage on token pairs without a direct pool.
+
+### Out of Scope
+
+The following are explicitly excluded from this RFP:
+
+- A `skim()` or `recoverSurplus()` instruction that extracts surplus tokens from
+  a pool's vault to a caller-specified address. Surplus reconciliation is
+  handled exclusively by the permissionless `sync()` function (Functionality
+  requirement F.9), which folds surplus into the pool to benefit LPs. Among
+  surveyed protocols, only Uniswap V2 exposes a `skim()`-style instruction;
+  Uniswap V4, Balancer V3, Curve StableSwapNG, Raydium, and Orca Whirlpools do
+  not. See
+  [Appendix: DEX Ecosystem Behaviour, section 10](../appendix/dex-ecosystem-behaviour.md#10-reserve-reconciliation-sync-and-skim).
 
 ### Privacy Architecture
 
-All DEX liquidity pools are public on-chain state. User privacy is
-enforced at the UX layer for private account users. The mini-app and
-SDK support both direct public account interaction and private account
-interaction via the deshield→swap→re-shield pattern. When a user
-interacts from a private account, the SDK must enforce the complete
-pattern as described below.
+All DEX liquidity pools are public on-chain state. User privacy is enforced at
+the UX layer for private account users. The mini-app and SDK support both direct
+public account interaction and private account interaction via the
+deshield→swap→re-shield pattern. When a user interacts from a private account,
+the SDK must enforce the complete pattern as described below.
 
 #### Interaction flow
 
-For every protocol operation initiated from a private account (swap, add/remove liquidity):
+For every protocol operation initiated from a private account (swap, add/remove
+liquidity):
 
-1. The user initiates the action from their private account. The SDK
-   deshields to a **fresh, single-use** public account (account A)
-   with no prior on-chain history. The deshield atomically transfers
-   both the operation token **and** enough native token for gas in a
-   single indivisible action.
+1. The user initiates the action from their private account. The SDK deshields
+   to a **fresh, single-use** public account (account A) with no prior on-chain
+   history. The deshield atomically transfers both the operation token **and**
+   enough native token for gas in a single indivisible action.
 2. Account A executes the operation in a public pool.
-3. Account A shields any outputs (swap proceeds, withdrawn liquidity)
-   back to the user's private account. Account A is never reused.
+3. Account A shields any outputs (swap proceeds, withdrawn liquidity) back to
+   the user's private account. Account A is never reused.
 
-> **Gas:** Both the operation token and gas must come exclusively from
-> the deshield in step 1. Funding account A from any external source
-> — such as a CEX withdrawal or a known wallet — creates an on-chain
-> link to an existing identity and breaks the privacy guarantee. The
-> SDK must make this impossible; the atomic deshield is a single,
-> indivisible user action.
+> **Gas:** Both the operation token and gas must come exclusively from the
+> deshield in step 1. Funding account A from any external source — such as a CEX
+> withdrawal or a known wallet — creates an on-chain link to an existing
+> identity and breaks the privacy guarantee. The SDK must make this impossible;
+> the atomic deshield is a single, indivisible user action.
 
 #### What is public (observable on-chain)
 
-- All pool state: token pair, fee tier, total TVL, cumulative volume,
-  current price.
+- All pool state: token pair, fee tier, total TVL, cumulative volume, current
+  price.
 - All swap and liquidity transactions: trade size, direction, and the
-  originating account address (the ephemeral intermediary account for
-  private account interactions, the user's public account otherwise).
+  originating account address (the ephemeral intermediary account for private
+  account interactions, the user's public account otherwise).
 - LP position sizes and fee earnings.
 
 #### What is private
 
 - Which private account originated the funds for a swap or LP deposit.
 - Where output tokens go after re-shielding.
-- Any link between multiple operations by the same user (no on-chain
-  linkability across ephemeral accounts).
+- Any link between multiple operations by the same user (no on-chain linkability
+  across ephemeral accounts).
 
+## ⚠ Platform Dependencies
+
+This RFP is open for proposals. Proposers may begin design and development work,
+but a working on-chain deployment depends on the primitives below. The privacy
+primitives are core LEE features; the token-program and runtime primitives are
+tracked as lambda prizes.
+
+### Hard blockers
+
+These must be available on LEZ before the DEX can hold liquidity and settle
+swaps on-chain.
+
+#### Token authorities (LP-0013)
+
+The DEX program is a token custodian: it holds pool reserves for each token
+pair, pays swap output to traders, returns deposits to LPs on withdrawal, and
+routes trading fees to LPs. This requires the transfer-authority primitives in
+[LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md),
+currently **open**.
+
+### Resolved dependencies
+
+These primitives were once blockers but are now delivered on LEZ, so they no
+longer gate this RFP. They remain in the dependencies index for reference.
+
+#### General cross-program calls (LP-0015)
+
+A swap must transfer the input token into the pool vault, compute the output
+using the constant-product formula, transfer the output token to the trader, and
+update cached reserves, all within one atomic transaction. General cross-program
+calls via tail calls let the operation continue into a protected continuation
+after each token transfer.
+[LP-0015](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0015.md)
+is **closed**, delivered by the LEZ team as part of the core runtime.
+
+#### Associated Token Accounts (LP-0014)
+
+User-facing token accounts use the deterministic ATA derivation per
+`(owner, mint)` pair (Functionality requirement F.8).
+[LP-0014](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0014.md)
+is **closed**.
+
+#### Event emission (LP-0012)
+
+The pool analytics view (Usability requirement) and any third-party indexer
+observe pool state changes (swaps, liquidity added or removed) through
+structured events rather than polling every account.
+[LP-0012](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md)
+is **closed**.
+
+### Privacy primitives
+
+The deshield→swap→re-shield pattern relies on LEE private accounts and the
+atomic deshield action described in the Scope of Work. These are core LEE
+features rather than lambda prizes; proposers should confirm the current state
+of private-account support on LEZ devnet against the Resources below before
+relying on it.
+
+### Risks
+
+#### Compute budget
+
+LEZ currently processes one private transaction per block (as of 2026-04). A
+swap that deshields, transfers into the pool vault, computes output, transfers
+output, re-shields, and updates reserves is compute-intensive. On Solana, where
+the per-instruction default is 200,000 compute units and the per-transaction
+maximum is 1.4M compute units (see
+[Solana compute budget](https://solana.com/docs/core/fees/compute-budget)), a
+multi-step settlement consumes hundreds of thousands of compute units; the exact
+figure for LEZ depends on the implementation. If LEZ's per-transaction compute
+budget is lower, multi-hop routing (the soft Functionality requirement) may not
+fit in a single transaction. Performance requirement P.3 requires benchmarking
+each operation against LEZ devnet limits.
 
 ## 👤 Recommended Team Profile
 
@@ -241,11 +347,9 @@ Team experienced with:
 Estimated duration: **14 weeks** (Uniswap V2 equivalent with
 deshield→swap→re-shield support).
 
-
 ## 🌍 Open Source Requirement
 
 All code must be released under the **MIT+Apache2.0 dual License**.
-
 
 ## Resources
 
@@ -257,5 +361,5 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 
 **[Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml)**
 
-We typically respond within **14 days**. For clarification questions,
-please use **Discussions**.
+We typically respond within **14 days**. For clarification questions, please use
+**Discussions**.
