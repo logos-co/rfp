@@ -401,13 +401,177 @@ ID-based risk caps and timelocks.
 | Market exposure             | Adapter-based; broad set of enabled markets per vault                                                                                                                                            |
 | Risk caps                   | ID-based: cap absolute or relative exposure to any risk id (collateral asset, market, protocol)                                                                                                  |
 | Roles                       | Owner, Curator, Allocator, Sentinel + configurable role segregation for institutional separation-of-duties                                                                                       |
-| Timelock                    | 24h minimum on risk-relevant changes                                                                                                                                                             |
+| Timelock                    | Per-selector, configurable from 0 (default at creation) up to an overflow-bounded maximum (~3 weeks); no protocol-enforced minimum (see notes below). Cap decreases and Sentinel revoke are instant |
 | Inflation attack mitigation | ERC-4626 virtual offset                                                                                                                                                                          |
 | Redemption                  | Standard ERC-4626 plus **in-kind redemption via flash loan** (`forceDeallocate`) so depositors are never locked in by underlying market illiquidity; a curator-configurable exit penalty applies |
 
 Source:
 [Morpho Vaults V2 announcement](https://morpho.org/blog/morpho-vaults-v2-a-new-standard-for-asset-curation/),
 [Morpho Vaults V2 docs](https://docs.morpho.org/morpho-vaults/).
+
+#### Allocation and liquidity mechanics (Vaults V2)
+
+Vaults V2 replaces MetaMorpho V1's ordered supply-queue and withdraw-queue model
+with an adapter-based router. There are **no ordered supply or withdraw queues**
+in V2.
+
+**Adapters.** A vault allocates assets to underlying markets via separate
+contracts called adapters: "Vaults allocate assets to underlying markets via
+separate contracts called adapters. They hold positions on behalf of the vault"
+([liquidity curation docs](https://docs.morpho.org/curate/concepts/liquidity/)).
+An adapter is the translation layer between the vault and a specific protocol; it
+also reports the current value of allocated assets, so that interest and loss are
+visible to the vault: "Adapters are also used to know how much these investments
+are worth (interest and loss realization)"
+([vault-v2 README](https://github.com/morpho-org/vault-v2/blob/main/README.md)).
+The adapter architecture is what lets a vault remain immutable while staying
+compatible with current and future Morpho protocols: "Vaults V2's flexible
+adapter architecture allows them to remain immutable while automatically being
+compatible with all current and future Morpho protocols without requiring
+upgrades or migrations"
+([Vaults V2 announcement](https://morpho.org/blog/morpho-vaults-v2-a-new-standard-for-asset-curation/)).
+
+**allocate / deallocate.** Allocators move funds in and out of enabled adapters:
+"Allocate capital from the vault's idle assets to enabled Adapters (`allocate`)"
+and "Deallocate capital from Adapters back to the vault's idle assets
+(`deallocate`)"
+([roles docs](https://docs.morpho.org/morpho-vaults/concepts/roles/)). Idle
+assets are simply the vault's own token balance.
+
+**liquidityAdapter.** The Allocator can designate one enabled adapter as the
+vault's `liquidityAdapter`, which routes ordinary user flows: "Set and manage the
+`liquidityAdapter` to handle user deposits and withdrawals"
+([roles docs](https://docs.morpho.org/morpho-vaults/concepts/roles/)). On the
+deposit side, "All new user deposits are automatically routed to this adapter,
+ensuring capital is immediately put to work"; on the withdrawal side, "If the
+vault's idle assets are insufficient to cover a user's withdrawal, assets are
+automatically pulled from this adapter"
+([liquidity curation docs](https://docs.morpho.org/curate/concepts/liquidity/)).
+When the liquidity adapter is set it is "also used to forward deposited funds".
+
+**setMaxRate (maximum growth rate).** An allocator-set ceiling caps how fast the
+vault's accounting can grow: "Set the maximum rate at which assets can grow
+(`setMaxRate`)"
+([roles docs](https://docs.morpho.org/morpho-vaults/concepts/roles/)). "The
+vault's share price will not increase faster than the allocator-set `maxRate`"
+([liquidity curation docs](https://docs.morpho.org/curate/concepts/liquidity/)).
+In the contract this is enforced inside interest accrual:
+`maxTotalAssets = _totalAssets + (_totalAssets * elapsed).mulDivDown(maxRate, WAD)`
+([VaultV2.sol](https://github.com/morpho-org/vault-v2/blob/main/src/VaultV2.sol)).
+
+#### ID-based risk caps (Vaults V2)
+
+Risk is bounded by caps keyed to a risk `id` rather than to individual markets.
+A risk id is a shared risk factor such as a collateral asset, a market, or a
+protocol: "A newly developed ID system lets curators set both absolute and
+relative caps based on shared risk factors (collateral assets, markets,
+protocols)"
+([Vaults V2 announcement](https://morpho.org/blog/morpho-vaults-v2-a-new-standard-for-asset-curation/)).
+The announcement gives a concrete example: "a curator could cap total stETH
+exposure across all markets to $50M while limiting individual stETH markets to a
+maximum of $30M each".
+
+Caps come in two kinds and are enforced differently: "Allocation on markets with
+a common id is limited by absolute caps and relative caps. Relative caps only
+constrain allocations, so they can be exceeded because of withdrawals from the
+vault"
+([liquidity curation docs](https://docs.morpho.org/curate/concepts/liquidity/)).
+That is, an absolute cap is a hard ceiling on exposure to an id, while a relative
+cap constrains the `allocate` action only and so may be temporarily breached when
+withdrawals shrink the vault rather than by any new allocation.
+
+Cap changes are asymmetric in direction. Increasing a cap is timelocked, while
+decreasing it is instant: "Increase absolute or relative caps for any risk `id`"
+is `[Timelocked]`, whereas the Curator can "Instantly decrease absolute or
+relative caps" and a Sentinel can "Instantly decrease absolute or relative caps
+for any risk `id`"
+([roles docs](https://docs.morpho.org/morpho-vaults/concepts/roles/)).
+
+#### forceDeallocate (in-kind redemption via flash loan)
+
+A permissionless `forceDeallocate` lets anyone pull assets out of an adapter back
+to the vault's idle balance so that a depositor can always exit, even when the
+vault holds no spare idle liquidity: "Users can redeem in-kind thanks to the
+`forceDeallocate` function: flashloan liquidity, supply it to an adapter's
+market, and withdraw the liquidity through `forceDeallocate` before repaying the
+flashloan"
+([liquidity curation docs](https://docs.morpho.org/curate/concepts/liquidity/)).
+The announcement frames the same mechanism: "Through flash loan-powered
+redemptions, users can withdraw their position even when the vault lacks
+immediate liquidity. This lets users exit a vault anytime by converting vault
+receipt tokens directly into underlying market positions"
+([Vaults V2 announcement](https://morpho.org/blog/morpho-vaults-v2-a-new-standard-for-asset-curation/)).
+
+The curator configures an exit penalty per adapter, capped at 2%: "A penalty for
+using forceDeallocate can be set per adapter, of up to 2%"
+([liquidity curation docs](https://docs.morpho.org/curate/concepts/liquidity/)).
+Setting that penalty is itself a timelocked curator action
+([timelock docs](https://docs.morpho.org/curate/concepts/timelock/)).
+
+#### Timelock (Vaults V2)
+
+Risk-increasing curator actions must be submitted, wait out a timelock, and only
+then be executed: "Curator configuration changes are all timelockable (except
+`decreaseAbsoluteCap` and `decreaseRelativeCap`), meaning that doing an action
+requires submitting it first, and only when the timelock has passed it can be
+executed (by anyone)"
+([vault-v2 README](https://github.com/morpho-org/vault-v2/blob/main/README.md)).
+Execution after expiry is permissionless: "Once the timelock duration has passed,
+anyone can call the function to execute the proposed change, making it final"
+([timelock docs](https://docs.morpho.org/curate/concepts/timelock/)).
+
+Timelocks are configured per action and are described as "configurable (0 to 3
+weeks)"
+([timelock docs](https://docs.morpho.org/curate/concepts/timelock/)). In the
+contract, timelocks are stored per selector
+(`mapping(bytes4 selector => uint256) public timelock`) rather than as a single
+global value
+([VaultV2.sol](https://github.com/morpho-org/vault-v2/blob/main/src/VaultV2.sol)).
+Cap **decreases** by the Curator or Sentinel, and the Sentinel's `revoke` of a
+pending action, are not timelocked and take effect immediately
+([roles docs](https://docs.morpho.org/morpho-vaults/concepts/roles/)).
+
+The "24h minimum" figure is the MetaMorpho **V1** rule, where "after the initial
+setup, any change to the timelock must set its duration to be between 1 day and 2
+weeks" ([timelock docs](https://docs.morpho.org/curate/concepts/timelock/)). V2
+does **not** carry this rule: `VaultV2.sol` enforces no minimum timelock. Each
+action's timelock is stored per selector, defaults to zero at vault creation
+(the constructor sets all timelocks to zero so a vault can be configured
+quickly), and `increaseTimelock` / `decreaseTimelock` only require the new value
+to be respectively greater or less than the current one, with no floor. There is
+no explicit `MAX_TIMELOCK` constant; the only ceiling is the implicit overflow
+bound in `submit` (a timelock that overflows `block.timestamp + timelock`
+reverts), which the V2 announcement frames as a practical ~3 week maximum
+([VaultV2.sol](https://github.com/morpho-org/vault-v2/blob/main/src/VaultV2.sol)).
+A non-zero minimum, if desired, is a deployment-time policy choice rather than a
+protocol-enforced constant.
+
+#### Inflation-attack mitigation and loss realization (Vaults V2)
+
+**Virtual offset.** The vault carries virtual shares to blunt ERC-4626
+first-depositor inflation attacks. The constant is derived from the asset's
+decimals: `uint256 decimalOffset = uint256(18).zeroFloorSub(assetDecimals);
+virtualShares = 10 ** decimalOffset;`, exposed as
+`uint256 public immutable virtualShares`
+([VaultV2.sol](https://github.com/morpho-org/vault-v2/blob/main/src/VaultV2.sol)).
+The source also notes a complementary precaution: "In order to protect against
+inflation attacks, the vault might need to be seeded with an initial deposit"
+([VaultV2.sol](https://github.com/morpho-org/vault-v2/blob/main/src/VaultV2.sol)).
+
+**Loss / bad-debt realization for depositors.** A loss in an underlying market is
+reflected directly in the vault's share price through interest accrual: "Loss
+realization occurs in accrueInterest and decreases the total assets, causing
+shares to lose value"
+([VaultV2.sol](https://github.com/morpho-org/vault-v2/blob/main/src/VaultV2.sol)).
+Accrual is lazy (on touch): "Interest/loss are accounted only once per
+transaction (at the first interaction with the vault)"
+([VaultV2.sol](https://github.com/morpho-org/vault-v2/blob/main/src/VaultV2.sol)),
+and `totalAssets()` returns the freshly accrued figure by calling
+`accrueInterestView()`. Because each adapter reports "interest and loss
+realization", a market loss flows up through the adapter, reduces `totalAssets`,
+and lowers the per-share price for every depositor in that vault on the next
+interaction
+([vault-v2 README](https://github.com/morpho-org/vault-v2/blob/main/README.md)).
 
 #### Role semantics
 

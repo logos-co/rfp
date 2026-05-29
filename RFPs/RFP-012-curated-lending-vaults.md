@@ -18,9 +18,9 @@ protocol delivered by [RFP-008](./RFP-008-lending-borrowing-protocol.md).
 Each vault accepts deposits of a single loan token, issues transferable
 vault share tokens (LEZ fungible tokens), and allocates deposits across
 multiple Morpho-style lending markets according to a curator-defined
-strategy. This is the MetaMorpho equivalent for LEZ: a vault layer that
-abstracts isolated markets into a single deposit interface for passive
-lenders.
+strategy. This is the Morpho Vaults V2 equivalent for LEZ: a vault
+layer that abstracts isolated markets into a single deposit interface
+for passive lenders.
 
 Morpho Blue's isolated-market core is powerful but requires lenders to
 choose individual markets manually (evaluating collateral quality,
@@ -75,36 +75,46 @@ governance body.
    and receive vault shares. Users can redeem vault shares for the
    underlying loan token, subject to available liquidity across the
    vault's allocated markets.
-4. **Market allocation**: the curator (or an authorised allocator)
-   allocates vault deposits across RFP-008 lending markets. The
-   curator sets a supply cap per market, limiting the maximum amount
-   the vault can supply to each market.
-5. **Supply queue and withdraw queue**: the curator defines an ordered
-   list of markets for deposits (supply queue) and withdrawals
-   (withdraw queue). Deposits flow into markets in supply queue order
-   until each market's cap is reached. Withdrawals draw from markets
-   in withdraw queue order. The withdraw queue must cover every market
-   in the vault's allocation set, so that any liquidity supplied by
-   the vault is reachable on withdrawal.
-6. **Curator role**: the curator can update supply caps, reorder
-   queues, add or remove markets from the vault's allocation set, and
-   set a performance fee. The curator can transfer the curator role to
-   another account.
+4. **Market allocation via adapters**: the vault connects to RFP-008
+   lending markets through adapters (enabled yield sources). The curator
+   enables and disables adapters; an authorised allocator moves capital
+   from the vault's idle balance into enabled adapters (`allocate`) and
+   back to idle (`deallocate`). There is no ordered supply or withdraw
+   queue: routing is adapter-based, consistent with Morpho Vaults V2.
+5. **ID-based risk caps**: the curator sets absolute and relative caps
+   keyed to a risk id (a collateral asset, a market, or a protocol),
+   bounding the vault's maximum exposure to that risk class. Allocators
+   may reallocate only within these caps. The curator designates a
+   `liquidityAdapter` that serves user deposits and withdrawals, so that
+   any liquidity supplied by the vault is reachable on withdrawal.
+6. **Curator role**: the curator can enable or disable adapters (adding
+   or removing markets from the vault's allocation set), increase caps
+   for any risk id (subject to timelock) and instantly decrease them,
+   and set a performance fee. The curator can transfer the curator role
+   to another account. The curator cannot allocate or deallocate
+   capital directly.
 7. **Allocator role**: the curator can authorise allocator accounts
-   that may reallocate funds between the vault's approved markets
-   within the curator's supply caps. Allocators cannot change caps,
-   queues, or fees.
+   that may allocate capital from idle assets into enabled adapters and
+   deallocate it back to idle, manage the `liquidityAdapter`, and set a
+   maximum asset growth rate, all within the curator's caps. Allocators
+   cannot enable new adapters, change caps, or set fees.
 8. **Performance fee**: a configurable percentage of yield accrued by
    the vault is directed to the curator as a performance fee. The fee
    is denominated in vault shares. Lazy fee accrual (debit on claim,
    or batched mint when accrued fees cross a threshold) is acceptable
    provided supply share value and pending-fee accounting reflect
    accrued-but-unclaimed fees on read.
-9. **Timelock for parameter changes**: changes to supply caps, market
-   additions (via adapters), curator transfer, fee adjustments, and
-   sentinel appointment or rotation are subject to a configurable
-   timelock. The timelock duration is set at vault creation and is
-   immutable.
+9. **Timelock for parameter changes**: risk-increasing changes (cap
+   increases for any risk id, enabling new adapters, fee adjustments,
+   allocator additions, gate-contract changes) and sentinel appointment
+   or rotation are subject to a configurable timelock. In Morpho Vaults
+   V2 the timelock is configured per action (per selector), with no
+   protocol-enforced minimum (it can be zero, the default at creation)
+   up to an overflow-bounded maximum. Cap decreases by the curator or
+   sentinel are instant and not timelocked. Any address may execute a
+   timelocked action once its delay has expired. The applicant should
+   define a sensible minimum timelock for risk-increasing actions for
+   LEZ; this minimum is set at vault creation and is immutable.
 10. **Sentinel role** (Morpho Vaults V2 semantics): the owner can
     appoint one or more sentinels whose mandate is risk reduction
     only. A sentinel can: (a) deallocate assets from any enabled
@@ -124,8 +134,9 @@ governance body.
    built in RFP-008 are extended to surface the new vault features;
    no separate front-end is required.
 2. The GUI displays per-vault: current APY, total deposits,
-   allocated markets with individual utilisation, supply caps and
-   remaining capacity, and the curator's performance fee.
+   allocated markets with individual utilisation, risk-id caps
+   (absolute and relative) and remaining capacity, and the curator's
+   performance fee.
 3. The GUI displays per-user: vault share balance, current value
    in underlying token, and accrued yield since deposit.
 4. When interacting via a private account, the SDK must handle the
@@ -144,12 +155,15 @@ governance body.
 
 1. Vault share value (assets per share) is monotonically
    non-decreasing absent bad debt in underlying markets.
-2. Supply caps are enforced atomically; concurrent deposits cannot
-   jointly exceed a market's cap.
+2. Risk caps are enforced atomically; concurrent deposits cannot
+   jointly exceed an absolute or relative cap for any risk id.
 3. Withdrawal always succeeds if the total available liquidity across
-   the vault's allocated markets covers the requested amount, even if
-   individual markets have insufficient liquidity (the vault draws
-   from multiple markets in queue order).
+   the vault's enabled adapters covers the requested amount, even if
+   individual markets have insufficient liquidity (the vault draws from
+   multiple adapters). When underlying markets are illiquid, in-kind
+   redemption via flash loan (`forceDeallocate`) lets a depositor force
+   liquidity rather than being locked in; a curator-configurable exit
+   penalty applies, consistent with Morpho Vaults V2.
 4. **Bad-debt realisation and socialisation.** If a market in the
    vault's allocation incurs bad debt, the loss is socialised across
    all remaining vault depositors proportionally to their share at the
@@ -160,11 +174,11 @@ governance body.
    vault must track and report realised bad debt per market.
 
    This is the same realisation model Morpho uses and it has a known
-   asymmetry: under the supply queue / withdraw queue model (F5), a
+   asymmetry: under the adapter-based allocation model (F4, F5), a
    depositor who withdraws between the bad-debt event and the
-   next-touch repricing of the affected market can draw against
-   healthy markets in queue order and exit at an inflated share price,
-   passing a larger proportional loss to the depositors who remain.
+   next-touch repricing of the affected market can draw against healthy
+   adapters and exit at an inflated share price, passing a larger
+   proportional loss to the depositors who remain.
    Atomic, cross-market repricing is not feasible without
    transaction-atomic price feeds across every allocated market.
    Applicants must document this asymmetry in the privacy and
@@ -253,9 +267,9 @@ If possible.
 #### Reliability
 
 1. **Formal verification of vault invariants**: (a) vault share value
-   cannot decrease except through realised bad debt, (b) supply caps
-   are never exceeded, (c) timelock duration cannot be shortened after
-   vault creation.
+   cannot decrease except through realised bad debt, (b) no risk-id cap
+   (absolute or relative) is ever exceeded, (c) timelock duration
+   cannot be shortened after vault creation.
 
 ### Out of Scope
 
