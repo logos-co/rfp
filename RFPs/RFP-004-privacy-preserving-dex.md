@@ -265,6 +265,86 @@ For every protocol operation initiated from a private account (swap, add/remove 
   linkability across ephemeral accounts).
 
 
+## ⚠ Platform Dependencies
+
+This RFP is open for proposals. Proposers may begin design and
+development work, but a working on-chain deployment depends on the
+primitives below. The privacy primitives are core LEE features; the
+token-program and runtime primitives are tracked as lambda prizes.
+
+### Hard blockers
+
+These must be available on LEZ before the DEX can hold liquidity and
+settle swaps on-chain.
+
+#### Token authorities (LP-0013)
+
+The DEX program is a token custodian: it holds pool reserves for each
+token pair, pays swap output to traders, returns deposits to LPs on
+withdrawal, and routes trading fees to LPs. This requires the
+transfer-authority primitives in
+[LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md),
+currently **open**.
+
+### Resolved dependencies
+
+These primitives were once blockers but are now delivered on LEZ, so
+they no longer gate this RFP. They remain in the dependencies index
+for reference.
+
+#### General cross-program calls (LP-0015)
+
+A swap must transfer the input token into the pool vault, compute the
+output using the constant-product formula, transfer the output token
+to the trader, and update cached reserves, all within one atomic
+transaction. General cross-program calls via tail calls let the
+operation continue into a protected continuation after each token
+transfer.
+[LP-0015](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0015.md)
+is **closed**, delivered by the LEZ team as part of the core runtime.
+
+#### Associated Token Accounts (LP-0014)
+
+User-facing token accounts use the deterministic ATA derivation per
+`(owner, mint)` pair (Functionality requirement F.8).
+[LP-0014](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0014.md)
+is **closed**.
+
+#### Event emission (LP-0012)
+
+The pool analytics view (Usability requirement) and any third-party
+indexer observe pool state changes (swaps, liquidity added or
+removed) through structured events rather than polling every account.
+[LP-0012](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md)
+is **closed**.
+
+### Privacy primitives
+
+The deshield→swap→re-shield pattern relies on LEE private accounts and
+the atomic deshield action described in the Scope of Work. These are
+core LEE features rather than lambda prizes; proposers should confirm
+the current state of private-account support on LEZ devnet against the
+Resources below before relying on it.
+
+### Risks
+
+#### Compute budget
+
+LEZ currently processes one private transaction per block (as of
+2026-04). A swap that deshields, transfers into the pool vault,
+computes output, transfers output, re-shields, and updates reserves is
+compute-intensive. On Solana, where the per-instruction default is
+200,000 compute units and the per-transaction maximum is 1.4M compute
+units (see
+[Solana compute budget](https://solana.com/docs/core/fees/compute-budget)),
+a multi-step settlement consumes hundreds of thousands of compute
+units; the exact figure for LEZ depends on the implementation. If
+LEZ's per-transaction compute budget is lower, multi-hop routing (the
+soft Functionality requirement) may not fit in a single transaction.
+Performance requirement P.3 requires benchmarking each operation
+against LEZ devnet limits.
+
+
 ## 👤 Recommended Team Profile
 
 Team experienced with:
