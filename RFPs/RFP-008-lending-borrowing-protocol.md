@@ -134,7 +134,12 @@ products are built on.
     equivalent collateral plus a liquidation incentive. There is **no close
     factor**: a liquidator may repay any amount up to the borrower's full debt
     in a single transaction, matching Morpho Blue (which has no close factor on
-    the standard liquidation path). The liquidation incentive factor (LIF) is
+    the standard liquidation path). A liquidator specifies **either** the
+    collateral amount to seize **or** the debt amount to repay (exactly one); the
+    protocol derives the other so that the seized collateral value equals the
+    repaid debt value multiplied by the liquidation incentive factor (LIF). The
+    liquidator's profit is therefore `(LIF − 1) × repaid debt`, paid out of the
+    borrower's collateral. The liquidation incentive factor (LIF) is
     derived from the market's LLTV via the Morpho Blue formula:
     `LIF = min(M, 1 / (β·LLTV + (1−β)))` with cursor β = 0.3 and maximum bound M
     = 1.15. Higher LLTV markets yield smaller incentives; lower LLTV markets
