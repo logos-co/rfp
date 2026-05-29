@@ -5,6 +5,12 @@ labels: ["proposal", "in-review"]
 assignees: ["hackyguru"]
 
 body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Before you start
+        • Read the RFP you are applying to in full, including its **Scope of Work**, **Out of Scope**, and **Platform Dependencies** sections. The Requirement Coverage field below asks you to confirm you have.
+
   - type: input
     id: rfp-id
     attributes:
@@ -74,8 +80,8 @@ body:
     id: summary
     attributes:
       label: Project Summary
-      description: Your take on the RF and why does it matter?
-      placeholder: Provide a clear 2–4 paragraph overview.
+      description: In about 2 paragraphs, your take on why this RFP matters for the Logos ecosystem and community. What does delivering it unlock, and why is it worth doing?
+      placeholder: 2 paragraphs on the importance of this RFP for the Logos ecosystem and community.
     validations:
       required: true
 
@@ -87,22 +93,42 @@ body:
     validations:
       required: true
 
+  - type: textarea
+    id: requirement-coverage
+    attributes:
+      label: Requirement Coverage
+      description: |
+        Confirm how your proposal covers the RFP you are applying to. This is the most important field for review: it is how we check the proposal against the spec.
+
+        • Confirm that each hard requirement (Functionality, Usability, Reliability, Performance, Supportability, and any + sections such as Privacy) is covered by your milestones.
+        • Call out any hard requirement you propose to descope, with justification.
+        • Confirm you have read the RFP's Out of Scope and Platform Dependencies sections. If you plan to build something the RFP lists as Out of Scope, justify it here. If your delivery depends on an open Platform Dependency (e.g. an open LP), say how you will handle it.
+      placeholder: |
+        Functionality: F.1-F.9 covered by Milestones 1-2. Note: F.9 sync() is in Milestone 1; we do NOT implement skim()/recoverSurplus per Out of Scope.
+        Usability: SDK (M3), mini-app (M4), CLI + IDL (M3). Doc packets in M6.
+        Reliability / Performance: invariant tests (M1); compute-unit benchmarking (M6).
+        Supportability: CI, README, doc packets, Figma (M4/M6).
+        Out of Scope: acknowledged; we do not build skim()/recoverSurplus.
+        Platform Dependencies: LP-0013 (token authorities) is open; on-chain deployment in M6 assumes it lands, otherwise we deliver against a stub.
+    validations:
+      required: true
+
   - type: markdown
     attributes:
       value: |
         ## ⏱ Milestones
-        Break the project into clear milestones. For each milestone, specify:
+        Break the project into clear milestones. **Every milestone must state its own payout** (in USD); the budget field below is checked against the sum of these payouts. For each milestone, specify:
         • A short description of deliverables
         • The payout amount (in USD) upon completion
         • The estimated duration or deadline
 
-        Include an **Audit milestone** if your project handles user funds, implements cryptographic primitives, or requires a security review before mainnet deployment.
+        Include an **Audit milestone** if your project handles user funds, implements cryptographic primitives, or requires a security review before mainnet deployment. Define the audit milestone whenever it is required; its payout may be left blank if coordination is still needed to contract an auditing team (in which case it is excluded from the budget sum until set).
 
   - type: textarea
     id: milestones
     attributes:
       label: Milestones, Payout and Timeline
-      description: One milestone per block. Include payout and duration for each. Add an audit milestone if applicable.
+      description: One milestone per block. Each block must include an explicit `Payout:` line and a `Duration:` line. Add an audit milestone if applicable.
       placeholder: |
         Milestone 1 — Design and specification
         Payout: $2,000
@@ -139,16 +165,22 @@ body:
     id: experience
     attributes:
       label: Relevant Experience
-      description: Share links to shipped products GitHub repositories or prior work.
-      placeholder: URLs are preferred over resumes.
+      description: Link to specific projects or products you have shipped that are relevant to this RFP. Link the project or product itself (a repository, a live app, a published package), not a personal profile or org page.
+      placeholder: |
+        https://github.com/org/project-repo
+        https://your-shipped-app.example.com
+        https://crates.io/crates/your-published-package
     validations:
       required: true
 
-  - type: textarea
-    id: maintenance
+  - type: input
+    id: support-window
     attributes:
-      label: Post-Delivery Plan
-      description: Who maintains this project after completion and how will support be handled?
+      label: Support Window
+      description: After final delivery, for how long do you commit to fixing bugs in the delivered work?
+      placeholder: e.g. 3 months of bug fixes after final milestone
+    validations:
+      required: true
 
   - type: checkboxes
     id: permissions
