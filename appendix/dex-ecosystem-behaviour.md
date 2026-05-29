@@ -16,8 +16,8 @@ cite each protocol's own dashboards or DeFiLlama where available.
 
 | Protocol | Ecosystem | Type | TVL | Cumulative volume |
 |----------|-----------|------|-----|-------------------|
-| Uniswap V2 | Ethereum (multi-chain) | Constant-product AMM | ~$970M | $604B+ |
-| Uniswap V4 | Ethereum (~16 chains) | Singleton AMM with hooks | ~$720M | >$190B (2025) |
+| Uniswap V2 | Ethereum (multi-chain) | Constant-product AMM | ~$970M | $604B+ (V2-only; DeFiLlama) |
+| Uniswap V4 | Ethereum (~12 chains) | Singleton AMM with hooks | ~$720M | >$190B (2025) |
 | Balancer V3 | Ethereum (9 chains) | Vault-based AMM with hooks | ~$80M (post 2025-11 V2 exploit) | N/A (fee data only) |
 | Curve Finance (StableSwapNG and earlier) | Ethereum (multi-chain) | StableSwap AMM | ~$1.7B | ~$126B (2025) |
 | CoW Protocol | Ethereum (~9 chains) | Intent-based batch auction | N/A (no custody) | $87B (2025) |
@@ -63,7 +63,7 @@ Multiple pools for the same pair with different tiers can coexist
 | Balancer V3 | Configurable per pool; StableSurge hook adds dynamic fee | Yes (base tier) | Yes |
 | Curve StableSwapNG | Configurable per pool; `offpeg_fee_multiplier` adds dynamic scaling | Yes (base tier) | Yes |
 | Raydium CLMM | 8 fee tiers (0.01% to 2%) | Yes | Yes |
-| Orca Whirlpools | 6 tick spacings mapping to fee tiers (0.01% to 2%) | Yes (adaptive pools add a variable component) | Yes |
+| Orca Whirlpools | 9 tick spacings mapping to fee tiers (0.01% to 2%) | Yes (adaptive pools add a variable component) | Yes |
 
 Immutable base fee tiers are the norm. Every protocol launched after
 Uniswap V2 supports multiple pools per pair with different fee tiers.
@@ -80,7 +80,7 @@ distributed to LPs (requirement F.6).
 
 | Protocol | Fee payer | LP share | Protocol share | Other |
 |----------|-----------|----------|----------------|-------|
-| Uniswap V2 | Trader (input token) | 0.25% (post-UNIfication) | 0.05% (1/6 of 0.3%) | UNIfication proposal passed 2025-12-26; pre-activation LPs received the full 0.3% |
+| Uniswap V2 | Trader (input token) | 0.25% (post-UNIfication) | 0.05% (1/6 of 0.3%) | UNIfication proposal passed 2025-12-25; pre-activation LPs received the full 0.3% |
 | Uniswap V4 | Trader (input token) | Majority | Configurable per pool | Hook can adjust |
 | Balancer V3 | Trader (input token) | ~50% (varies) | ~50% (split with pool creator) | Yield fee: 10% on boosted pools |
 | Curve StableSwapNG | Trader (output token) | Majority | Admin fee (fraction of swap fee) | Dynamic fee on imbalanced pools |
@@ -171,8 +171,8 @@ aggregate metrics on-chain or via indexers:
 | Fee revenue | Derived from volume x fee rate, or accumulated in on-chain fee counters | Protocol dashboards |
 
 Individual LP positions are public on-chain in every protocol (LP token
-balances in Uniswap V2, NFT positions in CLMMs, `admin_balances` in
-Curve). RFP-004's privacy model does not change this: LP positions
+balances in Uniswap V2 and Curve, NFT positions in CLMMs). RFP-004's
+privacy model does not change this: LP positions
 remain public, but the private account that originated the funds is not
 traceable when the deshield pattern is used.
 
