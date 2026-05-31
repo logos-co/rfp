@@ -15,4 +15,8 @@ category: Applications and Integrations
 ```
 
 3. Include the frontmatter content on the [README.md](/README.md) file in the RFPs table
-4. Create a Pull Request and wait for review by the Logos EcoDev team
+4. If the RFP is `open`, add it as an option in the **RFP ID** dropdown of
+   [`.github/ISSUE_TEMPLATE/proposal.yml`](/.github/ISSUE_TEMPLATE/proposal.yml),
+   e.g. `- "RFP-021 — Your Title"`. This drives the per-RFP label that proposal
+   issues are tagged with (used for proposal counts in the BI dashboard).
+5. Create a Pull Request and wait for review by the Logos EcoDev team

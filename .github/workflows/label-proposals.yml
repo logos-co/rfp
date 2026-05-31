@@ -1,0 +1,66 @@
+name: Label proposals by RFP
+
+# Applies a per-RFP label (e.g. "RFP-004") to proposal issues based on the
+# "RFP ID" field of the proposal form. This is what lets the external BI
+# dashboard count proposals per RFP via the GitHub Search API:
+#   GET /search/issues?q=repo:logos-co/rfp+type:issue+label:RFP-004
+# (the response's `total_count` is the number of proposals for that RFP).
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const body = issue.body || "";
+
+            // The "RFP ID" form field renders as a "### RFP ID" section
+            // followed by the selected dropdown value, e.g.
+            //   ### RFP ID
+            //
+            //   RFP-004 — Privacy-Preserving DEX
+            const match = body.match(/###\s*RFP ID\s*\n+\s*(RFP-\d{1,4})/i);
+            if (!match) {
+              core.info("No RFP ID found in issue body; not a proposal. Skipping.");
+              return;
+            }
+            const rfp = match[1].toUpperCase(); // e.g. "RFP-004"
+
+            const { owner, repo } = context.repo;
+            const issue_number = issue.number;
+            const current = (issue.labels || []).map(l => (typeof l === "string" ? l : l.name));
+
+            // On edits, drop any stale RFP-* label that no longer matches.
+            for (const name of current) {
+              if (/^RFP-\d{1,4}$/i.test(name) && name.toUpperCase() !== rfp) {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number, name })
+                  .catch(() => {}); // ignore if already gone
+              }
+            }
+
+            if (current.some(n => n.toUpperCase() === rfp)) {
+              core.info(`Issue already labeled ${rfp}. Nothing to do.`);
+              return;
+            }
+
+            // Create the label on first use so addLabels never fails.
+            try {
+              await github.rest.issues.getLabel({ owner, repo, name: rfp });
+            } catch {
+              await github.rest.issues.createLabel({
+                owner, repo, name: rfp, color: "0E8A16",
+                description: `Proposals for ${rfp}`,
+              }).catch(() => {}); // tolerate a race where it was just created
+            }
+
+            await github.rest.issues.addLabels({ owner, repo, issue_number, labels: [rfp] });
+            core.info(`Applied label ${rfp} to issue #${issue_number}.`);

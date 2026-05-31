@@ -5,12 +5,24 @@ labels: ["proposal", "in-review"]
 assignees: ["hackyguru"]
 
 body:
-  - type: input
+  - type: dropdown
     id: rfp-id
     attributes:
       label: RFP ID
-      description: Which RFP are you applying for?
-      placeholder: RFP-001
+      description: Which RFP are you applying for? Pick the matching RFP — this drives the per-RFP label used for tracking.
+      options:
+        - "RFP-001 — Admin Authority Library"
+        - "RFP-002 — Freeze Authority Library"
+        - "RFP-004 — Privacy-Preserving DEX"
+        - "RFP-008 — Lending & Borrowing Protocol"
+        - "RFP-012 — Curated Lending Vaults"
+        - "RFP-013 — Reflexive Stablecoin Protocol"
+        - "RFP-014 — Liquidation & Auction Engine"
+        - "RFP-015 — Token Launchpad: Bonding Curve"
+        - "RFP-016 — Token Launchpad: LBP"
+        - "RFP-017 — Privacy-Preserving Token Vesting"
+        - "RFP-019 — On-Chain TWAP Oracle"
+        - "RFP-020 — RedStone Off-Chain Oracle Adaptor for LEZ"
     validations:
       required: true
 
