@@ -13,6 +13,7 @@ body:
       options:
         - "RFP-001 — Admin Authority Library"
         - "RFP-002 — Freeze Authority Library"
+        - "RFP-003 — Atomic Swaps with LEZ"
         - "RFP-004 — Privacy-Preserving DEX"
         - "RFP-008 — Lending & Borrowing Protocol"
         - "RFP-012 — Curated Lending Vaults"
