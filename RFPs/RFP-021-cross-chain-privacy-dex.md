@@ -46,8 +46,8 @@ the strongest custody risk.
 
 **RFP-021 is not the preferred design on its own.** The federated-signer custody
 model trades non-custody for AMM liquidity and one-step UX; the Logos team's
-working preference is the non-custodial atomic-swap path (RFP-003 plus the sXMR
-designs in RFP-024 and RFP-026) where users do not have to trust a validator
+working preference is the non-custodial atomic-swap path (RFP-003 plus the
+CDP-backed synthetic designs in RFP-024 and RFP-026) where users do not have to trust a validator
 set. However, RFP-021 can be **complementary to atomic swaps**: the AMM-style
 middle chain handles high-liquidity bulk trading where users are willing to
 accept federated custody for better UX, while atomic swaps handle the
@@ -196,12 +196,12 @@ solvency or signing failure.
   LEZ. RFP-021 is *cross-chain* with vault custody. Distinct scopes; the two
   could ship in parallel and serve different user journeys (intra-LEZ shielded
   trading vs cross-chain settlement).
-- **RFP-024 (sXMR CDP-backed)**, **RFP-025 (sXMR real-XMR multisig)**, and
-  **RFP-026 (sXMR atomic-swap redemption)** target a different product:
-  synthetic XMR exposure inside LEZ DeFi. They are orthogonal to RFP-021 and
-  could ship alongside it, sharing the same LEZ privacy primitives. RFP-025
-  shares the federated-signer custody pattern with RFP-021 and could share
-  signer-set infrastructure.
+- **RFP-024 (CDP-backed synthetics)**, **RFP-025 (real-XMR multisig)**, and
+  **RFP-026 (synthetic atomic-swap redemption)** target a different product:
+  synthetic-asset exposure inside LEZ DeFi (with XMR as the motivating case).
+  They are orthogonal to RFP-021 and could ship alongside it, sharing the same
+  LEZ privacy primitives. RFP-025 shares the federated-signer custody pattern
+  with RFP-021 and could share signer-set infrastructure.
 
 See
 [appendix/cross-chain-trust-model-contrast.md](../appendix/cross-chain-trust-model-contrast.md)

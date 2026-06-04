@@ -75,8 +75,9 @@ direct interactions with the multisig.
 
 ## Pros
 
-- **Real XMR redemption with a documented SLA shape.** Unlike RFP-024 (no XMR
-  redemption) and unlike RFP-026 (best-effort matching, no guarantees), this
+- **Real XMR redemption with a documented SLA shape.** Unlike RFP-024 (no
+  redemption to the real asset) and unlike RFP-026 (best-effort matching, no
+  guarantees), this
   design lets a user mint and redeem on demand, bounded by the signer-set
   responsiveness.
 - **Hard peg within reserve capacity.** sXMR is 1:1 backed by real XMR; oracle
@@ -155,14 +156,14 @@ direct interactions with the multisig.
 
 ## Relationship to other RFPs in this bundle
 
-- **RFP-024 (sXMR CDP-backed)** is the preferred alternative. RFP-024 says "we
-  don't custody XMR, sXMR is a debt instrument against stable collateral"; this
-  RFP says "we do custody XMR via a federated multisig". The two are mutually
-  exclusive product directions, not layered.
-- **RFP-026 (sXMR atomic-swap redemption to real XMR)** is the non-custodial
-  alternative for delivering real XMR to users. RFP-026 builds on RFP-024 and
-  uses atomic swaps; RFP-025 holds real XMR in a multisig. RFP-026 has
-  best-effort SLA; RFP-025 has hard-peg-within-reserve.
+- **RFP-024 (CDP-backed synthetics)** is the preferred alternative. Applied to
+  XMR, RFP-024 says "we don't custody XMR, sXMR is a debt instrument against
+  stable collateral"; this RFP says "we do custody XMR via a federated multisig".
+  The two are mutually exclusive product directions, not layered.
+- **RFP-026 (synthetic atomic-swap redemption to the real asset)** is the
+  non-custodial alternative for delivering real XMR to users. RFP-026 builds on
+  RFP-024 and uses atomic swaps; RFP-025 holds real XMR in a multisig. RFP-026
+  has best-effort SLA; RFP-025 has hard-peg-within-reserve.
 - **RFP-021 (cross-chain privacy DEX)** shares the federated-signer trust model.
   The two RFPs could share signer-set infrastructure if both are funded (same
   FROST-over-CLSAG primitives, possibly same validator set), trading some
