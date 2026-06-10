@@ -7,7 +7,14 @@ status: open
 category: Applications & Integrations
 dependencies:
   - id: LP-0013
+    status: open
     reason: Token transfer-authority primitives are required for the program to escrow vested tokens and pay beneficiaries on claim.
+  - id: LP-0015
+    status: closed
+    reason: General cross-program calls via tail calls, used so schedule-state updates execute in a protected continuation after the token transfer.
+  - id: LEZ-clock
+    status: closed
+    reason: Platform feature. Cliff dates, linear accrual, and vested amounts are functions of elapsed time. Delivered via the LEZ clock program.
 ---
 
 
@@ -366,18 +373,6 @@ Development is blocked until the dependencies below are resolved.
 
 ### Hard dependencies
 
-#### On-chain clock / timestamp
-
-LEZ does not yet have on-chain block time. Vesting schedules are
-fundamentally time-based: the cliff date, linear accrual rate, and
-total vested amount at any moment are all functions of elapsed time.
-Without a reliable on-chain timestamp, the program cannot determine
-how much of a schedule has vested, making cliff + linear and fully
-linear schedule types impossible to implement correctly.
-Milestone-based vesting does not require an on-chain timestamp and
-is unaffected by this dependency, but it represents only a subset of
-the required functionality.
-
 #### Token authorities (LP-0013)
 
 The vesting program is a token custodian: it escrows the full
@@ -389,8 +384,16 @@ currently **open**.
 ### Resolved dependencies
 
 These primitives were once blockers but are now delivered on LEZ, so
-they no longer gate this RFP. They are documented here for reference;
-the frontmatter `dependencies` index lists only open hard blockers.
+they no longer gate this RFP. They remain in the frontmatter
+`dependencies` index with `status: closed`.
+
+#### On-chain clock / timestamp
+
+Vesting schedules are fundamentally time-based: the cliff date,
+linear accrual rate, and total vested amount at any moment are all
+functions of elapsed time. The LEZ clock program now maintains
+on-chain timestamp accounts that any program can read, so this is
+**delivered**.
 
 #### General cross-program calls (LP-0015)
 

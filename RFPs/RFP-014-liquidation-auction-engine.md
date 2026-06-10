@@ -5,16 +5,24 @@ tier: L
 funding: $XXXXX
 status: open
 dependencies:
-  - id: RFP-001
-    reason: Provides the standardised admin authority library used to manage auction parameters.
-  - id: RFP-002
-    reason: Provides the standardised freeze authority that pauses new debt generation when bad debt exceeds the surplus buffer (F4).
   - id: RFP-013
+    status: open
     reason: Reflexive Stablecoin Protocol (or equivalent CDP host) provides the positions that this engine liquidates.
   - id: RFP-020
+    status: open
     reason: Provides the external price feeds required for liquidation triggers and auction pricing (F1, R2).
   - id: LP-0013
+    status: open
     reason: Token transfer-authority primitives are required to custody seized collateral and settle auction payouts.
+  - id: RFP-001
+    status: closed
+    reason: Provides the standardised admin authority library used to manage auction parameters.
+  - id: RFP-002
+    status: closed
+    reason: Provides the standardised freeze authority that pauses new debt generation when bad debt exceeds the surplus buffer (F4).
+  - id: LP-0015
+    status: closed
+    reason: General cross-program calls via tail calls, used to seize collateral from the host CDP and update auction state in a protected continuation.
 category: Applications & Integrations
 ---
 
@@ -175,9 +183,13 @@ This liquidation system is designed to integrate with a host CDP protocol that p
 
 The liquidation program is a token custodian: it holds seized collateral during auctions and settles payouts to bidders and the surplus buffer. This requires the transfer-authority primitives in [LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md), currently **open**.
 
+#### Authority libraries (RFP-001, RFP-002)
+
+Auction parameters are managed through an admin authority, and bad debt exceeding the surplus buffer pauses new debt generation via a freeze authority (F4). These come from the standardised libraries in [RFP-001](./RFP-001-admin-authority-lib.md) and [RFP-002](./RFP-002-freeze-authority-lib.md). Both RFPs are closed (candidate picked) and the libraries are in development.
+
 ### Resolved dependencies
 
-These primitives were once blockers but are now delivered on LEZ, so they no longer gate this RFP. They are documented here for reference; the frontmatter `dependencies` index lists only open hard blockers.
+These primitives were once blockers but are now delivered on LEZ, so they no longer gate this RFP. They remain in the frontmatter `dependencies` index with `status: closed`.
 
 #### General cross-program calls (LP-0015)
 

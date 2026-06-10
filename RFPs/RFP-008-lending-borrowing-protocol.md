@@ -7,9 +7,17 @@ status: open
 category: Applications & Integrations
 dependencies:
   - id: LP-0013
+    status: open
     reason: Token transfer-authority primitives are required for the lending program to custody supplied assets and collateral and to pay liquidators atomically.
   - id: RFP-020
+    status: open
     reason: At least one oracle provider must exist on LEZ for collateral valuation and liquidation triggers (F13); RFP-020 delivers external price feeds (RFP-019 TWAP is an alternative once a DEX is live).
+  - id: LP-0015
+    status: closed
+    reason: General cross-program calls via tail calls, used to compose token transfers with subsequent state updates and required by the flash loan model (F14).
+  - id: LP-0012
+    status: closed
+    reason: Structured event emission, used by the reference liquidator and risk monitor to observe on-chain state changes.
 ---
 
 # RFP-008 — Lending & Borrowing Protocol
@@ -513,8 +521,8 @@ currently **open**.
 ### Resolved dependencies
 
 These primitives were once blockers but are now delivered on LEZ, so they no
-longer gate this RFP. They are documented here for reference; the frontmatter
-`dependencies` index lists only open hard blockers.
+longer gate this RFP. They remain in the frontmatter `dependencies` index with
+`status: closed`.
 
 #### General cross-program calls (LP-0015)
 

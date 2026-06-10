@@ -6,17 +6,20 @@ funding: $XXXXX
 status: open/closed
 category: Developer Tooling & Infrastructure / Applications & Integrations / Ecosystem & Community Enablement
 dependencies:
-  # Hard dependencies only: open RFPs, Lambda Prizes (LP), or platform
+  # Hard dependencies only: RFPs, Lambda Prizes (LP), or platform
   # features that must complete or exist before this RFP can be
-  # contracted or delivered. Use canonical IDs (RFP-XXX, LP-XXXX). Each
-  # entry must also be explained in the Platform Dependencies section of
+  # contracted or delivered. Use canonical IDs (RFP-XXX, LP-XXXX).
+  # Keep entries after they are delivered; record their state in
+  # `status` (open = still blocking, closed = delivered). Each entry
+  # must also be explained in the Platform Dependencies section of
   # the body. If the RFP is standalone, use an empty list:
   # `dependencies: []`. Soft dependencies (nice-to-have, stubbable, or
-  # better-once-available) and already-delivered dependencies are
-  # described in the body only, not listed here.
+  # better-once-available) are described in the body only, not here.
   - id: RFP-XXX
+    status: open/closed
     reason: short reason this RFP depends on it
   - id: LP-XXXX
+    status: open/closed
     reason: short reason this RFP depends on it
 ---
 

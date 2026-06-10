@@ -5,10 +5,15 @@ tier: L
 funding: $XXXXX
 status: open
 dependencies:
-  - id: RFP-001
-    reason: Provides the standardised admin authority library that configures the protocol fee rate and treasury address applied uniformly to all sales.
   - id: LP-0013
+    status: open
     reason: Token transfer-authority primitives are required to custody the token sale reserve and the real collateral reserve.
+  - id: RFP-001
+    status: closed
+    reason: Provides the standardised admin authority library that configures the protocol fee rate and treasury address applied uniformly to all sales.
+  - id: LP-0015
+    status: closed
+    reason: General cross-program calls via tail calls, used to complete a buy operation atomically (transfer collateral, compute output, transfer tokens, update curve state).
 category: Applications & Integrations
 ---
 
@@ -559,11 +564,18 @@ requires the transfer-authority primitives in
 [LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md),
 currently **open**.
 
+#### Admin authority (RFP-001)
+
+The protocol fee rate and treasury address are configured by the
+program's admin authority, using the standardised library from
+[RFP-001](./RFP-001-admin-authority-lib.md). The RFP is closed
+(candidate picked) and the library is in development.
+
 ### Resolved dependencies
 
 These primitives were once blockers but are now delivered on LEZ, so
-they no longer gate this RFP. They are documented here for reference;
-the frontmatter `dependencies` index lists only open hard blockers.
+they no longer gate this RFP. They remain in the frontmatter
+`dependencies` index with `status: closed`.
 
 #### General cross-program calls (LP-0015)
 

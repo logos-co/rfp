@@ -6,8 +6,10 @@ funding: $XXXXX
 status: open
 dependencies:
   - id: RFP-008
+    status: open
     reason: The vault layer allocates deposits across the isolated lending markets delivered by RFP-008 and cannot proceed until the base protocol is live.
   - id: LP-0013
+    status: open
     reason: Token transfer-authority primitives are required for the vault program to custody idle balances and issue vault share tokens.
 category: Applications & Integrations
 ---

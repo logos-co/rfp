@@ -6,7 +6,17 @@ funding: $XXXXX
 status: open
 dependencies:
   - id: LP-0013
+    status: open
     reason: Token transfer-authority primitives are required for the DEX program to custody pool reserves, pay swap output, return LP deposits, and route trading fees.
+  - id: LP-0015
+    status: closed
+    reason: General cross-program calls via tail calls, used to compose token transfers with reserve and state updates within a single atomic swap.
+  - id: LP-0014
+    status: closed
+    reason: Associated Token Accounts for user-facing token accounts (requirement F.8).
+  - id: LP-0012
+    status: closed
+    reason: Structured event emission, used by the pool analytics view and third-party indexers to observe pool state changes.
 category: Applications & Integrations
 ---
 
@@ -274,8 +284,8 @@ currently **open**.
 ### Resolved dependencies
 
 These primitives were once blockers but are now delivered on LEZ, so they no
-longer gate this RFP. They are documented here for reference; the frontmatter
-`dependencies` index lists only open hard blockers.
+longer gate this RFP. They remain in the frontmatter `dependencies` index with
+`status: closed`.
 
 #### General cross-program calls (LP-0015)
 

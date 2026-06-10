@@ -5,14 +5,24 @@ tier: XL
 funding: $XXXXX
 status: open
 dependencies:
-  - id: RFP-001
-    reason: Provides the standardised admin authority library that gates parameter updates (stability fee, controller gains, safety ratios) per Reliability R4.
-  - id: RFP-002
-    reason: Provides the standardised freeze authority used for the emergency circuit breaker per Reliability R5.
   - id: RFP-020
+    status: open
     reason: Provides the external price feed required for market price and redemption rate computation (F2, F6, R3).
   - id: LP-0013
+    status: open
     reason: Token transfer-authority primitives are required to custody collateral and to mint and burn the stablecoin via the LEZ Token Program (F5).
+  - id: RFP-001
+    status: closed
+    reason: Provides the standardised admin authority library that gates parameter updates (stability fee, controller gains, safety ratios) per Reliability R4.
+  - id: RFP-002
+    status: closed
+    reason: Provides the standardised freeze authority used for the emergency circuit breaker per Reliability R5.
+  - id: LP-0015
+    status: closed
+    reason: General cross-program calls via tail calls, used to compose collateral transfers with subsequent position state updates.
+  - id: LEZ-clock
+    status: closed
+    reason: Platform feature. Rate computation and stability fee accrual require elapsed time between interactions. Delivered via the LEZ clock program.
 category: Applications & Integrations
 ---
 
@@ -172,13 +182,17 @@ The protocol requires external price feeds for market price and redemption rate 
 
 The stablecoin program is a token custodian: it holds locked collateral per position and mints and burns the stablecoin via the LEZ Token Program (F5). This requires the transfer-authority primitives in [LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md), currently **open**.
 
-#### On-chain clock / timestamp
+#### Authority libraries (RFP-001, RFP-002)
 
-Rate computation and stability fee accrual require knowing how much time has elapsed between interactions. Without a reliable on-chain timestamp, these cannot be computed.
+Parameter updates are gated through an admin authority (R4) and the emergency circuit breaker uses a freeze authority (R5). These come from the standardised libraries in [RFP-001](./RFP-001-admin-authority-lib.md) and [RFP-002](./RFP-002-freeze-authority-lib.md). Both RFPs are closed (candidate picked) and the libraries are in development.
 
 ### Resolved dependencies
 
-These primitives were once blockers but are now delivered on LEZ, so they no longer gate this RFP. They are documented here for reference; the frontmatter `dependencies` index lists only open hard blockers.
+These primitives were once blockers but are now delivered on LEZ, so they no longer gate this RFP. They remain in the frontmatter `dependencies` index with `status: closed`.
+
+#### On-chain clock / timestamp
+
+Rate computation and stability fee accrual require knowing how much time has elapsed between interactions. The LEZ clock program now maintains on-chain timestamp accounts that any program can read, so this is **delivered**.
 
 #### General cross-program calls (LP-0015)
 

@@ -6,8 +6,10 @@ funding: $XXXXX
 status: open
 dependencies:
   - id: RFP-004
+    status: open
     reason: The TWAP oracle reads pool prices from a LEZ DEX; without RFP-004 there are no pools to read. The canonical price account standard can be designed in parallel.
   - id: RFP-001
+    status: closed
     reason: Provides the standardised admin authority library used by the oracle program owner to register feed sources and govern per-pool parameters such as MAX_TICK_DELTA.
 category: Developer Tooling & Infrastructure
 ---

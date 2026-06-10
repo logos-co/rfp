@@ -6,6 +6,7 @@ funding: $XXXXX
 status: open
 dependencies:
   - id: RFP-001
+    status: closed
     reason: Provides the standardised admin authority library that registers feeds and updates authorised signer sets, as specified in the Functionality requirements.
 category: Developer Tooling & Infrastructure
 ---
@@ -691,13 +692,6 @@ the standardised admin authority library from
 [RFP-001](./RFP-001-admin-authority-lib.md), currently in development.
 
 ### Soft blockers
-
-#### RFP-019 (canonical oracle price account standard)
-
-This RFP populates the canonical price account standard defined in
-[RFP-019](./RFP-019-twap-oracle.md). If RFP-019 has not landed when this RFP is
-delivered, the applicant defines a forward-compatible minimal struct (see Design
-Rationale). A soft dependency rather than a frontmatter entry.
 
 #### Event emission (LP-0012)
 
