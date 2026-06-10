@@ -367,9 +367,9 @@ would be required; this is deferred to a future RFP.
 
 ## ⚠ Platform Dependencies
 
-LEZ has similar programming capabilities to Solana but several
-primitives required by a vesting protocol are not yet available.
-Development is blocked until the dependencies below are resolved.
+LEZ has similar programming capabilities to Solana but one primitive
+required by a vesting protocol is not yet available. Development is
+blocked until the dependencies below are resolved.
 
 ### Hard dependencies
 
