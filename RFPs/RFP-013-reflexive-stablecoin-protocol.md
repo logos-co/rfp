@@ -233,8 +233,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 ## Resources
 
 - [RAI Whitepaper](https://github.com/reflexer-labs/whitepapers/blob/master/English/rai-english.pdf)
-- [RFP-001 — Admin Authority](./RFP-001-admin-authority-poc.md)
-- [RFP-002 — Freeze Authority](./RFP-002-freeze-authority-poc.md)
+- [RFP-001 — Admin Authority](./RFP-001-admin-authority-lib.md)
+- [RFP-002 — Freeze Authority](./RFP-002-freeze-authority-lib.md)
 - [RFP-008 — Lending & Borrowing](./RFP-008-lending-borrowing-protocol.md)
 - [RFP-014 — Liquidation & Auction Engine](./RFP-014-liquidation-auction-engine.md)
 - [Appendix: Reflexive Stablecoin Ecosystem](../appendix/appendix-reflexive-stablecoin-ecosystem.md)

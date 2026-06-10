@@ -158,7 +158,7 @@ anonymity set relative to a non-gated sale.
 
 The pause function is an emergency stop for security incidents,
 analogous to the freeze authority in
-[RFP-002](./RFP-002-freeze-authority-poc.md). Crucially, pausing does
+[RFP-002](./RFP-002-freeze-authority-lib.md). Crucially, pausing does
 not halt weight progression: the weight schedule continues to advance
 during a pause. This prevents a creator from gaming the mechanism by
 pausing at a weight that is artificially favourable and resuming once
