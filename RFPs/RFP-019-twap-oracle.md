@@ -5,9 +5,6 @@ tier: L
 funding: $XXXXX
 status: open
 dependencies:
-  - id: RFP-004
-    status: open
-    reason: The TWAP oracle records price observations from LEZ DEX pools; without RFP-004 there are no pools to observe. This RFP delivers the TWAP accumulator component; the DEX hooks it in (F1).
   - id: RFP-001
     status: closed
     reason: Provides the standardised admin authority library used by the oracle program owner to register feed sources and govern per-pool parameters such as MAX_TICK_DELTA.
@@ -242,7 +239,9 @@ reaches moderate TVL.
    pool operation so the pool's accumulators are maintained. The applicant
    must support that integration (interface definition, integration guide,
    and review). Observation recording must not depend on an off-chain keeper
-   or crank: prices are captured as a side effect of pool activity.
+   or crank: prices are captured as a side effect of pool activity. A
+   reference pool implementation may be used for development and acceptance
+   testing until a DEX (RFP-004) is live.
 2. Implement tick-based accumulator storage with configurable cardinality:
    default 1, expandable up to 65,535 observations per pool.
 3. Provide a query interface: given a pool address and a window length, return
@@ -430,14 +429,6 @@ The following are explicitly excluded from this RFP and addressed elsewhere:
 These must be available on LEZ before the corresponding features can be
 developed.
 
-#### RFP-004 (Privacy-Preserving DEX)
-
-The TWAP oracle records price observations from DEX pools. Without RFP-004,
-there are no pools to observe and the on-chain TWAP tier cannot be exercised.
-This RFP delivers the TWAP accumulator component; the DEX is expected to hook
-it into its pools to maintain the accumulators (see Functionality F1). The
-canonical price account standard can be designed and prototyped in parallel.
-
 #### Admin authority (RFP-001)
 
 The oracle program owner registers new TWAP price feed sources and governs
@@ -449,7 +440,15 @@ require the standardised admin authority library from
 
 Desirable but the RFP can open without them.
 
-None
+#### RFP-004 (Privacy-Preserving DEX)
+
+Live TWAP prices require DEX pools to observe, and the DEX is expected to hook
+the TWAP accumulator component delivered by this RFP into its pools (see
+Functionality F1 and RFP-004 Functionality F.10). The oracle program, the
+accumulator component, and the canonical price account standard can all be
+designed, built, and acceptance-tested against a reference pool implementation
+before a DEX is live, so this is a soft dependency rather than a frontmatter
+entry.
 
 ## 👤 Recommended Team Profile
 
@@ -467,7 +466,8 @@ Team experienced with:
 Estimated duration: **8 to 12 weeks**.
 
 The canonical price account standard can be designed and shipped early; the TWAP
-program itself depends on RFP-004 (DEX) and is the longer pole.
+program and accumulator component are the longer pole, and live prices require
+DEX pools (RFP-004) to observe.
 
 ## 🌍 Open Source Requirement
 
