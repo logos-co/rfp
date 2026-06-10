@@ -107,6 +107,12 @@ inherently fairer for all participants.
    unsolicited transfers into the pool for the benefit of LPs. See
    [Appendix: DEX Ecosystem Behaviour, section 10](../appendix/dex-ecosystem-behaviour.md#10-reserve-reconciliation-sync-and-skim)
    for rationale and ecosystem precedent.
+10. Integrate the TWAP accumulator component delivered by
+    [RFP-019](./RFP-019-twap-oracle.md): every state-changing pool operation
+    (swap, add liquidity, remove liquidity) invokes the component so the pool's
+    price accumulators are maintained. If the component is not yet available
+    when the DEX is delivered, the program must expose the integration point so
+    the component can be hooked in later without redesigning pool state.
 
 #### Usability
 
@@ -311,6 +317,17 @@ observe pool state changes (swaps, liquidity added or removed) through
 structured events rather than polling every account.
 [LP-0012](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md)
 is **closed**.
+
+### Soft blockers
+
+#### Oracle TWAP component (RFP-019)
+
+The DEX is expected to hook the TWAP accumulator component delivered by
+[RFP-019](./RFP-019-twap-oracle.md) into its pools so that every
+state-changing pool operation maintains the price accumulators (Functionality
+requirement F.10). The DEX can ship before the component is available by
+exposing the integration point, so this is a soft dependency rather than a
+frontmatter entry.
 
 ### Privacy primitives
 

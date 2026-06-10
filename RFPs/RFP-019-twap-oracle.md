@@ -7,7 +7,7 @@ status: open
 dependencies:
   - id: RFP-004
     status: open
-    reason: The TWAP oracle records price observations from LEZ DEX pools; without RFP-004 there are no pools to observe. The DEX need not ship an accumulator; this RFP hooks one in if absent (F1).
+    reason: The TWAP oracle records price observations from LEZ DEX pools; without RFP-004 there are no pools to observe. This RFP delivers the TWAP accumulator component; the DEX hooks it in (F1).
   - id: RFP-001
     status: closed
     reason: Provides the standardised admin authority library used by the oracle program owner to register feed sources and govern per-pool parameters such as MAX_TICK_DELTA.
@@ -21,10 +21,10 @@ category: Developer Tooling & Infrastructure
 Build an on-chain TWAP (time-weighted average price) oracle program for LEZ that
 records price observations from LEZ DEX pools (RFP-004) and exposes
 geometric-mean prices through a canonical oracle price account standard. The
-oracle is self-sufficient on the write side: if the DEX does not expose a
-native price accumulator, this RFP delivers the accumulator hook into the DEX
-(contributed upstream to the DEX program) so that every pool interaction
-records the observation. The on-chain TWAP
+oracle owns the write side: this RFP delivers the TWAP accumulator component
+as an integrable artefact, and the DEX (RFP-004) is expected to hook that
+component into its pools so that every pool interaction maintains the
+accumulators. The on-chain TWAP
 serves two roles: it is the **only** pricing path available for LEZ-native
 assets (LGS, the reflexive stablecoin) because no off-chain publisher has data
 to sign for pairs that exist only on the LEZ DEX, and it is a **defence-in-depth
@@ -236,11 +236,12 @@ reaches moderate TVL.
 
 1. Implement an on-chain TWAP oracle program that records price observations
    from LEZ DEX pools (RFP-004) and computes the geometric mean TWAP over a
-   configurable observation window. The oracle must be self-sufficient on the
-   write side: if the DEX does not expose a native price accumulator, the
-   applicant delivers the accumulator hook into the DEX program (contributed
-   upstream) so that every state-changing pool interaction records the
-   observation. Observation recording must not depend on an off-chain keeper
+   configurable observation window. The oracle owns the write side: the
+   applicant delivers the TWAP accumulator component as an integrable
+   artefact, and the DEX is expected to hook it into every state-changing
+   pool operation so the pool's accumulators are maintained. The applicant
+   must support that integration (interface definition, integration guide,
+   and review). Observation recording must not depend on an off-chain keeper
    or crank: prices are captured as a side effect of pool activity.
 2. Implement tick-based accumulator storage with configurable cardinality:
    default 1, expandable up to 65,535 observations per pool.
@@ -433,10 +434,9 @@ developed.
 
 The TWAP oracle records price observations from DEX pools. Without RFP-004,
 there are no pools to observe and the on-chain TWAP tier cannot be exercised.
-The DEX is not required to ship a price accumulator: if it does not expose
-one, this RFP delivers the accumulator hook into the DEX program (see
-Functionality F1). The canonical price account standard can be designed and
-prototyped in parallel.
+This RFP delivers the TWAP accumulator component; the DEX is expected to hook
+it into its pools to maintain the accumulators (see Functionality F1). The
+canonical price account standard can be designed and prototyped in parallel.
 
 #### Admin authority (RFP-001)
 
