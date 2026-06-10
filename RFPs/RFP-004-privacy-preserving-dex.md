@@ -8,6 +8,9 @@ dependencies:
   - id: LP-0013
     status: open
     reason: Token transfer-authority primitives are required for the DEX program to custody pool reserves, pay swap output, return LP deposits, and route trading fees.
+  - id: RFP-001
+    status: closed
+    reason: Provides the standardised admin authority library that governs the TWAP accumulator surface integrated per F.10 (per-pool tick-delta clamp, observation cardinality registration, as defined by RFP-019).
   - id: LP-0015
     status: closed
     reason: General cross-program calls via tail calls, used to compose token transfers with reserve and state updates within a single atomic swap.
@@ -286,6 +289,16 @@ pair, pays swap output to traders, returns deposits to LPs on withdrawal, and
 routes trading fees to LPs. This requires the transfer-authority primitives in
 [LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md),
 currently **open**.
+
+#### Admin authority (RFP-001)
+
+The TWAP accumulator component integrated per Functionality requirement F.10
+carries admin-governed parameters defined by
+[RFP-019](./RFP-019-twap-oracle.md): the per-pool tick-delta clamp
+(`MAX_TICK_DELTA`) and observation cardinality registration are owner-gated.
+Managing them uses the standardised admin authority library from
+[RFP-001](./RFP-001-admin-authority-lib.md). The RFP is closed (candidate
+picked) and the library is in development.
 
 ### Resolved dependencies
 
