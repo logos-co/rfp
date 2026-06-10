@@ -505,9 +505,8 @@ These must be available on LEZ before this RFP can open.
 No oracle provider is available on LEZ. The lending protocol requires external
 price feeds for collateral valuation and liquidation triggers.
 [RFP-020](./RFP-020-redstone-oracle-adaptor.md) (RedStone off-chain oracle
-adaptor) delivers external price feeds;
-[RFP-019](./RFP-019-twap-oracle.md) (on-chain TWAP oracle) is an alternative
-once a DEX is live.
+adaptor) delivers external price feeds; [RFP-019](./RFP-019-twap-oracle.md)
+(on-chain TWAP oracle) is an alternative once a DEX is live.
 
 #### Token authorities (LP-0013)
 

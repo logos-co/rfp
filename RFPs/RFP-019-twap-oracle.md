@@ -18,22 +18,21 @@ category: Developer Tooling & Infrastructure
 Build an on-chain TWAP (time-weighted average price) oracle program for LEZ that
 records price observations from LEZ DEX pools (RFP-004) and exposes
 geometric-mean prices through a canonical oracle price account standard. The
-oracle owns the write side: this RFP delivers the TWAP accumulator component
-as an integrable artefact, and the DEX (RFP-004) is expected to hook that
-component into its pools so that every pool interaction maintains the
-accumulators. The on-chain TWAP
-serves two roles: it is the **only** pricing path available for LEZ-native
-assets (LGS, the reflexive stablecoin) because no off-chain publisher has data
-to sign for pairs that exist only on the LEZ DEX, and it is a **defence-in-depth
-layer** for wrapped external assets (wXMR, wZEC, wBTC, wETH) that are priced
-primarily by external oracles. This RFP covers the TWAP program and the
-canonical price account standard only. The standard allows multiple sources to
-publish prices for the same pair without merging them; cross-source validation
-policy is the consumer protocol's responsibility (see Design Rationale,
-"Multi-source coexistence"). External oracle adaptors (RedStone in RFP-020, Pyth
-in a future RFP) populate the same standard. The applying team should have
-experience with AMM mathematics, oracle manipulation analysis, and SVM program
-development.
+oracle owns the write side: this RFP delivers the TWAP accumulator component as
+an integrable artefact, and the DEX (RFP-004) is expected to hook that component
+into its pools so that every pool interaction maintains the accumulators. The
+on-chain TWAP serves two roles: it is the **only** pricing path available for
+LEZ-native assets (LGS, the reflexive stablecoin) because no off-chain publisher
+has data to sign for pairs that exist only on the LEZ DEX, and it is a
+**defence-in-depth layer** for wrapped external assets (wXMR, wZEC, wBTC, wETH)
+that are priced primarily by external oracles. This RFP covers the TWAP program
+and the canonical price account standard only. The standard allows multiple
+sources to publish prices for the same pair without merging them; cross-source
+validation policy is the consumer protocol's responsibility (see Design
+Rationale, "Multi-source coexistence"). External oracle adaptors (RedStone in
+RFP-020, Pyth in a future RFP) populate the same standard. The applying team
+should have experience with AMM mathematics, oracle manipulation analysis, and
+SVM program development.
 
 ## 🔥 Why This Matters
 
@@ -234,14 +233,14 @@ reaches moderate TVL.
 1. Implement an on-chain TWAP oracle program that records price observations
    from LEZ DEX pools (RFP-004) and computes the geometric mean TWAP over a
    configurable observation window. The oracle owns the write side: the
-   applicant delivers the TWAP accumulator component as an integrable
-   artefact, and the DEX is expected to hook it into every state-changing
-   pool operation so the pool's accumulators are maintained. The applicant
-   must support that integration (interface definition, integration guide,
-   and review). Observation recording must not depend on an off-chain keeper
-   or crank: prices are captured as a side effect of pool activity. A
-   reference pool implementation may be used for development and acceptance
-   testing until a DEX (RFP-004) is live.
+   applicant delivers the TWAP accumulator component as an integrable artefact,
+   and the DEX is expected to hook it into every state-changing pool operation
+   so the pool's accumulators are maintained. The applicant must support that
+   integration (interface definition, integration guide, and review).
+   Observation recording must not depend on an off-chain keeper or crank: prices
+   are captured as a side effect of pool activity. A reference pool
+   implementation may be used for development and acceptance testing until a DEX
+   (RFP-004) is live.
 2. Implement tick-based accumulator storage with configurable cardinality:
    default 1, expandable up to 65,535 observations per pool.
 3. Provide a query interface: given a pool address and a window length, return
