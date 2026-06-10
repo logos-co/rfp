@@ -6,12 +6,10 @@ funding: $XXXXX
 status: open
 category: Applications & Integrations
 dependencies:
-  - id: LP-0015
-    reason: General cross-program calls via tail calls, used to compose token transfers with subsequent state updates. Delivered (closed).
   - id: LP-0013
-    reason: Hard blocker. Token transfer-authority primitives are required for the lending program to custody supplied assets and collateral and to pay liquidators atomically.
-  - id: LP-0012
-    reason: Structured event emission, used by the reference liquidator and risk monitor to observe on-chain state changes. Delivered (closed).
+    reason: Token transfer-authority primitives are required for the lending program to custody supplied assets and collateral and to pay liquidators atomically.
+  - id: RFP-020
+    reason: At least one oracle provider must exist on LEZ for collateral valuation and liquidation triggers (F13); RFP-020 delivers external price feeds (RFP-019 TWAP is an alternative once a DEX is live).
 ---
 
 # RFP-008 — Lending & Borrowing Protocol
@@ -498,6 +496,10 @@ These must be available on LEZ before this RFP can open.
 
 No oracle provider is available on LEZ. The lending protocol requires external
 price feeds for collateral valuation and liquidation triggers.
+[RFP-020](./RFP-020-redstone-oracle-adaptor.md) (RedStone off-chain oracle
+adaptor) delivers external price feeds;
+[RFP-019](./RFP-019-twap-oracle.md) (on-chain TWAP oracle) is an alternative
+once a DEX is live.
 
 #### Token authorities (LP-0013)
 
@@ -511,7 +513,8 @@ currently **open**.
 ### Resolved dependencies
 
 These primitives were once blockers but are now delivered on LEZ, so they no
-longer gate this RFP. They remain in the dependencies index for reference.
+longer gate this RFP. They are documented here for reference; the frontmatter
+`dependencies` index lists only open hard blockers.
 
 #### General cross-program calls (LP-0015)
 
@@ -580,8 +583,9 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 
 - [RFP-001 — Admin Authority Library](./RFP-001-admin-authority-lib.md):
   reference pattern for the bounded admin authority (F11 admin scope, F12
-  protocol fee, F14 flash-loan fee)
-- [RFP-002 — Freeze Authority Library](./RFP-002-freeze-authority-lib.md)
+  protocol fee, F14 flash-loan fee). Soft dependency: the bounded admin
+  functions should reuse this library once delivered, but the protocol can be
+  built without it.
 - [Appendix: Lending and Borrowing Ecosystem](../appendix/lending-ecosystem.md):
   ecosystem survey across Ethereum, Solana, BTCFi, and long-tail chains; Morpho
   Blue deep dive

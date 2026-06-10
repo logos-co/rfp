@@ -4,7 +4,11 @@ title: On-Chain TWAP Oracle
 tier: L
 funding: $XXXXX
 status: open
-dependencies: See Platform Dependencies section
+dependencies:
+  - id: RFP-004
+    reason: The TWAP oracle reads pool prices from a LEZ DEX; without RFP-004 there are no pools to read. The canonical price account standard can be designed in parallel.
+  - id: RFP-001
+    reason: Provides the standardised admin authority library used by the oracle program owner to register feed sources and govern per-pool parameters such as MAX_TICK_DELTA.
 category: Developer Tooling & Infrastructure
 ---
 
@@ -419,6 +423,13 @@ developed.
 The TWAP oracle reads pool accumulators from the DEX. Without RFP-004, the
 on-chain TWAP tier cannot be exercised. The canonical price account standard can
 be designed and prototyped in parallel.
+
+#### Admin authority (RFP-001)
+
+The oracle program owner registers new TWAP price feed sources and governs
+per-pool parameters such as `MAX_TICK_DELTA`. These owner-gated functions
+require the standardised admin authority library from
+[RFP-001](./RFP-001-admin-authority-lib.md), currently in development.
 
 ### Soft blockers
 
