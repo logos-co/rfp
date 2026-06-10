@@ -5,6 +5,19 @@ tier: XS/S/M/L/XL
 funding: $XXXXX
 status: open/closed
 category: Developer Tooling & Infrastructure / Applications & Integrations / Ecosystem & Community Enablement
+dependencies:
+  # Hard dependencies only: open RFPs, Lambda Prizes (LP), or platform
+  # features that must complete or exist before this RFP can be
+  # contracted or delivered. Use canonical IDs (RFP-XXX, LP-XXXX). Each
+  # entry must also be explained in the Platform Dependencies section of
+  # the body. If the RFP is standalone, use an empty list:
+  # `dependencies: []`. Soft dependencies (nice-to-have, stubbable, or
+  # better-once-available) and already-delivered dependencies are
+  # described in the body only, not listed here.
+  - id: RFP-XXX
+    reason: short reason this RFP depends on it
+  - id: LP-XXXX
+    reason: short reason this RFP depends on it
 ---
 
 <!-- Don't forget to add this RFP to the table in README.md (between RFP_TABLE_START / RFP_TABLE_END markers) -->

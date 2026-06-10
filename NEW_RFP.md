@@ -12,8 +12,27 @@ tier: XS/S/M/L/XL
 funding: $5,000–$15,000
 status: open
 category: Applications and Integrations
+dependencies:
+  - id: RFP-XXX
+    reason: short reason this RFP depends on it
+  - id: LP-XXXX
+    reason: short reason this RFP depends on it
 ---
 ```
+
+The `dependencies` field is a structured, machine-readable list of other RFPs,
+Lambda Prizes (LP), platform features, or R&D items (tracked in
+[logos-co/journeys.logos.co](https://github.com/logos-co/journeys.logos.co))
+that must complete or exist before this RFP can be contracted or delivered. Use
+canonical IDs (e.g. `RFP-XXX`, `LP-XXXX`). If the RFP is standalone, use an
+empty list: `dependencies: []`.
+
+Only **hard dependencies** belong in the frontmatter: blockers the RFP cannot be
+contracted or delivered without. Each frontmatter entry must also be explained
+in the body, in the Platform Dependencies section. Soft dependencies
+(nice-to-have, stubbable with a placeholder, or merely better once available)
+are described in the body only. When a dependency is delivered, keep its entry
+for traceability.
 
 3. Include the frontmatter content on the [README.md](/README.md) file in the
    RFPs table
