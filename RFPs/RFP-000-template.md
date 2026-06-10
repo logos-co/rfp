@@ -6,9 +6,10 @@ funding: $XXXXX
 status: open/closed
 category: Developer Tooling & Infrastructure / Applications & Integrations / Ecosystem & Community Enablement
 dependencies:
-  # Hard dependencies only: RFPs, Lambda Prizes (LP), or platform
-  # features that must complete or exist before this RFP can be
-  # contracted or delivered. Use canonical IDs (RFP-XXX, LP-XXXX).
+  # Hard dependencies only: RFPs, Lambda Prizes (LP), platform
+  # features, or R&D items (tracked in logos-co/journeys.logos.co)
+  # that must complete or exist before this RFP can be contracted or
+  # delivered. Use canonical IDs (RFP-XXX, LP-XXXX).
   # Keep entries after they are delivered; record their state in
   # `status` (open = still blocking, closed = delivered). Each entry
   # must also be explained in the Platform Dependencies section of

@@ -211,6 +211,30 @@ for the maturity of those modules and a high-visibility proof point for ecosyste
 - Support for the **Logos Ethereum module** could be extended to additional EVM-compatible chains in a single submission.
 
 
+## ⚠ Platform Dependencies
+
+### Hard blockers
+
+#### Token authorities (LP-0013)
+
+The escrow program is a token custodian: it locks funds for each swap leg and releases them on valid proof submission or refunds them after the timelock expires. This requires the transfer-authority primitives in [LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md), currently **open**.
+
+### Resolved dependencies
+
+These were once blockers but are now delivered on LEZ, so they no longer gate this RFP. They remain in the frontmatter `dependencies` index with `status: closed`.
+
+#### LEZ timelock support
+
+Refunds after timelock expiry (F5) require a program-readable time source. The LEZ clock program now maintains on-chain timestamp accounts, and a program can gate release or refund on a deadline, so this is **delivered**.
+
+### Soft blockers
+
+Desirable but the RFP can open without them.
+
+#### Use Basecamp to manage remote node
+
+Swaps require counterpart chain infrastructure (a Bitcoin Core node, a Monero node, an Ethereum RPC) and a long-running maker daemon. The R&D item [Use Basecamp to manage remote node](https://github.com/logos-co/journeys.logos.co/issues/62) would let users manage such remote nodes from Basecamp, improving the operator journey for the maker daemon and node setup (U8, U9). The RFP can be delivered without it using the documented CLI and self-hosted node setup.
+
 ## 👤 Recommended Team Profile
 
 - Applied cryptography: adaptor signatures (Schnorr/secp256k1), Ed25519, cross-curve
