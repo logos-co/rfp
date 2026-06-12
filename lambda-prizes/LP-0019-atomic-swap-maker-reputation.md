@@ -124,7 +124,9 @@ These are framing, not pass/fail criteria.
   primitive.** Do not require changes to the cryptographic core.
 - **Preserves non-custody.** No third party (signer set, validator, oracle,
   attestor) holds user funds at any stage. Reintroducing federated trust defeats
-  the purpose; RFP-021 already covers that design space.
+  the purpose; the bundle deliberately rejected the federated-custody design
+  space (see
+  [appendix/cross-chain-trust-model-contrast.md](https://github.com/logos-co/rfp/blob/master/appendix/cross-chain-trust-model-contrast.md)).
 - **Adversarially robust.** The mechanism must distinguish a *fabricated* taker
   complaint about an honest maker from a *valid* taker complaint about a
   malicious maker. Either the protocol detects the difference from observable

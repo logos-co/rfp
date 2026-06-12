@@ -80,11 +80,11 @@ single-sub-case mechanism is sufficient to win.
 
 The atomic-swap branch of the cross-chain DEX design tree has a known structural
 weakness on the free-option / spam-the-maker problem. The Logos cross-chain DEX
-bundle (RFPs 021, 024, 025, 026) uses the vanilla RFP-003 atomic swap as the
-privacy-non-custodial primitive, but vanilla atomic swaps remain economically
-unattractive for makers at scale because of the spam exposure. Without a
-credible spam-protection mechanism, the maker side of the LEZ atomic-swap market
-is likely to remain at hobbyist scale (see
+bundle (RFP-024 and RFP-026, on the vanilla RFP-003 atomic swap) uses that swap
+as the privacy-non-custodial primitive, but vanilla atomic swaps remain
+economically unattractive for makers at scale because of the spam exposure.
+Without a credible spam-protection mechanism, the maker side of the LEZ
+atomic-swap market is likely to remain at hobbyist scale (see
 [eigenwallet](https://github.com/eigenwallet/core/): community-scale,
 single-digit active makers, BTC→XMR direction only).
 
@@ -122,7 +122,9 @@ evaluators measure.
   escrow logic around the swap.
 - **Preserves non-custody.** No third party (signer set, validator, oracle,
   attestor) should hold user funds at any stage. Reintroducing federated trust
-  defeats the purpose; RFP-021 already covers that design space.
+  defeats the purpose; the bundle deliberately rejected the federated-custody
+  design space (see
+  [appendix/cross-chain-trust-model-contrast.md](https://github.com/logos-co/rfp/blob/master/appendix/cross-chain-trust-model-contrast.md)).
 - **Survives the LEZ-locks-first protocol constraint.** For XMR↔LEZ the LEZ side
   locks first in both sub-cases (A and B). The mechanism must work under this
   constraint, not assume it can be reversed.
@@ -156,7 +158,8 @@ evaluators measure.
 - Modifying the underlying RFP-003 atomic-swap cryptography (joint-key setup,
   adaptor signature, lock/reveal).
 - Reintroducing federated trust (TSS custody, signer sets, oracle attestors).
-  RFP-021 covers that design space.
+  The bundle deliberately rejected that design space (see
+  [appendix/cross-chain-trust-model-contrast.md](https://github.com/logos-co/rfp/blob/master/appendix/cross-chain-trust-model-contrast.md)).
 - LEZ↔BTC, LEZ↔ETH, or other non-XMR pairs. Follow-up prizes if needed.
 
 ## Prize Structure
