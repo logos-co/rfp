@@ -4,7 +4,9 @@ title: On-Chain TWAP Oracle
 tier: L
 funding: $XXXXX
 status: open
-dependencies: See Platform Dependencies section
+dependencies:
+  - id: RFP-001
+    reason: Provides the standardised admin authority library used by the oracle program owner to register feed sources and govern per-pool parameters such as MAX_TICK_DELTA.
 category: Developer Tooling & Infrastructure
 ---
 
@@ -13,20 +15,23 @@ category: Developer Tooling & Infrastructure
 ## 🧭 Overview
 
 Build an on-chain TWAP (time-weighted average price) oracle program for LEZ that
-reads pool accumulators from a LEZ DEX (RFP-004) and exposes geometric-mean
-prices through a canonical oracle price account standard. The on-chain TWAP
-serves two roles: it is the **only** pricing path available for LEZ-native
-assets (LGS, the reflexive stablecoin) because no off-chain publisher has data
-to sign for pairs that exist only on the LEZ DEX, and it is a **defence-in-depth
-layer** for wrapped external assets (wXMR, wZEC, wBTC, wETH) that are priced
-primarily by external oracles. This RFP covers the TWAP program and the
-canonical price account standard only. The standard allows multiple sources to
-publish prices for the same pair without merging them; cross-source validation
-policy is the consumer protocol's responsibility (see Design Rationale,
-"Multi-source coexistence"). External oracle adaptors (RedStone in RFP-020, Pyth
-in a future RFP) populate the same standard. The applying team should have
-experience with AMM mathematics, oracle manipulation analysis, and SVM program
-development.
+records price observations from LEZ DEX pools (RFP-004) and exposes
+geometric-mean prices through a canonical oracle price account standard. The
+oracle owns the write side: this RFP delivers the TWAP accumulator component as
+an integrable artefact, and the DEX (RFP-004) is expected to hook that component
+into its pools so that every pool interaction maintains the accumulators. The
+on-chain TWAP serves two roles: it is the **only** pricing path available for
+LEZ-native assets (LGS, the reflexive stablecoin) because no off-chain publisher
+has data to sign for pairs that exist only on the LEZ DEX, and it is a
+**defence-in-depth layer** for wrapped external assets (wXMR, wZEC, wBTC, wETH)
+that are priced primarily by external oracles. This RFP covers the TWAP program
+and the canonical price account standard only. The standard allows multiple
+sources to publish prices for the same pair without merging them; cross-source
+validation policy is the consumer protocol's responsibility (see Design
+Rationale, "Multi-source coexistence"). External oracle adaptors (RedStone in
+RFP-020, Pyth in a future RFP) populate the same standard. The applying team
+should have experience with AMM mathematics, oracle manipulation analysis, and
+SVM program development.
 
 ## 🔥 Why This Matters
 
@@ -224,9 +229,17 @@ reaches moderate TVL.
 
 #### Functionality
 
-1. Implement an on-chain TWAP oracle program that reads pool accumulators from a
-   LEZ DEX (RFP-004) and computes the geometric mean TWAP over a configurable
-   observation window.
+1. Implement an on-chain TWAP oracle program that records price observations
+   from LEZ DEX pools (RFP-004) and computes the geometric mean TWAP over a
+   configurable observation window. The oracle owns the write side: the
+   applicant delivers the TWAP accumulator component as an integrable artefact,
+   and the DEX is expected to hook it into every state-changing pool operation
+   so the pool's accumulators are maintained. The applicant must support that
+   integration (interface definition, integration guide, and review).
+   Observation recording must not depend on an off-chain keeper or crank: prices
+   are captured as a side effect of pool activity. A reference pool
+   implementation may be used for development and acceptance testing until a DEX
+   (RFP-004) is live.
 2. Implement tick-based accumulator storage with configurable cardinality:
    default 1, expandable up to 65,535 observations per pool.
 3. Provide a query interface: given a pool address and a window length, return
@@ -414,17 +427,26 @@ The following are explicitly excluded from this RFP and addressed elsewhere:
 These must be available on LEZ before the corresponding features can be
 developed.
 
-#### RFP-004 (Privacy-Preserving DEX)
+#### Admin authority (RFP-001)
 
-The TWAP oracle reads pool accumulators from the DEX. Without RFP-004, the
-on-chain TWAP tier cannot be exercised. The canonical price account standard can
-be designed and prototyped in parallel.
+The oracle program owner registers new TWAP price feed sources and governs
+per-pool parameters such as `MAX_TICK_DELTA`. These owner-gated functions
+require the standardised admin authority library from
+[RFP-001](./RFP-001-admin-authority-lib.md), currently in development.
 
 ### Soft blockers
 
 Desirable but the RFP can open without them.
 
-None
+#### RFP-004 (Privacy-Preserving DEX)
+
+Live TWAP prices require DEX pools to observe, and the DEX is expected to hook
+the TWAP accumulator component delivered by this RFP into its pools (see
+Functionality F1 and RFP-004 Functionality F.10). The oracle program, the
+accumulator component, and the canonical price account standard can all be
+designed, built, and acceptance-tested against a reference pool implementation
+before a DEX is live, so this is a soft dependency rather than a frontmatter
+entry.
 
 ## 👤 Recommended Team Profile
 
@@ -442,7 +464,8 @@ Team experienced with:
 Estimated duration: **8 to 12 weeks**.
 
 The canonical price account standard can be designed and shipped early; the TWAP
-program itself depends on RFP-004 (DEX) and is the longer pole.
+program and accumulator component are the longer pole, and live prices require
+DEX pools (RFP-004) to observe.
 
 ## 🌍 Open Source Requirement
 
@@ -451,11 +474,11 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 ## Resources
 
 - [RFP-004 — Privacy-Preserving DEX](./RFP-004-privacy-preserving-dex.md) (pool
-  accumulators, TWAP data source)
+  price observations, TWAP data source)
 - [RFP-008 — Lending & Borrowing Protocol](./RFP-008-lending-borrowing-protocol.md)
   (primary consumer of oracle price feeds)
-- [RFP-012 — Advanced Lending Features](./RFP-012-advanced-lending-features.md)
-  (eMode and multi-collateral require reliable oracles)
+- [RFP-012 — Curated Lending Vaults](./RFP-012-curated-lending-vaults.md)
+  (allocates across lending markets that require reliable oracles)
 - [RFP-013 — Reflexive Stablecoin Protocol](./RFP-013-reflexive-stablecoin-protocol.md)
   (consumer of price feeds; the RAI-style controller reads the reflexive
   stablecoin priced in its reference collateral, a LEZ-native pair only the

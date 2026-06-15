@@ -6,13 +6,15 @@ funding: $XXXXX
 status: open
 dependencies:
   - id: LP-0013
-    reason: Hard blocker. Token transfer-authority primitives are required for the DEX program to custody pool reserves, pay swap output, return LP deposits, and route trading fees. Currently open.
+    reason: Token transfer-authority primitives are required for the DEX program to custody pool reserves, pay swap output, return LP deposits, and route trading fees.
+  - id: RFP-001
+    reason: Provides the standardised admin authority library that governs the TWAP accumulator surface integrated per F.10 (per-pool tick-delta clamp, observation cardinality registration, as defined by RFP-019).
   - id: LP-0015
-    reason: General cross-program calls via tail calls, used to compose token transfers with reserve and state updates within a single atomic swap. Delivered (closed).
+    reason: General cross-program calls via tail calls, used to compose token transfers with reserve and state updates within a single atomic swap.
   - id: LP-0014
-    reason: Associated Token Accounts for user-facing token accounts (requirement F.8). Delivered (closed).
+    reason: Associated Token Accounts for user-facing token accounts (requirement F.8).
   - id: LP-0012
-    reason: Structured event emission, used by the pool analytics view and third-party indexers to observe pool state changes. Delivered (closed).
+    reason: Structured event emission, used by the pool analytics view and third-party indexers to observe pool state changes.
 category: Applications & Integrations
 ---
 
@@ -68,41 +70,48 @@ inherently fairer for all participants.
 
 #### Functionality
 
-1. Implement an automated market maker (AMM) program on LEZ with public
-   liquidity pools supporting the deshield→swap→re-shield interaction pattern
-   for privacy-preserving trading.
-2. Support creation of liquidity pools for arbitrary token pairs.
-3. Liquidity providers can add and withdraw liquidity directly from a public
-   account, or via the deshield→interact→reshield pattern from a private
-   account. The LP position is public on-chain; when using a private account,
-   which private account originated or received the funds is not traceable.
-4. Traders can swap tokens directly from a public account, or via the
-   deshield→swap→re-shield pattern from a private account. Trade size and
-   direction are visible on-chain; when using a private account, which private
-   account originated the funds or where they go after re-shielding is not
-   traceable.
-5. Traders and LPs using public accounts can interact with the same pools; their
-   transactions are executed transparently on-chain (standard public account
-   behaviour).
-6. The pool creator selects a fee tier at pool creation time (e.g., 0.01%,
-   0.05%, 0.3%, 1%); the fee tier is immutable per pool. Multiple pools for the
-   same token pair with different fee tiers can coexist. Trading fees are paid
-   by the trader and distributed to LPs.
-7. Implement slippage protection with user-configurable tolerance and minimum
-   output guarantees.
-8. The DEX program must be compatible with Associated Token Accounts (ATAs) for
-   user-facing token accounts: when a trader or LP supplies an ATA derived per
-   `(owner, mint)` pair (see
-   [LP-0014](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0014.md)),
-   the program must accept it without requiring an alternative derivation. ATAs
-   must not be forced on users; the program must also accept any valid SPL token
-   account owned by the caller. Pool-side vault accounts may use program-derived
-   addresses (PDAs) rather than ATAs, matching Solana DEX practice.
-9. Implement a permissionless `sync()` function that updates a pool's cached
-   reserves to match the actual vault token balances, absorbing any surplus from
-   unsolicited transfers into the pool for the benefit of LPs. See
-   [Appendix: DEX Ecosystem Behaviour, section 10](../appendix/dex-ecosystem-behaviour.md#10-reserve-reconciliation-sync-and-skim)
-   for rationale and ecosystem precedent.
+01. Implement an automated market maker (AMM) program on LEZ with public
+    liquidity pools supporting the deshield→swap→re-shield interaction pattern
+    for privacy-preserving trading.
+02. Support creation of liquidity pools for arbitrary token pairs.
+03. Liquidity providers can add and withdraw liquidity directly from a public
+    account, or via the deshield→interact→reshield pattern from a private
+    account. The LP position is public on-chain; when using a private account,
+    which private account originated or received the funds is not traceable.
+04. Traders can swap tokens directly from a public account, or via the
+    deshield→swap→re-shield pattern from a private account. Trade size and
+    direction are visible on-chain; when using a private account, which private
+    account originated the funds or where they go after re-shielding is not
+    traceable.
+05. Traders and LPs using public accounts can interact with the same pools;
+    their transactions are executed transparently on-chain (standard public
+    account behaviour).
+06. The pool creator selects a fee tier at pool creation time (e.g., 0.01%,
+    0.05%, 0.3%, 1%); the fee tier is immutable per pool. Multiple pools for the
+    same token pair with different fee tiers can coexist. Trading fees are paid
+    by the trader and distributed to LPs.
+07. Implement slippage protection with user-configurable tolerance and minimum
+    output guarantees.
+08. The DEX program must be compatible with Associated Token Accounts (ATAs) for
+    user-facing token accounts: when a trader or LP supplies an ATA derived per
+    `(owner, mint)` pair (see
+    [LP-0014](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0014.md)),
+    the program must accept it without requiring an alternative derivation. ATAs
+    must not be forced on users; the program must also accept any valid SPL
+    token account owned by the caller. Pool-side vault accounts may use
+    program-derived addresses (PDAs) rather than ATAs, matching Solana DEX
+    practice.
+09. Implement a permissionless `sync()` function that updates a pool's cached
+    reserves to match the actual vault token balances, absorbing any surplus
+    from unsolicited transfers into the pool for the benefit of LPs. See
+    [Appendix: DEX Ecosystem Behaviour, section 10](../appendix/dex-ecosystem-behaviour.md#10-reserve-reconciliation-sync-and-skim)
+    for rationale and ecosystem precedent.
+10. Integrate the TWAP accumulator component delivered by
+    [RFP-019](./RFP-019-twap-oracle.md): every state-changing pool operation
+    (swap, add liquidity, remove liquidity) invokes the component so the pool's
+    price accumulators are maintained. If the component is not yet available
+    when the DEX is delivered, the program must expose the integration point so
+    the component can be hooked in later without redesigning pool state.
 
 #### Usability
 
@@ -277,10 +286,21 @@ routes trading fees to LPs. This requires the transfer-authority primitives in
 [LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md),
 currently **open**.
 
+#### Admin authority (RFP-001)
+
+The TWAP accumulator component integrated per Functionality requirement F.10
+carries admin-governed parameters defined by
+[RFP-019](./RFP-019-twap-oracle.md): the per-pool tick-delta clamp
+(`MAX_TICK_DELTA`) and observation cardinality registration are owner-gated.
+Managing them uses the standardised admin authority library from
+[RFP-001](./RFP-001-admin-authority-lib.md). The RFP is closed (candidate
+picked) and the library is in development.
+
 ### Resolved dependencies
 
 These primitives were once blockers but are now delivered on LEZ, so they no
-longer gate this RFP. They remain in the dependencies index for reference.
+longer gate this RFP. They remain in the frontmatter `dependencies` index for
+traceability.
 
 #### General cross-program calls (LP-0015)
 
@@ -306,6 +326,16 @@ observe pool state changes (swaps, liquidity added or removed) through
 structured events rather than polling every account.
 [LP-0012](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md)
 is **closed**.
+
+### Soft blockers
+
+#### Oracle TWAP component (RFP-019)
+
+The DEX is expected to hook the TWAP accumulator component delivered by
+[RFP-019](./RFP-019-twap-oracle.md) into its pools so that every state-changing
+pool operation maintains the price accumulators (Functionality requirement
+F.10). The DEX can ship before the component is available by exposing the
+integration point, so this is a soft dependency rather than a frontmatter entry.
 
 ### Privacy primitives
 

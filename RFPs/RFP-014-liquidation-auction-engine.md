@@ -4,7 +4,19 @@ title: Liquidation & Auction Engine
 tier: L
 funding: $XXXXX
 status: open
-dependencies: RFP-001 (Admin Authority), RFP-002 (Freeze Authority), RFP-013 (Reflexive Stablecoin Protocol or equivalent CDP host)
+dependencies:
+  - id: RFP-013
+    reason: Reflexive Stablecoin Protocol (or equivalent CDP host) provides the positions that this engine liquidates.
+  - id: RFP-020
+    reason: Provides the external price feeds required for liquidation triggers and auction pricing (F1, R2).
+  - id: LP-0013
+    reason: Token transfer-authority primitives are required to custody seized collateral and settle auction payouts.
+  - id: RFP-001
+    reason: Provides the standardised admin authority library used to manage auction parameters.
+  - id: RFP-002
+    reason: Provides the standardised freeze authority that pauses new debt generation when bad debt exceeds the surplus buffer (F4).
+  - id: LP-0015
+    reason: General cross-program calls via tail calls, used to seize collateral from the host CDP and update auction state in a protected continuation.
 category: Applications & Integrations
 ---
 
@@ -77,7 +89,7 @@ guarantees.
    Until a protocol token is configured, the surplus buffer absorbs shortfalls
    up to its capacity; if bad debt exceeds the buffer, the system pauses new
    debt generation via freeze authority
-   ([RFP-002](./RFP-002-freeze-authority-poc.md)).
+   ([RFP-002](./RFP-002-freeze-authority-lib.md)).
 
 5. When the protocol accumulates excess stablecoin above a threshold, surplus
    auctions sell it for a protocol token (which is burned). As with F4, the
@@ -248,6 +260,9 @@ These must be available on LEZ before this RFP can open.
 The system requires external price feeds for collateral valuation and
 liquidation triggers. Every hard requirement related to liquidation (F1) and
 reliability (R2) depends on this.
+[RFP-020](./RFP-020-redstone-oracle-adaptor.md) (RedStone off-chain oracle
+adaptor) delivers external price feeds; [RFP-019](./RFP-019-twap-oracle.md)
+(on-chain TWAP oracle) is an alternative once a DEX is live.
 
 #### CDP Protocol
 
@@ -255,36 +270,51 @@ This liquidation system is designed to integrate with a host CDP protocol that
 provides positions to liquidate. It is typically deployed alongside
 [RFP-013](./RFP-013-reflexive-stablecoin-protocol.md) or equivalent.
 
-#### General cross-program calls (LP-0015)
+#### Token authorities (LP-0013)
 
-LEZ uses a tail-call execution model rather than Solana's CPI (Cross-Program
-Invocation). In Solana's model, a program can call another program mid-execution
-and resume when the call returns. In LEZ's model, a tail call hands off control
-entirely — there is no return.
+The liquidation program is a token custodian: it holds seized collateral during
+auctions and settles payouts to bidders and the surplus buffer. This requires
+the transfer-authority primitives in
+[LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md),
+currently **open**.
+
+#### Authority libraries (RFP-001, RFP-002)
+
+Auction parameters are managed through an admin authority, and bad debt
+exceeding the surplus buffer pauses new debt generation via a freeze authority
+(F4). These come from the standardised libraries in
+[RFP-001](./RFP-001-admin-authority-lib.md) and
+[RFP-002](./RFP-002-freeze-authority-lib.md). Both RFPs are closed (candidate
+picked) and the libraries are in development.
+
+### Resolved dependencies
+
+These primitives were once blockers but are now delivered on LEZ, so they no
+longer gate this RFP. They remain in the frontmatter `dependencies` index for
+traceability.
+
+#### General cross-program calls (LP-0015)
 
 A liquidation operation needs to: (1) call the host CDP protocol to seize
 collateral from an undercollateralized position, then (2) continue executing to
-initialize auction state and account for the seized collateral. Without general
-cross-program calls, step 2 cannot happen after step 1. Each continuation would
-need to be a separate externally callable entrypoint, which is fragile and
-insecure (anyone could call the continuation directly, bypassing the collateral
-seizure).
-
+initialize auction state and account for the seized collateral. General
+cross-program calls via tail calls let step 2 run in a protected continuation
+after step 1.
 [LP-0015](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0015.md)
-(General cross-program calls via tail calls) solves this by introducing
-internal-only entrypoints protected by an unforgeable capability, so the
-liquidation program can tail-call the CDP program and have control return to a
-protected continuation. This prize is currently **open**.
+is **closed**, delivered by the LEZ team as part of the core runtime.
+
+#### Event emission (LP-0012)
+
+Liquidator bots and indexers observe positions and react to on-chain state
+changes through structured events rather than polling every account.
+[LP-0012](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)
+is **closed**.
 
 ### Soft blockers
 
 Desirable but the RFP can open without them.
 
-#### Event emission
-
-Liquidator bots and indexers need to monitor positions and react to on-chain
-state changes. Without structured events, off-chain services must poll all
-accounts, which is expensive.
+None
 
 ## Recommended Team Profile
 
@@ -308,8 +338,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 ## Resources
 
 - [RAI / GEB Code](https://github.com/reflexer-labs/geb)
-- [RFP-001 — Admin Authority](./RFP-001-admin-authority-poc.md)
-- [RFP-002 — Freeze Authority](./RFP-002-freeze-authority-poc.md)
+- [RFP-001 — Admin Authority](./RFP-001-admin-authority-lib.md)
+- [RFP-002 — Freeze Authority](./RFP-002-freeze-authority-lib.md)
 - [RFP-008 — Lending & Borrowing](./RFP-008-lending-borrowing-protocol.md)
 - [RFP-013 — Reflexive Stablecoin Protocol](./RFP-013-reflexive-stablecoin-protocol.md)
 - [Appendix: Liquidation & Auction Ecosystem](../appendix/appendix-liquidation-auction-ecosystem.md)

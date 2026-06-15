@@ -4,7 +4,19 @@ title: Reflexive Stablecoin Protocol
 tier: XL
 funding: $XXXXX
 status: open
-dependencies: RFP-001 (Admin Authority), RFP-002 (Freeze Authority)
+dependencies:
+  - id: RFP-020
+    reason: Provides the external price feed required for market price and redemption rate computation (F2, F6, R3).
+  - id: LP-0013
+    reason: Token transfer-authority primitives are required to custody collateral and to mint and burn the stablecoin via the LEZ Token Program (F5).
+  - id: RFP-001
+    reason: Provides the standardised admin authority library that gates parameter updates (stability fee, controller gains, safety ratios) per Reliability R4.
+  - id: RFP-002
+    reason: Provides the standardised freeze authority used for the emergency circuit breaker per Reliability R5.
+  - id: LP-0015
+    reason: General cross-program calls via tail calls, used to compose collateral transfers with subsequent position state updates.
+  - id: LEZ-clock
+    reason: Platform feature. Rate computation and stability fee accrual require elapsed time between interactions. Delivered via the LEZ clock program.
 category: Applications & Integrations
 ---
 
@@ -249,42 +261,67 @@ These must be available on LEZ before this RFP can open.
 The protocol requires external price feeds for market price and redemption rate
 computation. Every hard requirement related to rate adjustment (F2) and
 reliability (R3) depends on this.
+[RFP-020](./RFP-020-redstone-oracle-adaptor.md) (RedStone off-chain oracle
+adaptor) delivers external price feeds; [RFP-019](./RFP-019-twap-oracle.md)
+(on-chain TWAP oracle) is an alternative once a DEX is live.
+
+#### Token authorities (LP-0013)
+
+The stablecoin program is a token custodian: it holds locked collateral per
+position and mints and burns the stablecoin via the LEZ Token Program (F5). This
+requires the transfer-authority primitives in
+[LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md),
+currently **open**.
+
+#### Authority libraries (RFP-001, RFP-002)
+
+Parameter updates are gated through an admin authority (R4) and the emergency
+circuit breaker uses a freeze authority (R5). These come from the standardised
+libraries in [RFP-001](./RFP-001-admin-authority-lib.md) and
+[RFP-002](./RFP-002-freeze-authority-lib.md). Both RFPs are closed (candidate
+picked) and the libraries are in development.
+
+### Resolved dependencies
+
+These primitives were once blockers but are now delivered on LEZ, so they no
+longer gate this RFP. They remain in the frontmatter `dependencies` index for
+traceability.
 
 #### On-chain clock / timestamp
 
 Rate computation and stability fee accrual require knowing how much time has
-elapsed between interactions. Without a reliable on-chain timestamp, these
-cannot be computed.
+elapsed between interactions. The LEZ clock program now maintains on-chain
+timestamp accounts that any program can read, so this is **delivered**.
 
 #### General cross-program calls (LP-0015)
 
-LEZ uses a tail-call execution model rather than Solana's CPI (Cross-Program
-Invocation). In Solana's model, a program can call another program mid-execution
-and resume when the call returns. In LEZ's model, a tail call hands off control
-entirely — there is no return.
-
 A stablecoin operation like "lock collateral and mint" needs to: (1) call the
 token program to transfer collateral into the position, then (2) continue
-executing to update position state and mint stablecoins. Without general
-cross-program calls, step 2 cannot happen after step 1. Each continuation would
-need to be a separate externally callable entrypoint, which is fragile and
-insecure (anyone could call the continuation directly, bypassing the collateral
-transfer).
-
+executing to update position state and mint stablecoins. General cross-program
+calls via tail calls let step 2 run in a protected continuation after step 1.
 [LP-0015](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0015.md)
-(General cross-program calls via tail calls) solves this by introducing
-internal-only entrypoints protected by an unforgeable capability, so the
-stablecoin program can tail-call the token program and have control return to a
-protected continuation. This prize is currently **open**.
+is **closed**, delivered by the LEZ team as part of the core runtime.
+
+#### Event emission (LP-0012)
+
+Off-chain services observe positions and rate updates through structured events
+rather than polling every account.
+[LP-0012](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)
+is **closed**.
 
 ### Soft blockers
 
 Desirable but the RFP can open without them.
 
-#### Event emission
+#### Liquidation engine (RFP-014)
 
-Off-chain services need to monitor positions and rate updates. Without
-structured events, services must poll all accounts, which is expensive.
+A full liquidation and auction engine is delivered by
+[RFP-014](./RFP-014-liquidation-auction-engine.md), which liquidates the
+positions this protocol creates. The stablecoin is more robust once RFP-014 is
+live, but it can ship with a placeholder liquidation path that satisfies its
+functionality requirements and integrate RFP-014 once available. It is therefore
+a soft dependency rather than a frontmatter entry (also avoiding a hard cycle,
+since RFP-014 depends on this RFP for the positions it liquidates).
 
 ## Recommended Team Profile
 
@@ -309,8 +346,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 ## Resources
 
 - [RAI Whitepaper](https://github.com/reflexer-labs/whitepapers/blob/master/English/rai-english.pdf)
-- [RFP-001 — Admin Authority](./RFP-001-admin-authority-poc.md)
-- [RFP-002 — Freeze Authority](./RFP-002-freeze-authority-poc.md)
+- [RFP-001 — Admin Authority](./RFP-001-admin-authority-lib.md)
+- [RFP-002 — Freeze Authority](./RFP-002-freeze-authority-lib.md)
 - [RFP-008 — Lending & Borrowing](./RFP-008-lending-borrowing-protocol.md)
 - [RFP-014 — Liquidation & Auction Engine](./RFP-014-liquidation-auction-engine.md)
 - [Appendix: Reflexive Stablecoin Ecosystem](../appendix/appendix-reflexive-stablecoin-ecosystem.md)
