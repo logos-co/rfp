@@ -7,18 +7,17 @@ status: closed
 category: Developer Tooling & Infrastructure
 ---
 
-
 # RFP-002 — Freeze Authority Library
 
 ## 🧭 Overview
 
-Build a reusable library that provides a standardised freeze mechanism for
-LEE programs, allowing an authorised account to disable all (or selected)
+Build a reusable library that provides a standardised freeze mechanism for LEE
+programs, allowing an authorised account to disable all (or selected)
 interactions as a circuit breaker when an issue is discovered.
 
 The library must be integrated into the SPEL framework and ship with
-documentation and usage examples so teams can enable the pattern with
-minimal boilerplate.
+documentation and usage examples so teams can enable the pattern with minimal
+boilerplate.
 
 ## 🔥 Why This Matters
 
@@ -28,12 +27,11 @@ mechanism, every team must design their own — leading to inconsistent
 implementations, duplicated effort, and a higher risk of critical
 vulnerabilities.
 
-Delivering this as a shared library lowers the barrier for developers
-building on LEE. Teams can focus on application logic rather than
-re-inventing freeze patterns, accelerating the pace at which new programs
-ship. As more programs begin handling real value, the ability to freeze a
-compromised program is the difference between a contained incident and a
-catastrophic loss.
+Delivering this as a shared library lowers the barrier for developers building
+on LEE. Teams can focus on application logic rather than re-inventing freeze
+patterns, accelerating the pace at which new programs ship. As more programs
+begin handling real value, the ability to freeze a compromised program is the
+difference between a contained incident and a catastrophic loss.
 
 ## ✅ Scope of Work
 
@@ -47,34 +45,35 @@ catastrophic loss.
    with it; apart from unfreezing or changing the freeze authority.
 4. Freeze authority can un-freeze the program, re-enabling interactions.
 5. Freeze authority can be revoked by admin authority.
-6. Freeze authority can freeze a specific account by `AccountId`, preventing
-   it from interacting with the program while leaving the rest of the program
+6. Freeze authority can freeze a specific account by `AccountId`, preventing it
+   from interacting with the program while leaving the rest of the program
    operational.
 7. Freeze authority can un-freeze a specific account, re-enabling its
    interactions with the program.
 
 #### Usability
 
-1. The library is integrated into the [SPEL framework](https://github.com/logos-co/spel)
-   so that programs using SPEL can enable freeze authority with minimal
-   boilerplate — ideally a single annotation or configuration flag.
+1. The library is integrated into the
+   [SPEL framework](https://github.com/logos-co/spel) so that programs using
+   SPEL can enable freeze authority with minimal boilerplate — ideally a single
+   annotation or configuration flag.
 2. There can only be one freeze authority (signer) at a time.
-3. Documentation includes at least one end-to-end usage example showing
-   how a SPEL program integrates the freeze check.
+3. Documentation includes at least one end-to-end usage example showing how a
+   SPEL program integrates the freeze check.
 
 #### Performance
 
 No compute budget constraints are expected for this library. Document the
-additional transaction size overhead introduced by the freeze check on any
-gated instruction.
+additional transaction size overhead introduced by the freeze check on any gated
+instruction.
 
 #### Supportability
 
 1. CI must be green on the default branch.
-2. Every hard requirement in Functionality, Usability, and Reliability has
-   at least one corresponding test.
-3. A README documents how to add the library as a dependency and integrate
-   it into a SPEL program, including a step-by-step example.
+2. Every hard requirement in Functionality, Usability, and Reliability has at
+   least one corresponding test.
+3. A README documents how to add the library as a dependency and integrate it
+   into a SPEL program, including a step-by-step example.
 4. A sample program that imports the library is included to validate the
    integration path and serve as a reference for consumers.
 
@@ -84,9 +83,8 @@ If possible.
 
 #### Reliability
 
-1. Freeze authority can only be set to a valid new signer (on-curve key
-   or deployed PDA), when set or initialised.
-
+1. Freeze authority can only be set to a valid new signer (on-curve key or
+   deployed PDA), when set or initialised.
 
 ## 👤 Recommended Team Profile
 
@@ -102,11 +100,9 @@ Developer experienced with:
 
 Estimated duration: **4 weeks**
 
-
 ## 🌍 Open Source Requirement
 
 All code must be released under the **MIT+Apache2.0 License**.
-
 
 ## Resources
 
@@ -119,5 +115,5 @@ All code must be released under the **MIT+Apache2.0 License**.
 
 **[Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml)**
 
-We typically respond within **14 days**. For clarification questions,
-please use **Discussions**.
+We typically respond within **14 days**. For clarification questions, please use
+**Discussions**.
