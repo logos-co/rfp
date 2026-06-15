@@ -74,21 +74,21 @@ Click an RFP to view details. Use the Submit Proposal button to apply.
 
 <!-- RFP_TABLE_START -->
 
-| ID      | Title                                                                                | Tier | Funding | Status | Category                           | Submit Proposal                                                                     |
-| ------- | ------------------------------------------------------------------------------------ | ---- | ------- | ------ | ---------------------------------- | ----------------------------------------------------------------------------------- |
-| RFP-001 | [Admin Authority Library](RFPs/RFP-001-admin-authority-lib.md)                       | XS   | $XXXXX  | closed   | Developer Tooling & Infrastructure | Closed                                                                              |
-| RFP-002 | [Freeze Authority Library](RFPs/RFP-002-freeze-authority-lib.md)                     | XS   | $XXXXX  | closed   | Developer Tooling & Infrastructure | Closed                                                                              |
-| RFP-003 | [Atomic Swaps with LEZ](RFPs/RFP-003-atomic-swaps.md)                                | XL   | $TBD    | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
-| RFP-004 | [Privacy-Preserving DEX](RFPs/RFP-004-privacy-preserving-dex.md)                     | XL   | $XXXXX  | closed   | Applications & Integrations        | Closed|
-| RFP-008 | [Lending & Borrowing Protocol](RFPs/RFP-008-lending-borrowing-protocol.md)           | XL   | $XXXXX  | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
-| RFP-012 | [Curated Lending Vaults](RFPs/RFP-012-curated-lending-vaults.md)                     | L    | $XXXXX  | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
-| RFP-013 | [Reflexive Stablecoin Protocol](RFPs/RFP-013-reflexive-stablecoin-protocol.md)       | XL   | $XXXXX  | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
-| RFP-014 | [Liquidation & Auction Engine](RFPs/RFP-014-liquidation-auction-engine.md)           | L    | $XXXXX  | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
-| RFP-015 | [Token Launchpad: Bonding Curve](RFPs/RFP-015-bonding-curve-launchpad.md)            | L    | $XXXXX  | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
-| RFP-016 | [Token Launchpad: LBP](RFPs/RFP-016-lbp-launchpad.md)                                | XL   | $XXXXX  | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
-| RFP-017 | [Privacy-Preserving Token Vesting](RFPs/RFP-017-token-vesting.md)                    | L    | $XXXXX  | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
-| RFP-019 | [On-Chain TWAP Oracle](RFPs/RFP-019-twap-oracle.md)                                  | L    | $XXXXX  | open   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
-| RFP-020 | [RedStone Off-Chain Oracle Adaptor for LEZ](RFPs/RFP-020-redstone-oracle-adaptor.md) | M    | $XXXXX  | open   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
+| ID      | Title                                                                                | Tier | Status | Category                           | Submit Proposal                                                                     |
+| ------- | ------------------------------------------------------------------------------------ | ---- | ------ | ---------------------------------- | ----------------------------------------------------------------------------------- |
+| RFP-001 | [Admin Authority Library](RFPs/RFP-001-admin-authority-lib.md)                       | XS   | closed   | Developer Tooling & Infrastructure | Closed                                                                              |
+| RFP-002 | [Freeze Authority Library](RFPs/RFP-002-freeze-authority-lib.md)                     | XS   | closed   | Developer Tooling & Infrastructure | Closed                                                                              |
+| RFP-003 | [Atomic Swaps with LEZ](RFPs/RFP-003-atomic-swaps.md)                                | XL   | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
+| RFP-004 | [Privacy-Preserving DEX](RFPs/RFP-004-privacy-preserving-dex.md)                     | XL   | closed   | Applications & Integrations        | Closed|
+| RFP-008 | [Lending & Borrowing Protocol](RFPs/RFP-008-lending-borrowing-protocol.md)           | XL   | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
+| RFP-012 | [Curated Lending Vaults](RFPs/RFP-012-curated-lending-vaults.md)                     | L    | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
+| RFP-013 | [Reflexive Stablecoin Protocol](RFPs/RFP-013-reflexive-stablecoin-protocol.md)       | XL   | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
+| RFP-014 | [Liquidation & Auction Engine](RFPs/RFP-014-liquidation-auction-engine.md)           | L    | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
+| RFP-015 | [Token Launchpad: Bonding Curve](RFPs/RFP-015-bonding-curve-launchpad.md)            | L    | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
+| RFP-016 | [Token Launchpad: LBP](RFPs/RFP-016-lbp-launchpad.md)                                | XL   | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
+| RFP-017 | [Privacy-Preserving Token Vesting](RFPs/RFP-017-token-vesting.md)                    | L    | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
+| RFP-019 | [On-Chain TWAP Oracle](RFPs/RFP-019-twap-oracle.md)                                  | L    | open   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
+| RFP-020 | [RedStone Off-Chain Oracle Adaptor for LEZ](RFPs/RFP-020-redstone-oracle-adaptor.md) | M    | open   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
 
 <!-- RFP_TABLE_END -->
 
