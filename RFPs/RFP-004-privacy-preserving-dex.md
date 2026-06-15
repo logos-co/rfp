@@ -3,7 +3,7 @@ id: RFP-004
 title: Privacy-Preserving Decentralized Exchange (DEX)
 tier: XL
 funding: $XXXXX
-status: open
+status: closed
 dependencies:
   - id: LP-0013
     reason: Token transfer-authority primitives are required for the DEX program to custody pool reserves, pay swap output, return LP deposits, and route trading fees.
