@@ -1,4 +1,4 @@
-[Banner](/public/logos-rfps.png)
+![Banner](/public/logos-rfps.png)
 
 # Logos RFP Program
 
