@@ -5,6 +5,13 @@ tier: L
 funding: $XXXXX
 status: open
 category: Applications & Integrations
+dependencies:
+  - id: LP-0013
+    reason: Token transfer-authority primitives are required for the program to escrow vested tokens and pay beneficiaries on claim.
+  - id: LP-0015
+    reason: General cross-program calls via tail calls, used so schedule-state updates execute in a protected continuation after the token transfer.
+  - id: LEZ-clock
+    reason: Platform feature. Cliff dates, linear accrual, and vested amounts are functions of elapsed time. Delivered via the LEZ clock program.
 ---
 
 # RFP-017: Privacy-Preserving Token Vesting
@@ -320,49 +327,62 @@ future RFP.
 
 ## ⚠ Platform Dependencies
 
-LEZ has similar programming capabilities to Solana but several primitives
-required by a vesting protocol are not yet available. Development is blocked
-until the dependencies below are resolved.
+LEZ has similar programming capabilities to Solana but one primitive required by
+a vesting protocol is not yet available. Development is blocked until the
+dependencies below are resolved.
 
 ### Hard dependencies
 
+#### Token authorities (LP-0013)
+
+The vesting program is a token custodian: it escrows the full schedule amount at
+creation and pays vested tokens to beneficiaries on claim. This requires the
+transfer-authority primitives in
+[LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md),
+currently **open**.
+
+### Resolved dependencies
+
+These primitives were once blockers but are now delivered on LEZ, so they no
+longer gate this RFP. They remain in the frontmatter `dependencies` index for
+traceability.
+
 #### On-chain clock / timestamp
 
-LEZ does not yet have on-chain block time. Vesting schedules are fundamentally
-time-based: the cliff date, linear accrual rate, and total vested amount at any
-moment are all functions of elapsed time. Without a reliable on-chain timestamp,
-the program cannot determine how much of a schedule has vested, making cliff +
-linear and fully linear schedule types impossible to implement correctly.
-Milestone-based vesting does not require an on-chain timestamp and is unaffected
-by this dependency, but it represents only a subset of the required
-functionality.
+Vesting schedules are fundamentally time-based: the cliff date, linear accrual
+rate, and total vested amount at any moment are all functions of elapsed time.
+The LEZ clock program now maintains on-chain timestamp accounts that any program
+can read, so this is **delivered**.
 
 #### General cross-program calls (LP-0015)
 
-LEZ uses a tail-call execution model with no return. A claim operation must: (1)
-verify the schedule and compute the claimable amount, (2) call the token program
-to transfer the vested tokens to the beneficiary, and then (3) update the
-schedule state (recording the claimed amount and timestamp). Without general
-cross-program calls, step 3 cannot execute after step 2: any account could call
-the update entrypoint directly, bypassing the token transfer.
-
+A claim operation must: (1) verify the schedule and compute the claimable
+amount, (2) call the token program to transfer the vested tokens to the
+beneficiary, and then (3) update the schedule state (recording the claimed
+amount and timestamp). General cross-program calls via tail calls let step 3 run
+in a protected continuation after step 2.
 [LP-0015](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0015.md)
-(General cross-program calls via tail calls) solves this. This prize is
-currently **open**.
+is **closed**, delivered by the LEZ team as part of the core runtime.
+
+#### Event emission (LP-0012)
+
+Off-chain dashboards and notification services react to vesting events (schedule
+created, cliff reached, tokens claimed, schedule cancelled) through structured
+events rather than polling every account.
+[LP-0012](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md)
+is **closed**.
 
 ### Soft dependencies
 
 Desirable but not required to begin development.
 
-#### Event emission (LP-0012)
+#### Admin authority (RFP-001)
 
-Off-chain dashboards and notification services need to react to vesting events
-(schedule created, cliff reached, tokens claimed, schedule cancelled). Without
-structured events, these services must poll all accounts, which is expensive and
-unreliable.
-
-[LP-0012](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md)
-(Structured events for LEZ program execution) is currently **open**.
+If a proposal includes a protocol fee with a governance-activatable fee switch
+(see Fee structure), the fee configuration should reuse the standardised admin
+authority library from [RFP-001](./RFP-001-admin-authority-lib.md). Since the
+fee switch is optional, this is a soft dependency rather than a frontmatter
+entry.
 
 ## 👤 Recommended Team Profile
 

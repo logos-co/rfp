@@ -5,6 +5,17 @@ tier: XL
 funding: $XXXXX
 status: open
 category: Applications & Integrations
+dependencies:
+  - id: LP-0013
+    reason: Token transfer-authority primitives are required to custody pool token and collateral balances and to route protocol fees.
+  - id: RFP-001
+    reason: Provides the standardised admin authority library that configures the protocol fee rate and treasury address applied uniformly to all sales.
+  - id: RFP-002
+    reason: Provides the standardised freeze authority underpinning the sale pause capability, the emergency stop for security incidents (F6).
+  - id: LP-0015
+    reason: General cross-program calls via tail calls, used to complete a buy operation atomically (transfer collateral, compute output, transfer tokens, update pool state).
+  - id: LEZ-clock
+    reason: Platform feature. Weight progression and sale start and end enforcement are functions of elapsed time. Delivered via the LEZ clock program.
 ---
 
 # RFP-016: Privacy-Preserving Token Launchpad: LBP
@@ -129,7 +140,7 @@ properties and any reduction in anonymity set relative to a non-gated sale.
 ### Sale pause capability
 
 The pause function is an emergency stop for security incidents, analogous to the
-freeze authority in [RFP-002](./RFP-002-freeze-authority-poc.md). Crucially,
+freeze authority in [RFP-002](./RFP-002-freeze-authority-lib.md). Crucially,
 pausing does not halt weight progression: the weight schedule continues to
 advance during a pause. This prevents a creator from gaming the mechanism by
 pausing at a weight that is artificially favourable and resuming once they
@@ -491,39 +502,58 @@ to existing production deployments or audits.
 
 ## ⚠ Platform Dependencies
 
+### Hard blockers
+
 These must be available on LEZ for development to start:
+
+#### Token authorities (LP-0013)
+
+The launchpad program is a token custodian: it holds pool token and collateral
+balances, pays out tokens on buys, and routes protocol fees to the treasury.
+This requires the transfer-authority primitives in
+[LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md),
+currently **open**.
+
+#### Authority libraries (RFP-001, RFP-002)
+
+The protocol fee rate and treasury address are configured by the program's admin
+authority, and the sale pause capability (F6) builds on a freeze authority.
+These come from the standardised libraries in
+[RFP-001](./RFP-001-admin-authority-lib.md) and
+[RFP-002](./RFP-002-freeze-authority-lib.md). Both RFPs are closed (candidate
+picked) and the libraries are in development.
+
+### Resolved dependencies
+
+These primitives were once blockers but are now delivered on LEZ, so they no
+longer gate this RFP. They remain in the frontmatter `dependencies` index for
+traceability.
 
 #### On-chain clock / timestamp
 
-LEZ does not yet have on-chain block time. The LBP mechanism is fundamentally
-time-driven: pool weights shift linearly from the start weight to the end weight
-over the sale duration, and the current price at any moment is a function of
-elapsed time since sale start. Without a reliable on-chain timestamp, weight
-progression cannot be computed, and sale start and end timestamps cannot be
-enforced. The launchpad cannot function without this primitive.
+The LBP mechanism is fundamentally time-driven: pool weights shift linearly from
+the start weight to the end weight over the sale duration, and the current price
+at any moment is a function of elapsed time since sale start. The LEZ clock
+program now maintains on-chain timestamp accounts that any program can read, so
+this is **delivered**.
 
 #### General cross-program calls (LP-0015)
 
-LEZ uses a tail-call execution model with no return. A buy operation must: (1)
-call the token program to transfer collateral from the buyer into the pool, (2)
-compute the token output based on current weights, (3) call the token program
-again to transfer project tokens to the buyer, and (4) update pool state
-(weights, balances, cumulative volume). Without general cross-program calls, the
-execution cannot continue after the first token program call, making it
-impossible to complete the full buy atomically.
-
+A buy operation must: (1) call the token program to transfer collateral from the
+buyer into the pool, (2) compute the token output based on current weights, (3)
+call the token program again to transfer project tokens to the buyer, and (4)
+update pool state (weights, balances, cumulative volume). General cross-program
+calls via tail calls let each step continue in a protected continuation.
 [LP-0015](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0015.md)
-(General cross-program calls via tail calls) solves this. This prize is
-currently **open**.
+is **closed**, delivered by the LEZ team as part of the core runtime.
 
 #### Event emission (LP-0012)
 
-Analytics dashboards and sale monitoring services need to react to pool events
-(buy executed, weights updated, sale closed). Without structured events,
-off-chain services must poll all accounts, which is expensive and unreliable.
-
+Analytics dashboards and sale monitoring services react to pool events (buy
+executed, weights updated, sale closed) through structured events rather than
+polling every account.
 [LP-0012](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md)
-(Structured events for LEZ program execution) is currently **open**.
+is **closed**.
 
 ## 👤 Recommended Team Profile
 

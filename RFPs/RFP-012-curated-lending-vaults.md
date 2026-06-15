@@ -4,7 +4,11 @@ title: Curated Lending Vaults
 tier: L
 funding: $XXXXX
 status: open
-dependencies: RFP-008
+dependencies:
+  - id: RFP-008
+    reason: The vault layer allocates deposits across the isolated lending markets delivered by RFP-008 and cannot proceed until the base protocol is live.
+  - id: LP-0013
+    reason: Token transfer-authority primitives are required for the vault program to custody idle balances and issue vault share tokens.
 category: Applications & Integrations
 ---
 
@@ -276,9 +280,10 @@ the following is satisfied:
 1. **RFP-008 is live on LEZ devnet/testnet**: this RFP extends the deployed
    protocol; it cannot proceed without the base layer.
 
-All other platform primitives required by this RFP (including LP-0015 general
-cross-program calls and an oracle provider) are hard blockers for RFP-008 and
-will therefore be resolved before this RFP opens. See
+All other platform primitives required by this RFP (including LP-0013 token
+transfer authorities and an oracle provider) are hard blockers for RFP-008 and
+will therefore be resolved before this RFP opens. LP-0015 (general cross-program
+calls), once a blocker, is delivered. See
 [RFP-008 — Platform Dependencies](./RFP-008-lending-borrowing-protocol.md#-platform-dependencies)
 for details.
 
@@ -307,7 +312,6 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 ## Resources
 
 - [RFP-008 — Lending & Borrowing Protocol](./RFP-008-lending-borrowing-protocol.md)
-- [RFP-002 — Freeze Authority Library](./RFP-002-freeze-authority-lib.md)
 - [Appendix: Lending and Borrowing Ecosystem](../appendix/lending-ecosystem.md)
   — MetaMorpho curated-vault deep dive, curator landscape, Vault V2 design
 - TODO: Oracle integration guide for LEZ

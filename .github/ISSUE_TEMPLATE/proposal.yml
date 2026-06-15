@@ -12,7 +12,6 @@ body:
       description: Which RFP are you applying for? Pick the matching RFP — this drives the per-RFP label used for tracking.
       options:
         - "RFP-003 — Atomic Swaps with LEZ"
-        - "RFP-004 — Privacy-Preserving DEX"
         - "RFP-008 — Lending & Borrowing Protocol"
         - "RFP-012 — Curated Lending Vaults"
         - "RFP-013 — Reflexive Stablecoin Protocol"

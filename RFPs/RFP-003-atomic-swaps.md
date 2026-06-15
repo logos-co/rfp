@@ -5,12 +5,16 @@ tier: XL
 funding: $TBD
 status: open
 category: Applications & Integrations
+dependencies:
+  - id: LEZ-timelock
+    reason: Platform feature. The escrow program refunds the depositor after the timelock expires (F5). Delivered via the LEZ clock program, whose timestamp accounts let a program enforce deadlines.
 ---
 
 # RFP-003 — Atomic Swaps with LEZ
 
-> **Note:** This RFP is open for proposal submission. However, development is
-> blocked pending **LEZ timelock support** being available on LEZ.
+> **Note:** This RFP is open for proposal submission. **LEZ timelock support**
+> is now available: the LEZ clock program exposes on-chain block timestamps, and
+> a program can gate release or refund on a deadline.
 
 ## 🧭 Overview
 
@@ -220,6 +224,32 @@ a high-visibility proof point for ecosystem adoption.
 
 - Support for the **Logos Ethereum module** could be extended to additional
   EVM-compatible chains in a single submission.
+
+## ⚠ Platform Dependencies
+
+### Resolved dependencies
+
+These were once blockers but are now delivered on LEZ, so they no longer gate
+this RFP. They remain in the frontmatter `dependencies` index with
+
+#### LEZ timelock support
+
+Refunds after timelock expiry (F5) require a program-readable time source. The
+LEZ clock program now maintains on-chain timestamp accounts, and a program can
+gate release or refund on a deadline, so this is **delivered**.
+
+### Soft blockers
+
+Desirable but the RFP can open without them.
+
+#### Use Basecamp to manage remote node
+
+Swaps require counterpart chain infrastructure (a Bitcoin Core node, a Monero
+node, an Ethereum RPC) and a long-running maker daemon. The R&D item
+[Use Basecamp to manage remote node](https://github.com/logos-co/journeys.logos.co/issues/62)
+would let users manage such remote nodes from Basecamp, improving the operator
+journey for the maker daemon and node setup (U8, U9). The RFP can be delivered
+without it using the documented CLI and self-hosted node setup.
 
 ## 👤 Recommended Team Profile
 

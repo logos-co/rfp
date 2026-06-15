@@ -1,10 +1,16 @@
 ---
 id: RFP-015
-title: Privacy-Preserving Token Launchpad: Bonding Curve
+title: 'Privacy-Preserving Token Launchpad: Bonding Curve'
 tier: L
 funding: $XXXXX
 status: open
-dependencies: See Platform Dependencies section
+dependencies:
+  - id: LP-0013
+    reason: Token transfer-authority primitives are required to custody the token sale reserve and the real collateral reserve.
+  - id: RFP-001
+    reason: Provides the standardised admin authority library that configures the protocol fee rate and treasury address applied uniformly to all sales.
+  - id: LP-0015
+    reason: General cross-program calls via tail calls, used to complete a buy operation atomically (transfer collateral, compute output, transfer tokens, update curve state).
 category: Applications & Integrations
 ---
 
@@ -488,11 +494,33 @@ production deployments or audits.
 ## ⚠ Platform Dependencies
 
 This RFP is open for proposals. However, full implementation is blocked until
-the hard dependency below is delivered. Proposers may begin design and
-development work, but a working on-chain deployment requires LP-0015 to be
+the hard blockers below are delivered. Proposers may begin design and
+development work, but a working on-chain deployment requires them to be
 available.
 
 ### Hard blockers
+
+#### Token authorities (LP-0013)
+
+The launchpad program is a token custodian: it holds the token sale reserve and
+the real collateral reserve, pays out tokens on buys and collateral on sells,
+and routes protocol fees to the treasury. This requires the transfer-authority
+primitives in
+[LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md),
+currently **open**.
+
+#### Admin authority (RFP-001)
+
+The protocol fee rate and treasury address are configured by the program's admin
+authority, using the standardised library from
+[RFP-001](./RFP-001-admin-authority-lib.md). The RFP is closed (candidate
+picked) and the library is in development.
+
+### Resolved dependencies
+
+These primitives were once blockers but are now delivered on LEZ, so they no
+longer gate this RFP. They remain in the frontmatter `dependencies` index for
+traceability.
 
 #### General cross-program calls (LP-0015)
 
@@ -500,24 +528,18 @@ A buy operation must: (1) call the token program to transfer collateral from the
 buyer into the real collateral reserve, (2) compute `tokens_out` using the
 constant product formula, (3) call the token program again to transfer project
 tokens to the buyer, and (4) update curve state (`Vt`, `Vc`, real reserves).
-Without general cross-program calls, the execution cannot continue after the
-first token program call, making it impossible to complete the full buy
-atomically.
-
+General cross-program calls via tail calls let each step continue in a protected
+continuation.
 [LP-0015](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0015.md)
-(General cross-program calls via tail calls) solves this. This prize is
-currently **open**.
-
-### Soft blockers
+is **closed**, delivered by the LEZ team as part of the core runtime.
 
 #### Event emission (LP-0012)
 
-Analytics dashboards and monitoring services need to react to curve events (buy
-executed, sale closed). Without structured events, off-chain services must poll
-all accounts.
-
+Analytics dashboards and monitoring services react to curve events (buy
+executed, sale closed) through structured events rather than polling every
+account.
 [LP-0012](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md)
-(Structured events for LEZ program execution) is currently **open**.
+is **closed**.
 
 ## 👤 Recommended Team Profile
 

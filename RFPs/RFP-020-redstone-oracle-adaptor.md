@@ -4,7 +4,9 @@ title: RedStone Off-Chain Oracle Adaptor for LEZ
 tier: M
 funding: $XXXXX
 status: open
-dependencies: See Platform Dependencies section
+dependencies:
+  - id: RFP-001
+    reason: Provides the standardised admin authority library that registers feeds and updates authorised signer sets, as specified in the Functionality requirements.
 category: Developer Tooling & Infrastructure
 ---
 
@@ -680,21 +682,22 @@ today (RISC-V zkVM on RISC0, public-execution mode, public account storage).
 Signature verification runs as in-program code; no new precompile or syscall is
 required to deliver the adaptor.
 
+#### Admin authority (RFP-001)
+
+The Functionality requirements specify that an admin authority (per RFP-001,
+integrated via the SPEL framework) registers feeds, deregisters them, and
+updates each feed's authorised signer set. These admin-gated functions require
+the standardised admin authority library from
+[RFP-001](./RFP-001-admin-authority-lib.md), currently in development.
+
 ### Soft blockers
-
-#### RFP-019 (canonical oracle price account standard)
-
-This RFP populates the canonical price account standard defined in
-[RFP-019](./RFP-019-twap-oracle.md). If RFP-019 has not landed when this RFP is
-delivered, the applicant defines a forward-compatible minimal struct (see Design
-Rationale).
 
 #### Event emission (LP-0012)
 
 Analytics and monitoring benefit from structured on-chain events for price
 updates, feed registrations, and signer-set changes.
 [LP-0012](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)
-(Structured events for LEZ program execution) is currently **open**.
+(Structured events for LEZ program execution) is **closed** (delivered).
 
 ## 👤 Recommended Team Profile
 

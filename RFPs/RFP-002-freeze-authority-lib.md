@@ -5,6 +5,7 @@ tier: XS
 funding: $XXXXX
 status: closed
 category: Developer Tooling & Infrastructure
+dependencies: []
 ---
 
 # RFP-002 — Freeze Authority Library
