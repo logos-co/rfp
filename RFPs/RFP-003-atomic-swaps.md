@@ -6,9 +6,6 @@ funding: $TBD
 status: open
 category: Applications & Integrations
 dependencies:
-  - id: LP-0013
-    status: open
-    reason: Token transfer-authority primitives are required for the escrow program to custody locked funds and release or refund them.
   - id: LEZ-timelock
     status: closed
     reason: Platform feature. The escrow program refunds the depositor after the timelock expires (F5). Delivered via the LEZ clock program, whose timestamp accounts let a program enforce deadlines.
@@ -18,10 +15,7 @@ dependencies:
 
 > **Note:** This RFP is open for proposal submission. **LEZ timelock support**
 > is now available: the LEZ clock program exposes on-chain block timestamps, and
-> a program can gate release or refund on a deadline. However, on-chain custody
-> requires the token transfer-authority primitives in
-> [LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md),
-> currently **open**, so development remains blocked on that prize.
+> a program can gate release or refund on a deadline.
 
 ## 🧭 Overview
 
@@ -233,16 +227,6 @@ a high-visibility proof point for ecosystem adoption.
   EVM-compatible chains in a single submission.
 
 ## ⚠ Platform Dependencies
-
-### Hard blockers
-
-#### Token authorities (LP-0013)
-
-The escrow program is a token custodian: it locks funds for each swap leg and
-releases them on valid proof submission or refunds them after the timelock
-expires. This requires the transfer-authority primitives in
-[LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md),
-currently **open**.
 
 ### Resolved dependencies
 
