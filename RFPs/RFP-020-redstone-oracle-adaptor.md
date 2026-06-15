@@ -6,7 +6,6 @@ funding: $XXXXX
 status: open
 dependencies:
   - id: RFP-001
-    status: closed
     reason: Provides the standardised admin authority library that registers feeds and updates authorised signer sets, as specified in the Functionality requirements.
 category: Developer Tooling & Infrastructure
 ---

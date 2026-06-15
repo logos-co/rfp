@@ -7,7 +7,6 @@ status: open
 category: Applications & Integrations
 dependencies:
   - id: LEZ-timelock
-    status: closed
     reason: Platform feature. The escrow program refunds the depositor after the timelock expires (F5). Delivered via the LEZ clock program, whose timestamp accounts let a program enforce deadlines.
 ---
 
@@ -232,7 +231,6 @@ a high-visibility proof point for ecosystem adoption.
 
 These were once blockers but are now delivered on LEZ, so they no longer gate
 this RFP. They remain in the frontmatter `dependencies` index with
-`status: closed`.
 
 #### LEZ timelock support
 

@@ -6,7 +6,6 @@ funding: $XXXXX
 status: open
 dependencies:
   - id: RFP-001
-    status: closed
     reason: Provides the standardised admin authority library used by the oracle program owner to register feed sources and govern per-pool parameters such as MAX_TICK_DELTA.
 category: Developer Tooling & Infrastructure
 ---

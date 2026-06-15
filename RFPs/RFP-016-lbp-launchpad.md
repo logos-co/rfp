@@ -7,19 +7,14 @@ status: open
 category: Applications & Integrations
 dependencies:
   - id: LP-0013
-    status: open
     reason: Token transfer-authority primitives are required to custody pool token and collateral balances and to route protocol fees.
   - id: RFP-001
-    status: closed
     reason: Provides the standardised admin authority library that configures the protocol fee rate and treasury address applied uniformly to all sales.
   - id: RFP-002
-    status: closed
     reason: Provides the standardised freeze authority underpinning the sale pause capability, the emergency stop for security incidents (F6).
   - id: LP-0015
-    status: closed
     reason: General cross-program calls via tail calls, used to complete a buy operation atomically (transfer collateral, compute output, transfer tokens, update pool state).
   - id: LEZ-clock
-    status: closed
     reason: Platform feature. Weight progression and sale start and end enforcement are functions of elapsed time. Delivered via the LEZ clock program.
 ---
 
@@ -531,8 +526,8 @@ picked) and the libraries are in development.
 ### Resolved dependencies
 
 These primitives were once blockers but are now delivered on LEZ, so they no
-longer gate this RFP. They remain in the frontmatter `dependencies` index with
-`status: closed`.
+longer gate this RFP. They remain in the frontmatter `dependencies` index for
+traceability.
 
 #### On-chain clock / timestamp
 

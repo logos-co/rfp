@@ -7,13 +7,10 @@ status: open
 category: Applications & Integrations
 dependencies:
   - id: LP-0013
-    status: open
     reason: Token transfer-authority primitives are required for the program to escrow vested tokens and pay beneficiaries on claim.
   - id: LP-0015
-    status: closed
     reason: General cross-program calls via tail calls, used so schedule-state updates execute in a protected continuation after the token transfer.
   - id: LEZ-clock
-    status: closed
     reason: Platform feature. Cliff dates, linear accrual, and vested amounts are functions of elapsed time. Delivered via the LEZ clock program.
 ---
 
@@ -347,8 +344,8 @@ currently **open**.
 ### Resolved dependencies
 
 These primitives were once blockers but are now delivered on LEZ, so they no
-longer gate this RFP. They remain in the frontmatter `dependencies` index with
-`status: closed`.
+longer gate this RFP. They remain in the frontmatter `dependencies` index for
+traceability.
 
 #### On-chain clock / timestamp
 

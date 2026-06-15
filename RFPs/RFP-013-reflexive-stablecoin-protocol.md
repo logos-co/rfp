@@ -6,22 +6,16 @@ funding: $XXXXX
 status: open
 dependencies:
   - id: RFP-020
-    status: open
     reason: Provides the external price feed required for market price and redemption rate computation (F2, F6, R3).
   - id: LP-0013
-    status: open
     reason: Token transfer-authority primitives are required to custody collateral and to mint and burn the stablecoin via the LEZ Token Program (F5).
   - id: RFP-001
-    status: closed
     reason: Provides the standardised admin authority library that gates parameter updates (stability fee, controller gains, safety ratios) per Reliability R4.
   - id: RFP-002
-    status: closed
     reason: Provides the standardised freeze authority used for the emergency circuit breaker per Reliability R5.
   - id: LP-0015
-    status: closed
     reason: General cross-program calls via tail calls, used to compose collateral transfers with subsequent position state updates.
   - id: LEZ-clock
-    status: closed
     reason: Platform feature. Rate computation and stability fee accrual require elapsed time between interactions. Delivered via the LEZ clock program.
 category: Applications & Integrations
 ---
@@ -290,8 +284,8 @@ picked) and the libraries are in development.
 ### Resolved dependencies
 
 These primitives were once blockers but are now delivered on LEZ, so they no
-longer gate this RFP. They remain in the frontmatter `dependencies` index with
-`status: closed`.
+longer gate this RFP. They remain in the frontmatter `dependencies` index for
+traceability.
 
 #### On-chain clock / timestamp
 
