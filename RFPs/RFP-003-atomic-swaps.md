@@ -2,7 +2,7 @@
 id: RFP-003
 title: Atomic Swaps with LEZ
 tier: XL
-funding: $TBD
+funding: $100k
 status: open
 category: Applications & Integrations
 dependencies:
@@ -12,31 +12,42 @@ dependencies:
 
 # RFP-003 — Atomic Swaps with LEZ
 
-> **Note:** This RFP is open for proposal submission. **LEZ timelock support**
-> is now available: the LEZ clock program exposes on-chain block timestamps, and
-> a program can gate release or refund on a deadline.
+> **Status:** Open for proposal submission and ready to start. The LEZ-side
+> primitives required for adaptor-signature-based swaps (BIP-340 Schnorr over
+> secp256k1, block-height and timestamp validity windows, AND-multisig witness
+> sets, SHA-256 in guest programs) are present in the
+> [Logos Execution Zone](https://github.com/logos-blockchain/logos-execution-zone/)
+> today. Applicants should verify the relevant signing, witness, and
+> validity-window APIs against the current tip before submission.
 
 ## 🧭 Overview
 
 Build a unified atomic swap application that enables trustless, non-custodial
-exchanges between LEZ and three major chains: **Bitcoin**, **Monero**, and
-**Ethereum**. The LEZ side is implemented as a Risc0 guest program that locks
-funds contingent on the appropriate cryptographic proof for each chain. A
-reference implementation for ETH–LEZ swaps already exists
-([eth-lez-atomic-swaps](https://github.com/logos-co/eth-lez-atomic-swaps)); this
-RFP extends the work to Bitcoin and Monero, and delivers a complete,
-production-ready swap application.
+exchanges between LEZ and three external chains: **Bitcoin**, **Monero**, and
+**Zcash** (transparent pool). The LEZ side is implemented as a Risc0 guest
+program that locks funds contingent on the appropriate cryptographic proof for
+each chain. An HTLC-based reference implementation for ETH and LEZ already
+exists
+([eth-lez-atomic-swaps](https://github.com/logos-co/eth-lez-atomic-swaps)) and
+demonstrates the LEZ escrow structure; this RFP applies that foundation to
+Bitcoin, Monero, and Zcash, and delivers a complete, production-ready swap
+application. An Ethereum pair is out of scope: ETH is expected to reach LEZ via
+wrapping, which requires no swap counterparty and is a much simpler
+construction. Zcash shielded-pool (Sapling / Orchard) swaps are explicitly out
+of scope: the cryptographic state of the art does not yet provide a drop-in
+design (see
+[Appendix: Zcash Atomic Swap Primitives](../appendix/zcash-atomic-swap-primitives.md)).
 
 The application uses a **maker/taker model**: the maker acts as a liquidity
 provider, advertising offers over **Logos Delivery** and coordinating swaps over
-**Logos Chat** — no central infrastructure required. Teams with experience in
-applied cryptography (adaptor signatures, DLEQ proofs), cross-chain protocol
+**Logos Chat**, with no central infrastructure required. Teams with experience
+in applied cryptography (adaptor signatures, DLEQ proofs), cross-chain protocol
 design, and Rust/Risc0 development are best positioned to succeed.
 
 ## 🔥 Why This Matters
 
-Trustless swaps between LEZ and widely-held digital assets — without bridges,
-custodians, or wrapped tokens — are a prerequisite for meaningful DeFi liquidity
+Trustless swaps between LEZ and widely-held digital assets, without bridges,
+custodians, or wrapped tokens, are a prerequisite for meaningful DeFi liquidity
 in the Logos ecosystem. Without this primitive, users cannot move value in or
 out of LEZ without trusting an intermediary, which directly conflicts with the
 ecosystem's trust-minimisation principles.
@@ -45,16 +56,20 @@ Each target chain presents distinct cryptographic challenges that make this
 non-trivial. Bitcoin HTLCs are identifiable on-chain and link the two swap legs;
 adaptor signatures with Taproot key-path spends solve this, making swaps
 indistinguishable from normal payments. Monero has no scripting system at all,
-requiring cross-curve DLEQ proofs to achieve atomicity. Ethereum provides the
-most flexibility and an existing reference, but the implementation must
-integrate with the Logos Ethereum module and meet the same trustlessness
-guarantees as the other chains.
+requiring cross-curve DLEQ proofs to achieve atomicity. Zcash transparent
+inherits Bitcoin script unchanged and supports HTLC-based swaps via
+[BIP-199](https://github.com/bitcoin/bips/blob/master/bip-0199.mediawiki);
+adaptor-signature variants are a stretch goal for cross-chain unlinkability. The
+Bitcoin and Monero constructions are surveyed with sources in
+[Appendix: Bitcoin and Monero Adaptor-Signature Swap Primitives](../appendix/btc-xmr-adaptor-swap-primitives.md);
+the Zcash analysis is in
+[Appendix: Zcash Atomic Swap Primitives](../appendix/zcash-atomic-swap-primitives.md).
 
-Delivering this application — with its fully decentralised coordination via
-Logos Delivery and Logos Chat — demonstrates that the Logos stack can support
-real-world, multi-chain financial applications without any centralised
-infrastructure. This is a forcing function for the maturity of those modules and
-a high-visibility proof point for ecosystem adoption.
+Delivering this application, with its fully decentralised coordination via Logos
+Delivery and Logos Chat, shows that the Logos stack can support multi-chain
+financial applications without any centralised infrastructure. It exercises
+those modules under a real workload and gives the ecosystem a concrete swap
+application to build on.
 
 ## ✅ Scope of Work
 
@@ -62,48 +77,60 @@ a high-visibility proof point for ecosystem adoption.
 
 #### Functionality
 
-01. The application must not depend on any centralised server or service. All
-    maker advertisement and maker-taker coordination uses Logos Delivery and
-    Logos Chat respectively.
-02. Trustless swaps between LEZ and **Bitcoin** are supported using Schnorr
-    adaptor signatures (BIP-340) and Taproot key-path spends (BIP-341). No
-    custom Bitcoin scripts are used; swap transactions are indistinguishable
-    from normal Taproot payments.
-03. Trustless swaps between LEZ and **Monero** are supported using Ed25519
-    adaptor signatures with cross-curve Discrete Log Equality (DLEQ) proofs (the
-    h4sh3d/COMIT protocol). Atomicity is achieved by transferring a Monero spend
-    key share, without on-chain scripting.
-04. Trustless swaps between LEZ and **Ethereum** are supported using HTLCs or
-    adaptor signatures. Ethereum interactions must use the **Logos Ethereum
-    module**.
-05. The LEZ escrow program (Rust, Risc0) locks funds contingent on the
-    appropriate cryptographic proof for each chain (adaptor secret, DLEQ proof,
-    or hash preimage) and releases them upon valid proof submission. Funds are
-    refunded to the depositor after the timelock expires.
-06. The two legs of each swap are atomic: either both complete or both refund.
-    No state exists where one party receives funds and the other does not.
-07. Swaps on LEZ support both the native LEZ token and custom tokens issued via
-    the LEZ token program, using Associated Token Accounts (ATAs).
-08. Swaps on Ethereum must support both **native ETH** and **ERC-20 tokens**.
-    Both asset types must be fully supported in the Ethereum escrow contract —
-    partial support (e.g., ETH only) is not acceptable.
-09. The maker software supports two pricing modes: (1) **local configuration** —
-    static prices set via config file or CLI, suitable for testing; (2)
-    **external price feed** — prices fetched from an external source (e.g., a
-    REST API). The architecture must support pluggable price sources; the
-    specific external integration is left to the developer.
-10. The maker is deployable as a **headless daemon** covering pair and price
-    configuration, external price feed integration, liquidity advertisement,
-    swap execution, and monitoring — the daemon must be fully operable via the
-    maker CLI without a GUI.
+1. The application must not depend on any centralised server or service. All
+   maker advertisement and maker-taker coordination uses Logos Delivery and
+   Logos Chat respectively.
+2. Trustless swaps between LEZ and **Bitcoin** are supported using Schnorr
+   adaptor signatures (BIP-340) and Taproot (BIP-341). The cooperative claim
+   path must be a key-path spend, indistinguishable from a normal Taproot
+   payment. The **refund branch** may be implemented either as a pre-signed
+   timelocked transaction (key-path, refund also indistinguishable) or as a
+   Taproot script-path tapleaf (`OP_CHECKSEQUENCEVERIFY`, refund spend
+   identifiable but enforced by consensus); both are acceptable. The two
+   constructions and their trade-offs are described in
+   [Appendix: Bitcoin and Monero Adaptor-Signature Swap Primitives](../appendix/btc-xmr-adaptor-swap-primitives.md).
+   Absent a measured reason to prefer otherwise (see Reliability), the simpler
+   script-path refund is the recommended default.
+3. Trustless swaps between LEZ and **Monero** are supported using Ed25519
+   adaptor signatures with cross-curve Discrete Log Equality (DLEQ) proofs (the
+   h4sh3d/COMIT protocol). Atomicity is achieved by transferring a Monero spend
+   key share, without on-chain scripting.
+4. Trustless swaps between LEZ and **Zcash transparent (`t1...`) addresses** are
+   supported using BIP-199-style HTLCs
+   (`OP_IF / OP_SHA256 / OP_CLTV / OP_CHECKSIG` on the Zcash side, mirrored on
+   the LEZ side). The Zcash refund deadline must strictly succeed the LEZ refund
+   deadline by a margin documented to cover worst-case Zcash confirmation
+   latency. ECDSA adaptor signatures (Lloyd Fournier construction) are an
+   acceptable alternative to HTLCs and are encouraged for cross-chain
+   unlinkability. Zcash shielded-pool (Sapling / Orchard) swaps are **out of
+   scope** for this RFP; see
+   [Appendix: Zcash Atomic Swap Primitives](../appendix/zcash-atomic-swap-primitives.md)
+   for the rationale.
+5. The LEZ escrow program (Rust, Risc0) locks funds contingent on the
+   appropriate cryptographic proof for each chain (adaptor secret, DLEQ proof,
+   or hash preimage) and releases them upon valid proof submission. Funds are
+   refunded to the depositor after the timelock expires.
+6. The two legs of each swap are atomic: either both complete or both refund. No
+   state exists where one party receives funds and the other does not.
+7. Swaps on LEZ support both the native LEZ token and custom tokens issued via
+   the LEZ token program, using Associated Token Accounts (ATAs).
+8. The maker software supports two pricing modes: (1) **local configuration**:
+   static prices set via config file or CLI, suitable for testing; (2)
+   **external price feed**: prices fetched from an external source (e.g., a REST
+   API). The architecture must support pluggable price sources; the specific
+   external integration is left to the developer.
+9. The maker is deployable as a **headless daemon** covering pair and price
+   configuration, external price feed integration, liquidity advertisement, swap
+   execution, and monitoring; the daemon must be fully operable via the maker
+   CLI without a GUI.
 
 #### Usability
 
-01. Provide a dedicated SDK per trading pair (LEZ–BTC, LEZ–XMR, LEZ–ETH) that
+01. Provide a dedicated SDK per trading pair (LEZ–BTC, LEZ–XMR, LEZ–ZEC) that
     can be used to build Logos modules for interacting with that pair's swap
     protocol. Each SDK must expose the full swap lifecycle (offer discovery,
     negotiation, escrow creation, claim, and refund) for its respective chain.
-02. Provide a **maker daemon** — a long-running headless process that manages
+02. Provide a **maker daemon**: a long-running headless process that manages
     liquidity advertisement, price feeds, incoming swap requests, and swap
     execution without human interaction. A systemd unit file must be provided
     for running the daemon as a system service, including documented
@@ -133,17 +160,16 @@ a high-visibility proof point for ecosystem adoption.
     (`monerod`) on stagenet, including wallet RPC configuration
     (`monero-wallet-rpc`) and obtaining stagenet funds. Documentation must cover
     both self-hosted and public stagenet node options.
-10. Provide step-by-step documentation for configuring an **Ethereum Web3 RPC
-    provider** for Sepolia testnet. All Ethereum interactions in the application
-    must use the existing Logos Ethereum module; the documentation must explain
-    how to point the module at a chosen RPC endpoint (self-hosted or third-party
-    provider).
+10. Provide step-by-step documentation for setting up a **Zcash node** (`zcashd`
+    or `zebrad`) on testnet, including transparent wallet creation and obtaining
+    testnet funds. Documentation must cover both self-hosted and public testnet
+    node options.
 
 #### Reliability
 
 1. **Taker-first on-chain ordering**: The taker must perform their on-chain
    action before the maker performs theirs. The protocol must enforce this
-   ordering — the maker must not lock funds on their side until the taker's
+   ordering: the maker must not lock funds on their side until the taker's
    on-chain transaction is confirmed. This ensures the maker is never exposed to
    loss from a non-responsive taker.
 2. **On-chain-only execution after lock**: Once the first on-chain action of a
@@ -154,7 +180,7 @@ a high-visibility proof point for ecosystem adoption.
    reclaim funds via timelock) using only their local state and the relevant
    chain nodes.
 3. **Graceful degradation**: If a chain-specific dependency is unavailable
-   (e.g., no Monero node configured, no Ethereum RPC reachable), the application
+   (e.g., no Monero node configured, no Zcash node reachable), the application
    must still start and enable swaps for the remaining chains. Unavailable
    chains are clearly reported to the user.
 4. **Swap state persistence**: The swap coordinator must persist swap state
@@ -167,7 +193,17 @@ a high-visibility proof point for ecosystem adoption.
 6. Timelock parameters must account for block time variance, network congestion,
    and clock drift on each chain. The implementation must document timelock
    parameter choices and the rationale.
-7. When Logos Delivery or Logos Chat is temporarily unreachable, the application
+7. **Bitcoin refund construction must be justified.** The write-up must state
+   which refund branch construction was chosen for the Bitcoin pair (pre-signed
+   timelocked key-path transaction, or Taproot script-path tapleaf) and justify
+   it against the trade-off in the appendix. If the pre-signed approach is
+   chosen for its refund-path privacy, the submission must enumerate the
+   additional failure modes it introduces (lost or corrupted refund transaction,
+   malformed timelock, refund-tx fee rate fixed at setup becoming
+   unbroadcastable, dependence on timelock ordering rather than consensus) and
+   describe how each is mitigated, so the privacy benefit can be weighed against
+   the measured increase in fragility.
+8. When Logos Delivery or Logos Chat is temporarily unreachable, the application
    must handle this gracefully (e.g., retry, buffering, degraded mode) and
    document the expected behaviour.
 
@@ -195,13 +231,13 @@ a high-visibility proof point for ecosystem adoption.
 07. The write-up covers: protocol design for each chain, LEZ escrow design,
     cross-chain atomicity argument, timelock handling, security assumptions, and
     known limitations.
-08. Each per-pair SDK (LEZ–BTC, LEZ–XMR, LEZ–ETH) must include full API
+08. Each per-pair SDK (LEZ–BTC, LEZ–XMR, LEZ–ZEC) must include full API
     documentation: all public types, functions, and error types, with usage
     examples covering the complete swap lifecycle (offer discovery, negotiation,
     escrow creation, claim, and refund).
 09. Submit a
     [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-    for each per-pair SDK (LEZ–BTC, LEZ–XMR, LEZ–ETH), covering the developer
+    for each per-pair SDK (LEZ–BTC, LEZ–XMR, LEZ–ZEC), covering the developer
     integration journey for that swap protocol.
 10. Submit a
     [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
@@ -212,7 +248,7 @@ a high-visibility proof point for ecosystem adoption.
 
 #### + (Demos)
 
-1. For **each supported chain** (Bitcoin, Monero, Ethereum), three recorded demo
+1. For **each supported chain** (Bitcoin, Monero, Zcash), three recorded demo
    videos must be submitted:
    - **Happy path**: both parties complete the swap successfully end-to-end.
    - **Refund/timeout path**: one party abandons the protocol and the other
@@ -222,34 +258,9 @@ a high-visibility proof point for ecosystem adoption.
 
 ### Soft Requirements
 
-- Support for the **Logos Ethereum module** could be extended to additional
-  EVM-compatible chains in a single submission.
-
-## ⚠ Platform Dependencies
-
-### Resolved dependencies
-
-These were once blockers but are now delivered on LEZ, so they no longer gate
-this RFP. They remain in the frontmatter `dependencies` index with
-
-#### LEZ timelock support
-
-Refunds after timelock expiry (F5) require a program-readable time source. The
-LEZ clock program now maintains on-chain timestamp accounts, and a program can
-gate release or refund on a deadline, so this is **delivered**.
-
-### Soft blockers
-
-Desirable but the RFP can open without them.
-
-#### Use Basecamp to manage remote node
-
-Swaps require counterpart chain infrastructure (a Bitcoin Core node, a Monero
-node, an Ethereum RPC) and a long-running maker daemon. The R&D item
-[Use Basecamp to manage remote node](https://github.com/logos-co/journeys.logos.co/issues/62)
-would let users manage such remote nodes from Basecamp, improving the operator
-journey for the maker daemon and node setup (U8, U9). The RFP can be delivered
-without it using the documented CLI and self-hosted node setup.
+- An **adaptor-signature variant of the LEZ–ZEC pair** (replacing BIP-199 HTLCs)
+  for cross-chain unlinkability, as described in
+  [Appendix: Zcash Atomic Swap Primitives](../appendix/zcash-atomic-swap-primitives.md).
 
 ## 👤 Recommended Team Profile
 
@@ -259,7 +270,8 @@ without it using the documented CLI and self-hosted node setup.
 - Rust development and the Risc0 zkVM toolchain
 - Bitcoin: Taproot/P2TR transaction construction, BIP-340/BIP-341
 - Monero: key structure (spend/view keys), transaction construction, stagenet
-- Ethereum: Solidity smart contracts, Foundry or Hardhat, ERC-20 interactions
+- Zcash: transparent transaction construction, BIP-199 HTLCs, `zcashd`/`zebrad`
+  testnet
 - Distributed systems: swap state machines, crash recovery, concurrent
   coordination
 
@@ -275,33 +287,61 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 
 ### General
 
-- [eth-lez-atomic-swaps](https://github.com/logos-co/eth-lez-atomic-swaps) —
-  ETH–LEZ HTLC-based swap (reference implementation and LEZ program structure)
+- [eth-lez-atomic-swaps](https://github.com/logos-co/eth-lez-atomic-swaps):
+  ETH–LEZ HTLC-based swap (prior art for the LEZ program structure; an ETH pair
+  is itself out of scope)
 - [Logos Execution Zone](https://github.com/logos-blockchain/logos-execution-zone/)
 - [Risc0 proving system](https://dev.risczero.com/)
 
 ### Bitcoin
 
+- [Appendix: Bitcoin and Monero Adaptor-Signature Swap Primitives](../appendix/btc-xmr-adaptor-swap-primitives.md):
+  sourced survey of the constructions required by this RFP
 - [BIP-340: Schnorr signatures for secp256k1](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki)
 - [BIP-341: Taproot](https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki)
-- [Adaptor signatures — Lloyd Fournier](https://github.com/LLFourn/one-time-vrf/blob/master/main.pdf)
+- [DLC specs, Adaptor Signatures](https://github.com/discreetlogcontracts/dlcspecs/blob/master/AdaptorSignature.md):
+  production-grade spec for both Schnorr and ECDSA adaptor signatures with test
+  vectors
+- [Aumayr et al. (2021), *Generalized Channels from Limited Blockchain Scripts and Adaptor Signatures*](https://eprint.iacr.org/2020/476):
+  formal security definitions (aEUF-CMA, witness-extractability, pre-signature
+  adaptability)
+- [Adaptor signatures, Lloyd Fournier](https://github.com/LLFourn/one-time-VES):
+  reference ECDSA adaptor construction with DLEQ proof
 - [Scriptless Scripts — Andrew Poelstra](https://github.com/apoelstra/scriptless-scripts)
 - [rust-bitcoin](https://github.com/rust-bitcoin/rust-bitcoin)
 - [secp256k1-zkp (adaptor signature support)](https://github.com/BlockstreamResearch/secp256k1-zkp)
+- [secp256kfun / ecdsa-fun](https://github.com/LLFourn/secp256kfun): Rust
+  libraries with clean reference implementations of Schnorr and ECDSA adaptor
+  signatures
 
 ### Monero
 
+- [Appendix: Bitcoin and Monero Adaptor-Signature Swap Primitives](../appendix/btc-xmr-adaptor-swap-primitives.md):
+  sourced survey of the constructions required by this RFP
 - [Bitcoin–Monero Cross-chain Atomic Swap — h4sh3d paper](https://eprint.iacr.org/2020/1126.pdf)
-- [comit-network/xmr-btc-swap](https://github.com/comit-network/xmr-btc-swap) —
+- [comit-network/xmr-btc-swap](https://github.com/comit-network/xmr-btc-swap):
   production Monero-Bitcoin implementation
-- [comit-network/cross-curve-dleq](https://github.com/comit-network/cross-curve-dleq)
-  — cross-group DLEQ proof library (secp256k1 ↔ Ed25519)
+- [comit-network/cross-curve-dleq](https://github.com/comit-network/cross-curve-dleq):
+  cross-group DLEQ proof library (secp256k1 ↔ Ed25519)
 - [curve25519-dalek](https://github.com/dalek-cryptography/curve25519-dalek)
 - [secp256kFUN!](https://github.com/LLFourn/secp256kfun)
 
-### Ethereum
+### Zcash
 
-- Logos Ethereum module — use for all Ethereum interactions
+- [Appendix: Zcash Atomic Swap Primitives](../appendix/zcash-atomic-swap-primitives.md):
+  feasibility matrix, why shielded is out of scope, prior-art comparison
+- [BIP-199: Hashed Time-Locked Contract transactions](https://github.com/bitcoin/bips/blob/master/bip-0199.mediawiki):
+  canonical HTLC layout used for transparent ZEC swaps
+- [ZIP-203: Transaction Expiry](https://zips.z.cash/zip-0203): `nExpiryHeight`
+  semantics
+- [ZIP-202: Version 3 Transaction Format for Overwinter](https://zips.z.cash/zip-0202)
+- [`zcash/zcash` (`zcashd`)](https://github.com/zcash/zcash) and
+  [`ZcashFoundation/zebra` (`zebrad`)](https://github.com/ZcashFoundation/zebra):
+  full nodes
+- [`librustzcash`](https://github.com/zcash/librustzcash): Rust
+  transaction-construction crates
+- [Zwap forum thread](https://forum.zcashcommunity.com/t/zwap-unlinkable-cross-chain-atomic-swaps/55104):
+  most active 2025 prior-art for transparent ZEC atomic swaps
 
 ## ✏️ How to Apply
 
