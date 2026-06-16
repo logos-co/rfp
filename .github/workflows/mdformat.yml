@@ -1,0 +1,24 @@
+name: Check Markdown formatting
+
+# Verifies all Markdown is formatted per .mdformat.toml (number = true,
+# wrap = 80). Run `mdformat .` locally to fix any failures.
+
+on:
+  pull_request:
+    paths:
+      - "**/*.md"
+      - ".mdformat.toml"
+      - ".github/workflows/mdformat.yml"
+  push:
+    branches: [master]
+
+jobs:
+  mdformat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: pip install mdformat
+      - run: mdformat --check .
