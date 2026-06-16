@@ -245,6 +245,17 @@ application to build on.
     respective operator/user journey end-to-end.
 11. Provide Figma designs or equivalent for the maker mini-app GUI and the taker
     mini-app GUI.
+12. A formal review of all smart contracts and on-chain scripts must be obtained
+    from a reputable third party. This covers the LEZ escrow program (Rust,
+    Risc0) and every external-chain script used by the swaps (Bitcoin Taproot
+    scripts and pre-signed transactions, Zcash transparent HTLC scripts, and any
+    other on-chain locking logic). The review report and any resulting
+    remediations must be included in the submission.
+13. A formal review of the cross-chain swap protocol implementation must be
+    obtained from a reputable third party, covering the atomicity guarantees,
+    taker-first ordering, timelock handling, and per-chain adaptor-signature or
+    HTLC constructions. The review report and any resulting remediations must be
+    included in the submission.
 
 #### + (Demos)
 
