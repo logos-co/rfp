@@ -2,7 +2,6 @@
 id: RFP-003
 title: Atomic Swaps with LEZ
 tier: XL
-funding: $TBD
 status: open
 category: Applications & Integrations
 dependencies:

@@ -2,7 +2,6 @@
 id: RFP-012
 title: Curated Lending Vaults
 tier: L
-funding: $XXXXX
 status: open
 dependencies:
   - id: RFP-008

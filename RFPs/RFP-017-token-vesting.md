@@ -2,7 +2,6 @@
 id: RFP-017
 title: Privacy-Preserving Token Vesting
 tier: L
-funding: $XXXXX
 status: open
 category: Applications & Integrations
 dependencies:

@@ -2,7 +2,6 @@
 id: RFP-001
 title: Admin Authority Library
 tier: XS
-funding: $XXXXX
 status: closed
 category: Developer Tooling & Infrastructure
 dependencies: []
