@@ -742,6 +742,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   collateral path)
 - [RFP-019 — On-Chain TWAP Oracle](./RFP-019-twap-oracle.md) (defines the
   canonical oracle price account standard)
+- [LEZ programs](https://github.com/logos-blockchain/lez-programs): on-chain
+  TWAP program reference implementation
 - [Appendix: Oracle Ecosystem](../appendix/oracle-ecosystem.md)
 - [RedStone Documentation](https://docs.redstone.finance/)
 - [RedStone token registry](https://github.com/redstone-finance/redstone-api/blob/main/docs/ALL_SUPPORTED_TOKENS.md)

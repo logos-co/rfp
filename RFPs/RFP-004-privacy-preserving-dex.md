@@ -384,6 +384,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 ## Resources
 
 - [Logos Documentation](https://github.com/logos-co/logos-docs)
+- [LEZ programs](https://github.com/logos-blockchain/lez-programs): on-chain
+  TWAP program reference implementation
 
 ## ✏️ How to Apply
 
