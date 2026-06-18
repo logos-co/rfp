@@ -2,7 +2,6 @@
 id: RFP-020
 title: RedStone Off-Chain Oracle Adaptor for LEZ
 tier: M
-funding: $XXXXX
 status: open
 dependencies:
   - id: RFP-001

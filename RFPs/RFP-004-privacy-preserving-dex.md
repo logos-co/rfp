@@ -2,7 +2,6 @@
 id: RFP-004
 title: Privacy-Preserving Decentralized Exchange (DEX)
 tier: XL
-funding: $XXXXX
 status: closed
 dependencies:
   - id: LP-0013

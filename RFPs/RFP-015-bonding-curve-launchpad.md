@@ -2,7 +2,6 @@
 id: RFP-015
 title: 'Privacy-Preserving Token Launchpad: Bonding Curve'
 tier: L
-funding: $XXXXX
 status: open
 dependencies:
   - id: LP-0013

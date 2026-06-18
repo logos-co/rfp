@@ -2,7 +2,6 @@
 id: RFP-000
 title: Project Title
 tier: XS/S/M/L/XL
-funding: $XXXXX
 status: open/closed
 category: Developer Tooling & Infrastructure / Applications & Integrations / Ecosystem & Community Enablement
 dependencies:

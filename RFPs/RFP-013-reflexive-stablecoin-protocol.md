@@ -2,7 +2,6 @@
 id: RFP-013
 title: Reflexive Stablecoin Protocol
 tier: XL
-funding: $XXXXX
 status: open
 dependencies:
   - id: RFP-020
