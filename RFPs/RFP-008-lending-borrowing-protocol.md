@@ -2,7 +2,6 @@
 id: RFP-008
 title: Lending & Borrowing Protocol
 tier: XL
-funding: $XXXXX
 status: open
 category: Applications & Integrations
 dependencies:

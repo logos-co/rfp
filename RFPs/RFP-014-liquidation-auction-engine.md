@@ -2,7 +2,6 @@
 id: RFP-014
 title: Liquidation & Auction Engine
 tier: L
-funding: $XXXXX
 status: open
 dependencies:
   - id: RFP-013

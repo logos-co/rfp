@@ -2,7 +2,6 @@
 id: RFP-019
 title: On-Chain TWAP Oracle
 tier: L
-funding: $XXXXX
 status: open
 dependencies:
   - id: RFP-001
