@@ -2,7 +2,7 @@
 id: RFP-003
 title: Atomic Swaps with LEZ
 tier: XL
-status: open
+status: closed
 category: Applications & Integrations
 dependencies:
   - id: LEZ-timelock
@@ -11,13 +11,7 @@ dependencies:
 
 # RFP-003 — Atomic Swaps with LEZ
 
-> **Status:** Open for proposal submission and ready to start. The LEZ-side
-> primitives required for adaptor-signature-based swaps (BIP-340 Schnorr over
-> secp256k1, block-height and timestamp validity windows, AND-multisig witness
-> sets, SHA-256 in guest programs) are present in the
-> [Logos Execution Zone](https://github.com/logos-blockchain/logos-execution-zone/)
-> today. Applicants should verify the relevant signing, witness, and
-> validity-window APIs against the current tip before submission.
+> **Status:** Closed. This RFP is no longer accepting proposal submissions.
 
 ## 🧭 Overview
 
