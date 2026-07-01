@@ -1256,6 +1256,93 @@ motivate RFP-019's two-tier architecture (on-chain TWAP + external feeds) and
 circuit breaker design as a defence-in-depth choice rather than a universal
 industry default.
 
+## Oracle Service Levels and Feed Update Parameters
+
+RFP-020 requires the awarded team to operate the day-one feeds under an SLA, so
+the target numbers need grounding in what the incumbent oracle networks actually
+commit to and how they parameterise feed updates. The headline finding is that
+neither leading network publishes a numeric uptime guarantee for its public
+feeds: both push outage risk onto the integrator and describe reliability
+qualitatively rather than contractually.
+
+### Neither Chainlink nor RedStone publishes a numeric uptime SLA
+
+Chainlink states no uptime percentage for its public Data Feeds. Its
+documentation instead makes reliability the integrator's responsibility,
+advising developers to "include monitoring and safeguards to protect against ...
+potential delays, and outages" [66]. Reliability is described in narrative terms
+(multi-year track record, decentralisation at the data-source, node, and network
+levels), never as a figure [66][67].
+
+RedStone goes further and explicitly disclaims availability in its Terms of Use:
+the service is provided "ON AN AS-IS AND AS-AVAILABLE BASIS," RedStone "CANNOT
+GUARANTEE THE SITE WILL BE AVAILABLE AT ALL TIMES," and it accepts no liability
+"FOR ANY LOSS, DAMAGE, OR INCONVENIENCE CAUSED BY YOUR INABILITY TO ACCESS OR
+USE THE SITE DURING ANY DOWNTIME" [68]. The public price-feeds page advertises
+reliability only qualitatively ("0 Mispricing Events," "trusted by 100+
+protocols across 80+ chains") with no availability percentage [69].
+
+The consequence for RFP-020 is direct: any uptime target the awarded team
+commits to is a target on its own operated relayer and monitoring stack, not a
+figure inherited from RedStone's public gateways. RedStone's gateways carry no
+contractual SLA to pass through.
+
+### The de-facto benchmark is 99.9%
+
+Absent a vendor SLA, the reliability figure the ecosystem references in practice
+is 99.9% uptime (roughly 43 minutes of downtime budget per month). The most
+commonly cited concrete example is Pyth's pull oracle maintaining 99.9% uptime
+during a period of Solana congestion in which the push oracle missed a
+significant number of updates [70]. No oracle network publicly backs a figure
+above 99.9% for its feeds, so targets of 99.99% or higher are not defensible
+against any published precedent.
+
+### Feed update parameters: deviation threshold and heartbeat
+
+Both networks update a feed on a first-to-fire pair of conditions: a **deviation
+threshold** (update when the off-chain price moves more than X% since the last
+on-chain update) and a **heartbeat** (update when no update has occurred for Y
+seconds regardless of deviation).
+
+- **Chainlink.** The mechanism is documented, but per-feed values live in the
+  dashboard rather than the prose docs [66]. A representative major crypto/USD
+  feed (ETH/USD on Ethereum mainnet) uses a **0.5% deviation threshold** and a
+  **3600-second (1-hour) heartbeat** [71]. Lower-cap or stable assets commonly
+  use wider bands (1% to 2% deviation, up to 24-hour heartbeat).
+- **RedStone (Push).** The relayer exposes the same two conditions as
+  configuration: `UPDATE_PRICE_INTERVAL` (heartbeat) and
+  `MIN_DEVIATION_PERCENTAGE` (deviation), and updates "if any conditions are
+  met" [64]. RedStone deliberately does **not** publish fixed default values;
+  the parameters are set per integrating protocol. So the operator running
+  RedStone push on LEZ chooses these values to match the asset, and can match
+  Chainlink's representative bands directly.
+
+For LEZ's day-one asset list, the grounded parameterisation is therefore a 0.5%
+deviation threshold and 1-hour heartbeat for the volatile crypto/USD pairs (BTC,
+ETH, SOL, XMR, ZEC against USD), widening the band only if a specific asset
+proves too thin or too volatile to sustain that cadence economically.
+
+### Grounded servicing targets for RFP-020
+
+Combining the above, the following targets are defensible (each is either the
+ecosystem benchmark or a documented incumbent parameter, and none contradicts a
+published vendor claim):
+
+| Parameter          | Grounded target                                  | Basis                                                                         |
+| ------------------ | ------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Feed availability  | 99.9% monthly (~43 min/month downtime budget)    | Ecosystem benchmark (Pyth 99.9% example) [70]; no oracle publishes higher     |
+| Heartbeat          | 1 hour (volatile crypto/USD); up to 24h (stable) | Chainlink ETH/USD 3600s [71]; RedStone push configurable [64]                 |
+| Deviation          | 0.5% (major pairs); 1% to 2% (less liquid)       | Chainlink ETH/USD 0.5% [71]; RedStone `MIN_DEVIATION_PERCENTAGE` [64]         |
+| Incident detection | within one heartbeat interval                    | Operator-set; both networks push staleness detection onto the integrator [66] |
+| Incident response  | acknowledge ≤ 1h, mitigate ≤ 4h                  | Operator-set; no vendor publishes a response-time SLA                         |
+
+Two caveats carry into the RFP. First, because no vendor guarantees uptime, the
+target must be backed by the awarded team's own operated relayer, monitoring,
+and alerting, and paired with mandatory staleness checks and circuit breakers on
+the consumer side (both Chainlink and RedStone push outage handling onto the
+integrator [66][68]). Second, the availability figure should not be claimed
+above 99.9% absent a real precedent that supports it.
+
 ## Privacy-Asset Feed Availability
 
 LEZ's privacy focus likely makes XMR/USD and ZEC/USD first-class pricing
@@ -1509,3 +1596,24 @@ The TWAP tier's role evolves with liquidity:
 65. RedStone blog, "RedStone on Monad: The Real-Time Data Layer for High-Speed
     DeFi," 27 Nov 2025.
     https://blog.redstone.finance/2025/11/27/redstone-on-monad-the-real-time-data-layer-for-high-speed-defi/
+66. Chainlink Documentation, "Data Feeds" (deviation-threshold + heartbeat
+    update mechanism; per-feed values in the dashboard; integrator responsible
+    for monitoring, staleness checks, and safeguards against delays and outages;
+    no numeric uptime SLA stated). https://docs.chain.link/data-feeds
+67. Chainlink, "Selecting Quality Data Feeds" (reliability described
+    qualitatively via decentralisation at the data-source, node, and network
+    levels; no availability percentage).
+    https://docs.chain.link/data-feeds/selecting-data-feeds
+68. RedStone, "Terms of Use" ("AS-IS AND AS-AVAILABLE BASIS"; "WE CANNOT
+    GUARANTEE THE SITE WILL BE AVAILABLE AT ALL TIMES"; no liability for
+    downtime). https://redstone.finance/terms-of-use
+69. RedStone, "Price Feeds" product page ("0 Mispricing Events," "100+
+    protocols," "80+ chains"; no numeric availability figure).
+    https://www.redstone.finance/price-feeds
+70. Coinmonks (Medium), "DeFi Protocols Should Migrate to Pull Oracles" (Pyth
+    pull oracle maintained 99.9% uptime during Solana congestion while the push
+    oracle missed updates; secondary source, directional).
+    https://medium.com/coinmonks/defi-protocols-should-migrate-to-pull-oracles-for-improved-reliability-and-performance-f5ca615cddab
+71. Chainlink, ETH/USD price feed (Ethereum mainnet): 0.5% deviation threshold,
+    3600-second (1-hour) heartbeat.
+    https://data.chain.link/feeds/ethereum/mainnet/eth-usd

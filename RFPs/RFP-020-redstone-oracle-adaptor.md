@@ -62,6 +62,8 @@ In scope:
 - Cost measurement of the in-program RISC-V verification path as a primary
   deliverable, covering both the push-aggregator write side and the public-mode
   pull per-read cost.
+- Operating the push-mode feed infrastructure for the day-one feeds under an
+  SLA, from software readiness through March 2028 (see Servicing).
 
 Out of scope at the Overview level (full list under Out of Scope below):
 
@@ -383,19 +385,22 @@ so they can size their liveness assumptions accordingly.
 
 ### Operator-side T&C considerations
 
-This RFP scopes the delivery of *software* (the adaptor program, the relayer
-module, the SDK and consumer-pattern documentation). It does not itself execute
-any data-fetch request against RedStone's gateways. The party that uses or runs
-the resulting software (in particular the relayer that fetches data packages
-from `*.redstone.finance` and `*.redstone.vip`) is the party bound by the
+This RFP scopes both the delivery of *software* (the adaptor program, the
+relayer module, the SDK and consumer-pattern documentation) and a defined period
+of *operating* that software (see Servicing). During the operating period the
+awarded team runs the relayer that fetches data packages from
+`*.redstone.finance` and `*.redstone.vip`, so for that period the awarded team
+is itself a party bound by the
 [RedStone Terms of Use](https://redstone.finance/terms-of-use) and must abide by
-them.
+them. After handover, whoever then runs the software becomes the bound party.
 
-This RFP does not require the implementer to obtain a commercial agreement; the
-implementer's deliverable is software. The implementer's documentation **must**,
-however, surface the Terms of Use to relayer operators as part of the operator
-journey (see Functionality #7 and Supportability), so any operator deploying the
-relayer is on notice that they are the party bound by the Terms.
+The implementer's documentation **must** surface the Terms of Use to relayer
+operators as part of the operator journey (see Functionality #7 and
+Supportability), so any operator deploying the relayer, including the awarded
+team during the operating period and any successor operator after handover, is
+on notice that they are the party bound by the Terms. Whether the operating
+engagement requires a commercial agreement with RedStone is for the awarded team
+to determine and comply with as the operating party.
 
 ### Fee structure
 
@@ -406,7 +411,9 @@ and private); RedStone itself does not publish prices on-chain, so "whoever pays
 for an update" in practice means whoever runs (or pays for) the relayer. In
 public-mode pull, the verification cost is paid by each consumer transaction on
 every read, with no shared amortisation but no relayer dependency either. The
-adaptor does not need to fund a dedicated node operator pool for either mode.
+adaptor design does not need to fund a dedicated node operator pool for either
+mode; during the operating period the awarded team runs the push-mode relayer
+under the Servicing requirements, and after handover any party can run it.
 
 Beyond that structural point, this RFP does not prescribe a fee model.
 Downstream users of the adaptor (consuming protocols, relayer operators,
@@ -609,6 +616,59 @@ not bake in policy that forecloses these choices.
 7. Provide Figma designs or equivalent for the mini-app GUI (off-chain feed
    dashboard).
 
+#### Servicing
+
+Beyond delivering the software, the awarded team must operate the live feed
+infrastructure for a defined period. This makes the day-one feeds usable in
+production without the ecosystem first having to stand up its own relayer
+operations. Neither Chainlink nor RedStone publishes a numeric uptime SLA for
+its public feeds, and RedStone's Terms of Use explicitly disclaim availability
+("as-is / as-available"), so the targets below are commitments on the awarded
+team's own operated relayer and monitoring stack, not figures inherited from
+RedStone. The recommended numbers are grounded in incumbent-oracle parameters
+and the ecosystem's de-facto reliability benchmark; see
+[Appendix: Oracle Service Levels and Feed Update Parameters](../appendix/oracle-ecosystem.md#oracle-service-levels-and-feed-update-parameters).
+
+1. **Operating period.** Run the push-mode relayer/aggregator infrastructure for
+   the BTC/USD, ETH/USD, SOL/USD, XMR/USD, and ZEC/USD feeds on the target
+   network (devnet/testnet, then mainnet once available) from **software
+   readiness through March 2028** (one year past the planned mainnet launch).
+   Running the nodes means: operating the relayer daemon (Functionality #8),
+   keeping wallets funded for update submission, and keeping the aggregator's
+   authorised signer sets current with RedStone roster changes.
+2. **Feed uptime and liveness.** Maintain a documented per-feed availability
+   target (recommended **99.9% monthly**, roughly a 43-minute monthly downtime
+   budget, measured as the fraction of the heartbeat schedule for which a fresh,
+   on-chain price within `maxAge` is available) and a bounded maximum staleness.
+   99.9% is the ecosystem's de-facto benchmark; targets above it are not
+   defensible against any published oracle precedent. The applicant proposes the
+   exact numeric targets in the proposal; they become contractual on award.
+3. **Update cadence.** Meet the configured per-feed heartbeat interval and
+   deviation-threshold triggers, so a feed updates at least once per heartbeat
+   and whenever the deviation threshold is crossed. Recommended defaults,
+   grounded in incumbent-oracle parameters (Chainlink ETH/USD): a **0.5%
+   deviation threshold and 1-hour heartbeat** for the volatile crypto/USD pairs
+   (BTC, ETH, SOL, XMR, ZEC against USD), widening the band only where a
+   specific asset proves too thin or volatile to sustain that cadence
+   economically. Cadence targets are stated per feed and reported against
+   (Servicing #5).
+4. **Incident response.** Provide a documented incident-response process with
+   target response and resolution times for feed outages (recommended:
+   acknowledge within 1 hour, mitigate within 4 hours), an escalation path, and
+   a named on-call contact. Post-incident, provide a root-cause summary for any
+   outage that breaches the uptime target.
+5. **Reporting.** Deliver periodic (at least monthly) operating reports covering
+   per-feed uptime against target, cadence adherence, update and rejection
+   counts, incidents and their resolution, and wallet-funding status. Provide
+   the Logos ecosystem team with read access to the live monitoring dashboard
+   (the mini-app off-chain feed dashboard from Usability #2, or an equivalent
+   operator dashboard) for the operating period.
+6. **Handover.** At the end of the operating period, provide a runbook and
+   handover package sufficient for the Logos ecosystem or a third party to take
+   over operation without loss of feed liveness: current signer sets, wallet and
+   funding arrangements, gateway configuration, alerting setup, and the operator
+   journey documentation from Functionality #8.
+
 #### + Adaptor Security
 
 1. The adaptor must reject any data package whose signer is not in the
@@ -714,10 +774,16 @@ Team experienced with:
   integration is a strong signal)
 - Smart-contract security auditing (signer compromise, replay attacks,
   signer-set update races)
+- Operating production oracle or relayer infrastructure under an SLA (uptime
+  monitoring, incident response, on-call), since the awarded team runs the live
+  feeds through the operating period (see Servicing)
 
 ## ⏱ Timeline Expectations
 
-Estimated duration: **6 to 10 weeks**.
+Estimated software delivery duration: **6 to 10 weeks**, followed by an
+**operating period running from software readiness through March 2028** (one
+year past the planned mainnet launch), during which the awarded team runs the
+feeds under the Servicing requirements.
 
 The adaptor has no hard runtime dependencies; it builds on LEZ as it stands
 today. The canonical price account standard is a soft dependency on RFP-019 with
