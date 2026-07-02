@@ -392,8 +392,8 @@ awarded team runs the relayer that fetches data packages from
 `*.redstone.finance` and `*.redstone.vip`, so for that period the awarded team
 is itself a party bound by the
 [RedStone Terms of Use](https://redstone.finance/terms-of-use) and must abide by
-them. Once the ecosystem's independent operators take over (Servicing #6),
-whoever runs the software becomes the bound party.
+them. Once operation later moves to another operator, whoever runs the software
+becomes the bound party.
 
 The implementer's documentation **must** surface the Terms of Use to relayer
 operators as part of the operator journey (see Functionality #7 and
@@ -414,9 +414,9 @@ public-mode pull, the verification cost is paid by each consumer transaction on
 every read, with no shared amortisation but no relayer dependency either. The
 adaptor design does not need to fund a dedicated node operator pool for either
 mode; during the operating period the awarded team runs the push-mode relayer
-under the Servicing requirements, and the intended end state is that independent
-ecosystem operators run it permissionlessly, typically as a loss-leader
-alongside their other paid services (Servicing #6).
+under the Servicing requirements, and the intended end state past that period is
+that independent ecosystem operators run it by choice, typically as a
+loss-leader alongside their other paid services.
 
 Beyond that structural point, this RFP does not prescribe a fee model.
 Downstream users of the adaptor (consuming protocols, relayer operators,
@@ -638,7 +638,11 @@ and the closest published reliability figure we could locate; see
    readiness through March 2028** (one year past the planned mainnet launch).
    Running the nodes means: operating the relayer daemon (Functionality #8),
    keeping wallets funded for update submission, and keeping the aggregator's
-   authorised signer sets current with RedStone roster changes.
+   authorised signer sets current with RedStone roster changes. The awarded team
+   must not introduce any dependency on private configuration or bespoke
+   infrastructure that would prevent another operator from reproducing the setup
+   from the documented operator journey (Functionality #8), so that operation
+   can move to another operator without a new deliverable.
 2. **Feed uptime and liveness.** Maintain a documented per-feed availability
    target (recommended **99.9% monthly**, roughly a 43-minute monthly downtime
    budget, measured as the fraction of the heartbeat schedule for which a fresh,
@@ -667,22 +671,6 @@ and the closest published reliability figure we could locate; see
    the Logos ecosystem team with read access to the live monitoring dashboard
    (the mini-app off-chain feed dashboard from Usability #2, or an equivalent
    operator dashboard) for the operating period.
-6. **Path to self-sustaining operation.** The operating period is a bootstrap
-   window, not an open-ended commitment. Its purpose is to keep the feeds live
-   while the ecosystem matures to the point where independent oracle operators
-   run the push feeds themselves, typically as a loss-leader alongside other
-   paid services they offer in the ecosystem, rather than because Logos funds a
-   dedicated operator. The awarded team's obligation is therefore to make that
-   transition possible for *any* operator, not to hand keys to a single
-   successor. Concretely, the push aggregator, relayer daemon, and operator
-   journey (Functionality #8) must let a new operator stand up the feeds
-   permissionlessly, without depending on the awarded team's private
-   configuration or bespoke infrastructure; and the team must publish an
-   operator runbook covering feed registration, signer-set maintenance, wallet
-   funding, gateway configuration, and alerting, sufficient for a newcomer to
-   reach the uptime and cadence targets above from a cold start. No exclusive
-   handover to Logos or a nominated third party is required or expected; the
-   intended end state is a competitive, permissionless operator set.
 
 #### + Adaptor Security
 
