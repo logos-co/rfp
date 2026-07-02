@@ -392,15 +392,16 @@ awarded team runs the relayer that fetches data packages from
 `*.redstone.finance` and `*.redstone.vip`, so for that period the awarded team
 is itself a party bound by the
 [RedStone Terms of Use](https://redstone.finance/terms-of-use) and must abide by
-them. After handover, whoever then runs the software becomes the bound party.
+them. Once the ecosystem's independent operators take over (Servicing #6),
+whoever runs the software becomes the bound party.
 
 The implementer's documentation **must** surface the Terms of Use to relayer
 operators as part of the operator journey (see Functionality #7 and
 Supportability), so any operator deploying the relayer, including the awarded
-team during the operating period and any successor operator after handover, is
-on notice that they are the party bound by the Terms. Whether the operating
-engagement requires a commercial agreement with RedStone is for the awarded team
-to determine and comply with as the operating party.
+team during the operating period and any independent operator that later runs
+the feeds, is on notice that they are the party bound by the Terms. Whether the
+operating engagement requires a commercial agreement with RedStone is for the
+awarded team to determine and comply with as the operating party.
 
 ### Fee structure
 
@@ -413,7 +414,9 @@ public-mode pull, the verification cost is paid by each consumer transaction on
 every read, with no shared amortisation but no relayer dependency either. The
 adaptor design does not need to fund a dedicated node operator pool for either
 mode; during the operating period the awarded team runs the push-mode relayer
-under the Servicing requirements, and after handover any party can run it.
+under the Servicing requirements, and the intended end state is that independent
+ecosystem operators run it permissionlessly, typically as a loss-leader
+alongside their other paid services (Servicing #6).
 
 Beyond that structural point, this RFP does not prescribe a fee model.
 Downstream users of the adaptor (consuming protocols, relayer operators,
@@ -664,11 +667,22 @@ and the closest published reliability figure we could locate; see
    the Logos ecosystem team with read access to the live monitoring dashboard
    (the mini-app off-chain feed dashboard from Usability #2, or an equivalent
    operator dashboard) for the operating period.
-6. **Handover.** At the end of the operating period, provide a runbook and
-   handover package sufficient for the Logos ecosystem or a third party to take
-   over operation without loss of feed liveness: current signer sets, wallet and
-   funding arrangements, gateway configuration, alerting setup, and the operator
-   journey documentation from Functionality #8.
+6. **Path to self-sustaining operation.** The operating period is a bootstrap
+   window, not an open-ended commitment. Its purpose is to keep the feeds live
+   while the ecosystem matures to the point where independent oracle operators
+   run the push feeds themselves, typically as a loss-leader alongside other
+   paid services they offer in the ecosystem, rather than because Logos funds a
+   dedicated operator. The awarded team's obligation is therefore to make that
+   transition possible for *any* operator, not to hand keys to a single
+   successor. Concretely, the push aggregator, relayer daemon, and operator
+   journey (Functionality #8) must let a new operator stand up the feeds
+   permissionlessly, without depending on the awarded team's private
+   configuration or bespoke infrastructure; and the team must publish an
+   operator runbook covering feed registration, signer-set maintenance, wallet
+   funding, gateway configuration, and alerting, sufficient for a newcomer to
+   reach the uptime and cadence targets above from a cold start. No exclusive
+   handover to Logos or a nominated third party is required or expected; the
+   intended end state is a competitive, permissionless operator set.
 
 #### + Adaptor Security
 
