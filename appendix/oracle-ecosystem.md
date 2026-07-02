@@ -1275,27 +1275,29 @@ potential delays, and outages" [66]. Reliability is described in narrative terms
 levels), never as a figure [66][67].
 
 RedStone goes further and explicitly disclaims availability in its Terms of Use:
-the service is provided "ON AN AS-IS AND AS-AVAILABLE BASIS," RedStone "CANNOT
-GUARANTEE THE SITE WILL BE AVAILABLE AT ALL TIMES," and it accepts no liability
-"FOR ANY LOSS, DAMAGE, OR INCONVENIENCE CAUSED BY YOUR INABILITY TO ACCESS OR
-USE THE SITE DURING ANY DOWNTIME" [68]. The public price-feeds page advertises
-reliability only qualitatively ("0 Mispricing Events," "trusted by 100+
-protocols across 80+ chains") with no availability percentage [69].
+the service is provided "ON AN AS-IS AND AS-AVAILABLE BASIS," RedStone "cannot
+guarantee the Site will be available at all times," and it accepts no liability
+"for any loss, damage, or inconvenience caused by your inability to access or
+use the Site during any downtime or discontinuance" [68]. The public price-feeds
+page advertises reliability only qualitatively ("0 Mispricing Events," "trusted
+by 100+ protocols across 80+ chains") with no availability percentage [69].
 
 The consequence for RFP-020 is direct: any uptime target the awarded team
 commits to is a target on its own operated relayer and monitoring stack, not a
 figure inherited from RedStone's public gateways. RedStone's gateways carry no
 contractual SLA to pass through.
 
-### The de-facto benchmark is 99.9%
+### The one published figure we could locate is 99.9%
 
-Absent a vendor SLA, the reliability figure the ecosystem references in practice
-is 99.9% uptime (roughly 43 minutes of downtime budget per month). The most
-commonly cited concrete example is Pyth's pull oracle maintaining 99.9% uptime
-during a period of Solana congestion in which the push oracle missed a
-significant number of updates [70]. No oracle network publicly backs a figure
-above 99.9% for its feeds, so targets of 99.99% or higher are not defensible
-against any published precedent.
+Absent a vendor SLA, the only concrete uptime figure we could find published for
+a production oracle feed is 99.9% (roughly 43 minutes of downtime budget per
+month): a report of Pyth's pull oracle maintaining 99.9% uptime during a period
+of Solana congestion in which the push oracle missed a significant number of
+updates [70]. That source is a single secondary article and is directional
+rather than authoritative, but it is the closest thing to a published benchmark
+in the survey. We found no oracle network publicly committing to a figure above
+99.9% for its feeds, so a target of 99.99% or higher would rest on no published
+precedent; 99.9% is the defensible ceiling to anchor on.
 
 ### Feed update parameters: deviation threshold and heartbeat
 
@@ -1325,12 +1327,12 @@ proves too thin or too volatile to sustain that cadence economically.
 ### Grounded servicing targets for RFP-020
 
 Combining the above, the following targets are defensible (each is either the
-ecosystem benchmark or a documented incumbent parameter, and none contradicts a
-published vendor claim):
+closest published reliability figure the survey could locate or a documented
+incumbent parameter, and none contradicts a published vendor claim):
 
 | Parameter          | Grounded target                                  | Basis                                                                         |
 | ------------------ | ------------------------------------------------ | ----------------------------------------------------------------------------- |
-| Feed availability  | 99.9% monthly (~43 min/month downtime budget)    | Ecosystem benchmark (Pyth 99.9% example) [70]; no oracle publishes higher     |
+| Feed availability  | 99.9% monthly (~43 min/month downtime budget)    | Closest published figure located (Pyth 99.9% example) [70]; none found higher |
 | Heartbeat          | 1 hour (volatile crypto/USD); up to 24h (stable) | Chainlink ETH/USD 3600s [71]; RedStone push configurable [64]                 |
 | Deviation          | 0.5% (major pairs); 1% to 2% (less liquid)       | Chainlink ETH/USD 0.5% [71]; RedStone `MIN_DEVIATION_PERCENTAGE` [64]         |
 | Incident detection | within one heartbeat interval                    | Operator-set; both networks push staleness detection onto the integrator [66] |

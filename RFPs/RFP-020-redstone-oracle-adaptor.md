@@ -626,7 +626,7 @@ its public feeds, and RedStone's Terms of Use explicitly disclaim availability
 ("as-is / as-available"), so the targets below are commitments on the awarded
 team's own operated relayer and monitoring stack, not figures inherited from
 RedStone. The recommended numbers are grounded in incumbent-oracle parameters
-and the ecosystem's de-facto reliability benchmark; see
+and the closest published reliability figure we could locate; see
 [Appendix: Oracle Service Levels and Feed Update Parameters](../appendix/oracle-ecosystem.md#oracle-service-levels-and-feed-update-parameters).
 
 1. **Operating period.** Run the push-mode relayer/aggregator infrastructure for
@@ -640,9 +640,10 @@ and the ecosystem's de-facto reliability benchmark; see
    target (recommended **99.9% monthly**, roughly a 43-minute monthly downtime
    budget, measured as the fraction of the heartbeat schedule for which a fresh,
    on-chain price within `maxAge` is available) and a bounded maximum staleness.
-   99.9% is the ecosystem's de-facto benchmark; targets above it are not
-   defensible against any published oracle precedent. The applicant proposes the
-   exact numeric targets in the proposal; they become contractual on award.
+   99.9% is the closest published reliability figure the survey could locate;
+   targets above it would rest on no published oracle precedent. The applicant
+   proposes the exact numeric targets in the proposal; they become contractual
+   on award.
 3. **Update cadence.** Meet the configured per-feed heartbeat interval and
    deviation-threshold triggers, so a feed updates at least once per heartbeat
    and whenever the deviation threshold is crossed. Recommended defaults,
