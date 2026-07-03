@@ -116,9 +116,9 @@ application to build on.
    the LEZ token program, using Associated Token Accounts (ATAs).
 8. The maker software supports two pricing modes: (1) **local configuration**:
    static prices set via config file or CLI, suitable for testing; (2)
-   **external price feed**: prices fetched from an external source (e.g., a REST
-   API). The architecture must support pluggable price sources; the specific
-   external integration is left to the developer.
+   **external price feed**: prices sourced from another Logos module via its C
+   API. The architecture must support pluggable price sources; the specific
+   Logos module and its C API integration are left to the developer.
 9. The maker is deployable as a **headless daemon** covering pair and price
    configuration, external price feed integration, liquidity advertisement, swap
    execution, and monitoring; the daemon must be fully operable via the maker
