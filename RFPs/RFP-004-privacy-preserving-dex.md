@@ -94,7 +94,7 @@ inherently fairer for all participants.
 08. The DEX program must be compatible with Associated Token Accounts (ATAs) for
     user-facing token accounts: when a trader or LP supplies an ATA derived per
     `(owner, mint)` pair (see
-    [LP-0014](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0014.md)),
+    [LP-0014](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0014.md)),
     the program must accept it without requiring an alternative derivation. ATAs
     must not be forced on users; the program must also accept any valid SPL
     token account owned by the caller. Pool-side vault accounts may use

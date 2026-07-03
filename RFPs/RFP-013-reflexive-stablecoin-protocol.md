@@ -298,14 +298,14 @@ A stablecoin operation like "lock collateral and mint" needs to: (1) call the
 token program to transfer collateral into the position, then (2) continue
 executing to update position state and mint stablecoins. General cross-program
 calls via tail calls let step 2 run in a protected continuation after step 1.
-[LP-0015](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0015.md)
+[LP-0015](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0015.md)
 is **closed**, delivered by the LEZ team as part of the core runtime.
 
 #### Event emission (LP-0012)
 
 Off-chain services observe positions and rate updates through structured events
 rather than polling every account.
-[LP-0012](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)
+[LP-0012](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md)
 is **closed**.
 
 ### Soft blockers

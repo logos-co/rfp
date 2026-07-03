@@ -299,14 +299,14 @@ collateral from an undercollateralized position, then (2) continue executing to
 initialize auction state and account for the seized collateral. General
 cross-program calls via tail calls let step 2 run in a protected continuation
 after step 1.
-[LP-0015](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0015.md)
+[LP-0015](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0015.md)
 is **closed**, delivered by the LEZ team as part of the core runtime.
 
 #### Event emission (LP-0012)
 
 Liquidator bots and indexers observe positions and react to on-chain state
 changes through structured events rather than polling every account.
-[LP-0012](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)
+[LP-0012](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md)
 is **closed**.
 
 ### Soft blockers

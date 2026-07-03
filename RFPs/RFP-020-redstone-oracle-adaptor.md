@@ -695,7 +695,7 @@ the standardised admin authority library from
 
 Analytics and monitoring benefit from structured on-chain events for price
 updates, feed registrations, and signer-set changes.
-[LP-0012](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)
+[LP-0012](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md)
 (Structured events for LEZ program execution) is **closed** (delivered).
 
 ## 👤 Recommended Team Profile
