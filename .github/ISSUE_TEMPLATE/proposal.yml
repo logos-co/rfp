@@ -13,7 +13,6 @@ body:
       options:
         - "RFP-008 — Lending & Borrowing Protocol"
         - "RFP-012 — Curated Lending Vaults"
-        - "RFP-013 — Reflexive Stablecoin Protocol"
         - "RFP-014 — Liquidation & Auction Engine"
         - "RFP-015 — Token Launchpad: Bonding Curve"
         - "RFP-016 — Token Launchpad: LBP"

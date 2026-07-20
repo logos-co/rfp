@@ -2,7 +2,7 @@
 id: RFP-013
 title: Reflexive Stablecoin Protocol
 tier: XL
-status: open
+status: closed
 dependencies:
   - id: RFP-020
     reason: Provides the external price feed required for market price and redemption rate computation (F2, F6, R3).
