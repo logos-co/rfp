@@ -9,6 +9,35 @@ dependencies: []
 
 # RFP-001 — Admin Authority Library
 
+> **Note.** This specification describes an outcome that may benefit the Logos
+> ecosystem. It is a proposal rather than an instruction. Its requirements
+> reflect the technical compatibility with the Logos technology stack and are
+> the criteria against which proposals and milestones are evaluated. Logos makes
+> no representation as to the legal or regulatory treatment of this
+> specification or any implementation of it in any jurisdiction.
+>
+> Teams implementing it are solely responsible for (i) assessing the risks and
+> implications of what they build; (ii) obtaining their own professional advice;
+> and (iii) for complying with any legal and regulatory requirements that apply
+> to them. Software developed under the Program is published and maintained by
+> its developers, not by Logos.
+>
+> Anyone who chooses to deploy, host, operate or use software developed under
+> the Program, whether or not they were awarded a grant under the Program, does
+> so at their own risk and is solely responsible for complying with any legal or
+> regulatory requirements that apply to them. See the
+> [Terms & Conditions](../TERMS_AND_CONDITIONS.md).
+>
+> Deploying the software described in this RFP, operating any service based on
+> it, or carrying on business through it may amount to regulated activity in
+> some jurisdictions, including where it involves holding or managing users'
+> assets or providing services to others. Whoever conducts any such activity
+> does so as principal, in their own name, and is solely responsible for
+> assessing its regulatory treatment, including any licensing, registration,
+> sanctions or anti-money laundering obligations that may apply to them. Logos
+> does not make any representation, provides any advice or assumes any
+> responsibility in respect of any such determination or compliance.
+
 ## 🧭 Overview
 
 Build a reusable library that provides standardised access control for LEE

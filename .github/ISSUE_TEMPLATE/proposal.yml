@@ -164,9 +164,9 @@ body:
       label: Permissions and Consent
       description: Please confirm the following.
       options:
-        - label: I confirm Logos may contact me using the primary contact information provided above for follow-ups and next steps.
+        - label: I/We confirm Logos may contact me using the primary contact information provided above for follow-ups and next steps.
           required: true
-        - label: I consent to Logos using information from this proposal publicly such as blogs case studies social posts or analytical reporting. Redactions can be requested at any time.
+        - label: I/We consent to Logos using information from this proposal publicly such as blogs case studies social posts or analytical reporting. Redactions can be requested at any time.
           required: false
 
   - type: checkboxes
@@ -174,7 +174,11 @@ body:
     attributes:
       label: Program Requirements
       options:
-        - label: We understand this project must be open-sourced under the MIT and Apache 2.0 Licenses unless explicitly approved otherwise.
+        - label: I/We have read and agree to the Logos RFP Terms and Conditions and I understand that no Grant is awarded and no right to payment arises unless a Grant Agreement is executed.
           required: true
-        - label: We are prepared to deliver milestone-based outcomes.
+        - label: I/We understand that RFP specifications are proposals rather than instructions, that Logos makes no representations as to their legal or regulatory treatment, and that we are responsible for assessing what we build, deploy or operate and for complying with the laws that apply to us.
+          required: true
+        - label: I/We understand this project must be open-sourced under the MIT and Apache 2.0 Licenses unless explicitly approved otherwise.
+          required: true
+        - label: I/We are prepared to deliver milestone-based outcomes.
           required: true
