@@ -1,6 +1,6 @@
 # Logos RFP Program – Terms & Conditions
 
-**Last updated:** 18 March 2026
+**Last updated:** 21 July 2026
 
 These Terms and Conditions ("Terms") are entered into by and between **Logos
 Collective Association**, Baarerstrasse 10, 6300 Zug, Switzerland ("Logos",
@@ -19,9 +19,12 @@ ______________________________________________________________________
 
 ## Logos RFP Program Overview
 
-Logos supports the development and adoption of decentralised technologies and
-applications around the Logos technology stack and related Logos ecosystem
-components through the Program.
+The Logos RFP Program supports independent teams to develop open-source software
+that benefits the Logos ecosystem. This section explains the respective roles of
+Logos, grant recipients and users, and how responsibility for software developed
+under the Program is allocated. References to "Logos" in these Terms include
+Logos Collective Association and its Affiliates and related entities, including
+any entity that awards or administers the grants under the Program.
 
 The Program is a discretionary ecosystem support initiative intended to
 encourage independent teams and developers to build open-source tools,
@@ -36,12 +39,67 @@ typically structured into milestones, with the aim of strengthening the
 ecosystem through reusable open-source work and credible "social-proof" of
 ecosystem progress.
 
-The Logos technology stack is made available as open-source infrastructure
-intended for independent use by developers. Logos and its Affiliates support the
-growth of the ecosystem but do not build, operate, or control projects,
-applications, tools, integrations, or systems created by third parties using
-Logos technology. Applicants remain fully responsible for the design,
-deployment, governance, and compliance of their own work.
+**Logos role.** Logos acts solely as the grantor by identifying proposed
+outcomes through RFP specifications, evaluating submissions, and awarding
+grants. The Logos technology stack is made available as open-source
+infrastructure intended for independent use by developers. Logos and its
+Affiliates support the growth of the ecosystem but do not custody or control
+users' assets and do not build, deploy, host, operate or control any software,
+protocol, application or infrastructure developed under the Program, and, except
+for an RFP specification expressly designated for integration into a
+Logos-maintained framework or repository, does not publish or maintain such
+software.
+
+**RFP Specifications.** RFPs are typically identified through analysis of gaps
+in the Logos ecosystem, by reference to the categories of infrastructure and
+applications commonly found in mature blockchain ecosystems, and to technical
+dependencies between components, where one RFP may build on a primitive
+delivered under another. RFP specifications are typically informed by existing
+approaches and implementations in other ecosystems and by functional
+requirements. Considerations may include open-source delivery, trust
+minimisation and non-custodial design, however, these are indicative rather than
+exhaustive and any given RFP may reflect further or more specific
+considerations. Any such specificity of an RFP may reflect the need for anything
+built for the ecosystem to be technically compatible with the capabilities and
+direction of the Logos technology stack. The scope of an RFP and the selection
+of any Submission reflect that technical and ecosystem fit and do not constitute
+an endorsement of any team, project or intended use. Logos retains full
+discretion over what, when and on what subject to publish an RFP and nothing in
+this description limits that discretion.
+
+An RFP is not a commitment nor should it be construed as an intention by Logos
+to build, deploy, operate or maintain anything. RFP specifications published
+under the Program describe outcomes that may benefit the Logos ecosystem, and
+they are proposals rather than instructions. The requirements in an RFP
+specification define the properties a successful outcome must satisfy and are
+the criteria against which Submissions are evaluated and against which
+milestones are assessed under the relevant Grant agreement; the design and
+implementation approach remains the applicant's. Logos makes no representations
+as to the legal or regulatory treatment of an RFP specification, or of any
+implementation of it, in any jurisdiction. Nothing in an RFP specification
+constitutes legal, regulatory, financial or technical advice and each Applicant
+must obtain its own advice before implementing a specification. Each recipient
+of a grant under the Program remains responsible for determining whether and how
+it can implement an RFP specification consistently with its own legal and
+regulatory obligations.
+
+Teams that undertake an RFP act independently. They are solely responsible and
+retain the discretion concerning the approach for designing, building and
+publishing, and maintaining any software they develop under a proposal accepted
+through the Program and, where they choose to deploy or operate it, for doing
+so. They are also solely responsible for assessing the risks and implications of
+what they build, including any legal or regulatory implications and for
+complying with the laws that apply to them.
+
+Anyone who chooses to deploy, host, operate or use software developed under the
+Program, whether or not they were awarded a grant under the Program, does so at
+their own risk and is solely responsible for complying with any legal or
+regulatory requirements that apply to them, including, where relevant, any
+licensing, registration, sanctions or anti-money laundering obligations that may
+arise from operating any software as a service or business.
+
+Acceptance of a submission or payment of a grant does not constitute an
+endorsement, audit, security review, or warranty of that software by Logos.
 
 Logos retains sole and absolute discretion over the design of the Program, the
 content and nature of any RFP specifications, the evaluation of Submissions, the
@@ -181,8 +239,8 @@ RFP specification or submission template.
 ### Open source licensing
 
 Applicants shall ensure that any code and technical deliverables produced under
-the Program are made available under either the MIT License or the Apache
-License 2.0, at the recipient's option, unless otherwise agreed in writing.
+the Program are made available under the MIT License and the Apache License 2.0,
+unless otherwise agreed in writing.
 
 ### Public and non-confidential nature of Submissions
 
@@ -371,10 +429,16 @@ You acknowledge that:
   confirmed in a formal written notice from Logos and a Grant Agreement is
   executed by both Parties; and
 - no Grant is awarded, and no right to payment arises, unless and until a Grant
-  Agreement has been executed by the relevant parties.
+  Agreement has been executed by the relevant parties; and
+- any software, protocol, application or business that you develop, deploy,
+  host, or operate in connection with the Program is developed, deployed, hosted
+  or operated by you in your own name, at your own risk, and on your own legal
+  and regulatory responsibility.
 
 You must not state or imply that Logos operates, guarantees, audits, certifies,
-or assumes responsibility for your Submission.
+or assumes responsibility for your Submission or for any software, protocol,
+application or business you develop, deploy or operate in connection with the
+Program.
 
 ______________________________________________________________________
 
