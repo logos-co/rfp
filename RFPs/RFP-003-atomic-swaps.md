@@ -13,6 +13,35 @@ dependencies:
 
 > **Status:** Closed. This RFP is no longer accepting proposal submissions.
 
+> **Note.** This specification describes an outcome that may benefit the Logos
+> ecosystem. It is a proposal rather than an instruction. Its requirements
+> reflect the technical compatibility with the Logos technology stack and are the
+> criteria against which proposals and milestones are evaluated. Logos makes no
+> representation as to the legal or regulatory treatment of this specification or
+> any implementation of it in any jurisdiction.
+>
+> Teams implementing it are solely responsible for (i) assessing the risks and
+> implications of what they build; (ii) obtaining their own professional advice;
+> and (iii) for complying with any legal and regulatory requirements that apply
+> to them. Software developed under the Program is published and maintained by
+> its developers, not by Logos.
+>
+> Anyone who chooses to deploy, host, operate or use software developed under the
+> Program, whether or not they were awarded a grant under the Program, does so at
+> their own risk and is solely responsible for complying with any legal or
+> regulatory requirements that apply to them. See the
+> [Terms & Conditions](../TERMS_AND_CONDITIONS.md).
+>
+> Deploying the software described in this RFP, operating any service based on
+> it, or carrying on business through it may amount to regulated activity in some
+> jurisdictions, including where it involves holding or managing users' assets or
+> providing services to others. Whoever conducts any such activity does so as
+> principal, in their own name, and is solely responsible for assessing its
+> regulatory treatment, including any licensing, registration, sanctions or
+> anti-money laundering obligations that may apply to them. Logos does not make
+> any representation, provides any advice or assumes any responsibility in
+> respect of any such determination or compliance.
+
 ## 🧭 Overview
 
 Build a unified atomic swap application that enables trustless, non-custodial
@@ -46,13 +75,15 @@ out of LEZ without trusting an intermediary, which directly conflicts with the
 ecosystem's trust-minimisation principles.
 
 Each target chain presents distinct cryptographic challenges that make this
-non-trivial. Bitcoin HTLCs are identifiable on-chain and link the two swap legs;
-adaptor signatures with Taproot key-path spends solve this, making swaps
-indistinguishable from normal payments. Monero has no scripting system at all,
-requiring cross-curve DLEQ proofs to achieve atomicity. Zcash transparent
-inherits Bitcoin script unchanged and supports HTLC-based swaps via
+non-trivial. Bitcoin HTLCs use a distinctive script pattern and place the same
+hash value on both swap legs; adaptor signatures with Taproot key-path spends
+avoid both, so cooperative swap transactions take the standard form of ordinary
+Taproot spends. Monero has no scripting system at all, requiring cross-curve
+DLEQ proofs to achieve atomicity. Zcash transparent inherits Bitcoin script
+unchanged and supports HTLC-based swaps via
 [BIP-199](https://github.com/bitcoin/bips/blob/master/bip-0199.mediawiki);
-adaptor-signature variants are a stretch goal for cross-chain unlinkability. The
+adaptor-signature variants are a stretch goal for removing the shared hash
+identifier that HTLCs place on both chains. The
 Bitcoin and Monero constructions are surveyed with sources in
 [Appendix: Bitcoin and Monero Adaptor-Signature Swap Primitives](../appendix/btc-xmr-adaptor-swap-primitives.md);
 the Zcash analysis is in
@@ -75,10 +106,11 @@ application to build on.
    Logos Chat respectively.
 2. Trustless swaps between LEZ and **Bitcoin** are supported using Schnorr
    adaptor signatures (BIP-340) and Taproot (BIP-341). The cooperative claim
-   path must be a key-path spend, indistinguishable from a normal Taproot
-   payment. The **refund branch** may be implemented either as a pre-signed
-   timelocked transaction (key-path, refund also indistinguishable) or as a
-   Taproot script-path tapleaf (`OP_CHECKSEQUENCEVERIFY`, refund spend
+   path must be a key-path spend, in the standard form of an ordinary Taproot
+   payment, with no protocol-specific script footprint on-chain. The **refund
+   branch** may be implemented either as a pre-signed timelocked transaction
+   (key-path, refund in the same standard form) or as a Taproot script-path
+   tapleaf (`OP_CHECKSEQUENCEVERIFY`, refund spend
    identifiable but enforced by consensus); both are acceptable. The two
    constructions and their trade-offs are described in
    [Appendix: Bitcoin and Monero Adaptor-Signature Swap Primitives](../appendix/btc-xmr-adaptor-swap-primitives.md).
@@ -94,8 +126,11 @@ application to build on.
    the LEZ side). The Zcash refund deadline must strictly succeed the LEZ refund
    deadline by a margin documented to cover worst-case Zcash confirmation
    latency. ECDSA adaptor signatures (Lloyd Fournier construction) are an
-   acceptable alternative to HTLCs and are encouraged for cross-chain
-   unlinkability. Zcash shielded-pool (Sapling / Orchard) swaps are **out of
+   acceptable alternative to HTLCs; unlike an HTLC an adaptor-signature
+   construction does not place the same hash value on both chains so the two legs
+   of a swap do not share a common on-chain identifier and are encouraged for
+   cross-chain unlinkability. Zcash shielded-pool (Sapling / Orchard) swaps are
+   **out of
    scope** for this RFP; see
    [Appendix: Zcash Atomic Swap Primitives](../appendix/zcash-atomic-swap-primitives.md)
    for the rationale.
@@ -109,9 +144,9 @@ application to build on.
    the LEZ token program, using Associated Token Accounts (ATAs).
 8. The maker software supports two pricing modes: (1) **local configuration**:
    static prices set via config file or CLI, suitable for testing; (2)
-   **external price feed**: prices fetched from an external source (e.g., a REST
-   API). The architecture must support pluggable price sources; the specific
-   external integration is left to the developer.
+   **external price feed**: prices sourced from another Logos module via its C
+   API. The architecture must support pluggable price sources; the specific Logos
+   module and its C API integration are left to the developer.
 9. The maker is deployable as a **headless daemon** covering pair and price
    configuration, external price feed integration, liquidity advertisement, swap
    execution, and monitoring; the daemon must be fully operable via the maker
@@ -262,8 +297,9 @@ application to build on.
 
 ### Soft Requirements
 
-- An **adaptor-signature variant of the LEZ–ZEC pair** (replacing BIP-199 HTLCs)
-  for cross-chain unlinkability, as described in
+- An **adaptor-signature variant of the LEZ–ZEC pair** (replacing BIP-199 HTLCs),
+  so that the two legs of a swap do not share a common on-chain identifier for
+  cross-chain unlinkability, as described in
   [Appendix: Zcash Atomic Swap Primitives](../appendix/zcash-atomic-swap-primitives.md).
 
 ## 👤 Recommended Team Profile

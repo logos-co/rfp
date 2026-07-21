@@ -1,0 +1,88 @@
+name: 📍 Milestone
+description: Track a single milestone from an accepted RFP proposal — create one per milestone as a sub-issue of the proposal.
+title: "[MILESTONE] RFP-XXX Mx — Milestone Name"
+labels: ["milestone"]
+assignees: ["hackyguru"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to break an **accepted** proposal into one issue per milestone so the
+        engineering team can review deliverables independently. Create each milestone as a
+        **sub-issue** of the parent proposal issue.
+
+  - type: input
+    id: parent-proposal
+    attributes:
+      label: Parent Proposal
+      description: The accepted proposal issue this milestone belongs to.
+      placeholder: "#112"
+    validations:
+      required: true
+
+  - type: input
+    id: rfp-id
+    attributes:
+      label: RFP ID
+      placeholder: RFP-003
+    validations:
+      required: true
+
+  - type: input
+    id: team
+    attributes:
+      label: Team / Grantee
+      placeholder: Gateway
+    validations:
+      required: true
+
+  - type: input
+    id: milestone
+    attributes:
+      label: Milestone
+      description: Milestone number and short name.
+      placeholder: "M1 — Design, threat model, SDK trait surface"
+    validations:
+      required: true
+
+  - type: textarea
+    id: deliverables
+    attributes:
+      label: Deliverables
+      description: Checklist of everything that must be delivered for this milestone. Copied from the proposal.
+      value: |
+        - [ ]
+    validations:
+      required: true
+
+  - type: input
+    id: payout
+    attributes:
+      label: Payout (USD)
+      description: Payout released on approval of this milestone.
+      placeholder: "$24,500"
+
+  - type: input
+    id: duration
+    attributes:
+      label: Duration / Timeline
+      placeholder: "3 weeks"
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance / Completion Criteria
+      description: What the reviewer verifies before this milestone is approved for payout.
+
+  - type: checkboxes
+    id: review
+    attributes:
+      label: Engineering Review
+      description: Checked off by the reviewing engineer before the milestone is approved.
+      options:
+        - label: Deliverables received and match the proposal scope
+        - label: Code open-sourced under MIT / Apache 2.0
+        - label: CI green on the default branch
+        - label: Docs / README delivered
+        - label: Milestone approved for payout
