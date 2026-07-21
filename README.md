@@ -95,14 +95,27 @@ Click an RFP to view details. Use the Submit Proposal button to apply.
 ## Terms & Conditions
 
 All participants are bound by the
-[Terms & Conditions](./TERMS_AND_CONDITIONS.md). Key points:
+[Terms & Conditions](./TERMS_AND_CONDITIONS.md). Key points (summary only):
 
-- Submissions must be open sourced under MIT or Apache 2.0 unless otherwise
-  agreed.
-- Submissions are public and non-confidential.
+- Logos acts solely as grantor. It does not custody users' assets and does not
+  build, deploy, host, operate or control software developed under the Program.
+- RFP specifications are proposals, not instructions, and are not legal,
+  regulatory, financial or technical advice. Publishing an RFP is not a
+  commitment nor an intention by Logos to build, deploy, operate or maintain
+  anything.
+- Teams act independently and are responsible for what they build. Logos makes
+  no representation as to their legal or regulatory treatment, and each team
+  must obtain its own advice before implementing one. Teams retain full
+  discretion over the approach to build any software under the Program.
+- Anyone who deploys, hosts, operates or uses software developed under the
+  Program does so at their own risk and on their own legal and regulatory
+  responsibility.
+- Submissions must be open sourced under MIT and Apache 2.0 unless otherwise
+  agreed, and are public and non-confidential.
 - Logos retains sole discretion over evaluation and Grant awards.
 - No Grant is awarded and no obligation to provide any Grant arises unless a
-  Grant Agreement is executed.
+  Grant Agreement is executed, and acceptance of a submission is not an
+  endorsement, audit, or security review or warranty.
 
 See the full [Terms & Conditions](./TERMS_AND_CONDITIONS.md) for eligibility,
 IP, liability, and other provisions.
