@@ -2,7 +2,7 @@
 id: RFP-020
 title: RedStone Off-Chain Oracle Adaptor for LEZ
 tier: M
-status: open
+status: closed
 dependencies:
   - id: RFP-001
     reason: Provides the standardised admin authority library that registers feeds and updates authorised signer sets, as specified in the Functionality requirements.
