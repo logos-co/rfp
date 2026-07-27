@@ -18,7 +18,6 @@ body:
         - "RFP-016 — Token Launchpad: LBP"
         - "RFP-017 — Privacy-Preserving Token Vesting"
         - "RFP-019 — On-Chain TWAP Oracle"
-        - "RFP-020 — RedStone Off-Chain Oracle Adaptor for LEZ"
     validations:
       required: true
 
