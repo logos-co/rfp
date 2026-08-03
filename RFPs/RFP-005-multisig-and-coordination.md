@@ -20,8 +20,8 @@ Build a production-ready M-of-N multisig program on the Logos Execution Zone
 (LEZ), together with an in-band coordination channel so signers can propose,
 deliberate, collect approvals, and reach quorum without leaving the
 application. A multisig is the execution layer for shared custody, treasuries,
-and DAOs: the Logos launch-day Private Multisig app and the Private DAO both
-depend on it. The program is designed and implemented from scratch for LEZ,
+and DAOs: a Private DAO Lambda Prize will be published and expected to use the
+this RFP's implementation. The program is designed and implemented from scratch for LEZ,
 taking as its baseline the properties LEZ makes uniquely possible: multisig
 state that is private by default, and a coordination channel that is encrypted
 and metadata-resistant.
