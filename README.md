@@ -87,7 +87,7 @@ Click an RFP to view details. Use the Submit Proposal button to apply.
 | RFP-015 | [Token Launchpad: Bonding Curve](RFPs/RFP-015-bonding-curve-launchpad.md)            | L    | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
 | RFP-016 | [Token Launchpad: LBP](RFPs/RFP-016-lbp-launchpad.md)                                | XL   | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
 | RFP-017 | [Privacy-Preserving Token Vesting](RFPs/RFP-017-token-vesting.md)                    | L    | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
-| RFP-019 | [On-Chain TWAP Oracle](RFPs/RFP-019-twap-oracle.md)                                  | L    | open   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
+| RFP-019 | [On-Chain TWAP Oracle](RFPs/RFP-019-twap-oracle.md)                                  | L    | closed | Developer Tooling & Infrastructure | Closed                                                                              |
 | RFP-020 | [RedStone Off-Chain Oracle Adaptor for LEZ](RFPs/RFP-020-redstone-oracle-adaptor.md) | M    | closed | Developer Tooling & Infrastructure | Closed                                                                              |
 
 <!-- RFP_TABLE_END -->

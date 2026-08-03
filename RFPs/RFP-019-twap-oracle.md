@@ -2,7 +2,7 @@
 id: RFP-019
 title: On-Chain TWAP Oracle
 tier: L
-status: open
+status: closed
 dependencies:
   - id: RFP-001
     reason: Provides the standardised admin authority library used by the oracle program owner to register feed sources and govern per-pool parameters such as MAX_TICK_DELTA.
