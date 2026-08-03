@@ -17,7 +17,6 @@ body:
         - "RFP-015 — Token Launchpad: Bonding Curve"
         - "RFP-016 — Token Launchpad: LBP"
         - "RFP-017 — Privacy-Preserving Token Vesting"
-        - "RFP-019 — On-Chain TWAP Oracle"
     validations:
       required: true
 
