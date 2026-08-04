@@ -12,6 +12,7 @@ body:
       description: Which RFP are you applying for? Pick the matching RFP — this drives the per-RFP label used for tracking.
       options:
         - "RFP-005 — Multisig and Coordination"
+        - "RFP-021 — Wrapped ERC-20 Bridge for LEZ"
     validations:
       required: true
 
