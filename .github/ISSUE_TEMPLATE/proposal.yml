@@ -16,6 +16,7 @@ body:
         - "RFP-015 — Token Launchpad: Bonding Curve"
         - "RFP-016 — Token Launchpad: LBP"
         - "RFP-017 — Privacy-Preserving Token Vesting"
+        - "RFP-021 — Wrapped ERC-20 Bridge for LEZ"
     validations:
       required: true
 
