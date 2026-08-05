@@ -69,58 +69,26 @@ the vehicle for delivering that.
     member publishes a proposal to the room; members approve or reject
     asynchronously; once M approvals are collected the action can be executed,
     and the program verifies the collected approvals at execution. Proposals
-    carry an expiry after which the program rejects execution. Verifying
-    approvals inside the program requires vendoring a signature verifier into
-    the guest environment, which has no such primitive today; see Platform
-    Dependencies.
-03. Execute approved actions against other programs deployed in the given LEZ,
-    via chained calls. Note two platform constraints: every callee must be
-    declared as a dependency at proof-construction time with its program binary
-    available to the prover, and a transaction is capped at a small number of
-    chained calls in total (not nesting depth). "Arbitrary" therefore means any
-    statically known call graph, not any call graph discovered at execution
-    time. Proposers must state how a proposal's target set is declared and
-    verified against these limits.
+    carry an expiry after which the program rejects execution.
+03. Execute approved actions on any arbitrary program deployed in the given LEZ.
 04. Provide a registry for proposal code and target programs so any client can
     confirm what instructions a proposal's bytes represent and what program they
-    invoke, without relying on a single trusted source. "Without relying on a
-    single trusted source" means the mapping must be independently verifiable by
-    any client, for example by content-addressing entries so a client checks the
-    binding itself rather than trusting the publisher. Building a decentralised
-    governance layer for registry membership is out of scope. Note that
-    Usability requirement U.6 (decode the action before signing) can only be as
-    complete as this registry's coverage; proposers must state what a client
-    displays when a target program is not registered.
+    invoke, without relying on a single trusted source. Note that Usability
+    requirement U.6 (decode the action before signing) can only be as complete
+    as this registry's coverage; proposers must state what a client displays
+    when a target program is not registered.
 05. Support configuration changes (add or remove a member, change the threshold)
     through the same M-of-N approval flow, so structural changes cannot bypass
     the quorum.
-06. Support role separation among members so that the ability to propose and the
-    ability to approve can be assigned independently. At minimum, a proposing
-    key need not be an approving key. Note that "execute" is separable only
-    under the operator custody model: where every member holds the vault
-    spending key, any member can submit a transaction, and the program can only
-    decline to count them as an approver. Documentation must state which
-    guarantee the chosen custody model actually delivers, rather than implying
-    execution is gated when it is not.
+06. Support role separation among members so that the ability to propose, to
+    approve, and to execute can be assigned independently. At minimum, a
+    proposing key need not be an approving key. Documentation must state which
+    guarantee the chosen vault custody model actually delivers for each role.
 07. Support an optional per-multisig time lock: a configurable delay between an
-    action reaching quorum and becoming executable. A time lock of zero means
-    immediate execution. Because no clock is readable from the private path (see
-    Platform Dependencies), this must be enforced through timestamp validity
-    windows and durable program state, and the proposer must document the
-    resulting security properties, including what a prover can and cannot
-    influence about the effective unlock time.
+    action reaching quorum and becoming executable, enforced by the program. A
+    time lock of zero means immediate execution.
 08. Support an optional spending-limit policy: a member or sub-quorum may
     execute transfers up to a configured limit without the full M-of-N approval.
-    This requirement deliberately weakens the vault's security below the limit,
-    and it compounds with custody: where every member holds the vault spending
-    key, the limit accounting in the program is the only control standing
-    between a single member and the funds. Per-period limits additionally
-    require a time source the private path does not provide, and per-member
-    accumulators consume private-account slots against the padding ceiling
-    described in Platform Dependencies. Proposers must justify the account
-    layout and state the residual risk. Implementing this as a fixed lifetime
-    allowance rather than a renewing per-period limit is acceptable and avoids
-    the time dependency.
 09. Provision an end-to-end-encrypted coordination room per multisig using the
     Logos chat module, scoped to the multisig's members. The room carries both
     human deliberation and machine coordination: proposals are published to the
@@ -139,10 +107,9 @@ the vehicle for delivering that.
 1. Provide an SDK that can be used to build Logos modules for interacting with
    the multisig (create, propose, approve, reject, execute, manage members and
    policies).
-2. Provide a Logos mini-app GUI, built as QML with a C++ backend module, with
-   local build instructions, downloadable assets, and loadable in Logos app
-   (Basecamp) via git repo. The mini-app must surface the per-multisig
-   coordination room alongside the proposal list.
+2. Provide a Logos mini-app QML GUI with local build instructions, downloadable
+   assets, and loadable in Logos app (Basecamp) via git repo. The mini-app must
+   surface the per-multisig coordination room alongside the proposal list.
 3. Provide a CLI that uses the Logos core headless framework and covers core
    functionality of the program (create, propose, approve, reject, execute, and
    configuration changes). The CLI may have fewer features than the GUI mini-app
@@ -170,7 +137,6 @@ the vehicle for delivering that.
    distinct valid approvals from current members on exactly the action being
    executed; no approval is double-counted or replayed across proposals, and an
    action cannot execute with fewer than M valid approvals.
-
 2. A configuration change (member set or threshold) must invalidate approval
    sets gathered under the old configuration: an approval collected before the
    change must not count toward quorum after it, unless the action had already
@@ -178,15 +144,6 @@ the vehicle for delivering that.
    execution. The proposal must define precisely which of those points is the
    cutoff, and what happens to a pending action when a member is removed during
    a time-lock delay.
-
-   The private account nonce cannot carry this binding. The circuit overwrites
-   it on every private update with a value derived from the account's spending
-   key, so it is an opaque hash chain rather than a readable counter: the
-   program cannot read a meaningful sequence number from it, cannot predict the
-   post-state value, and every spending-key holder can compute the entire future
-   chain. Replay and configuration binding must therefore be carried in the
-   program's own account data, for example a configuration epoch that increments
-   on every change and that every approval commits to.
 
 #### Performance
 
@@ -196,16 +153,12 @@ the vehicle for delivering that.
    mode produces stub receipts orders of magnitude smaller and faster than real
    ones, and figures gathered that way are meaningless for capacity planning;
    benchmarks submitted from development mode will not be accepted.
-2. The RISC Zero cycle cost of in-guest approval verification must be
-   benchmarked and reported as a function of M, since no signature-verification
-   primitive exists in the guest environment today and the vendored
-   implementation is on the critical path for proof size and cost. Report the
-   largest M that remains viable within block limits, presented as a step
-   function (see Platform Dependencies on power-of-two cycle bucketing). **M of
-   at least 5 must remain viable** for the deliverable to be considered
-   complete; if the benchmark shows otherwise, the finding itself is a
-   reportable result and triggers a scope discussion rather than silent delivery
-   of a lower ceiling.
+2. The cost of verifying approvals at execution must be benchmarked and reported
+   as a function of M, since it is on the critical path for proof size and cost.
+   Report the largest M that remains viable within block limits. **M of at least
+   5 must remain viable** for the deliverable to be considered complete; if the
+   benchmark shows otherwise, the finding itself is a reportable result and
+   triggers a scope discussion rather than silent delivery of a lower ceiling.
 
 #### Supportability
 
@@ -275,12 +228,6 @@ pending-proposal metadata off-chain even for a public-posture multisig. An
 on-chain proposal record is not an audit-trail advantage over this model: both
 models yield a verifiable record of who authorised an action at execution.
 
-The room is coordination, not enforcement: quorum is always verified and
-enforced by the program at execution, never by the chat channel. Because there
-is no live on-chain pending view, the client must reliably gather, retain, and
-present room state so signers always see the current proposal set and collected
-approvals.
-
 Room membership and program membership are separate state and can diverge.
 Removing a member through the M-of-N flow (F.5) changes the program's member
 set, but does not by itself evict that member from the coordination room, and a
@@ -308,26 +255,27 @@ multisig, not concealment of the user.
 
 **Auditability and transparency options.** Privacy is not the opposite of
 oversight, and different organisations need different audiences able to inspect
-the multisig. The program must support:
+the multisig. A corporate or organisational treasury typically needs a narrow
+audience (auditors, a board) able to inspect it. A DAO treasury typically needs
+a wider one: members joining a DAO may reasonably require evidence that the
+treasury is secured as its key holders claim, on an ongoing basis rather than
+once at setup. The program must support:
 
 1. **Public posture (operator-selectable).** At creation the operator may deploy
    the multisig fully public instead of private, for treasuries that want anyone
    to be able to inspect configuration, holdings, and activity at all times.
-
 2. **Selective disclosure to a defined audience.** The program must enable a
    private multisig to disclose its state (configuration, holdings, activity) to
    a chosen audience without making that information public and without granting
-   spending power to that audience.
-
-   The platform primitive for this is viewing-key sharing, and it is
-   all-or-nothing. A private account's note is a single encrypted blob covering
-   the whole account state, so sharing the viewing key reveals every field of
-   every note for that account, for all time, past and future. Disclosing the
-   threshold but not the balance, or 2026 activity but not 2025, is not
-   expressible by sharing keys alone. Anything finer must be constructed in the
-   program's account layout, for example by separating disclosable state into a
-   distinct account with its own viewing key. Proposers must state which
-   granularity they deliver and what an audience unavoidably learns.
+   spending power to that audience. The audience may be narrow (a named auditor)
+   or wide (all members of a DAO), and the mechanism must support both. The
+   implementer should study and propose the mechanism that best balances
+   auditability, security, and usability, and must state which granularity it
+   delivers and what an audience unavoidably learns.
+3. **Ongoing assurance.** The program must enable a multisig to demonstrate its
+   holdings and configuration to its audience repeatedly over time, so that a
+   party joining later can obtain current evidence rather than relying on a
+   claim made at setup.
 
 Documentation (Usability requirement U.5) must state the resulting
 public/private split explicitly for the configured posture, including who can
@@ -645,8 +593,6 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   public/private account model this RFP relies on
 - [Logos Chat Module](https://docs.logos.co/messaging/chat-module/build-logos-module-that-uses-chat-module-api):
   documentation for building modules that use the chat module API
-- [LEZ Private Shared Pool Research](https://github.com/marclawclaw/research-multisig-sovereign/blob/master/lez-private-shared-pool.md):
-  research on shared private accounts and their properties for multisig vaults
 - [Journey: Allow different users to interact with same private account](https://github.com/logos-co/logos-docs/issues/321):
   official Logos journey documenting the GMS-based shared private account
   feature. Note that its stated release status is out of date: the feature is
