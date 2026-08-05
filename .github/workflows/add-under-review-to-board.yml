@@ -2,10 +2,12 @@ name: Sync RFP proposals to tracking board
 
 # Keeps the "RFP & LPrize Tracking" org project (#17) in sync with proposal
 # issues in this repo:
-#   * label `proposal`      -> add to board as "Received Proposals"
-#                              (ONLY if not already on the board in another
-#                              column — never overrides an existing status)
-#   * label `under-review`  -> move to "Priority review" (always)
+#   * label `proposal`      -> add to board as "Received Proposals", but ONLY
+#                              if the issue does NOT already carry `under-review`
+#                              and is not already on the board in another column
+#                              (never overrides an existing status).
+#   * label `under-review`  -> move to "Priority review" (always).
+# Net effect: "Received Proposals" = has `proposal`, not yet `under-review`.
 #
 # The default GITHUB_TOKEN cannot write to org-level Projects v2, so this uses
 # a PAT stored as the PROJECTS_PAT secret (classic PAT with `repo` + `project`,
@@ -32,6 +34,8 @@ jobs:
             const label = context.payload.label.name;
             const issueNodeId = context.payload.issue.node_id;
             const issueNumber = context.payload.issue.number;
+            const issueLabels = (context.payload.issue.labels || [])
+              .map(l => (typeof l === 'string' ? l : l.name));
 
             // Target column per label.
             const TARGET = label === 'under-review' ? 'Priority review' : 'Received Proposals';
@@ -78,6 +82,13 @@ jobs:
             const currentStatus = boardItem && boardItem.fieldValueByName
               ? boardItem.fieldValueByName.name : null;
 
+            // For `proposal`: it belongs in "Received Proposals" only while it
+            // has NOT yet been moved to review. If it already carries
+            // `under-review`, that path owns it — do nothing here.
+            if (label === 'proposal' && issueLabels.includes('under-review')) {
+              core.info(`#${issueNumber} already has under-review — not a Received Proposal.`);
+              return;
+            }
             // For `proposal`: never override an item that already sits in a
             // column. Only place brand-new / status-less items.
             if (label === 'proposal' && currentStatus) {
