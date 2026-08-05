@@ -49,10 +49,7 @@ session, at the cost of hardware immaturity and, for MuSig2, an n-of-n-only
 limitation. Every implementation that keeps the quorum on-chain is transparent.
 On LEZ, the same multisig program can run over private accounts, so the chain
 records only a commitment to the post-state and a validity proof, without giving
-up k-of-n. Under the all-members key-custody model it achieves this without a
-trusted coordinator; the alternative custody model trades that property away for
-stricter role separation, and the choice is left to the proposer. This RFP is
-the vehicle for delivering that.
+up k-of-n. This RFP is the vehicle for delivering that.
 
 ## ✅ Scope of Work
 
@@ -82,8 +79,8 @@ the vehicle for delivering that.
     the quorum.
 06. Support role separation among members so that the ability to propose, to
     approve, and to execute can be assigned independently. At minimum, a
-    proposing key need not be an approving key. Documentation must state which
-    guarantee the chosen vault custody model actually delivers for each role.
+    proposing key need not be an approving key. Documentation must state what
+    guarantee the implementation delivers for each role.
 07. Support an optional per-multisig time lock: a configurable delay between an
     action reaching quorum and becoming executable, enforced by the program. A
     time lock of zero means immediate execution.
@@ -164,31 +161,34 @@ the vehicle for delivering that.
 
 #### Supportability
 
-1. The multisig program is deployed and tested on LEZ devnet/testnet, and is
-   compatible with Logos testnet 0.3 and 0.4.
-2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
-   and are included in CI.
-3. CI must be green on the default branch.
-4. Every hard requirement in Functionality, Usability, and Reliability has at
-   least one corresponding test. At minimum this includes: an action cannot
-   execute below threshold; a configuration change respects requirement R.2; and
-   a vault cannot be drained before it is fully initialised. Performance
-   requirements are satisfied by reported measurements rather than pass/fail
-   tests, but the benchmark harness must be committed and reproducible.
-5. A README documents end-to-end usage: deployment steps, program addresses, and
-   step-by-step instructions for creating a multisig, proposing, approving, and
-   executing via CLI and front-end, including how the coordination room is
-   provisioned.
-6. Submit a
-   [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-   for the SDK, covering the developer integration journey.
-7. Submit a
-   [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-   for the CLI, covering the core operator journey.
-8. Provide Figma designs or equivalent for the mini-app GUI, including the
-   proposal list and the coordination room.
-9. Publish resulting modules in the
-   [Logos modules catalog](https://github.com/logos-co/logos-modules-release-base).
+01. The multisig program runs on the Logos Execution Zone (LEZ) and uses LEZ
+    private accounts for its private-by-default posture.
+02. The per-multisig coordination room is built on the Logos chat module.
+03. The delivered implementation is compatible with Logos testnet 0.3 and 0.4.
+04. The multisig program is deployed and tested on LEZ devnet/testnet.
+05. End-to-end integration tests run against a LEZ sequencer (standalone mode)
+    and are included in CI.
+06. CI must be green on the default branch.
+07. Every hard requirement in Functionality, Usability, and Reliability has at
+    least one corresponding test. At minimum this includes: an action cannot
+    execute below threshold; a configuration change respects requirement R.2;
+    and a vault cannot be drained before it is fully initialised. Performance
+    requirements are satisfied by reported measurements rather than pass/fail
+    tests, but the benchmark harness must be committed and reproducible.
+08. A README documents end-to-end usage: deployment steps, program addresses,
+    and step-by-step instructions for creating a multisig, proposing, approving,
+    and executing via CLI and front-end, including how the coordination room is
+    provisioned.
+09. Submit a
+    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+    for the SDK, covering the developer integration journey.
+10. Submit a
+    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+    for the CLI, covering the core operator journey.
+11. Provide Figma designs or equivalent for the mini-app GUI, including the
+    proposal list and the coordination room.
+12. Publish resulting modules in the
+    [Logos modules catalog](https://github.com/logos-co/logos-modules-release-base).
 
 ### Soft Requirements
 
@@ -286,28 +286,16 @@ see what under each disclosure mechanism.
 ## ⚠ Platform Dependencies
 
 This RFP is open for proposals. Proposers may begin design and development work,
-but a working on-chain deployment depends on the platform components below.
-Proposers should confirm the current state of each against the Resources section
-before relying on it.
+but a working on-chain deployment depends on the Logos components named in the
+Supportability requirements. Proposers should confirm the current state of each
+against the Resources section before relying on it.
 
-- **LEZ private accounts.** The private-by-default posture requires running the
-  multisig over LEZ private accounts. Note that no end-to-end multi-party
-  authorisation flow exists on LEZ today: the underlying primitives are
-  available, but this RFP commissions the first such implementation.
-
-- **Shared private accounts.** LEZ provides group-owned shared private accounts
-  derived from a single Group Master Secret, documented in the Journey linked
-  under Resources. Proposers should study this feature and state how, and
-  whether, they use it. Note that every holder of the group secret derives full
-  spending authority over the shared account, so it distributes custody rather
-  than dividing it; understanding its properties is a prerequisite to designing
-  the vault.
-
-- **Logos chat module.** The per-multisig coordination room (F.9) must be built
-  on the Logos chat module. This is mandatory, not a suggested option.
-
-- **Logos testnet compatibility.** The delivered implementation must be
-  compatible with Logos testnet 0.3 and 0.4.
+No end-to-end multi-party authorisation flow exists on LEZ today: the underlying
+primitives are available, but this RFP commissions the first such
+implementation. LEZ also provides group-owned shared private accounts, derived
+from a single Group Master Secret and documented in the Journey linked under
+Resources; proposers should study this feature and state how, and whether, they
+use it.
 
 ### Risks
 
@@ -333,15 +321,6 @@ Benchmarks must be produced with real proving. Development mode skips proof
 generation and yields figures that are orders of magnitude optimistic, which is
 misleading for capacity planning.
 
-#### Signing-layer trust
-
-The Bybit and WazirX losses were not smart-contract failures; they exploited the
-gap between what a signer saw in a UI and what they actually authorised. The
-primary mitigation is the Logos module model: the UI is installed and verified
-once, not downloaded from a remote server on every use. Usability requirement
-U.6 (show the exact decoded action before signing) is a secondary mitigation and
-must not be treated as optional polish.
-
 ## 👤 Recommended Team Profile
 
 Team experienced with:
@@ -356,21 +335,19 @@ Team experienced with:
 
 Estimated duration: **6 months** (fresh implementation of the M-of-N program
 with its private-by-default execution path, the coordination room with in-room
-approval collection, and the SDK, CLI, and mini-app). The vault architecture and
-privacy posture are settled; vault key custody and the approval-verification
-scheme are left to the proposer (see Decisions for Review).
+approval collection, and the SDK, CLI, and mini-app).
 
 This estimate assumes a team already productive on LEZ. Proposers new to the
 platform should account for ramp-up separately and say so.
 
-**A phased proposal is welcome.** The in-guest approval verifier is on the
-critical path, has no precedent to size against, and its cost determines the
-largest workable M. Proposers may structure the work so that an initial phase
-establishes the approval-verification benchmark (P.2), the account layout
-against the private-account ceiling, and the time-lock design, with the scope
-and cost of the remainder fixed once those are known. A proposal that names this
-uncertainty and structures around it will be viewed more favourably than one
-that prices it silently.
+**A phased proposal is welcome.** The approval verifier is on the critical path,
+has no precedent to size against, and its cost determines the largest workable
+M. Proposers may structure the work so that an initial phase establishes the
+approval-verification benchmark (P.2), the account layout against the
+private-account ceiling, and the time-lock design, with the scope and cost of
+the remainder fixed once those are known. A proposal that names this uncertainty
+and structures around it will be viewed more favourably than one that prices it
+silently.
 
 ## 🌍 Open Source Requirement
 
@@ -400,58 +377,6 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   documentation for building modules that use the chat module API
 - [Journey: Allow different users to interact with same private account](https://github.com/logos-co/logos-docs/issues/321):
   official Logos journey documenting the shared private account feature
-
-## 🧩 Decisions for Review
-
-Settled and embedded in the requirements above:
-
-1. The privacy posture is **private by default**, with the auditability and
-   transparency options listed in Privacy Architecture.
-2. **Approvals flow through the E2EE coordination room**, with the program
-   verifying the collected approvals at execution (no per-approval on-chain
-   writes).
-3. The vault is **controlled by the multisig program**, with M-of-N enforced by
-   the program's verified execution rather than by how the vault's keys are
-   distributed. Member changes are program state changes, not key migrations.
-
-Group-shared accounts derived from a Group Master Secret are **not** the vault
-mechanism: every holder of the group secret gets full spending authority, so a
-vault built on one would be advisory rather than enforcing. The feature remains
-useful for shared **viewing** of vault activity and for keying the coordination
-room, and proposers may use it for those purposes.
-
-### Open for the proposer to decide
-
-**Vault key custody.** A spend must ultimately be constructed by some party
-holding the vault's spending key. Both models below are viable; the proposer
-must choose one, justify it, and document the resulting threat model:
-
-- **All members hold the vault spending key.** Any member can construct a spend
-  transaction, but the program rejects it below quorum, so funds are safe once
-  the vault is initialised. No liveness dependency, no single point of key loss,
-  and no trusted coordinator. The cost is that "execute" is not a separable role
-  under F.6, since every member holds what is needed to submit.
-- **A designated operator or relayer holds the vault spending key.** Members
-  hold approval keys only and cannot construct a spend transaction at all, which
-  makes F.6 role separation fully meaningful. The cost is a trusted coordinator:
-  a liveness dependency, a single point of key loss, and a censorship vector.
-  Choosing this model forfeits the no-trusted-coordinator property claimed in
-  Why This Matters, and the documentation must say so plainly.
-
-Neither model provides cryptographic k-of-N at the key layer. That requires
-threshold cryptography, noted below as a future extension.
-
-**Approval verification scheme.** How member approvals are verified inside the
-program is the proposer's choice, subject to the benchmark required by
-Performance requirement P.2 and to meeting Reliability requirement R.1.
-
-### Future extension (not a deliverable)
-
-**Threshold cryptography over the vault keys** (for example a FROST-style
-scheme) would give cryptographic M-of-N at the key layer, removing the need for
-any single party to hold a complete spending key. Tooling is immature and
-threshold-signature implementation is out of scope for this RFP; a proposer may
-document it as a migration path.
 
 ## ✏️ How to Apply
 
