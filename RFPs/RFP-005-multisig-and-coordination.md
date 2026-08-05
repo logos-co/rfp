@@ -1,7 +1,7 @@
 ---
 id: RFP-005
 title: Multisig and Coordination
-tier: XL
+tier: L
 status: open
 dependencies:
   - id: LP-0002
@@ -340,14 +340,13 @@ approval collection, and the SDK, CLI, and mini-app).
 This estimate assumes a team already productive on LEZ. Proposers new to the
 platform should account for ramp-up separately and say so.
 
-**A phased proposal is welcome.** The approval verifier is on the critical path,
+**A phased proposal is welcome.** Approval verification is on the critical path,
 has no precedent to size against, and its cost determines the largest workable
 M. Proposers may structure the work so that an initial phase establishes the
-approval-verification benchmark (P.2), the account layout against the
-private-account ceiling, and the time-lock design, with the scope and cost of
-the remainder fixed once those are known. A proposal that names this uncertainty
-and structures around it will be viewed more favourably than one that prices it
-silently.
+approval-verification benchmark (P.2) and the resulting design constraints, with
+the scope and cost of the remainder fixed once those are known. A proposal that
+names this uncertainty and structures around it will be viewed more favourably
+than one that prices it silently.
 
 ## 🌍 Open Source Requirement
 
