@@ -164,17 +164,17 @@ the vehicle for delivering that.
 
 #### Supportability
 
-1. The multisig program is deployed and tested on LEZ devnet/testnet.
+1. The multisig program is deployed and tested on LEZ devnet/testnet, and is
+   compatible with Logos testnet 0.3 and 0.4.
 2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
    and are included in CI.
 3. CI must be green on the default branch.
 4. Every hard requirement in Functionality, Usability, and Reliability has at
    least one corresponding test. At minimum this includes: an action cannot
    execute below threshold; a configuration change respects requirement R.2; and
-   a vault cannot be drained through the pre-initialisation window described in
-   Platform Dependencies. Performance requirements are satisfied by reported
-   measurements rather than pass/fail tests, but the benchmark harness must be
-   committed and reproducible.
+   a vault cannot be drained before it is fully initialised. Performance
+   requirements are satisfied by reported measurements rather than pass/fail
+   tests, but the benchmark harness must be committed and reproducible.
 5. A README documents end-to-end usage: deployment steps, program addresses, and
    step-by-step instructions for creating a multisig, proposing, approving, and
    executing via CLI and front-end, including how the coordination room is
@@ -286,249 +286,52 @@ see what under each disclosure mechanism.
 ## ⚠ Platform Dependencies
 
 This RFP is open for proposals. Proposers may begin design and development work,
-but a working on-chain deployment depends on the primitives below.
+but a working on-chain deployment depends on the platform components below.
+Proposers should confirm the current state of each against the Resources section
+before relying on it.
 
-### Hard blockers
+- **LEZ private accounts.** The private-by-default posture requires running the
+  multisig over LEZ private accounts. Note that no end-to-end multi-party
+  authorisation flow exists on LEZ today: the underlying primitives are
+  available, but this RFP commissions the first such implementation.
 
-#### Private-account execution (core LEE feature)
+- **Shared private accounts.** LEZ provides group-owned shared private accounts
+  derived from a single Group Master Secret, documented in the Journey linked
+  under Resources. Proposers should study this feature and state how, and
+  whether, they use it. Note that every holder of the group secret derives full
+  spending authority over the shared account, so it distributes custody rather
+  than dividing it; understanding its properties is a prerequisite to designing
+  the vault.
 
-The private-by-default posture requires running the multisig over LEE private
-accounts: post-state commitments, nullifiers, and Risc0 validity proofs. These
-are core LEE features, and the private-PDA lifecycle this RFP depends on is
-covered by integration tests on LEZ `main`, for a single keyholder. Proposers
-should confirm the state of private-account support on LEZ devnet against the
-Resources below before relying on it.
+- **Logos chat module.** The per-multisig coordination room (F.9) must be built
+  on the Logos chat module. This is mandatory, not a suggested option.
 
-No end-to-end multi-party authorization flow exists in the LEZ repository today.
-The primitives are present and the single-keyholder private-PDA lifecycle is
-tested, but nothing demonstrates M-of-N in the program layer. This RFP
-commissions the first such implementation. LP-0002 is an open prize covering
-adjacent ground, but it is unclaimed and its design differs from this RFP's; see
-Resources.
-
-#### Program-derived private PDAs (the enforcement mechanism)
-
-The vault is a private PDA derived under the multisig program's ID. This is what
-makes M-of-N enforceable, and the mechanism has two parts, both present and
-exercised on LEZ `main`:
-
-1. **Address binding.** A private PDA's account ID commits to the program:
-   `AccountId::for_private_pda(program_id, seed, npk, vpk, identifier)`. The
-   privacy-preserving circuit refuses any private-PDA pre-state whose npk has
-   not been proven to derive that account ID. Three binding paths exist: the
-   program's own `Claim::Pda(seed)`, a caller's `pda_seeds`, and an external
-   seed supplied directly as a circuit input. The third is what makes funding a
-   program-owned private PDA from another program possible, and proposers will
-   need it for vault funding.
-2. **Ownership latch.** `validate_execution` permits a balance decrease only
-   when `account_program_owner == executing_program_id`. Once the vault's
-   `program_owner` is set to the multisig program, that latch is one-way:
-   ownership cannot be changed or reverted. Only the multisig program's verified
-   execution can move funds out.
-
-Enforcement therefore comes from the ownership latch, not from anything about
-the key layer. A multisig program that asserts its M-of-N condition makes the
-proof unconstructible when the condition fails.
-
-**The vault cannot be claimed by another program.** Because the account ID
-commits to the program ID, and the claim path asserts that the account ID
-re-derives from the *executing* program's own ID, a hostile program can only
-claim accounts within its own namespace. Claiming the multisig's vault would
-require a hash preimage collision. This is worth stating explicitly because the
-circuit does not enforce authorization claims on private accounts generally: for
-the private non-PDA path, `Claim::Authorized` is a deliberate no-op
-("unauthorized private claiming is intentionally allowed"). That no-op does not
-apply to the private-PDA claim path, which is address-bound.
-
-**What the circuit does not do.** It does not verify that a program's approval
-predicate ran and returned true. It proves derivation-from-program plus the
-seed/npk binding. The approval logic itself is the program's responsibility, and
-the ownership latch is what forces the program to run at all.
-
-**Initialisation is security-critical.** The latch protects the vault only once
-the multisig program has claimed it. An account that has been funded but not yet
-claimed sits under the default program owner, where the balance-decrease rule
-does not yet bind it to the multisig program, and any holder of the vault
-spending key can move funds out before the program is ever involved. Vault
-creation and first funding must therefore be atomic, or the design must make
-pre-initialisation deposits impossible. Proposers must state how they achieve
-this, and Reliability testing must cover it.
-
-**Vault key custody is an open design choice.** The circuit has no notion of an
-npk that nobody holds: someone must hold the vault's nullifier secret key (nsk)
-to construct the spend proof. Two models are viable and the proposer must choose
-one and justify it (see Decisions for Review).
-
-#### Shared private accounts and group keys (not a multisig primitive)
-
-LEZ supports group-owned shared private accounts derived from a single 32-byte
-Group Master Secret (GMS): every member independently derives the same account
-keys (NSK/VSK/NPK/VPK). New members are admitted by sealing the GMS to their
-public key and having them unseal it.
-
-**The GMS confers full spending authority and cannot be restricted to viewing.**
-Because the derivation hands every holder the full nsk, and holding the nsk is
-what permits a spend, distributing the GMS to N members distributes N copies of
-full spending authority. It is not a multisig primitive and must not be used as
-one. Where a view-only auditor is wanted, share the account's viewing key
-instead — that is the mechanism that actually separates viewing from spending.
-
-Specifically, a **regular** (non-PDA) GMS-derived shared account carries no
-program binding at all: its account ID is derived without a program ID, and its
-`program_owner` ends up as the standard funding program. Any single GMS holder
-can spend it directly without the multisig program ever being invoked. A
-multisig built on that account shape would be advisory, not enforcing.
-
-Properties proposers should account for:
-
-- The key layer is effectively **1-of-N**: any GMS holder derives full spending
-  and viewing authority. There is no view-only or threshold share of the GMS.
-- The GMS is a **root** secret. A holder derives keys for every account the
-  group creates under it, including accounts created after they joined, and can
-  re-seal the GMS to an arbitrary third party without the other members'
-  consent.
-- Group membership is **not recorded anywhere** — not on-chain, and not in any
-  registry or distribution service. `invite` prints a sealed blob and `join`
-  accepts one; conveying it is entirely the operator's problem, and each
-  member's roster is independent local state that can silently diverge.
-- There is **no member revocation**. Removing a member deletes only the caller's
-  own local copy; the removed member's GMS still derives working spending keys.
-  In-place GMS rotation is structurally impossible, because the account ID
-  commits to the derived npk and vpk — a new GMS is a different account.
-  Migration to a fresh GMS is the only path, it is not automated, and during the
-  sweep the removed member holds equal spending authority over the funds being
-  moved. They also retain permanent viewing access to the old account's history.
-
-The auditability options rely on LEE key separation: a private account has a
-spending (nullifier) key and a viewing key, and sharing the viewing key yields a
-view-only auditor. Note that the GMS itself cannot express this separation — any
-GMS holder gets both.
-
-Proposers should confirm these properties against the LEZ codebase before
-relying on them.
-
-#### Private-account count is part of the anonymity set
-
-A privacy-preserving transaction pads its private inputs to a fixed count, on
-the order of seven accounts. Beyond that ceiling the padding saturates and the
-number of private accounts a transaction touches stops being hidden, which
-weakens the privacy posture this RFP is built on.
-
-This is a hard constraint on account layout, and it binds sooner than proposers
-expect. A vault, a policy account, a proposal account, a spending-limit
-accumulator, and a transfer recipient already approach the ceiling before any
-per-member state exists. Designs that allocate an account per member (see F.8)
-will exceed it.
-
-Proposers must state the maximum number of private accounts any single operation
-touches, and design the account layout to stay within the ceiling.
-
-#### Time: no clock is readable from the private path
-
-Three requirements depend on time: proposal expiry (F.2), the time lock (F.7),
-and spending limits if the limit is per-period (F.8). LEZ offers no clock that a
-program can read from the private path.
-
-Clock accounts exist, but they are **public** accounts. Taking one as a
-pre-state in a privacy-preserving transaction puts a public account in the
-transaction, which defeats the private posture and is a strong deanonymisation
-signal, since every private transaction reading the clock reads the same
-account.
-
-The mechanism that does work is the **timestamp validity window**: a program
-declares that its output is valid only within a stated time range, and the state
-machine rejects the transaction outside that range. This constrains the
-transaction rather than letting the program read the current time. It is
-sufficient for a time lock, because an unlock time known at proof-construction
-time can be expressed as a window that opens at the unlock point, and the chain
-rejects anything proved for an earlier window.
-
-Proposers must design F.2, F.7, and F.8 around validity windows and durable
-program state. A team that goes looking for a clock API will not find a usable
-one.
-
-#### Logos chat module
-
-The per-multisig coordination room (Functionality requirement F.9) depends on
-the Logos chat module. The module is **not part of the LEZ repository**, so its
-availability, SDK surface, and support for machine-readable payloads cannot be
-confirmed from the LEZ codebase. Proposers must confirm all of this against the
-module's own documentation and maintainers before relying on it. Alongside the
-in-guest verifier, this is the largest external dependency risk in this RFP.
+- **Logos testnet compatibility.** The delivered implementation must be
+  compatible with Logos testnet 0.3 and 0.4.
 
 ### Risks
 
-#### In-guest signature verification is unbuilt
+#### Approval verification cost
 
-Requirement F.2 has the program verify collected member approvals at execution.
-**No primitive for this exists today.** Guest programs depend on `lee_core` and
-`risc0-zkvm` only, and `lee_core` carries no elliptic-curve library; there is no
-signature-verification code reachable from guest code anywhere in the LEZ tree.
-The BIP-340/secp256k1 verifier that does exist is host-side, outside the zkVM,
-and verifies the transaction witness set rather than program-level semantics.
-The only cryptography available in-guest is SHA-256, plus ML-KEM and ChaCha20
-for the encryption path.
+The program must verify collected member approvals inside its own execution.
+There is no precedent on LEZ to size this against, and the cost scales with M,
+so it is the largest unpriced item in this RFP. Proposers should establish this
+cost early, before the design is committed. Performance requirement P.2 makes
+the benchmark a deliverable.
 
-This is proposer scope rather than a platform blocker: a `no_std` verifier must
-be vendored into the guest, paying the RISC Zero cycle cost for M verifications
-inside the proof. That is feasible in principle, but there is no precedent in
-the repository to size it against, and the cost scales with M. It is the largest
-unpriced item in this RFP, and Performance requirement P.2 makes the benchmark a
-deliverable.
+#### Private-transaction throughput and proving cost
 
-Because the cost is unknown, proposers are encouraged to establish it early and
-to consider whether in-guest signature verification is required at all. An
-approval scheme built on the SHA-256 already available in-guest may satisfy
-Reliability requirement R.1 far more cheaply; see Decisions for Review.
+Private-transaction throughput per block is limited, and proof generation is
+paid client-side and measured in minutes rather than seconds. This shapes the
+product: the mini-app and CLI must treat execution as a long-running background
+operation with visible progress, not a request-response interaction. Carrying
+approvals through the coordination room keeps the on-chain footprint small, but
+proposers must measure and report the real figures under Performance requirement
+P.1.
 
-This gap is not specific to multisig. Any program needing to verify
-authorisation in its own execution will meet it, so a verifier built here has
-value beyond this RFP. Proposers should design it as a reusable component rather
-than a private detail of the multisig program.
-
-#### Private-transaction throughput
-
-Running over private accounts, each on-chain operation produces a Risc0 receipt
-and consumes block capacity. The reference sequencer configuration bounds a
-block at 20 transactions and 1 MiB, with no separate limit for private
-transactions. The block-size bound is the one that binds: a real-proving
-privacy-preserving transaction measures roughly 220 KiB on the wire, so
-**approximately four private transactions fit in a block** and the
-20-transaction count is never reached. At the reference 10-second block cadence
-that is on the order of **0.4 private transactions per second for the entire
-zone**, shared with every other application running on it.
-
-Proving cost is the more severe constraint, and it is paid client-side at
-submission rather than by the sequencer. Published LEZ benchmarks put a single
-privacy-preserving transaction at roughly **two minutes of proving on a
-commodity laptop CPU**, with each chained call adding roughly a further minute.
-A multisig execution that chains into a target program should therefore be
-expected to cost several minutes of local proving. This shapes the product: the
-mini-app and CLI must treat execution as a long-running background operation
-with visible progress, not a request-response interaction.
-
-Carrying approvals through the coordination room removes per-approval on-chain
-writes, so the on-chain footprint stays small (creation, executions,
-configuration changes). Performance requirement P.1 requires these figures to be
-re-measured on the target deployment and reported, since they will have moved.
-
-Note that proving cost scales with power-of-two-bucketed total cycles, not raw
-cycle count: reducing cycles lowers cost only when it crosses a bucket boundary.
-Benchmarks under Performance requirement P.2 must therefore be reported as a
-step function rather than a linear fit.
-
-#### Development mode hides the real cost
-
-LEZ supports a development mode that skips real proving. It is the right way to
-run most tests, but it produces stub receipts orders of magnitude smaller and
-faster than real ones. A team that develops and benchmarks exclusively in
-development mode will carry figures roughly two orders of magnitude optimistic
-and discover the true cost only at integration, when the account layout and
-approval scheme are already fixed.
-
-Proposers should establish real-proving measurements early, before the design is
-committed, and Performance requirement P.1 makes real-proving benchmarks a
-condition of acceptance.
+Benchmarks must be produced with real proving. Development mode skips proof
+generation and yields figures that are orders of magnitude optimistic, which is
+misleading for capacity planning.
 
 #### Signing-layer trust
 
@@ -596,17 +399,7 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [Logos Chat Module](https://docs.logos.co/messaging/chat-module/build-logos-module-that-uses-chat-module-api):
   documentation for building modules that use the chat module API
 - [Journey: Allow different users to interact with same private account](https://github.com/logos-co/logos-docs/issues/321):
-  official Logos journey documenting the GMS-based shared private account
-  feature. Note that its stated release status is out of date: the feature is
-  bundled in the released `v0.2.0` tag (2026-06-30), not only on `main`. Take
-  care with the tag list — `v0.3.0` predates this work and is not a newer
-  release.
-
-Account derivation constants are versioned and have changed between LEZ
-releases; public and private PDA derivations do not currently share a version
-prefix. Any change to these constants changes every derived account address.
-Proposers should pin the derivation they build against with their own tests
-rather than assuming stability across releases.
+  official Logos journey documenting the shared private account feature
 
 ## 🧩 Decisions for Review
 
@@ -617,50 +410,40 @@ Settled and embedded in the requirements above:
 2. **Approvals flow through the E2EE coordination room**, with the program
    verifying the collected approvals at execution (no per-approval on-chain
    writes).
-3. The vault is a **private PDA derived under the multisig program's ID**, with
-   M-of-N enforced by the program's verified execution, backed by the
-   `program_owner` ownership latch described in Platform Dependencies. Member
-   changes are program state changes, not key migrations.
+3. The vault is **controlled by the multisig program**, with M-of-N enforced by
+   the program's verified execution rather than by how the vault's keys are
+   distributed. Member changes are program state changes, not key migrations.
 
 Group-shared accounts derived from a Group Master Secret are **not** the vault
-mechanism. The GMS distributes full spending authority to every holder, so a
-vault built on it would be advisory rather than enforcing. The GMS remains
+mechanism: every holder of the group secret gets full spending authority, so a
+vault built on one would be advisory rather than enforcing. The feature remains
 useful for shared **viewing** of vault activity and for keying the coordination
 room, and proposers may use it for those purposes.
 
 ### Open for the proposer to decide
 
-**Vault key custody.** Someone must hold the vault's nsk to construct a spend
-proof. Neither model below is unambiguously better, and the choice determines
-which other requirements can be honoured in full. The proposer must choose one,
-justify it, and document the resulting threat model:
+**Vault key custody.** A spend must ultimately be constructed by some party
+holding the vault's spending key. Both models below are viable; the proposer
+must choose one, justify it, and document the resulting threat model:
 
-- **All members hold the vault nsk.** Any member can construct a spend
+- **All members hold the vault spending key.** Any member can construct a spend
   transaction, but the program rejects it below quorum, so funds are safe once
   the vault is initialised. No liveness dependency, no single point of key loss,
-  and no trusted coordinator. The costs: "execute" is not a separable role under
-  F.6, because every member holds the key needed to submit; members can grief
-  each other by racing spends and burning proving effort; and the
-  pre-initialisation window described in Platform Dependencies is a real
-  exposure that the design must close.
-- **A designated operator or relayer holds the vault nsk.** Members hold
-  approval keys only and cannot construct a spend transaction at all, which
-  makes F.6 role separation fully meaningful and removes the griefing vector.
-  The cost is a trusted coordinator: a liveness dependency, a single point of
-  key loss, and a censorship vector. Choosing this model forfeits the
-  no-trusted-coordinator property claimed in Why This Matters, and the
-  documentation must say so plainly rather than implying it still holds.
+  and no trusted coordinator. The cost is that "execute" is not a separable role
+  under F.6, since every member holds what is needed to submit.
+- **A designated operator or relayer holds the vault spending key.** Members
+  hold approval keys only and cannot construct a spend transaction at all, which
+  makes F.6 role separation fully meaningful. The cost is a trusted coordinator:
+  a liveness dependency, a single point of key loss, and a censorship vector.
+  Choosing this model forfeits the no-trusted-coordinator property claimed in
+  Why This Matters, and the documentation must say so plainly.
 
 Neither model provides cryptographic k-of-N at the key layer. That requires
 threshold cryptography, noted below as a future extension.
 
-**Approval verification scheme.** Which signature scheme is verified in-guest,
-and which `no_std` implementation is vendored, is the proposer's choice, subject
-to the benchmark required by Performance requirement P.2. Proposers should also
-consider whether in-guest signature verification is needed at all: committing to
-an approval set by hash in the program's account data, using the SHA-256 already
-available in-guest, may satisfy Reliability requirement R.1 at a fraction of the
-proving cost. A proposal that argues for this and shows it meets R.1 is welcome.
+**Approval verification scheme.** How member approvals are verified inside the
+program is the proposer's choice, subject to the benchmark required by
+Performance requirement P.2 and to meeting Reliability requirement R.1.
 
 ### Future extension (not a deliverable)
 
