@@ -1,0 +1,67 @@
+name: Add under-review proposals to board
+
+# When an issue in this repo is labeled `under-review`, add it to the
+# "RFP & LPrize Tracking" org project (#17) and set its Status to
+# "Proposal review". The default GITHUB_TOKEN cannot write to org-level
+# Projects v2, so this uses a PAT stored as the PROJECTS_PAT secret
+# (classic PAT with `repo` + `project`, or a fine-grained PAT with
+# Organization projects: Read & write and Issues: Read).
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+jobs:
+  add-to-proposal-review:
+    if: github.event.label.name == 'under-review'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECTS_PAT }}
+          script: |
+            const ORG = 'logos-co';
+            const PROJECT_NUMBER = 17;
+            const TARGET_STATUS = 'Proposal review';
+            const issueNodeId = context.payload.issue.node_id;
+
+            // 1. Resolve project id, Status field id, and the target option id
+            //    (looked up by name so it survives option-id regeneration).
+            const meta = await github.graphql(`
+              query($org:String!, $num:Int!) {
+                organization(login:$org){
+                  projectV2(number:$num){
+                    id
+                    field(name:"Status"){
+                      ... on ProjectV2SingleSelectField { id options { id name } }
+                    }
+                  }
+                }
+              }`, { org: ORG, num: PROJECT_NUMBER });
+
+            const project = meta.organization.projectV2;
+            const statusField = project.field;
+            const option = statusField.options.find(o => o.name === TARGET_STATUS);
+            if (!option) { core.setFailed(`No Status option named "${TARGET_STATUS}"`); return; }
+
+            // 2. Add the issue to the project (idempotent: returns the existing
+            //    item if it is already on the board, without duplicating).
+            const added = await github.graphql(`
+              mutation($project:ID!, $content:ID!) {
+                addProjectV2ItemById(input:{projectId:$project, contentId:$content}){ item { id } }
+              }`, { project: project.id, content: issueNodeId });
+            const itemId = added.addProjectV2ItemById.item.id;
+
+            // 3. Set Status = Proposal review.
+            await github.graphql(`
+              mutation($project:ID!, $item:ID!, $field:ID!, $opt:String!) {
+                updateProjectV2ItemFieldValue(input:{
+                  projectId:$project, itemId:$item, fieldId:$field,
+                  value:{ singleSelectOptionId:$opt }
+                }){ projectV2Item { id } }
+              }`, { project: project.id, item: itemId, field: statusField.id, opt: option.id });
+
+            core.info(`Issue #${context.payload.issue.number} → "${TARGET_STATUS}".`);
