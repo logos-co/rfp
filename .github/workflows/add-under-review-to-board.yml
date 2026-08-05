@@ -7,6 +7,7 @@ name: Sync RFP proposals to tracking board
 #                              and is not already on the board in another column
 #                              (never overrides an existing status).
 #   * label `under-review`  -> move to "Priority review" (always).
+#   * label `rejected`      -> move to "Rejected proposals" (always; terminal).
 # Net effect: "Received Proposals" = has `proposal`, not yet `under-review`.
 #
 # The default GITHUB_TOKEN cannot write to org-level Projects v2, so this uses
@@ -22,7 +23,7 @@ permissions:
 
 jobs:
   sync:
-    if: github.event.label.name == 'proposal' || github.event.label.name == 'under-review'
+    if: github.event.label.name == 'proposal' || github.event.label.name == 'under-review' || github.event.label.name == 'rejected'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v7
@@ -38,7 +39,10 @@ jobs:
               .map(l => (typeof l === 'string' ? l : l.name));
 
             // Target column per label.
-            const TARGET = label === 'under-review' ? 'Priority review' : 'Received Proposals';
+            const TARGET =
+              label === 'under-review' ? 'Priority review'
+              : label === 'rejected'   ? 'Rejected proposals'
+              : 'Received Proposals';
 
             // 1. Resolve project id, Status field id, and option ids (by name,
             //    so this survives Projects option-id regeneration).
