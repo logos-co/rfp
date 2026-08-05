@@ -125,9 +125,11 @@ the vehicle for delivering that.
 6. Before a member signs an approval, the mini-app must display the exact action
    that approval authorises (target program, decoded instruction, amounts), so
    the member verifies what they are signing rather than a UI-rendered summary.
-   This is the primary mitigation for the signing-layer attack surface behind
-   the Bybit and WazirX losses: in both incidents, signers authorised what a
-   compromised UI showed them, not what was actually executed.
+   This addresses the signing-layer attack surface behind the Bybit and WazirX
+   losses, in which signers authorised what a compromised UI showed them rather
+   than what was actually executed. It complements the primary mitigation, which
+   is the Logos module model itself: the UI is installed and verified once
+   rather than fetched from a remote server on every use.
 7. Failed or rejected proposals and executions must return clear, actionable
    error messages.
 
