@@ -2,7 +2,7 @@ name: Add under-review proposals to board
 
 # When an issue in this repo is labeled `under-review`, add it to the
 # "RFP & LPrize Tracking" org project (#17) and set its Status to
-# "Proposal review". The default GITHUB_TOKEN cannot write to org-level
+# "Priority review". The default GITHUB_TOKEN cannot write to org-level
 # Projects v2, so this uses a PAT stored as the PROJECTS_PAT secret
 # (classic PAT with `repo` + `project`, or a fine-grained PAT with
 # Organization projects: Read & write and Issues: Read).
@@ -25,7 +25,7 @@ jobs:
           script: |
             const ORG = 'logos-co';
             const PROJECT_NUMBER = 17;
-            const TARGET_STATUS = 'Proposal review';
+            const TARGET_STATUS = 'Priority review';
             const issueNodeId = context.payload.issue.node_id;
 
             // 1. Resolve project id, Status field id, and the target option id
