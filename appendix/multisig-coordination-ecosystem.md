@@ -27,11 +27,11 @@ total-value-locked (TVL) is not the applicable metric.
 
 Custodied-value figures (each with its basis and caveats):
 
-| Custody layer | Value in custody | Basis and caveats |
-| ------------- | ---------------- | ----------------- |
-| Safe (EVM) | **US$60B+** | Self-reported by Safe, accessed 2026-08-03: over US$60B secured across 57M+ deployed accounts, US$1T+ cumulative volume processed ([safe.global](https://safe.global)). Lower bound at best; protocol-reported. |
-| Squads v4 (Solana) | **US$15B+** | Self-reported by Squads Labs, accessed 2026-08-03: over US$15B secured across 450+ teams ([squads.xyz/protocol](https://squads.xyz/protocol)). Protocol-reported. |
-| Bitcoin native multisig (P2WSH proxy) | **~US$86.5B** | 1,365,834 BTC held in P2WSH outputs ([Glassnode supply by output type](https://studio.glassnode.com/charts/supply.SupplyByTxoutType?a=BTC), 2026-04-05 snapshot; subscription data, not independently verifiable from public sources) × US$63,364/BTC ([BitInfoCharts](https://bitinfocharts.com/top-100-richest-bitcoin-addresses.html), 2026-08-03). P2WSH is used almost exclusively for multisig or complex scripts, making it the closest observable proxy for Bitcoin multisig custody. The older P2SH type (~3.96M BTC) is not a usable proxy because it mixes multisig with nested-SegWit single-sig and exchange cold wallets indistinguishably. |
+| Custody layer                         | Value in custody | Basis and caveats                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Safe (EVM)                            | **US$60B+**      | Self-reported by Safe, accessed 2026-08-03: over US$60B secured across 57M+ deployed accounts, US$1T+ cumulative volume processed ([safe.global](https://safe.global)). Lower bound at best; protocol-reported.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Squads v4 (Solana)                    | **US$15B+**      | Self-reported by Squads Labs, accessed 2026-08-03: over US$15B secured across 450+ teams ([squads.xyz/protocol](https://squads.xyz/protocol)). Protocol-reported.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Bitcoin native multisig (P2WSH proxy) | **~US$86.5B**    | 1,365,834 BTC held in P2WSH outputs ([Glassnode supply by output type](https://studio.glassnode.com/charts/supply.SupplyByTxoutType?a=BTC), 2026-04-05 snapshot; subscription data, not independently verifiable from public sources) × US$63,364/BTC ([BitInfoCharts](https://bitinfocharts.com/top-100-richest-bitcoin-addresses.html), 2026-08-03). P2WSH is used almost exclusively for multisig or complex scripts, making it the closest observable proxy for Bitcoin multisig custody. The older P2SH type (~3.96M BTC) is not a usable proxy because it mixes multisig with nested-SegWit single-sig and exchange cold wallets indistinguishably. |
 
 These figures indicate orders of magnitude, not precise totals. They establish
 that value in multisig custody is on the order of **US$100B+** across the three
@@ -96,12 +96,13 @@ On the account-model chains, these three items are inseparable from how the
 quorum is enforced. Safe stores its owner set as a linked list and its threshold
 as a storage slot; Squads stores its members and threshold in a settings
 account; ZeroDev Kernel stores guardian addresses and weights in contract
-storage (see the [Squads settings program
-state](https://github.com/Squads-Protocol/smart-account-program/blob/main/programs/squads_smart_account_program/src/state/settings.rs),
-the [Safe smart account
-contracts](https://github.com/safe-global/safe-smart-account), and the [ZeroDev
-Kernel](https://github.com/zerodevapp/kernel)). In all three, the chain must
-read this state to enforce the rule, so the state is public by construction.
+storage (see the
+[Squads settings program state](https://github.com/Squads-Protocol/smart-account-program/blob/main/programs/squads_smart_account_program/src/state/settings.rs),
+the
+[Safe smart account contracts](https://github.com/safe-global/safe-smart-account),
+and the [ZeroDev Kernel](https://github.com/zerodevapp/kernel)). In all three,
+the chain must read this state to enforce the rule, so the state is public by
+construction.
 
 Bitcoin native script (P2SH / P2WSH) reveals the full script (all public keys
 and the threshold) at spend time. Taproot changes this: a key-path spend using
@@ -112,15 +113,15 @@ the executed leaf and hides sibling leaves via the Merkle tree
 
 FROST is the outlier: the threshold is enforced cryptographically off-chain, and
 the chain sees a single Schnorr signature. Signer count, threshold, and the fact
-that the account is a multisig at all are invisible ([Komlo & Goldberg,
-FROST](https://eprint.iacr.org/2020/852)).
+that the account is a multisig at all are invisible
+([Komlo & Goldberg, FROST](https://eprint.iacr.org/2020/852)).
 
 ### 1.2 Approval attribution and pending proposals (items 4-5)
 
 Squads persists each approval as separate on-chain state before execution, which
 produces a live, queryable pending-proposal view: any observer can see who has
-approved and who has not, in real time (see the [Squads
-smart-account-program](https://github.com/Squads-Protocol/smart-account-program)).
+approved and who has not, in real time (see the
+[Squads smart-account-program](https://github.com/Squads-Protocol/smart-account-program)).
 Safe typically collects signatures off-chain and presents them together in the
 final `execTransaction` call; owners may optionally record consent early with
 the on-chain `approveHash` function.
@@ -134,14 +135,14 @@ Squads makes approvals public before execution as a live pending view; Safe does
 not. This is a coordination-visibility difference, not an audit-trail advantage
 of one over the other.
 
-A separate and distinct property, noted in the [Check Point Bybit
-analysis](https://research.checkpoint.com/2025/the-bybit-incident-when-research-meets-reality/),
-is *intent verifiability at signing
-time*: with off-chain signature collection there is no on-chain record that a
-signer intended the transaction they actually signed, which is the gap both the
-Bybit (February 2025, ~US$1.5B) and WazirX (July 2024, ~US$235M) incidents
-exploited at the UI layer. This is about what a signer can verify at the moment
-of signing, not about what survives on-chain afterwards.
+A separate and distinct property, noted in the
+[Check Point Bybit analysis](https://research.checkpoint.com/2025/the-bybit-incident-when-research-meets-reality/),
+is *intent verifiability at signing time*: with off-chain signature collection
+there is no on-chain record that a signer intended the transaction they actually
+signed, which is the gap both the Bybit (February 2025, ~US$1.5B) and WazirX
+(July 2024, ~US$235M) incidents exploited at the UI layer. This is about what a
+signer can verify at the moment of signing, not about what survives on-chain
+afterwards.
 
 ### 1.3 Action, holdings, execution linkage (items 6-8)
 
@@ -162,12 +163,13 @@ Coordination content is off-chain in every ecosystem, because signing protocols
 define message formats but not transports (see section 4). What differs is what
 the transport leaks. Bitcoin coordinators (Sparrow, Specter) exchange partially
 signed transactions over a channel the user chooses (SD card, QR, USB, file
-share) and add no transport of their own. Safe's self-hosted transaction
-service is a purpose-built relay; whoever operates it sees pending transaction
-hashes, collected signatures, and which owners have approved (see the
+share) and add no transport of their own. Safe's self-hosted transaction service
+is a purpose-built relay; whoever operates it sees pending transaction hashes,
+collected signatures, and which owners have approved (see the
 [safe-transaction-service](https://github.com/safe-global/safe-transaction-service)
-repository and the [Safe service
-architecture](https://docs.safe.global/core-api/service-architecture) docs).
+repository and the
+[Safe service architecture](https://docs.safe.global/core-api/service-architecture)
+docs).
 
 The co-signing social graph (that a particular set of accounts jointly
 administers one multisig) is not treated as a distinct privacy concern by any
@@ -232,9 +234,9 @@ Distributing the viewing key creates a **view-only auditor**: the recipient
 learns the exact account state (balance, nonce, program data) and cannot move
 funds. The cryptography supports this today, but it is not exposed as a wallet
 command. Two caveats matter in practice: a shared viewing key **cannot be
-revoked** (rotating the audience requires creating a fresh account and
-migrating funds), and what the auditor sees is the exact state — there is no
-coarser disclosure built in.
+revoked** (rotating the audience requires creating a fresh account and migrating
+funds), and what the auditor sees is the exact state — there is no coarser
+disclosure built in.
 
 **Group-owned shared accounts.** A private account can be shared through a
 single Group Master Secret (GMS): every GMS holder derives *identical* spending
@@ -263,16 +265,16 @@ spending exists and is integration-tested
 
 How inspectable a treasury must be differs by organisation: a corporate or
 operational multisig typically needs a limited auditor group, while a DAO
-treasury typically needs its whole membership — including members who join
-later — to be able to verify that the treasury is secured the way the key
-holders claim. The key-separation properties in section 2.1 make three
-configurations available on LEZ:
+treasury typically needs its whole membership — including members who join later
+— to be able to verify that the treasury is secured the way the key holders
+claim. The key-separation properties in section 2.1 make three configurations
+available on LEZ:
 
-| Configuration                            | On-chain visibility            | Who can audit                              | Notes                                                                                                |
-| ---------------------------------------- | ------------------------------ | ------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| Public treasury account                  | Full (state visible to anyone) | Any observer                               | Simplest; sacrifices all holdings privacy                                                            |
-| Private account + shared viewing key     | Commitment only                | Everyone holding the viewing key           | Continuous inspection of exact state; doubles as standing proof of holding for new members; not revocable |
-| Private account + zero-knowledge balance proof | Commitment only          | Whoever the proof is published to          | Would prove "balance ≥ X" against the on-chain commitment without revealing the exact balance; the LEE runs arbitrary RISC-V circuits, but no such circuit exists as of 2026-08-03 |
+| Configuration                                  | On-chain visibility            | Who can audit                     | Notes                                                                                                                                                                              |
+| ---------------------------------------------- | ------------------------------ | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public treasury account                        | Full (state visible to anyone) | Any observer                      | Simplest; sacrifices all holdings privacy                                                                                                                                          |
+| Private account + shared viewing key           | Commitment only                | Everyone holding the viewing key  | Continuous inspection of exact state; doubles as standing proof of holding for new members; not revocable                                                                          |
+| Private account + zero-knowledge balance proof | Commitment only                | Whoever the proof is published to | Would prove "balance ≥ X" against the on-chain commitment without revealing the exact balance; the LEE runs arbitrary RISC-V circuits, but no such circuit exists as of 2026-08-03 |
 
 ## 3. Quorum privacy across ecosystems
 
@@ -295,12 +297,12 @@ Two observations hold across the whole survey:
 
 2. MuSig2 achieves this only for n-of-n (all signers must participate). Genuine
    k-of-n structural privacy on Bitcoin requires FROST, which as of 2026-07-06
-   is still at BIP-draft stage ([ChillDKG BIP
-   draft](https://github.com/BlockstreamResearch/bip-frost-dkg)) and supported
-   only by purpose-built hardware (Frostsnap's ESP32-C3 device; see the
-   [Frostsnap FROST protocol
-   docs](https://frostsnap.com/docs/frost-protocol/)); no mainstream hardware
-   wallet supports it.
+   is still at BIP-draft stage
+   ([ChillDKG BIP draft](https://github.com/BlockstreamResearch/bip-frost-dkg))
+   and supported only by purpose-built hardware (Frostsnap's ESP32-C3 device;
+   see the
+   [Frostsnap FROST protocol docs](https://frostsnap.com/docs/frost-protocol/));
+   no mainstream hardware wallet supports it.
 
 The centralised industry "solution" to account-model privacy (a trusted relayer
 or co-processor that manages signer identity off-chain and presents a single
@@ -344,8 +346,9 @@ Three facts about coordination bear on a product decision:
 - **Threshold-signature schemes carry their own session protocol.** FROST's DKG
   and signing rounds are a structured message exchange that runs within the
   protocol; a coordinator app (or a peer-to-peer layer) implements it without
-  any external messaging service (see the [Frostsnap design
-  decisions](https://frostsnap.com/docs/design-decisions/) docs and the
+  any external messaging service (see the
+  [Frostsnap design decisions](https://frostsnap.com/docs/design-decisions/)
+  docs and the
   [ChillDKG BIP draft](https://github.com/BlockstreamResearch/bip-frost-dkg)).
   Frostsnap deliberately runs this over USB serial rather than airgapped QR,
   because a k-of-n session over QR codes needs many scans per transaction and
@@ -367,17 +370,16 @@ controls that shape what an operational multisig can express.
   (Initiate / Vote / Execute), so a proposing key need not be a voting key, and
   execution can be a separate role. Program invariants require at least one
   signer with each permission and forbid an impossible threshold (see the
-  [Squads settings program
-  state](https://github.com/Squads-Protocol/smart-account-program/blob/main/programs/squads_smart_account_program/src/state/settings.rs)).
-  ZeroDev Kernel expresses roles as weighted guardians, where the threshold is
-  a minimum cumulative weight
+  [Squads settings program state](https://github.com/Squads-Protocol/smart-account-program/blob/main/programs/squads_smart_account_program/src/state/settings.rs)).
+  ZeroDev Kernel expresses roles as weighted guardians, where the threshold is a
+  minimum cumulative weight
   ([WeightedECDSAValidator.sol](https://github.com/zerodevapp/kernel/blob/master/src/validator/WeightedECDSAValidator.sol)).
 
 - **Time locks and cancellation.** Squads supports a per-multisig time lock (0
   to about three months) enforced on-chain between approval and execution, and
   allows an approved proposal to be cancelled by a threshold of cancellation
-  votes before it executes (see the [Squads
-  smart-account-program](https://github.com/Squads-Protocol/smart-account-program)).
+  votes before it executes (see the
+  [Squads smart-account-program](https://github.com/Squads-Protocol/smart-account-program)).
   Safe's core contract has no time lock; it must be added as a guard or module
   ([safe-smart-account](https://github.com/safe-global/safe-smart-account)).
 
@@ -396,12 +398,11 @@ controls that shape what an operational multisig can express.
   This is powerful and dangerous: a module has unlimited authority, and the
   SquidRouter incident (May 2026, ~US$3.2M) drained 86 Safes through a
   vulnerable third-party module that owners had enabled
-  ([Cryptopolitan
-  report](https://www.cryptopolitan.com/3-2m-drained-gnosis-safes-hack-base-ethereum/)).
+  ([Cryptopolitan report](https://www.cryptopolitan.com/3-2m-drained-gnosis-safes-hack-base-ethereum/)).
   ERC-4337 uses a modular validator-plugin model with a defined
   install/uninstall lifecycle
-  ([ERC-7579](https://eips.ethereum.org/EIPS/eip-7579); [ZeroDev
-  Kernel](https://github.com/zerodevapp/kernel)).
+  ([ERC-7579](https://eips.ethereum.org/EIPS/eip-7579);
+  [ZeroDev Kernel](https://github.com/zerodevapp/kernel)).
 
 ## 6. Composition: how a multisig triggers actions
 
@@ -448,9 +449,9 @@ Two operational facts recur across the survey and bear on any real deployment:
   Bitcoin Core or Electrum backend. Safe can run as a full Docker stack (many
   services) or CLI-only with no infrastructure. Squads needs only an RPC node.
   ERC-4337 requires a bundler
-  ([ERC-4337](https://eips.ethereum.org/EIPS/eip-4337); [eth-infinitism
-  bundler](https://github.com/eth-infinitism/bundler), [Pimlico
-  alto](https://github.com/pimlicolabs/alto)), which must be separately
+  ([ERC-4337](https://eips.ethereum.org/EIPS/eip-4337);
+  [eth-infinitism bundler](https://github.com/eth-infinitism/bundler),
+  [Pimlico alto](https://github.com/pimlicolabs/alto)), which must be separately
   self-hosted or is defaulted to a hosted provider.
 
 ## 8. Summary of observations
@@ -476,10 +477,10 @@ Two operational facts recur across the survey and bear on any real deployment:
 
 - LEE key separation makes a private account selectively inspectable: sharing
   the viewing key yields a view-only auditor (irrevocable short of account
-  migration). LEZ group-shared accounts are effectively N-of-N with no
-  on-chain membership record and no revocation, so M-of-N must be layered on
-  top (section 2.1); three auditability configurations are available to a
-  treasury depending on its audience (section 2.2).
+  migration). LEZ group-shared accounts are effectively N-of-N with no on-chain
+  membership record and no revocation, so M-of-N must be layered on top (section
+  2.1); three auditability configurations are available to a treasury depending
+  on its audience (section 2.2).
 
 - "On-chain versus off-chain approval" is a coordination-visibility choice, not
   an audit-trail trade-off: both models yield an on-chain authorisation record
@@ -490,34 +491,34 @@ Two operational facts recur across the survey and bear on any real deployment:
 
 ## References
 
-| Source                                   | URL                                                                                  | Access date |
-| ---------------------------------------- | ------------------------------------------------------------------------------------ | ----------- |
-| Introduction to the Logos Execution Zone | https://docs.logos.co/lez                                                            | 2026-07-07  |
-| Logos Execution Zone codebase (key protocol, encryption, wallet group CLI, shared-account integration tests, benchmarks) | https://github.com/logos-blockchain/logos-execution-zone | 2026-08-03 |
-| Safe (protocol-reported custody figures) | https://safe.global                                                                  | 2026-08-03  |
-| Squads protocol (protocol-reported custody figures) | https://squads.xyz/protocol                                             | 2026-08-03  |
-| Glassnode supply by output type (subscription data) | https://studio.glassnode.com/charts/supply.SupplyByTxoutType?a=BTC       | snapshot 2026-04-05 |
-| BitInfoCharts (BTC price reference)      | https://bitinfocharts.com/top-100-richest-bitcoin-addresses.html                     | 2026-08-03  |
-| Squads smart-account-program             | https://github.com/Squads-Protocol/smart-account-program                             | 2026-07-06  |
-| Safe smart account                       | https://github.com/safe-global/safe-smart-account                                    | 2026-07-06  |
-| Safe transaction service                 | https://github.com/safe-global/safe-transaction-service                              | 2026-07-06  |
-| Safe service architecture (docs)         | https://docs.safe.global/core-api/service-architecture                               | 2026-07-06  |
-| Frostsnap                                | https://github.com/frostsnap/frostsnap                                               | 2026-07-06  |
-| Frostsnap FROST protocol docs            | https://frostsnap.com/docs/frost-protocol/                                           | 2026-07-06  |
-| Frostsnap design decisions               | https://frostsnap.com/docs/design-decisions/                                         | 2026-07-06  |
-| FROST paper (Komlo & Goldberg)           | https://eprint.iacr.org/2020/852                                                     | 2026-07-06  |
-| ChillDKG BIP draft                       | https://github.com/BlockstreamResearch/bip-frost-dkg                                 | 2026-07-06  |
-| ZeroDev Kernel                           | https://github.com/zerodevapp/kernel                                                 | 2026-07-06  |
-| Sparrow Wallet                           | https://github.com/sparrowwallet/sparrow                                             | 2026-07-06  |
-| Specter Desktop                          | https://github.com/cryptoadvance/specter-desktop                                     | 2026-07-06  |
-| rust-bitcoin                             | https://github.com/rust-bitcoin/rust-bitcoin                                         | 2026-07-06  |
-| BIP-174 (PSBT)                           | https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki                       | 2026-07-06  |
-| BIP-327 (MuSig2)                         | https://github.com/bitcoin/bips/blob/master/bip-0327.mediawiki                       | 2026-07-06  |
-| BIP-341 (Taproot)                        | https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki                       | 2026-07-06  |
-| BIP-370 (PSBT v2)                        | https://github.com/bitcoin/bips/blob/master/bip-0370.mediawiki                       | 2026-07-06  |
-| ERC-4337 (account abstraction)           | https://eips.ethereum.org/EIPS/eip-4337                                              | 2026-07-06  |
-| ERC-7579 (modular smart accounts)        | https://eips.ethereum.org/EIPS/eip-7579                                              | 2026-07-06  |
-| Bybit incident analysis (Check Point)    | https://research.checkpoint.com/2025/the-bybit-incident-when-research-meets-reality/ | 2026-07-06  |
-| WazirX hack analysis (QuillAudits)       | https://www.quillaudits.com/blog/hack-analysis/wazirx-235m-hack                      | 2026-07-06  |
-| SquidRouter module incident (Cryptopolitan) | https://www.cryptopolitan.com/3-2m-drained-gnosis-safes-hack-base-ethereum/       | 2026-07-06  |
-| logos-co/lez-multisig                    | https://github.com/logos-co/lez-multisig                                             | 2026-07-07  |
+| Source                                                                                                                   | URL                                                                                  | Access date         |
+| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ | ------------------- |
+| Introduction to the Logos Execution Zone                                                                                 | https://docs.logos.co/lez                                                            | 2026-07-07          |
+| Logos Execution Zone codebase (key protocol, encryption, wallet group CLI, shared-account integration tests, benchmarks) | https://github.com/logos-blockchain/logos-execution-zone                             | 2026-08-03          |
+| Safe (protocol-reported custody figures)                                                                                 | https://safe.global                                                                  | 2026-08-03          |
+| Squads protocol (protocol-reported custody figures)                                                                      | https://squads.xyz/protocol                                                          | 2026-08-03          |
+| Glassnode supply by output type (subscription data)                                                                      | https://studio.glassnode.com/charts/supply.SupplyByTxoutType?a=BTC                   | snapshot 2026-04-05 |
+| BitInfoCharts (BTC price reference)                                                                                      | https://bitinfocharts.com/top-100-richest-bitcoin-addresses.html                     | 2026-08-03          |
+| Squads smart-account-program                                                                                             | https://github.com/Squads-Protocol/smart-account-program                             | 2026-07-06          |
+| Safe smart account                                                                                                       | https://github.com/safe-global/safe-smart-account                                    | 2026-07-06          |
+| Safe transaction service                                                                                                 | https://github.com/safe-global/safe-transaction-service                              | 2026-07-06          |
+| Safe service architecture (docs)                                                                                         | https://docs.safe.global/core-api/service-architecture                               | 2026-07-06          |
+| Frostsnap                                                                                                                | https://github.com/frostsnap/frostsnap                                               | 2026-07-06          |
+| Frostsnap FROST protocol docs                                                                                            | https://frostsnap.com/docs/frost-protocol/                                           | 2026-07-06          |
+| Frostsnap design decisions                                                                                               | https://frostsnap.com/docs/design-decisions/                                         | 2026-07-06          |
+| FROST paper (Komlo & Goldberg)                                                                                           | https://eprint.iacr.org/2020/852                                                     | 2026-07-06          |
+| ChillDKG BIP draft                                                                                                       | https://github.com/BlockstreamResearch/bip-frost-dkg                                 | 2026-07-06          |
+| ZeroDev Kernel                                                                                                           | https://github.com/zerodevapp/kernel                                                 | 2026-07-06          |
+| Sparrow Wallet                                                                                                           | https://github.com/sparrowwallet/sparrow                                             | 2026-07-06          |
+| Specter Desktop                                                                                                          | https://github.com/cryptoadvance/specter-desktop                                     | 2026-07-06          |
+| rust-bitcoin                                                                                                             | https://github.com/rust-bitcoin/rust-bitcoin                                         | 2026-07-06          |
+| BIP-174 (PSBT)                                                                                                           | https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki                       | 2026-07-06          |
+| BIP-327 (MuSig2)                                                                                                         | https://github.com/bitcoin/bips/blob/master/bip-0327.mediawiki                       | 2026-07-06          |
+| BIP-341 (Taproot)                                                                                                        | https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki                       | 2026-07-06          |
+| BIP-370 (PSBT v2)                                                                                                        | https://github.com/bitcoin/bips/blob/master/bip-0370.mediawiki                       | 2026-07-06          |
+| ERC-4337 (account abstraction)                                                                                           | https://eips.ethereum.org/EIPS/eip-4337                                              | 2026-07-06          |
+| ERC-7579 (modular smart accounts)                                                                                        | https://eips.ethereum.org/EIPS/eip-7579                                              | 2026-07-06          |
+| Bybit incident analysis (Check Point)                                                                                    | https://research.checkpoint.com/2025/the-bybit-incident-when-research-meets-reality/ | 2026-07-06          |
+| WazirX hack analysis (QuillAudits)                                                                                       | https://www.quillaudits.com/blog/hack-analysis/wazirx-235m-hack                      | 2026-07-06          |
+| SquidRouter module incident (Cryptopolitan)                                                                              | https://www.cryptopolitan.com/3-2m-drained-gnosis-safes-hack-base-ethereum/          | 2026-07-06          |
+| logos-co/lez-multisig                                                                                                    | https://github.com/logos-co/lez-multisig                                             | 2026-07-07          |
