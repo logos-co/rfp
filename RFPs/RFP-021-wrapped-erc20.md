@@ -283,7 +283,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
 
 1. Implement an Ethereum vault contract (Solidity) that escrows deposits of any
    ERC-20 in the supported-token registry, plus native ETH (auto-wrapped to
-   WETH). The vault must verify the actual balance delta received and reject any
+   WETH, ie sends ETH to the canonical WETH contract to immediately receive WETH). The vault must verify the actual balance delta received and reject any
    deposit that does not deliver the expected amount.
 2. A deposit must not publish, store, or otherwise reveal its LEZ destination.
    No Ethereum transaction argument, event, or contract state may identify the
