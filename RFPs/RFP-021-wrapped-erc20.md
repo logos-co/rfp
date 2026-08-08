@@ -1,6 +1,6 @@
 ---
 id: RFP-021
-title: Unlinkable Wrapped ERC-20 Bridge for LEZ
+title: Privacy-Preserving Wrapped ERC-20 Bridge for LEZ
 tier: L
 status: open
 category: Developer Tooling & Infrastructure
@@ -15,7 +15,7 @@ dependencies:
 
 <!-- Don't forget to add this RFP to the table in README.md (between RFP_TABLE_START / RFP_TABLE_END markers) -->
 
-# RFP-021 — Unlinkable Wrapped ERC-20 Bridge for LEZ
+# RFP-021 — Privacy-Preserving Wrapped ERC-20 Bridge for LEZ
 
 > **Note.** This specification describes an outcome that may benefit the Logos
 > ecosystem. It is a proposal rather than an instruction. Its requirements
@@ -48,7 +48,7 @@ dependencies:
 
 ## 🧭 Overview
 
-Build a trustless, **unlinkable** lock-and-mint bridge that lets ERC-20 tokens
+Build a trustless, **privacy-preserving** lock-and-mint bridge that lets ERC-20 tokens
 (and native ETH, wrapped as WETH) held on Ethereum enter LEZ as canonical
 wrapped assets, and exit back to Ethereum on redemption — without any public
 observer being able to connect a specific Ethereum lock to the LEZ mint it
@@ -97,8 +97,8 @@ cryptographic proofs natively.
 
 ### A transparent bridge would deanonymise the whole chain
 
-Unlinkability is not a nice-to-have here; it is the difference between this
-bridge strengthening LEZ's privacy guarantees and silently destroying them.
+Privacy is not a nice-to-have here; it is the difference between this bridge
+strengthening LEZ's privacy guarantees and silently destroying them.
 
 A conventional lock-and-mint bridge emits
 `Deposit(token, depositor, amount, lezRecipient, nonce)` on Ethereum. That
@@ -118,7 +118,7 @@ The redemption leg is symmetric and, if anything, worse: a burn event naming
 account that funded it, closing the loop and linking a user's entire LEZ
 activity to their Ethereum identity on both ends.
 
-This RFP therefore treats unlinkability as a hard requirement of the same
+This RFP therefore treats privacy preservation as a hard requirement of the same
 standing as solvency. The construction is a commitment/nullifier shielded pool
 on each leg, specified in full in Design Rationale below.
 
@@ -142,10 +142,11 @@ key theft, or participant collusion can lead to spurious minting or release.
 
 ## 🏗 Design Rationale
 
-### The unlinkability requirement, stated precisely
+### The privacy requirement, stated precisely
 
-Two properties must hold against an adversary who observes **all** public state
-on both chains, indefinitely, and who may themselves deposit and redeem:
+Two privacy properties must hold against an adversary who observes **all**
+public state on both chains, indefinitely, and who may themselves deposit and
+redeem:
 
 - **P1 (inbound).** Given an Ethereum lock event and the set of all LEZ mint
   transactions, the adversary cannot determine which mint consumed that lock
@@ -157,7 +158,7 @@ on both chains, indefinitely, and who may themselves deposit and redeem:
 Both properties are stated relative to an *anonymity set*, and both degrade to
 nothing when that set is small. Sizing, measuring and surfacing the anonymity
 set is therefore a first-class requirement, not an implementation detail — see
-Usability #7 and the Privacy & Unlinkability requirements.
+Usability #7 and the Privacy Preservation requirements.
 
 Two facts are fixed by the environment and cannot be designed away. Proposals
 must not claim otherwise:
@@ -167,8 +168,8 @@ must not claim otherwise:
 2. **The Ethereum unlock amount and recipient are public.** The vault must move
    real tokens to a real address.
 
-Unlinkability is achieved by making these public facts *uninformative about
-which counterparty they pair with*, not by hiding them.
+Privacy is preserved by making these public facts *uninformative about which
+counterparty they pair with*, not by hiding them.
 
 ### Fixed denominations
 
@@ -378,14 +379,14 @@ deanonymise. Anchoring daemons are likewise liveness-only.
 
 Proposals must state this trustlessness explicitly in user-facing documentation
 (mini-app, README, SDK docs), alongside an honest statement of the
-unlinkability guarantee and its dependence on anonymity-set size. Per-token and
+privacy guarantees and their dependence on anonymity-set size. Per-token and
 global caps and the freeze-authority circuit breaker remain in place as
 operational safety mechanisms independent of the cryptographic trust model.
 
 Note that the freeze authority operates at token and protocol granularity only.
 It **cannot** freeze an individual user's funds, because the protocol does not
-know which funds belong to whom. This is a designed consequence of
-unlinkability, not a gap, and must be documented as such.
+know which funds belong to whom. This is a designed consequence of the privacy
+guarantees, not a gap, and must be documented as such.
 
 ### Fee structure
 
@@ -574,7 +575,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
    or local fork, and are included in CI. CI must be green on the default
    branch.
 3. Every hard requirement in Functionality, Usability, Reliability, Performance,
-   and Privacy & Unlinkability has at least one corresponding test.
+   and Privacy Preservation has at least one corresponding test.
 4. A README documents end-to-end usage: contract and program addresses,
    deployment steps for both chains, and step-by-step instructions for
    depositing, minting, burning and unlocking via CLI and mini-app.
@@ -594,7 +595,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
    README. This requirement exists because cross-chain bridges are the single
    most-attacked category of DeFi infrastructure (Chainalysis has tracked more
    than $2.8B stolen from bridges since 2022); it is not optional.
-9. Provide a **privacy and unlinkability properties document** covering: a
+9. Provide a **privacy properties document** covering: a
    formal statement of P1 and P2 and the anonymity set each is measured against;
    exactly what is visible on-chain for every operation on both chains; what an
    adversary observing all public state can and cannot infer; confirmation that
@@ -602,7 +603,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
    index, or note secret; what a relayer, an anchoring daemon operator, and an
    RPC provider can each observe; residual leakage from timing, denomination
    choice, gas payment, IP-level metadata, and note-splitting patterns; and the
-   conditions under which unlinkability degrades or fails.
+   conditions under which these privacy guarantees degrade or fail.
 10. Document the anonymity-set growth model: expected set size over time at
     projected volumes, the minimum set size below which the guarantee is
     considered not to hold, and guidance for users bridging before the pool has
@@ -634,7 +635,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
    liveness-only role of relayers and anchoring daemons (see Design Rationale,
    "Trust model").
 
-#### + Privacy & Unlinkability
+#### + Privacy Preservation
 
 1. **P1 must hold under test.** Provide an automated test that constructs a
    population of deposits and mints and asserts that no public-state-derived
@@ -657,8 +658,8 @@ Use FURPS framework. Each numbered item should be a testable statement.
 7. Relayer selection and submission must not create a linkage channel: document
    what a relayer learns, and ensure a user can switch relayers per operation.
 8. The default configuration must be the private one. No user action should be
-   required to obtain unlinkability, and any override that weakens it must
-   require explicit confirmation.
+   required to obtain these privacy guarantees, and any override that weakens
+   them must require explicit confirmation.
 
 ### Soft Requirements
 
@@ -672,10 +673,10 @@ Use FURPS framework. Each numbered item should be a testable statement.
    document the intended migration path even if it is not implemented.
 2. Batch verification: amortise proof verification across multiple mints or
    unlocks in a single transaction, analogous to the multi-feed batching soft
-   requirement in RFP-020. Batching also improves unlinkability by making
-   individual operations harder to isolate.
+   requirement in RFP-020. Batching also improves privacy by making individual
+   operations harder to isolate.
 3. Optional viewing keys allowing a user to *voluntarily* disclose their own
-   bridge activity to a chosen third party, without weakening unlinkability for
+   bridge activity to a chosen third party, without weakening privacy for
    anyone else and without any protocol-level disclosure capability.
 4. A configurable per-token unlock delay (in addition to finality and the user's
    own privacy delay) as an extra circuit-breaker window, allowing the freeze
@@ -702,7 +703,8 @@ The following are explicitly excluded from this RFP:
   delivery surface for the mini-app, so the prover targets desktop only.
   Proposals must not constrain circuit design to fit mobile-class resource
   budgets.
-- Network-level anonymity. Unlinkability here is a property of on-chain state.
+- Network-level anonymity. The privacy guarantees here are properties of
+  on-chain state.
   IP-level correlation between a user's Ethereum deposit and their relayer
   submission is out of scope as an implementation concern, but must be disclosed
   as residual leakage under Supportability #9.
@@ -753,7 +755,7 @@ path must state what extension is needed.
 #### Private LEZ account state
 
 Inbound mints deliver into private LEZ state, and outbound burns spend from it.
-Unlinkability depends on this: a mint into a public account re-links the
+The privacy guarantees depend on this: a mint into a public account exposes the
 recipient immediately. Proposals must state which LEZ private-state primitives
 they rely on and their maturity.
 
@@ -801,7 +803,7 @@ Team experienced with:
 Estimated software delivery duration: **16–20 weeks**. This is longer than a
 transparent lock-and-mint bridge would require; the shielded-pool construction,
 client-side proving targets, note discovery and recovery, the relayer layer, and
-the unlinkability test suite are the additional scope. This excludes the
+the privacy test suite are the additional scope. This excludes the
 third-party audit lead time required before mainnet deployment (Supportability
 #8), which is typically procured and scheduled separately.
 
