@@ -6,11 +6,11 @@ status: open
 category: Developer Tooling & Infrastructure
 dependencies:
   - id: RFP-001
-    reason: Admin authority governs the supported-token registry, the per-token denomination ladder, and the deposit/redemption caps, as specified in Functionality.
+    reason: Admin authority governs the supported-token registry and the deposit/redemption caps, as specified in Functionality.
   - id: RFP-002
-    reason: Freeze authority provides the circuit breaker to halt minting and/or redemption, globally or per token, if a circuit bug or vault vulnerability is suspected.
+    reason: Freeze authority provides the circuit breaker to halt minting and/or redemption, globally or per token, if a proof-system or vault vulnerability is suspected.
   - id: LP-0013
-    reason: Mint/burn token authority primitives are required for the LEZ program to mint wrapped tokens into private state on verified deposit, and burn them on redemption.
+    reason: Mint/burn token authority primitives are required for the LEZ program to mint wrapped tokens on verified deposit, and burn them on redemption.
 ---
 
 <!-- Don't forget to add this RFP to the table in README.md (between RFP_TABLE_START / RFP_TABLE_END markers) -->
@@ -48,30 +48,29 @@ dependencies:
 
 ## 🧭 Overview
 
-Build a trustless, **privacy-preserving** lock-and-mint bridge that lets ERC-20 tokens
-(and native ETH, wrapped as WETH) held on Ethereum enter LEZ as canonical
-wrapped assets, and exit back to Ethereum on redemption — without any public
-observer being able to connect a specific Ethereum lock to the LEZ mint it
-funded, or a specific LEZ burn to the Ethereum unlock it triggered.
+Build a trustless, privacy-preserving lock-and-mint bridge that lets ERC-20
+tokens (and native ETH, wrapped as WETH) held on Ethereum enter LEZ as canonical
+wrapped assets, and exit back to Ethereum on redemption.
 
-An Ethereum-side vault contract escrows deposits and publishes only a
-*commitment* — never a LEZ recipient. A LEZ-side program trustlessly anchors the
-Ethereum commitment-tree root by verifying a RISC0 proof of Ethereum consensus
-and state in-program. A user then proves, entirely on their own device, that
-they own an unspent leaf under that anchored root, and the program mints the
-wrapped token into **private LEZ state**. Redemption mirrors this: a burn on LEZ
-publishes only a withdrawal commitment — never an Ethereum recipient — and the
-Ethereum vault, having anchored the LEZ burn-tree root via a RISC0 proof
-verified through a native precompile, releases the original ERC-20 to whoever
-proves ownership of an unspent leaf.
+An Ethereum-side vault contract escrows deposits. A LEZ-side program mints the
+corresponding wrapped token once it has cryptographically verified — with no
+trusted intermediary — that the deposit really happened on Ethereum. Redemption
+reverses the flow: burning the wrapped token on LEZ entitles the holder to
+release the original ERC-20 from the vault, again on cryptographic proof alone.
+Verification rests on RISC0 zero-knowledge proofs of consensus and state,
+verified in-program on LEZ and via a native precompile on Ethereum.
 
-Nullifiers prevent double-spends on both legs without revealing which leaf was
-consumed. Permissionless relayers submit the mint and unlock transactions so the
-user never needs a funded account on either chain. The bridge core depends on
-mature RISC0 implementations (e.g. Zisk) for consensus and state proof
-generation, requiring teams experienced with zero-knowledge proof systems,
-shielded-pool constructions, Solidity smart-contract development, LEZ program
-development, and RISC0 guest environments.
+Crucially, the bridge must achieve this **without letting a public observer
+connect a specific Ethereum deposit to the LEZ mint it funded, or a specific LEZ
+burn to the Ethereum release it triggered.** That privacy property is a hard
+requirement of the same standing as solvency, and it shapes the whole design:
+the deposit cannot name its LEZ destination, the burn cannot name its Ethereum
+destination, and no component other than the user may hold the information that
+connects them.
+
+Teams will need experience with zero-knowledge proof systems, privacy-preserving
+protocol design, Solidity smart-contract development, and LEZ program
+development.
 
 ## 🔥 Why This Matters
 
@@ -88,39 +87,32 @@ own trustless path via atomic swaps in
 RFP-003 explicitly carved Ethereum out of its scope for exactly this reason:
 "ETH is expected to reach LEZ via wrapping, which requires no swap counterparty
 and is a much simpler construction." Bitcoin, Monero, and Zcash lack general
-smart-contract expressiveness, so a trustless swap protocol (adaptor
-signatures, HTLCs, DLEQ proofs) is the only construction available for them.
-Ethereum's programmability makes a lock-and-mint bridge with a vault contract
-and zero-knowledge proof verification possible instead, which is the trustless
-architecture used to move value onto smart-contract chains that verify
-cryptographic proofs natively.
+smart-contract expressiveness, so a trustless swap protocol is the only
+construction available for them. Ethereum's programmability makes a lock-and-mint
+bridge with a vault contract and zero-knowledge proof verification possible
+instead.
 
 ### A transparent bridge would deanonymise the whole chain
 
 Privacy is not a nice-to-have here; it is the difference between this bridge
 strengthening LEZ's privacy guarantees and silently destroying them.
 
-A conventional lock-and-mint bridge emits
-`Deposit(token, depositor, amount, lezRecipient, nonce)` on Ethereum. That
-single event publicly binds a KYC'd, fully-traced Ethereum address to a LEZ
-account, permanently and for anyone to read. Because virtually all external
-collateral enters LEZ through this one primitive, such a bridge becomes the
-canonical deanonymisation oracle for the entire chain: an observer needs only to
-scrape one Ethereum contract's logs to build an identity map covering most of
-LEZ's collateral base. Every downstream privacy feature — private accounts,
-the privacy-preserving DEX ([RFP-004](./RFP-004-privacy-preserving-dex.md)),
-shielded lending positions — is undermined at the point of entry, no matter how
-well those components protect data internally. Privacy that leaks at the on-ramp
-is not privacy.
+A conventional lock-and-mint bridge publishes a deposit event naming both the
+Ethereum depositor and the LEZ recipient. That single event permanently binds a
+traceable Ethereum address to a LEZ account, for anyone to read. Because
+virtually all external collateral would enter LEZ through this one primitive,
+such a bridge becomes the canonical deanonymisation oracle for the entire chain:
+an observer needs only to scrape one Ethereum contract's logs to build an
+identity map covering most of LEZ's collateral base. Every downstream privacy
+feature — private accounts, the privacy-preserving DEX
+([RFP-004](./RFP-004-privacy-preserving-dex.md)), shielded lending positions — is
+undermined at the point of entry, no matter how well those components protect
+data internally. Privacy that leaks at the on-ramp is not privacy.
 
-The redemption leg is symmetric and, if anything, worse: a burn event naming
-`ethereumRecipient` in the clear publishes the exit address alongside the LEZ
-account that funded it, closing the loop and linking a user's entire LEZ
-activity to their Ethereum identity on both ends.
-
-This RFP therefore treats privacy preservation as a hard requirement of the same
-standing as solvency. The construction is a commitment/nullifier shielded pool
-on each leg, specified in full in Design Rationale below.
+The redemption leg is symmetric and, if anything, worse: a burn naming its
+Ethereum destination publishes the exit address alongside the LEZ account that
+funded it, closing the loop and connecting a user's entire LEZ activity to their
+Ethereum identity at both ends.
 
 ### Stablecoins are the concrete prize
 
@@ -134,270 +126,152 @@ collateral base at launch.
 Bridges are also the most attacked category of infrastructure in DeFi:
 Chainalysis has tracked more than $2.8B stolen from cross-chain bridges since
 2022, the highest-value class of exploit in the industry. This RFP's security
-posture — cryptographic verification via RISC0 zero-knowledge proofs,
-eliminating the trust-in-signers vector entirely, combined with per-token and
-global deposit/redemption caps and an admin-governed freeze-authority circuit
-breaker — is designed directly against that track record. No signer compromise,
-key theft, or participant collusion can lead to spurious minting or release.
+posture — cryptographic verification eliminating the trust-in-signers vector
+entirely, combined with per-token and global caps and an admin-governed freeze
+authority — is designed directly against that track record.
 
 ## 🏗 Design Rationale
 
 ### The privacy requirement, stated precisely
 
-Two privacy properties must hold against an adversary who observes **all**
-public state on both chains, indefinitely, and who may themselves deposit and
-redeem:
+Two properties must hold against an adversary who observes **all** public state
+on both chains, indefinitely, and who may themselves deposit and redeem:
 
-- **P1 (inbound).** Given an Ethereum lock event and the set of all LEZ mint
-  transactions, the adversary cannot determine which mint consumed that lock
-  with probability better than uniform over the inbound anonymity set.
-- **P2 (outbound).** Given a LEZ burn event and the set of all Ethereum unlock
-  transactions, the adversary cannot determine which unlock was funded by that
-  burn with probability better than uniform over the outbound anonymity set.
+- **P1 (inbound).** Given an Ethereum deposit, the adversary cannot determine
+  which LEZ mint it funded, with probability better than uniform over the
+  inbound anonymity set.
+- **P2 (outbound).** Given a LEZ burn, the adversary cannot determine which
+  Ethereum release it triggered, with probability better than uniform over the
+  outbound anonymity set.
 
 Both properties are stated relative to an *anonymity set*, and both degrade to
 nothing when that set is small. Sizing, measuring and surfacing the anonymity
-set is therefore a first-class requirement, not an implementation detail — see
-Usability #7 and the Privacy Preservation requirements.
+set is therefore a first-class requirement, not an implementation detail.
+
+### What cannot be hidden
 
 Two facts are fixed by the environment and cannot be designed away. Proposals
 must not claim otherwise:
 
-1. **The Ethereum lock amount is public.** It is an ERC-20 `Transfer` into the
-   vault. So is the depositor's address, since they send the transaction.
-2. **The Ethereum unlock amount and recipient are public.** The vault must move
-   real tokens to a real address.
+1. **The Ethereum deposit amount is public**, as is the depositor's address —
+   it is an ordinary ERC-20 transfer into the vault, sent by the depositor.
+2. **The Ethereum release amount and recipient are public** — the vault must
+   move real tokens to a real address.
 
-Privacy is preserved by making these public facts *uninformative about which
-counterparty they pair with*, not by hiding them.
+Privacy is therefore preserved by making these public facts *uninformative about
+which counterparty they pair with*, not by attempting to hide them. Three
+consequences follow, and proposals must address each:
 
-### Fixed denominations
+- **Amounts correlate.** A deposit of 1,337.42 USDC followed by a mint of
+  1,337.42 wUSDC is matched by elimination regardless of what cryptography sits
+  between them. The amount visible on the Ethereum side must not act as a
+  fingerprint.
+- **Timing correlates.** A deposit followed promptly by a mint, at a quiet
+  moment, is matched by inspection. The protocol must not force users into
+  correlated timing.
+- **Fee payers correlate.** If the user pays their own gas to mint or release,
+  the funding source of that account re-identifies them and the construction
+  collapses.
 
-Amounts are the strongest linkage vector: a lock of 1,337.42 USDC followed by a
-mint of 1,337.42 wUSDC is linked by elimination regardless of what cryptography
-sits between them. Since the Ethereum-side amount cannot be hidden, its
-*fingerprint* must be destroyed instead.
+### Suggested approach
 
-Every supported token therefore carries an admin-registered **denomination
-ladder** (e.g. 1 / 10 / 100 / 1,000 / 10,000 USDC). Locks and unlocks are
-permitted only at exactly these values; a user bridging 4,300 USDC does so as
-4×1,000 + 3×100 notes. Thousands of users share each rung, so the public amount
-identifies only the rung, not the user. Supply accounting remains scalar, which
-keeps the LEZ mint authority within what [LP-0013](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0013.md)
-provides, and keeps the caps in Functionality #11 straightforwardly enforceable.
+The following is offered as orientation, not prescription. Proposals are free to
+achieve the required properties by other means, provided they argue the case.
 
-The cost is real and must be handled in the UX: users split large transfers
-across several notes, and remainders below the smallest rung cannot be bridged.
-Proposals must specify the default ladder per token and justify the rung
-spacing against expected transfer sizes.
+A commitment-and-nullifier shielded pool on each leg is the well-understood
+construction for this problem: the deposit publishes a commitment rather than a
+destination, and the claimant later proves entitlement without revealing which
+deposit they are claiming, with a nullifier preventing double-claims. The
+redemption leg works the same way in reverse, which requires splitting redemption
+into two separately-timed stages so that the burn need not name its Ethereum
+destination.
 
-Shielded value commitments — hiding amounts entirely via homomorphic supply
-accounting and range proofs — are the stronger construction and are specified as
-Soft Requirement #1. The note format, circuit interfaces, and tree layout
-delivered under this RFP must be chosen so that migration to shielded values
-does not require redeploying the vault or re-anchoring the pool.
+Minting into **private LEZ state** is the natural fit for the destination side,
+and keeps the recipient and balance off public view without additional
+machinery.
 
-### Inbound: lock → anchor → prove → mint into private state
+For the amount-correlation problem, restricting transfers to a fixed set of
+per-token denominations is the simpler and better-understood option, and is the
+expected baseline for this RFP; hiding amounts outright via value commitments is
+stronger but considerably heavier, and is specified as a soft requirement below.
 
-1. **Ethereum vault contract.** A Solidity contract holding an incremental
-   Merkle tree of deposit commitments. To deposit, a user picks a denomination
-   `d` for a registered token, samples secrets locally, and computes
-   `C = H(nullifierSecret, spendSecret, token, d)`. The vault pulls `d` units of
-   the token and inserts `C` as a leaf. The emitted event is
-   `Deposit(token, d, commitment, leafIndex, noteCiphertext)`.
+For the fee-payer problem, permissionless relayers paid out of the bridged amount
+are the conventional answer, with the destination bound into the proof so a
+relayer cannot redirect funds or overcharge.
 
-   **There is no `lezRecipient` field and no `depositor` field.** This is the
-   central change from a conventional bridge. `noteCiphertext` is the note
-   encrypted to the recipient's LEZ viewing key, allowing a third-party
-   depositor to fund someone else's LEZ account without an out-of-band secret
-   handoff; the recipient discovers it by trial decryption.
+For the trust problem, note that a proof of source-chain consensus and state
+contains no user-specific data, so it can be produced by anyone and anchored
+on-chain permissionlessly, leaving the user's own device to prove only their
+entitlement against it. This keeps user-specific proving cheap enough to run
+locally, which matters because whoever generates the entitlement proof learns
+the connection the design exists to protect.
 
-2. **Trustless root anchoring on LEZ.** A permissionless daemon submits a RISC0
-   proof of (a) Ethereum consensus at a finalised block height and (b) the value
-   of the vault's commitment-tree root in that state. The LEZ bridge program
-   verifies this proof **in-program** and records the root. The daemon handles
-   only public chain data, holds no user secrets, and cannot insert a false root
-   — the program rejects any root not backed by a valid consensus proof. This is
-   what makes client-side proving feasible without introducing a trusted party.
+### Trust model
 
-3. **Client-side ownership proof.** The user's own device generates a proof that
-   it knows the secrets behind *some* leaf under an anchored root, and derives
-   `nullifier = H(nullifierSecret)`. Public inputs are
-   `(anchoredRoot, token, d, nullifier, relayer, relayerFee)`. The Merkle path,
-   the leaf index, and both secrets are private inputs and never leave the
-   device. Because the proof is only a membership-and-hash argument against an
-   already-anchored root — not a consensus verification — it is small enough to
-   generate on the desktop hardware Basecamp already targets.
+This bridge is **trustless**. It requires no trust in signers, validators,
+attestor federations, relayers, or proof-generation services. A user relies only
+on the correctness of the proof system, the security of the Ethereum network,
+and the security of the LEZ network.
 
-4. **Mint.** The LEZ bridge program verifies the proof, rejects the transaction
-   if `nullifier` is already in the spent set, records it, and mints `d` units
-   of the wrapped token — `relayerFee` to the relayer's public account and the
-   remainder **into private LEZ state**, where neither the balance nor the owner
-   is publicly visible.
+Any off-chain participant in the design may be trusted for **liveness only** —
+able to decline service, but never able to steal, redirect, forge, censor
+selectively, or deanonymise. Proposals must identify every such participant and
+justify that each is liveness-only.
 
-The mint transaction publishes a nullifier and a root. It reveals nothing about
-which of the N unconsumed same-denomination deposits it consumed, satisfying P1
-with an anonymity set of N.
+Caps and the freeze authority remain in place as operational safety mechanisms
+independent of the cryptographic trust model. Note that the freeze authority can
+necessarily operate at token and protocol granularity only: it cannot freeze an
+individual user's holdings, because the protocol does not know whose are whose.
+This is a designed consequence of the privacy guarantees, not a gap, and must be
+documented as such.
 
-### Outbound: burn → commit → anchor → prove → unlock
+### Loss of access
 
-The redemption leg is the inbound leg run backwards, and its critical property
-is that **the burn does not name the Ethereum recipient**. Naming it there is
-precisely the leak that P2 forbids, so the flow is split into two stages
-separated by a user-chosen delay.
-
-1. **Burn on LEZ.** A holder spends a private wrapped-token note of value `d`,
-   samples a fresh `ethSecret` locally, and the bridge program inserts a
-   withdrawal commitment `W = H(ethSecret, token, d)` into an on-chain
-   burn-commitment tree, emitting a structured event (per
-   [LP-0012](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md))
-   carrying `(token, d, W, leafIndex)` — and nothing else. The spent LEZ note's
-   own nullifier is recorded to prevent double-burn.
-
-2. **Trustless root anchoring on Ethereum.** A permissionless daemon submits a
-   RISC0 proof of LEZ consensus at a finalised epoch and the burn-tree root in
-   that state. The vault verifies it via a **native precompile** (Groth16
-   verifier or equivalent) — a single cheap verification step, matching the
-   LEZ-side/EVM-side cost asymmetry documented in RFP-020 — and records the
-   root.
-
-3. **Client-side unlock proof.** At a time of the user's choosing, their device
-   proves knowledge of `ethSecret` for some leaf under an anchored burn root,
-   publishing `nullifier' = H(ethSecret)` and public inputs
-   `(anchoredBurnRoot, token, d, ethereumRecipient, relayer, relayerFee)`.
-
-4. **Release.** The vault verifies the proof, rejects a replayed `nullifier'`,
-   and releases `d - relayerFee` of the original ERC-20 (or unwrapped ETH, for
-   WETH redemptions) to `ethereumRecipient`, and `relayerFee` to the relayer.
-
-`ethereumRecipient` is bound inside the proof, so a relayer can neither redirect
-the funds nor inflate their fee. The unlock reveals a recipient and an amount,
-but not which burn funded it, satisfying P2.
-
-### Client-side proving, and why no daemon holds a witness
-
-All proving that touches user-linked data happens on the user's device. The
-daemons exist only to anchor roots, and a root is public chain state — a daemon
-that observed every deposit and every anchor operation still cannot say which
-mint consumed which lock, because it never sees a witness.
-
-Critically, the daemons are also **trustless, not merely honest-but-curious**:
-each anchoring submission carries a consensus proof that the receiving chain
-verifies before accepting the root. A malicious or compromised daemon can
-withhold service, but cannot forge a root, cannot mint, and cannot deanonymise.
-Anchoring is permissionless precisely so that withholding is not a viable
-attack — any party can run a daemon, and proposals must document how a user can
-run their own or trigger an anchor themselves if none is available.
-
-Proposals must state explicitly, in the privacy document required by
-Supportability #9, that no component other than the user's own client ever
-receives a Merkle path, a leaf index, or a note secret.
-
-### Timing decorrelation
-
-A perfect commitment scheme is defeated by a user who locks on Ethereum and
-mints on LEZ ninety seconds later when no one else is bridging. Timing is a
-linkage vector in its own right and the protocol must not force users into
-correlated behaviour.
-
-Accordingly: a proof may be submitted at **any** time after the relevant root is
-anchored, with no expiry; the client must default to a randomised delay rather
-than immediate submission; and the client must show the user the current
-anonymity set for their `(token, denomination)` pair and warn before submitting
-into a set below a configurable threshold. Users must be able to override, but
-must be told what they are giving up.
-
-### Relayers and fee payment
-
-If a user pays their own LEZ gas to mint, the funding source of that account
-re-links them to the deposit, and the whole construction collapses. Mint and
-unlock transactions are therefore submitted by **permissionless relayers**, paid
-out of the bridged amount inside the circuit.
-
-Because `relayer` and `relayerFee` are public inputs bound into the proof, a
-relayer cannot alter the recipient, redirect funds, or claim more than the
-agreed fee; the worst they can do is decline to relay. Fee amounts must be drawn
-from a small fixed schedule (or a fixed fraction of the denomination) rather
-than being freely user-chosen — an arbitrary fee value is itself a fingerprint
-that re-identifies the transaction.
-
-### Note custody and recovery
-
-In a commitment scheme, losing a note secret means the locked ERC-20 is
-permanently unrecoverable — there is no administrative recovery path, by
-construction. This is the single largest UX risk in the design and must be
-addressed directly, not disclaimed.
-
-Note secrets must therefore be derived deterministically from a single
-recoverable seed (e.g. a signature over a fixed domain-separated message from
-the user's existing wallet), so that a user restoring that wallet can rediscover
-all their notes by scanning the commitment trees and trial-decrypting note
-ciphertexts. Ad-hoc random secrets requiring manual backup are not acceptable.
+In any design meeting these requirements, the protocol cannot identify who owns
+what, so there is no administrative recovery path when a user loses access. This
+is the largest UX risk in the RFP and must be designed against rather than
+disclaimed: a user must be able to recover their full bridge position from
+credentials they already hold and already back up. Requiring users to separately
+back up new secrets generated during a deposit is not acceptable.
 
 ### Token registry and decimal normalisation
 
 Each supported ERC-20 is registered individually by the admin authority: its
 Ethereum contract address, its LEZ wrapped-token mint, its decimals, its
-denomination ladder, and its per-token deposit/redemption caps. ERC-20 tokens
-do not share a common decimals convention (6 for USDC, 8 for WBTC, 18 for WETH
-and DAI); the wrapped LEZ mint for each token must document its own decimals and
-the exact conversion applied on mint and burn, and the registration instruction
-must reject a token whose decimals or denomination ladder cannot be represented
-exactly in the chosen LEZ mint precision.
+permitted transfer amounts, and its per-token caps. ERC-20 tokens do not share a
+common decimals convention (6 for USDC, 8 for WBTC, 18 for WETH and DAI); the
+wrapped LEZ mint for each token must document its own decimals and the exact
+conversion applied on mint and burn, and registration must reject any token
+whose values cannot be represented exactly in the chosen LEZ mint precision.
 
-Fee-on-transfer and rebasing ERC-20s break the invariant that a locked
-denomination equals a mintable denomination. The registry must reject them, and
-the vault must verify the actual balance delta on deposit rather than trusting
-the requested amount.
+Fee-on-transfer and rebasing ERC-20s break the invariant that the amount
+deposited equals the amount mintable. The registry must reject them, and the
+vault must verify the actual balance delta on deposit rather than trusting the
+requested amount.
 
-### Finality windows and reorg protection
+### Finality and reorg protection
 
-A root must not be anchored until the source-chain state it commits to has
-reached a configured finality depth (a block-count or, once generally available,
-a beacon-chain finalised-checkpoint condition). Anchoring a pre-finality root
-risks admitting deposits that a reorg later removes, which would mint wrapped
-tokens against locks that no longer exist. The chosen depth is a direct
-trade-off between user-facing latency and reorg risk, and proposals must
-document the depth chosen and the residual risk it leaves. The reverse direction
-is symmetric: the vault anchors a LEZ burn root only after LEZ finality.
+Wrapped tokens must not be minted against an Ethereum deposit that a reorg could
+still remove, and the vault must not release against a LEZ burn that is not yet
+final. Both directions require a configured finality condition on the source
+chain. The chosen depth is a direct trade-off between user-facing latency and
+reorg risk; proposals must document the depth chosen and the residual risk it
+leaves.
 
-Because anchoring is decoupled from user proofs, a reorg affects only the
-anchoring step. Anchored roots are append-only and never rolled back, so no user
-proof is ever invalidated by later chain activity.
-
-### Trust model: cryptographic, trustless
-
-This bridge is **trustless**. It requires no trust in external signers,
-validators, attestor federations, or relayers. A user who bridges an ERC-20
-asset relies only on the correctness of the RISC0 circuits, the security of the
-Ethereum network, and the security of the LEZ network. Both legs are verified by
-cryptographic proofs, not by signatures from a bounded set of participants.
-
-Relayers are trusted for **liveness only** — they can decline to submit, but
-cannot steal, redirect, censor selectively (they cannot tell users apart), or
-deanonymise. Anchoring daemons are likewise liveness-only.
-
-Proposals must state this trustlessness explicitly in user-facing documentation
-(mini-app, README, SDK docs), alongside an honest statement of the
-privacy guarantees and their dependence on anonymity-set size. Per-token and
-global caps and the freeze-authority circuit breaker remain in place as
-operational safety mechanisms independent of the cryptographic trust model.
-
-Note that the freeze authority operates at token and protocol granularity only.
-It **cannot** freeze an individual user's funds, because the protocol does not
-know which funds belong to whom. This is a designed consequence of the privacy
-guarantees, not a gap, and must be documented as such.
+Once a user's claim is valid it must remain valid indefinitely, since users are
+expected to delay their own submissions for privacy reasons and must never be
+forced to act promptly to avoid expiry.
 
 ### Fee structure
 
-This RFP does not mandate a specific protocol fee rate (relayer fees are
-separate and market-set within the fixed schedule above). Proposals must specify
-who pays, when fees are collected, the exact rate, and where fees are routed.
-A governance-activatable fee switch with an initial zero rate, gated by the
-admin authority per RFP-001, is the recommended baseline, consistent with the
-pattern used elsewhere in the Logos RFP set (see
-[RFP-017](./RFP-017-token-vesting.md), "Fee structure"). Any protocol fee must
-be a fixed function of the denomination, for the fingerprinting reason above.
+This RFP does not mandate a specific protocol fee rate. Proposals must specify
+who pays, when fees are collected, the exact rate, and where fees are routed. A
+governance-activatable fee switch with an initial zero rate, gated by the admin
+authority per RFP-001, is the recommended baseline, consistent with the pattern
+used elsewhere in the Logos RFP set (see
+[RFP-017](./RFP-017-token-vesting.md), "Fee structure"). Any fee paid by a user —
+protocol or relayer — must take a value that does not distinguish their
+transaction from others, since a distinctive fee is itself a fingerprint.
 
 ## ✅ Scope of Work
 
@@ -407,164 +281,137 @@ Use FURPS framework. Each numbered item should be a testable statement.
 
 #### Functionality
 
-1. Implement an Ethereum vault contract (Solidity) maintaining an incremental
-   Merkle tree of deposit commitments. It accepts deposits of any ERC-20 in the
-   supported-token registry, plus native ETH (auto-wrapped to WETH), **only at
-   values on that token's registered denomination ladder**. It emits
-   `Deposit(token, denomination, commitment, leafIndex, noteCiphertext)` and
-   **must not** emit, store, or otherwise publish a LEZ recipient. The vault
-   verifies the actual balance delta on deposit and rejects any token whose
-   transfer does not deliver the exact denomination.
-2. Implement a permissionless inbound anchoring path: a RISC0 proof of Ethereum
-   consensus at a configured finality depth plus the vault's commitment-tree
-   root in that state, verified **in-program** by the LEZ bridge program before
-   the root is recorded. Anchored roots are append-only. Submitting an
-   unbacked, malformed, or pre-finality root must be rejected without recording.
-3. Implement a public-mode LEZ bridge program mint instruction accepting a
-   client-generated ownership proof with public inputs
-   `(anchoredRoot, token, denomination, nullifier, relayer, relayerFee)`. On
-   successful verification it mints `relayerFee` to the relayer's public account
-   and the remainder **into private LEZ state**. The Merkle path, leaf index,
-   and note secrets must be private inputs to the circuit.
-4. Each inbound `nullifier` may be consumed at most once; resubmission of a
-   spent nullifier must be rejected deterministically without minting, and must
-   not reveal which leaf the nullifier corresponds to.
-5. Implement a burn instruction on the LEZ bridge program: a holder spends a
-   private wrapped-token note of a registered denomination, and the program
-   inserts a withdrawal commitment into an on-chain burn-commitment tree and
-   emits a structured event (per LP-0012) carrying
-   `(token, denomination, withdrawalCommitment, leafIndex)`. The instruction and
-   its event **must not** accept, store, or publish an Ethereum recipient
-   address.
-6. Implement a permissionless outbound anchoring path: a RISC0 proof of LEZ
-   consensus at a configured finality depth plus the burn-tree root in that
-   state, verified by the Ethereum vault via a native precompile (Groth16
-   verifier or equivalent) before the root is recorded. Anchored roots are
-   append-only.
-7. The Ethereum vault accepts a client-generated unlock proof with public inputs
-   `(anchoredBurnRoot, token, denomination, ethereumRecipient, relayer, relayerFee)`,
-   verifies it via the precompile, and releases `denomination - relayerFee` of
-   the original ERC-20 (or unwrapped ETH, for WETH redemptions) to
-   `ethereumRecipient` and `relayerFee` to `relayer`. Each outbound nullifier
-   may be consumed at most once.
-8. Note secrets are derived deterministically from a single recoverable seed.
-   Implement note discovery: given the seed, a client can reconstruct its full
-   note set by scanning both commitment trees and trial-decrypting note
-   ciphertexts, recovering all unspent notes without any server-side index.
-9. `relayerFee` must be constrained on-chain to a value on a registered fee
-   schedule (or a fixed fraction of the denomination); a proof carrying an
-   arbitrary fee value must be rejected.
-10. An admin authority (per RFP-001, integrated via the SPEL framework where
-    applicable to the LEZ side) can register a new supported ERC-20 (Ethereum
-    address, LEZ wrapped mint, decimals, denomination ladder, fee schedule,
-    per-token caps) and deregister a token. Registration changes must be
-    mirrored consistently on both sides (document how the two stay in sync and
-    what happens if they temporarily diverge). The registry must reject
-    fee-on-transfer and rebasing tokens.
-11. Global and per-token deposit and redemption caps (configurable by the admin
-    authority) bound the maximum value that can be minted or released within a
-    rolling window, as a rate-limiting circuit breaker independent of the freeze
-    authority. Cap enforcement must not require identifying individual users.
-12. A freeze authority (per RFP-002) can pause minting and/or redemption, either
-    globally or for a single registered token, on both the Ethereum vault and
-    the LEZ bridge program independently.
+1. Implement an Ethereum vault contract (Solidity) that escrows deposits of any
+   ERC-20 in the supported-token registry, plus native ETH (auto-wrapped to
+   WETH). The vault must verify the actual balance delta received and reject any
+   deposit that does not deliver the expected amount.
+2. A deposit must not publish, store, or otherwise reveal its LEZ destination.
+   No Ethereum transaction argument, event, or contract state may identify the
+   account that will receive the wrapped tokens.
+3. Implement a LEZ bridge program that mints the corresponding wrapped token on
+   cryptographic verification of a valid Ethereum deposit, using RISC0 proofs of
+   Ethereum consensus and state verified in-program. Verification must require
+   no trusted party.
+4. Wrapped tokens are minted into private LEZ state by default, so that neither
+   the recipient nor the balance is publicly visible.
+5. Each deposit may be claimed at most once. A repeat claim must be rejected
+   deterministically, without minting, and without revealing which deposit it
+   referred to.
+6. Implement a burn path on the LEZ bridge program that entitles the holder to
+   release the original asset from the Ethereum vault. The burn must not
+   publish, store, or otherwise reveal its Ethereum destination.
+7. The Ethereum vault releases the original ERC-20 (or unwrapped ETH, for WETH
+   redemptions) on cryptographic verification of a valid LEZ burn, using a RISC0
+   proof verified natively via a precompile (Groth16 verifier or equivalent).
+   Each burn may be redeemed at most once.
+8. The amounts visible on Ethereum must not identify which mint or burn they
+   correspond to. Proposals must state the mechanism chosen (fixed
+   denominations are the expected baseline) and its effect on anonymity-set
+   size.
+9. A user must be able to complete both flows without holding a funded account
+   on either chain, and whoever submits or pays for a transaction on the user's
+   behalf must not thereby learn, or be able to prove, which deposit or burn it
+   corresponds to. That party must not be able to alter the destination or take
+   more than an agreed fee.
+10. A user must be able to recover their full bridge position — every claimable
+    deposit and every unredeemed burn — from credentials they already hold, with
+    no dependence on any server-side index and no separately-backed-up secret
+    generated during the flow.
+11. An admin authority (per RFP-001, integrated via the SPEL framework where
+    applicable to the LEZ side) can register a supported ERC-20 (Ethereum
+    address, LEZ wrapped mint, decimals, permitted amounts, caps) and deregister
+    a token. Registration changes must be mirrored consistently on both sides;
+    document how the two stay in sync and what happens if they temporarily
+    diverge. The registry must reject fee-on-transfer and rebasing tokens.
+12. Global and per-token deposit and redemption caps, configurable by the admin
+    authority, bound the maximum value that can be minted or released within a
+    rolling window, as a rate limiter independent of the freeze authority. Cap
+    enforcement must not require identifying individual users.
+13. A freeze authority (per RFP-002) can pause minting and/or redemption, either
+    globally or for a single registered token, on the Ethereum vault and the LEZ
+    bridge program independently.
 
 #### Usability
 
-1. Provide an SDK to build Logos modules for: constructing and submitting
-   deposits, deriving and managing notes, discovering owned notes by scanning,
-   generating inbound and outbound proofs locally, submitting via a relayer,
-   querying anchoring progress and anonymity-set size, initiating a redemption
-   burn, and reading the supported-token registry and denomination ladders.
+1. Provide an SDK that can be used to build Logos modules for: depositing,
+   claiming a deposit on LEZ, redeeming, releasing on Ethereum, recovering a
+   position from user credentials, and reading the supported-token registry and
+   its permitted amounts.
 2. Provide a Logos mini-app GUI with local build instructions, downloadable
-   assets, and loadable in Logos app (Basecamp) via git repo. It must cover: a
-   deposit flow (connect Ethereum wallet, select denomination, approve and
-   deposit, note derivation and backup confirmation), a mint flow (local proof
-   generation with progress, delay selection, relayer submission), a redemption
-   flow (burn, then a separately-timed unlock with recipient entry), a note
-   inventory and recovery flow, and a registry view (supported tokens, ladders,
-   caps and current utilisation).
-3. Provide a CLI covering core functionality: deposit, discover notes, generate
-   proof, mint, burn, unlock, and query the registry. The CLI may have fewer
-   features than the mini-app but must support all essential operations,
-   including proof generation and note recovery entirely offline.
-4. Provide the inbound and outbound anchoring daemons as **Logos modules
-   accompanied by Logos Core headless CLI/daemons**, runnable as standalone
-   long-running processes. Each must support: configurable Ethereum and/or LEZ
-   RPC endpoints, configurable finality depth, configurable anchoring cadence,
-   structured logging, and a clean shutdown path. They must integrate with or
-   wrap mature RISC0 implementations (e.g. Zisk) without reimplementing
-   zero-knowledge primitives. Document the operator journey end-to-end: install,
-   configure, run, monitor.
-5. Provide a reference relayer implementation, runnable permissionlessly, with
-   documented fee policy and submission logic. Document how a user submits
-   without a relayer if they accept the privacy cost of paying their own gas.
-6. Provide an IDL for the LEZ bridge program using the
+   assets, and loadable in Logos app (Basecamp) via git repo. It must cover the
+   deposit and redemption flows end to end, position recovery, and a registry
+   view showing supported tokens, permitted amounts, caps and current
+   utilisation.
+3. Provide a CLI that covers core functionality: deposit, claim, redeem,
+   release, recover, and query the registry. The CLI may have fewer features
+   than the mini-app but must support all essential operations.
+4. Any long-running off-chain component the design requires must be provided as
+   a **Logos module accompanied by a Logos Core headless CLI/daemon**, runnable
+   standalone, supporting configurable RPC endpoints for both chains,
+   configurable finality depth, structured logging, and a clean shutdown path.
+   Proposals must integrate mature RISC0 implementations (e.g. Zisk) rather than
+   reimplementing zero-knowledge primitives. Document the operator journey
+   end-to-end: install, configure, run, monitor.
+5. Provide an IDL for the LEZ bridge program using the
    [SPEL framework](https://github.com/logos-co/spel).
-7. Both the mini-app and CLI must display, before any mint or unlock
-   submission, the current anonymity set size for the relevant
-   `(token, denomination)` pair, and must warn when it falls below a
-   configurable threshold. The default submission delay must be randomised
-   rather than immediate, with the user able to inspect and override it.
+6. Before any privacy-sensitive submission, the mini-app and CLI must show the
+   user the current anonymity set their transaction would join, and warn when it
+   falls below a configurable threshold. Where delaying a submission improves
+   privacy, the client must default to doing so rather than submitting
+   immediately, with the user able to inspect and override.
+7. Documentation and UI must clearly explain what is public and what is private
+   at each step on both chains, in the manner of
+   [RFP-004](./RFP-004-privacy-preserving-dex.md), so users can judge their own
+   exposure.
 8. Return clear, actionable error messages for all failure modes: unsupported
-   token, invalid denomination, cap exceeded, invalid proof, proof verification
-   failure, root not yet anchored, insufficient finality, nullifier already
-   spent, invalid relayer fee, and program or per-token frozen. Error messages
-   must not leak which leaf or note a failed proof referred to.
+   token, invalid amount, cap exceeded, verification failure, insufficient
+   finality, already claimed, and program or per-token frozen. Error messages
+   must not reveal which deposit or burn a failed attempt referred to.
 
 #### Reliability
 
-1. Minting is atomic: a failed or rejected mint attempt does not consume the
-   nullifier and leaves the note spendable on retry.
-2. Burn-and-unlock is atomic at each stage: a failed burn does not destroy a
-   note without inserting a corresponding withdrawal commitment, and a failed
-   unlock does not consume the outbound nullifier.
-3. A nullifier can be consumed at most once on each leg; replaying an
-   already-verified proof is rejected deterministically and does not double-mint
-   or double-release.
-4. Anchored roots are append-only and never invalidated. A proof valid against a
-   historical anchored root must remain valid indefinitely, so a user who
-   delays submission for privacy reasons is never forced to regenerate.
-5. Note recovery is complete: a client restored from seed alone must rediscover
-   every unspent note it owns on both legs, verified by a test that wipes all
-   local state and recovers from seed.
-6. A temporary RPC or connectivity failure leaves an anchoring daemon in a
-   recoverable state, able to resume once connectivity is restored without
-   re-anchoring already-anchored roots.
-7. Client-side proof generation is resumable or cheaply restartable: an
-   interrupted proof does not consume, corrupt, or expose the note.
+1. Minting is atomic: a failed or rejected claim leaves the deposit claimable on
+   retry and consumes nothing.
+2. Redemption is atomic at each stage: a failed burn does not destroy wrapped
+   tokens without preserving the holder's entitlement to release, and a failed
+   release leaves that entitlement intact.
+3. No deposit can be claimed twice and no burn redeemed twice, deterministically
+   and under adversarial retry.
+4. A valid claim remains valid indefinitely; later chain activity must never
+   invalidate a user's outstanding entitlement.
+5. Position recovery is complete: a client restored from user credentials alone
+   must rediscover every claimable deposit and unredeemed burn, verified by a
+   test that wipes all local state.
+6. Temporary RPC or connectivity failure on either chain leaves any off-chain
+   component in a recoverable state, able to resume without duplicating work
+   already done.
+7. An interrupted user-side operation does not consume, corrupt, or expose the
+   user's entitlement.
 
 #### Performance
 
-1. Verifying an inbound ownership proof and minting must complete within a
-   single LEZ public transaction at the per-transaction compute budget in force
-   at delivery time. Document the compute-unit cost, broken down between proof
-   verification, nullifier-set insertion, and the mint instruction, extending
+1. Verifying an inbound claim and minting must complete within a single LEZ
+   public transaction at the per-transaction compute budget in force at delivery
+   time. Document the compute-unit cost with a breakdown by component, extending
    the measurement methodology from
    [RFP-020](./RFP-020-redstone-oracle-adaptor.md).
-2. Document the compute-unit cost of in-program verification of the inbound
-   **anchoring** proof (Ethereum consensus + state), separately from #1, and the
-   amortised per-deposit cost at the recommended anchoring cadence.
-3. Document the Ethereum-side gas cost of (a) a deposit, (b) verifying an
-   outbound anchoring proof via precompile, and (c) verifying an unlock proof
-   and releasing funds. Benchmark against comparable proof-verification
-   precompiles on EVM networks where available.
-4. **Client-side proof generation must be practical on the desktop hardware
-   Basecamp runs on.** Measure and document wall-clock generation time and peak
-   memory for both the inbound ownership proof and the outbound unlock proof, on
-   at least: a mid-range laptop, and the lowest-specification machine the team
-   declares as supported. State that minimum specification explicitly, and
-   report results for the mini-app and the CLI separately if their proving paths
-   differ. Mobile and browser proving targets are out of scope (see Out of
-   Scope).
-5. Document end-to-end deposit latency (lock to LEZ mint) and redemption latency
-   (burn to Ethereum release), each broken down by: source-chain finality wait,
-   anchoring wait, client proof generation, privacy delay, and on-chain
+2. Document the compute-unit cost of any additional LEZ-side verification the
+   design requires beyond the per-claim path, and its amortised per-deposit cost
+   at the recommended operating cadence.
+3. Document the Ethereum-side gas cost of a deposit, of a release, and of any
+   additional on-chain verification the design requires.
+4. Any proving the user's own device must perform has to be practical on the
+   desktop hardware Basecamp runs on. Measure and document wall-clock time and
+   peak memory on a mid-range laptop and on the lowest specification the team
+   declares as supported, and state that minimum explicitly.
+5. Document end-to-end deposit latency (deposit to LEZ mint) and redemption
+   latency (burn to Ethereum release), each broken down by source-chain finality
+   wait, proof generation, any privacy-motivated delay, and on-chain
    verification.
-6. Document anchoring proof generation time for both directions and the compute
-   resources (CPU, RAM, time) required to run an anchoring daemon.
-7. Document the growth rate and on-chain storage cost of both commitment trees
-   and both nullifier sets, and the projected cost at 1M and 10M notes.
+6. Document the compute resources (CPU, RAM, time) required to run any
+   off-chain component the design requires.
+7. Document the growth rate and on-chain storage cost of all bridge state that
+   accumulates with usage, with projections at 1M and 10M operations.
 
 #### Supportability
 
@@ -578,119 +425,116 @@ Use FURPS framework. Each numbered item should be a testable statement.
    and Privacy Preservation has at least one corresponding test.
 4. A README documents end-to-end usage: contract and program addresses,
    deployment steps for both chains, and step-by-step instructions for
-   depositing, minting, burning and unlocking via CLI and mini-app.
+   depositing and redeeming via CLI and mini-app.
 5. Submit a
    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-   for the SDK, covering the developer integration journey for both legs
-   including note management and local proof generation.
+   for the SDK, covering the developer integration journey for both flows
+   including position recovery.
 6. Submit a
    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-   for the CLI, the anchoring daemons, and the reference relayer, covering the
-   core user and operator journeys respectively.
+   for the CLI and any operator-facing components, covering the core user and
+   operator journeys respectively.
 7. Provide Figma designs or equivalent for all mini-app GUI artefacts, including
-   the anonymity-set disclosure and the note-backup confirmation flows.
+   the anonymity-set disclosure and the recovery flow.
 8. The Ethereum vault contract undergoes an independent third-party
    smart-contract security audit before mainnet deployment; the audit report (or
    a summary, if the full report is not publishable) must be linked from the
    README. This requirement exists because cross-chain bridges are the single
    most-attacked category of DeFi infrastructure (Chainalysis has tracked more
    than $2.8B stolen from bridges since 2022); it is not optional.
-9. Provide a **privacy properties document** covering: a
-   formal statement of P1 and P2 and the anonymity set each is measured against;
-   exactly what is visible on-chain for every operation on both chains; what an
-   adversary observing all public state can and cannot infer; confirmation that
-   no component other than the user's client ever receives a Merkle path, leaf
-   index, or note secret; what a relayer, an anchoring daemon operator, and an
-   RPC provider can each observe; residual leakage from timing, denomination
-   choice, gas payment, IP-level metadata, and note-splitting patterns; and the
-   conditions under which these privacy guarantees degrade or fail.
+9. Provide a **privacy properties document** covering: a formal statement of P1
+   and P2 and the anonymity set each is measured against; exactly what is
+   visible on-chain at every step on both chains; what an adversary observing
+   all public state can and cannot infer; what every off-chain participant in
+   the design can observe; residual leakage from timing, amount selection, fee
+   payment, network metadata and usage patterns; and the conditions under which
+   the guarantees degrade or fail.
 10. Document the anonymity-set growth model: expected set size over time at
-    projected volumes, the minimum set size below which the guarantee is
-    considered not to hold, and guidance for users bridging before the pool has
-    matured.
+    projected volumes, the minimum below which the guarantees are considered not
+    to hold, and guidance for users bridging before the pool has matured.
 
 #### + Bridge Security
 
-1. RISC0 proof verification must be deterministic and independently verifiable.
-   The LEZ program and Ethereum vault must both reject proofs that fail
-   verification, tested with invalid proofs (incorrect public inputs, proofs for
-   incorrect chain state, tampered headers, proofs against unanchored roots,
-   proofs reusing a spent nullifier).
-2. Anchoring daemons must independently derive chain state from RPC calls to the
-   source chain; a daemon must not accept and forward a root or proof supplied
-   by a third party without independently regenerating and verifying it.
-3. A malicious relayer must not be able to alter `ethereumRecipient`, inflate
-   `relayerFee`, or replay a user's proof to a different destination. Test each
-   case explicitly.
-4. Global and per-token caps (Functionality #11) bound the maximum value at risk
-   in any rolling window; proposals must document recommended default caps and
-   the reasoning behind them.
-5. The freeze authority (Functionality #12) must be exercisable independently on
+1. Proof verification must be deterministic and independently verifiable. Both
+   the LEZ program and the Ethereum vault must reject invalid proofs, tested
+   with incorrect public inputs, proofs for incorrect chain state, tampered
+   headers, and replayed proofs.
+2. Any off-chain component must independently derive chain state from the source
+   chain rather than accepting data supplied by a third party without
+   verification.
+3. A malicious party submitting on a user's behalf must not be able to redirect
+   funds, inflate their fee, or replay the user's submission to a different
+   destination. Test each case explicitly.
+4. Caps (Functionality #12) bound the maximum value at risk in any rolling
+   window; proposals must document recommended defaults and the reasoning behind
+   them.
+5. The freeze authority (Functionality #13) must be exercisable independently on
    each half, so either can be paused without the other being operational or
    reachable.
-6. Soundness of supply: the total wrapped supply on LEZ must never exceed the
-   vault's holdings. Provide a test that attempts to mint without a valid
-   deposit, mint twice from one deposit, and unlock without a valid burn.
+6. Soundness of supply: total wrapped supply on LEZ must never exceed the
+   vault's holdings. Provide tests attempting to mint without a valid deposit,
+   mint twice from one deposit, and release without a valid burn.
 7. User-facing documentation must state the trustless verification model and the
-   liveness-only role of relayers and anchoring daemons (see Design Rationale,
-   "Trust model").
+   liveness-only role of any off-chain participant (see Design Rationale, "Trust
+   model").
 
 #### + Privacy Preservation
 
 1. **P1 must hold under test.** Provide an automated test that constructs a
-   population of deposits and mints and asserts that no public-state-derived
-   correlation identifies the true lock↔mint pairing better than chance across
-   the anonymity set.
-2. **P2 must hold under test.** The equivalent test for burn↔unlock pairings.
-3. No deposit event, burn event, transaction argument, log, or account-state
-   change on either chain may contain a LEZ recipient at deposit time or an
-   Ethereum recipient at burn time. Provide a test that asserts this over full
-   event and state diffs for a complete round trip.
-4. Merkle paths, leaf indices, and note secrets must be private circuit inputs.
-   Provide a test asserting they are absent from all public inputs and all
-   submitted transaction data.
-5. Failure and error paths must not leak note identity: a rejected proof, a
-   spent nullifier, and a cap rejection must be indistinguishable with respect
-   to which leaf was involved.
-6. The client must not contact any network endpoint that reveals which note it
-   is proving over. Document all network calls made during proof generation and
-   justify each; a note-specific query to a third-party RPC is a defect.
-7. Relayer selection and submission must not create a linkage channel: document
-   what a relayer learns, and ensure a user can switch relayers per operation.
-8. The default configuration must be the private one. No user action should be
-   required to obtain these privacy guarantees, and any override that weakens
-   them must require explicit confirmation.
+   population of deposits and mints and asserts that no correlation derivable
+   from public state identifies the true pairing better than chance across the
+   anonymity set.
+2. **P2 must hold under test.** The equivalent test for burn-to-release
+   pairings.
+3. No transaction argument, event, log, or account-state change on either chain
+   may reveal a deposit's LEZ destination or a burn's Ethereum destination.
+   Provide a test asserting this over full event and state diffs for a complete
+   round trip.
+4. Information that would connect the two legs must never leave the user's
+   control. Document every component that handles user data, and provide a test
+   asserting such information is absent from all submitted transaction data.
+5. Failure and error paths must not reveal which deposit or burn was involved: a
+   rejected claim, a repeat claim, and a cap rejection must be
+   indistinguishable in that respect.
+6. The client must not make any network request that reveals which deposit or
+   burn it is acting on. Document every network call made during a
+   privacy-sensitive operation and justify each.
+7. Where a third party submits on the user's behalf, document precisely what
+   that party learns, and ensure the user can switch between such parties per
+   operation.
+8. The default configuration must be the private one. No user action may be
+   required to obtain the privacy guarantees, and any override that weakens them
+   must require explicit confirmation.
 
 ### Soft Requirements
 
-1. **Shielded value commitments.** Replace fixed denominations with hidden
-   amounts via Pedersen or equivalent value commitments, range proofs, and
-   join-split notes, with homomorphic supply accounting on the LEZ mint
-   authority. This removes the denomination ladder entirely and merges all
-   per-rung anonymity sets into one. The note format, circuit interfaces, and
-   tree layout delivered under the hard requirements must be designed so this
-   migration does not require redeploying the vault or re-anchoring the pool;
-   document the intended migration path even if it is not implemented.
-2. Batch verification: amortise proof verification across multiple mints or
-   unlocks in a single transaction, analogous to the multi-feed batching soft
-   requirement in RFP-020. Batching also improves privacy by making individual
-   operations harder to isolate.
+1. **Hidden amounts.** Remove the amount-visibility constraint entirely by
+   concealing transferred values on the LEZ side, rather than relying on a fixed
+   set of permitted amounts. This merges all per-amount anonymity sets into one
+   and removes the need for users to split transfers. Whatever is delivered
+   under the hard requirements should be designed so this can be adopted later
+   without redeploying the vault or resetting accumulated anonymity; document the
+   intended migration path even if it is not implemented.
+2. Batching: amortise verification cost across multiple operations in a single
+   transaction, analogous to the multi-feed batching soft requirement in
+   RFP-020. Batching also improves privacy by making individual operations
+   harder to isolate.
 3. Optional viewing keys allowing a user to *voluntarily* disclose their own
-   bridge activity to a chosen third party, without weakening privacy for
-   anyone else and without any protocol-level disclosure capability.
-4. A configurable per-token unlock delay (in addition to finality and the user's
-   own privacy delay) as an extra circuit-breaker window, allowing the freeze
+   bridge activity to a chosen third party, without weakening privacy for anyone
+   else and without any protocol-level disclosure capability.
+4. A configurable per-token release delay, in addition to finality and any
+   user-chosen delay, as an extra circuit-breaker window allowing the freeze
    authority to react to anomalous redemption volume before funds leave the
    vault.
 5. Support for wrapping ERC-20 tokens from additional EVM chains (e.g. Arbitrum,
-   Base) behind the same LEZ bridge program, reusing the registry, ladders, and
-   caps, with separate anchoring paths per source chain. Consider whether pools
-   should be shared across source chains to enlarge anonymity sets.
-6. Hardware-accelerated or GPU-assisted client proving as an optional path for
-   users with capable hardware, without making it a requirement.
-7. Design the RISC0 anchoring components as pluggable so that future zkVM
-   improvements, proof compression, or hardware acceleration can be integrated
-   without restructuring the vault, the bridge program, or the note format.
+   Base) behind the same LEZ bridge program, reusing the registry and caps.
+   Consider whether anonymity sets should be shared across source chains to
+   enlarge them.
+6. Hardware acceleration as an optional path for users with capable machines,
+   without making it a requirement.
+7. Design the proof-system components as pluggable, so that future zkVM
+   improvements, proof compression, or hardware acceleration can be adopted
+   without restructuring the vault or the bridge program.
 
 ### Out of Scope
 
@@ -700,13 +544,12 @@ The following are explicitly excluded from this RFP:
 - Bitcoin, Monero, and Zcash bridging: these have a dedicated trustless path via
   atomic swaps, delivered in [RFP-003](./RFP-003-atomic-swaps.md).
 - Mobile and in-browser proving. Basecamp is a desktop application and is the
-  delivery surface for the mini-app, so the prover targets desktop only.
-  Proposals must not constrain circuit design to fit mobile-class resource
+  delivery surface for the mini-app, so any user-side proving targets desktop
+  only. Proposals must not constrain their design to fit mobile-class resource
   budgets.
-- Network-level anonymity. The privacy guarantees here are properties of
-  on-chain state.
-  IP-level correlation between a user's Ethereum deposit and their relayer
-  submission is out of scope as an implementation concern, but must be disclosed
+- Network-level anonymity. The guarantees here are properties of on-chain state.
+  IP-level correlation between a user's Ethereum deposit and their later LEZ
+  activity is out of scope as an implementation concern, but must be disclosed
   as residual leakage under Supportability #9.
 - Protocol-level compliance, disclosure, or selective-deanonymisation
   mechanisms. Voluntary user-held viewing keys are Soft Requirement #3; any
@@ -730,9 +573,9 @@ The following are explicitly excluded from this RFP:
 #### Admin authority (RFP-001)
 
 The Functionality requirements specify that an admin authority registers and
-deregisters supported tokens and configures denomination ladders, fee schedules
-and caps. These admin-gated functions require the standardised admin authority
-library from [RFP-001](./RFP-001-admin-authority-lib.md).
+deregisters supported tokens and configures permitted amounts and caps. These
+admin-gated functions require the standardised admin authority library from
+[RFP-001](./RFP-001-admin-authority-lib.md).
 
 #### Freeze authority (RFP-002)
 
@@ -743,36 +586,33 @@ from [RFP-002](./RFP-002-freeze-authority-lib.md).
 
 #### Token mint/burn authorities (LP-0013)
 
-The LEZ bridge program mints wrapped tokens into private state on verified
-deposits and burns them on redemption. This requires the token mint/burn
-authority primitives in
+The LEZ bridge program mints wrapped tokens on verified deposits and burns them
+on redemption. This requires the token mint/burn authority primitives in
 [LP-0013](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0013.md).
-The fixed-denomination design keeps supply accounting scalar and therefore
-within what LP-0013 provides; Soft Requirement #1 (shielded values) would
-require homomorphic supply accounting beyond it, and proposals pursuing that
-path must state what extension is needed.
+Note that Soft Requirement #1 (hidden amounts) would require supply accounting
+over concealed values, which is likely an extension beyond what LP-0013
+provides; proposals pursuing that path must state what extension is needed.
 
 #### Private LEZ account state
 
-Inbound mints deliver into private LEZ state, and outbound burns spend from it.
-The privacy guarantees depend on this: a mint into a public account exposes the
+Wrapped tokens are minted into private LEZ state, and redemptions spend from it.
+The privacy guarantees depend on this: minting into a public account exposes the
 recipient immediately. Proposals must state which LEZ private-state primitives
 they rely on and their maturity.
 
 #### RISC0 zkVM
 
-The bridge verifies consensus proofs in-program (inbound on LEZ) and natively on
-Ethereum (outbound), and generates ownership proofs client-side. This requires
-RISC0, a production-ready zkVM. Proposals must leverage mature RISC0
-implementations (e.g. [Zisk](https://github.com/risc0/zisk)) rather than
-building custom circuits.
+The bridge verifies proofs of consensus and state in-program on LEZ and natively
+on Ethereum. This requires RISC0, a production-ready zkVM. Proposals must
+leverage mature RISC0 implementations (e.g.
+[Zisk](https://github.com/risc0/zisk)) rather than building custom circuits.
 
 ### Soft dependencies
 
 #### Event emission (LP-0012)
 
-Burn and anchoring events are emitted as structured on-chain events so clients
-and anchoring daemons can react without polling every account.
+Structured on-chain events allow clients and off-chain components to react
+without polling every account.
 [LP-0012](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)
 is **closed** (delivered).
 
@@ -782,30 +622,27 @@ Team experienced with:
 
 - Zero-knowledge proof systems and RISC0 zkVM (guest program development, proof
   generation and verification, public/private input handling)
-- **Shielded-pool constructions**: commitment/nullifier schemes, incremental
-  Merkle trees, note encryption and discovery, deterministic key derivation, and
-  the anonymity-set analysis that goes with them
+- Privacy-preserving protocol design, including anonymity-set analysis and the
+  ability to reason rigorously about what public state does and does not reveal
 - Solidity smart-contract development, including experience preparing a contract
   for third-party security audit, and EVM precompile integration
 - Cryptographic primitives (Groth16 verification, Merkle proofs, consensus
   verification, state root inclusion proofs)
 - LEZ program development, private-state programs, and on-chain proof
   verification
-- Client-side proving on desktop targets, including packaging a prover inside a
-  Basecamp mini-app and a headless CLI
 - Smart-contract security auditing (proof validation, replay attacks, reorg
-  handling, cap/rate-limit bypass, privacy-leak analysis)
+  handling, cap bypass, privacy-leak analysis)
 - Cross-chain system design and integration testing (dual-chain atomic
   operations, finality assumptions, determinism and reproducibility)
 
 ## ⏱ Timeline Expectations
 
 Estimated software delivery duration: **16–20 weeks**. This is longer than a
-transparent lock-and-mint bridge would require; the shielded-pool construction,
-client-side proving targets, note discovery and recovery, the relayer layer, and
-the privacy test suite are the additional scope. This excludes the
-third-party audit lead time required before mainnet deployment (Supportability
-#8), which is typically procured and scheduled separately.
+transparent lock-and-mint bridge would require; the privacy construction,
+user-side proving, position recovery, and the privacy test suite are the
+additional scope. This excludes the third-party audit lead time required before
+mainnet deployment (Supportability #8), which is typically procured and
+scheduled separately.
 
 ## 🌍 Open Source Requirement
 
