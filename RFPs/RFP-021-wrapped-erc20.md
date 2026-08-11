@@ -134,11 +134,23 @@ strategy: wrapping USDC, USDT, DAI, and WETH gives the lending protocol and the
 reflexive stablecoin a credible collateral base at launch.
 
 Bridges are also the most attacked category of infrastructure in DeFi:
-Chainalysis has tracked more than $2.8B stolen from cross-chain bridges since
-2022, the highest-value class of exploit in the industry. This RFP's security
-posture (cryptographic verification eliminating the trust-in-signers vector
-entirely, combined with per-token and global caps and an admin-governed freeze
-authority) is designed directly against that track record.
+Chainalysis tracked over $2B stolen from cross-chain bridges in 2022 alone, 64%
+of all DeFi losses that year. Roughly half of that historical loss traces to
+compromised custody of validator or multisig keys (Ronin, Harmony Horizon,
+Multichain); this RFP's cryptographic verification design is aimed directly at
+that vector, since it requires no signer, validator, or federation to be trusted
+with a key at all. But key custody is not the only cause: a comparable share of
+losses (Wormhole, Nomad, BNB Bridge, Poly Network) came from bugs in
+verification logic itself, a risk a cryptographic design does not remove,
+because it depends on that logic being correct. A verifier deployed as an
+upgradeable contract reintroduces the same key-custody problem one layer down,
+since whoever holds the upgrade key can substitute broken or malicious
+verification logic. For that reason this RFP prefers an immutable program with
+an explicit migration path over an upgradeable one, and treats verification
+logic correctness (audit, formal methods, extensive adversarial testing) as a
+security requirement of the same order as eliminating signer trust. Per-token
+and global caps and an admin-governed freeze authority remain as operational
+safety nets against both failure modes.
 
 ## 🏗 Design Rationale
 
