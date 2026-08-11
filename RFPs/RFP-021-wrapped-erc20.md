@@ -374,27 +374,26 @@ Use FURPS framework. Each numbered item should be a testable statement.
     No Ethereum transaction argument, event, or contract state may identify the
     account that will receive the wrapped tokens.
 03. Implement a LEZ bridge program that mints the corresponding wrapped token on
-    cryptographic verification of a valid Ethereum deposit, using RISC0 proofs
-    of Ethereum consensus and state verified in-program. Verification must
+    cryptographic verification of a valid Ethereum deposit. Verification must
     require no trusted party.
-04. Wrapped tokens are minted into private LEZ state by default, so that neither
-    the recipient nor the balance is publicly visible.
+04. Minting must support both a private LEZ account and a public LEZ account as
+    the destination, at the depositor's choice; the design must not restrict
+    minting to private accounts only.
 05. Each deposit may be claimed at most once. A repeat claim must be rejected
     deterministically, without minting, and without revealing which deposit it
     referred to.
 06. Implement a burn path on the LEZ bridge program that entitles the holder to
     release the original asset from the Ethereum vault. The burn must not
     publish, store, or otherwise reveal its Ethereum destination.
-07. The wrapped token must be held in, and burned from, private LEZ state; a
-    design where the wrapped token sits in or is burned from a public LEZ
-    account does not satisfy this RFP, even if the burn transaction's other
-    contents remain private. Both legs of the token's life on LEZ, minting
-    (Functionality #4) and burning, are private by construction, not merely by
-    incidental transaction privacy.
+07. Burning must support the wrapped token being held in, and burned from,
+    either a private or a public LEZ account, at the holder's choice; the design
+    must not restrict burning to private accounts only. Where a burn involves a
+    private account, the burn must not thereby reveal its Ethereum destination
+    (Functionality #6).
 08. The Ethereum vault releases the original asset (the deposited ERC-20, or
     native ETH if the original deposit was ETH) on cryptographic verification of
-    a valid LEZ burn, using a RISC0 proof verified natively via a precompile
-    (Groth16 verifier or equivalent). Each burn may be redeemed at most once.
+    a valid LEZ burn, verified natively on Ethereum. Each burn may be redeemed
+    at most once.
 09. The amounts visible on Ethereum must not identify which mint or burn they
     correspond to. Proposals must state the mechanism chosen (fixed
     denominations are the expected baseline) and its effect on anonymity-set
@@ -467,9 +466,9 @@ Use FURPS framework. Each numbered item should be a testable statement.
    a **Logos module accompanied by a Logos Core headless CLI/daemon**, runnable
    standalone, supporting configurable RPC endpoints for both chains,
    configurable finality depth, structured logging, and a clean shutdown path.
-   Proposals must integrate mature RISC0 implementations (e.g. Zisk) rather than
-   reimplementing zero-knowledge primitives. Document the operator journey
-   end-to-end: install, configure, run, monitor.
+   Proposals must integrate mature, audited proof-system implementations rather
+   than reimplementing zero-knowledge primitives from scratch. Document the
+   operator journey end-to-end: install, configure, run, monitor.
 5. Provide an IDL for the LEZ bridge program using the
    [SPEL framework](https://github.com/logos-co/spel).
 6. Before any privacy-sensitive submission, the mini-app and CLI must show the
@@ -477,11 +476,16 @@ Use FURPS framework. Each numbered item should be a testable statement.
    falls below a configurable threshold. Where delaying a submission improves
    privacy, the client must default to doing so rather than submitting
    immediately, with the user able to inspect and override.
-7. Documentation and UI must clearly explain what is public and what is private
+7. Although minting and burning both support public LEZ accounts (Functionality
+   #4, #7), the mini-app and CLI must default to inviting the user to mint into,
+   and burn from, a private account: the private path is the pre-selected option
+   in the flow, and choosing the public path instead requires an explicit
+   action, consistent with Privacy Preservation #8.
+8. Documentation and UI must clearly explain what is public and what is private
    at each step on both chains, in the manner of
    [RFP-004](./RFP-004-privacy-preserving-dex.md), so users can judge their own
    exposure.
-8. Return clear, actionable error messages for all failure modes: unsupported
+9. Return clear, actionable error messages for all failure modes: unsupported
    token, invalid amount, cap exceeded, verification failure, insufficient
    finality, already claimed, and program or per-token frozen. Error messages
    must not reveal which deposit or burn a failed attempt referred to.
@@ -574,54 +578,63 @@ Use FURPS framework. Each numbered item should be a testable statement.
 
 #### + Bridge Security
 
-1. Proof verification must be deterministic and independently verifiable. Both
-   the LEZ program and the Ethereum vault must reject invalid proofs, tested
-   with incorrect public inputs, proofs for incorrect chain state, tampered
-   headers, and replayed proofs.
-2. Any off-chain component must independently derive chain state from the source
-   chain rather than accepting data supplied by a third party without
-   verification.
-3. A malicious party submitting on a user's behalf must not be able to redirect
-   funds, inflate their fee, or replay the user's submission to a different
-   destination. Test each case explicitly.
-4. Caps (Functionality #13) bound the maximum value at risk in any rolling
-   window; proposals must document recommended defaults and the reasoning behind
-   them.
-5. The freeze authority (Functionality #16) must be exercisable independently on
-   each half, so either can be paused without the other being operational or
-   reachable.
-6. Soundness of supply: total wrapped supply on LEZ must never exceed the
-   vault's holdings. Provide tests attempting to mint without a valid deposit,
-   mint twice from one deposit, and release without a valid burn.
-7. User-facing documentation must state the trustless verification model and the
-   liveness-only role of any off-chain participant (see Design Rationale, "Trust
-   model").
-8. The verifier (the LEZ bridge program and the Ethereum vault's proof
-   verification logic) must be deployed as an immutable program with an explicit
-   migration path (deploy a new version, drain and redirect to it) in preference
-   to an upgradeable contract governed by a mutable key. An upgradeable verifier
-   carries two risks this eliminates by construction: a stolen or misused
-   upgrade key substituting malicious logic, and a legitimate, authorised
-   upgrade shipping a catastrophic bug, the latter being the documented cause of
-   real bridge losses (see Why This Matters and
-   [Appendix: Bridges and Wrapped Tokens](../appendix/bridges-and-wrapped-tokens.md)).
-   Proposals must document the chosen migration mechanism and how in-flight
-   deposits and burns are honoured across a migration.
-9. The freeze authority (Functionality #16) stops new activity but does not by
-   itself recover funds already at risk or resolve deposits and burns left
-   in-flight once a vulnerability in the verification logic is found. Proposals
-   must specify a failsafe strategy for this scenario, constrained as follows:
-   the failsafe must not become a backdoor, meaning any recovery must still be
-   claimed by the depositor or burner proving their own entitlement, the same
-   way an ordinary claim or redemption works (see Design Rationale, "Trust
-   model" and "Loss of access"), not by an admin authority or any other party
-   identifying who owns what and redirecting funds on their behalf; it must not
-   be able to mint, redirect, or release funds to any destination other than the
-   address or account the proof specifies; and it must not be able to act on
-   funds beyond what a specific, proven vulnerability put at risk. If no
-   mechanism satisfying these constraints is achievable, the proposal must
-   instead document explicitly why a failsafe should not be implemented, and
-   what happens to affected funds and in-flight positions in its absence.
+01. Proof verification must be deterministic and independently verifiable. Both
+    the LEZ program and the Ethereum vault must reject invalid proofs, tested
+    with incorrect public inputs, proofs for incorrect chain state, tampered
+    headers, and replayed proofs.
+02. Any off-chain component must independently derive chain state from the
+    source chain rather than accepting data supplied by a third party without
+    verification.
+03. A malicious party submitting on a user's behalf must not be able to redirect
+    funds, inflate their fee, or replay the user's submission to a different
+    destination. Test each case explicitly.
+04. A deposit and a burn must each secretly commit to the destination on the
+    other chain, so that the claim can only be completed by whoever holds the
+    seed or credentials that produced the commitment. It must not be possible to
+    steal a claim from any information that leaks beyond that seed: not the
+    deposit or burn transaction itself, not any public or observable state, and
+    not any party the flow depends on (see Functionality #2, #6). Test that an
+    adversary who observes everything public about a deposit or burn, but does
+    not hold the originating seed, cannot construct a valid claim for a
+    different destination.
+05. Caps (Functionality #13) bound the maximum value at risk in any rolling
+    window; proposals must document recommended defaults and the reasoning
+    behind them.
+06. The freeze authority (Functionality #16) must be exercisable independently
+    on each half, so either can be paused without the other being operational or
+    reachable.
+07. Soundness of supply: total wrapped supply on LEZ must never exceed the
+    vault's holdings. Provide tests attempting to mint without a valid deposit,
+    mint twice from one deposit, and release without a valid burn.
+08. User-facing documentation must state the trustless verification model and
+    the liveness-only role of any off-chain participant (see Design Rationale,
+    "Trust model").
+09. The verifier (the LEZ bridge program and the Ethereum vault's proof
+    verification logic) must be deployed as an immutable program with an
+    explicit migration path (deploy a new version, drain and redirect to it) in
+    preference to an upgradeable contract governed by a mutable key. An
+    upgradeable verifier carries two risks this eliminates by construction: a
+    stolen or misused upgrade key substituting malicious logic, and a
+    legitimate, authorised upgrade shipping a catastrophic bug, the latter being
+    the documented cause of real bridge losses (see Why This Matters and
+    [Appendix: Bridges and Wrapped Tokens](../appendix/bridges-and-wrapped-tokens.md)).
+    Proposals must document the chosen migration mechanism and how in-flight
+    deposits and burns are honoured across a migration.
+10. The freeze authority (Functionality #16) stops new activity but does not by
+    itself recover funds already at risk or resolve deposits and burns left
+    in-flight once a vulnerability in the verification logic is found. Proposals
+    must specify a failsafe strategy for this scenario, constrained as follows:
+    the failsafe must not become a backdoor, meaning any recovery must still be
+    claimed by the depositor or burner proving their own entitlement, the same
+    way an ordinary claim or redemption works (see Design Rationale, "Trust
+    model" and "Loss of access"), not by an admin authority or any other party
+    identifying who owns what and redirecting funds on their behalf; it must not
+    be able to mint, redirect, or release funds to any destination other than
+    the address or account the proof specifies; and it must not be able to act
+    on funds beyond what a specific, proven vulnerability put at risk. If no
+    mechanism satisfying these constraints is achievable, the proposal must
+    instead document explicitly why a failsafe should not be implemented, and
+    what happens to affected funds and in-flight positions in its absence.
 
 #### + Privacy Preservation
 
@@ -703,12 +716,12 @@ The following are explicitly excluded from this RFP:
   mechanisms. Voluntary user-held viewing keys are Soft Requirement #3; any
   capability allowing a third party to deanonymise a user without their consent
   is contrary to the design and out of scope.
-- Circuit optimization or custom RISC0 accelerators: proposals should leverage
-  mature existing RISC0 implementations (e.g. Zisk) rather than implementing
-  novel circuits or optimization techniques.
-- Alternative proof systems (e.g. other zkVMs): this RFP specifies RISC0. If
-  future RISC0 versions or alternative systems become preferable, that is a
-  candidate for a future update or new RFP.
+- Circuit optimisation or custom zkVM accelerators for the LEZ side: LEZ itself
+  runs on RISC0, so proposals should leverage mature existing implementations
+  (e.g. Zisk) for LEZ-side proving rather than implementing novel circuits or
+  optimisation techniques. This RFP does not mandate a specific proof system for
+  verifying LEZ state and events on Ethereum; that choice is left to the
+  proposal.
 - Price feeds for wrapped assets. Once a token is wrapped, pricing it is the
   responsibility of the oracle stack ([RFP-019](./RFP-019-twap-oracle.md),
   [RFP-020](./RFP-020-redstone-oracle-adaptor.md)), not this bridge.
@@ -742,17 +755,21 @@ provides; proposals pursuing that path must state what extension is needed.
 
 #### Private LEZ account state
 
-Wrapped tokens are minted into private LEZ state, and redemptions spend from it.
-The privacy guarantees depend on this: minting into a public account exposes the
-recipient immediately. Proposals must state which LEZ private-state primitives
-they rely on and their maturity.
+Minting and burning must both support private LEZ accounts (Functionality #4,
+#7), and the privacy guarantees (P1, P2) apply when a user chooses that path:
+minting into a public account instead exposes the recipient immediately, which
+is the user's choice to make, not a gap in the design. Proposals must state
+which LEZ private-state primitives they rely on and their maturity.
 
 #### RISC0 zkVM
 
-The bridge verifies proofs of consensus and state in-program on LEZ and natively
-on Ethereum. This requires RISC0, a production-ready zkVM. Proposals must
+The bridge verifies proofs of consensus and state in-program on LEZ. Because LEZ
+itself runs on RISC0, a production-ready zkVM, this leg of the design is a
+LEZ-runtime dependency rather than a choice the proposal makes; proposals must
 leverage mature RISC0 implementations (e.g.
-[Zisk](https://github.com/risc0/zisk)) rather than building custom circuits.
+[Zisk](https://github.com/risc0/zisk)) for LEZ-side proving rather than building
+custom circuits. This RFP does not mandate a specific proof system for the
+corresponding native verification on Ethereum.
 
 ### Soft dependencies
 
