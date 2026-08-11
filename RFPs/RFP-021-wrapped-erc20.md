@@ -1,6 +1,6 @@
 ---
 id: RFP-021
-title: Privacy-Preserving Wrapped ERC-20 Bridge for LEZ
+title: Privacy-Preserving Wrapped ERC-20 and Ether Bridge for LEZ
 tier: L
 status: open
 category: Developer Tooling & Infrastructure
@@ -15,7 +15,7 @@ dependencies:
 
 <!-- Don't forget to add this RFP to the table in README.md (between RFP_TABLE_START / RFP_TABLE_END markers) -->
 
-# RFP-021 — Privacy-Preserving Wrapped ERC-20 Bridge for LEZ
+# RFP-021 — Privacy-Preserving Wrapped ERC-20 and Ether Bridge for LEZ
 
 > **Note.** This specification describes an outcome that may benefit the Logos
 > ecosystem. It is a proposal rather than an instruction. Its requirements
@@ -49,8 +49,9 @@ dependencies:
 ## 🧭 Overview
 
 Build a trustless, privacy-preserving lock-and-mint bridge that lets ERC-20
-tokens (and native ETH, wrapped as WETH) held on Ethereum enter LEZ as canonical
-wrapped assets, and exit back to Ethereum on redemption.
+tokens and native ETH, held on Ethereum, enter LEZ as canonical wrapped assets
+(ETH auto-wrapped to WETH on the way in), and exit back to Ethereum on
+redemption.
 
 An Ethereum-side vault contract escrows deposits. A LEZ-side program mints the
 corresponding wrapped token once it has cryptographically verified, with no
