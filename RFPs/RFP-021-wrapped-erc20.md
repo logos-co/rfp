@@ -211,10 +211,16 @@ attestor federations, relayers, or proof-generation services. A user relies only
 on the correctness of the proof system, the security of the Ethereum network,
 and the security of the LEZ network.
 
-Any off-chain participant in the design may be trusted for **liveness only**:
-able to decline service, but never able to steal, redirect, forge, censor
-selectively, or deanonymise. Proposals must identify every such participant and
-justify that each is liveness-only.
+The protocol should not depend on any specific off-chain participant at all: a
+deposit or burn should not need a particular counterparty online to complete,
+consistent with the non-interactive design this RFP requires (see Why This
+Matters). Where an off-chain participant is unavoidable, for example relaying a
+transaction or generating a proof, that role must be permissionless so any
+single participant declining to act never blocks the user, and no participant
+may be trusted with anything beyond that: never able to steal, redirect, forge,
+censor selectively, or deanonymise. Proposals must identify every such
+participant and justify that none of them, individually or as a class, can block
+a user's deposit or burn from eventually completing.
 
 Caps and the freeze authority remain in place as operational safety mechanisms
 independent of the cryptographic trust model. Note that the freeze authority can
