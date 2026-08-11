@@ -124,12 +124,14 @@ correlation an observer is left with as a result.
 
 ### Stablecoins are the concrete prize
 
-USDT and USDC together account for over 80% of a stablecoin market that stood
-above $300B in mid-2026, and are the settlement asset most DeFi money markets
-and DEXes actually run on. Without a wrapped ERC-20 primitive, LEZ has no path
-to bring USDC, USDT, DAI, or WETH liquidity onto the chain, which blocks the
-lending protocol and the reflexive stablecoin from having any credible
-collateral base at launch.
+A healthy DeFi ecosystem needs a variety of assets available as collateral and
+liquidity: native LEZ assets, wrapped assets, and synthetics each have a role,
+and wrapping is one strategy among those we want to see implemented, not the
+only one. USDT and USDC together account for over 80% of a stablecoin market
+that stood above $300B in mid-2026, and are the settlement asset most DeFi money
+markets and DEXes actually run on, which makes them a concrete target for this
+strategy: wrapping USDC, USDT, DAI, and WETH gives the lending protocol and the
+reflexive stablecoin a credible collateral base at launch.
 
 Bridges are also the most attacked category of infrastructure in DeFi:
 Chainalysis has tracked more than $2.8B stolen from cross-chain bridges since
