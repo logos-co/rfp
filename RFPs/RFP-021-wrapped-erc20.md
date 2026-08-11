@@ -281,12 +281,12 @@ registry cannot:
 
 Curation by a single admin authority is not the only way to satisfy these
 concerns, and this RFP does not mandate it as the only deployment model. Because
-the vault contract and bridge program are open source and anyone can deploy
-their own instance, curation also enables competition: multiple entities or DAOs
-can each run their own deployment with their own token registry and admin
-policy, competing on the quality of curation and the resulting reputation of
-their specific wrapped tokens, rather than the ecosystem depending on one
-canonical, centrally-curated list.
+the vault contract and bridge program are open source and independently
+deployable (Functionality #17), curation also enables competition: multiple
+entities or DAOs can each run their own deployment with their own token registry
+and admin policy, competing on the quality of curation and the resulting
+reputation of their specific wrapped tokens, rather than the ecosystem depending
+on one canonical, centrally-curated list.
 
 Each supported ERC-20 is registered individually by the admin authority: its
 Ethereum contract address, its LEZ wrapped-token mint, its decimals, its
@@ -429,6 +429,20 @@ Use FURPS framework. Each numbered item should be a testable statement.
 15. A freeze authority (per RFP-002) can pause minting and/or redemption, either
     globally or for a single registered token, on the Ethereum vault and the LEZ
     bridge program independently.
+16. The vault contract and every token registration it holds are scoped to a
+    specific EVM chain ID, recorded on both the Ethereum vault and the LEZ
+    bridge program's registry, and checked as part of proof verification. The
+    design must not assume Ethereum mainnet is the only source chain: the same
+    vault contract and LEZ bridge program design must be deployable, unmodified,
+    against any EVM chain, with proofs and registrations scoped so a deposit or
+    registration valid for one chain ID is never accepted as valid for another.
+17. The vault contract and the LEZ bridge program must be deployable as
+    independent instances: the same bytecode, deployed separately by different
+    entities, each with its own independent configuration (token registry, fee
+    recipients and rates, admin authority, caps, finality depth). One instance's
+    admin authority must have no privileged access over another instance's
+    configuration or funds. Document how a client identifies and switches
+    between deployed instances.
 
 #### Usability
 
@@ -654,7 +668,8 @@ Use FURPS framework. Each numbered item should be a testable statement.
    authority to react to anomalous redemption volume before funds leave the
    vault.
 5. Support for wrapping ERC-20 tokens from additional EVM chains (e.g. Arbitrum,
-   Base) behind the same LEZ bridge program, reusing the registry and caps.
+   Base) behind the same LEZ bridge program, reusing the registry and caps, and
+   building on the chain ID scoping already required by Functionality #16.
    Consider whether anonymity sets should be shared across source chains to
    enlarge them.
 6. Hardware acceleration as an optional path for users with capable machines,
