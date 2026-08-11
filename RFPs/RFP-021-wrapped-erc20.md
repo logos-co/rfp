@@ -49,9 +49,8 @@ dependencies:
 ## 🧭 Overview
 
 Build a trustless, privacy-preserving lock-and-mint bridge that lets ERC-20
-tokens and native ETH, held on Ethereum, enter LEZ as canonical wrapped assets
-(ETH auto-wrapped to WETH on the way in), and exit back to Ethereum on
-redemption.
+tokens and native ETH, held on Ethereum, enter LEZ as canonical wrapped assets,
+and exit back to Ethereum on redemption.
 
 An Ethereum-side vault contract escrows deposits. A LEZ-side program mints the
 corresponding wrapped token once it has cryptographically verified, with no
@@ -368,10 +367,9 @@ Use FURPS framework. Each numbered item should be a testable statement.
 #### Functionality
 
 01. Implement an EVM smart contract vault that escrows deposits of any ERC-20 in
-    the supported-token registry, plus native ETH, auto-wrapped to WETH on
-    deposit so the vault only ever accounts for ERC-20 balances. The vault must
-    verify the actual balance delta received and reject any deposit that does
-    not deliver the expected amount.
+    the supported-token registry, plus native ETH. The vault must verify the
+    actual balance delta received and reject any deposit that does not deliver
+    the expected amount.
 02. A deposit must not publish, store, or otherwise reveal its LEZ destination.
     No Ethereum transaction argument, event, or contract state may identify the
     account that will receive the wrapped tokens.
@@ -387,10 +385,10 @@ Use FURPS framework. Each numbered item should be a testable statement.
 06. Implement a burn path on the LEZ bridge program that entitles the holder to
     release the original asset from the Ethereum vault. The burn must not
     publish, store, or otherwise reveal its Ethereum destination.
-07. The Ethereum vault releases the original ERC-20 (or unwrapped ETH, for WETH
-    redemptions) on cryptographic verification of a valid LEZ burn, using a
-    RISC0 proof verified natively via a precompile (Groth16 verifier or
-    equivalent). Each burn may be redeemed at most once.
+07. The Ethereum vault releases the original asset (the deposited ERC-20, or
+    native ETH if the original deposit was ETH) on cryptographic verification of
+    a valid LEZ burn, using a RISC0 proof verified natively via a precompile
+    (Groth16 verifier or equivalent). Each burn may be redeemed at most once.
 08. The amounts visible on Ethereum must not identify which mint or burn they
     correspond to. Proposals must state the mechanism chosen (fixed
     denominations are the expected baseline) and its effect on anonymity-set
