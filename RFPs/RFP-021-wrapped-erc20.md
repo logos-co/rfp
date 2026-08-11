@@ -146,7 +146,7 @@ even the largest: a comparable or larger share of losses (Wormhole, Nomad, BNB
 Bridge, Poly Network) came from bugs in verification logic itself, a risk a
 cryptographic design does not remove, because it depends on that logic being
 correct (see
-[Appendix: Cross-Chain Bridge Hack Taxonomy](../appendix/bridge-hack-taxonomy.md)
+[Appendix: Bridges and Wrapped Tokens](../appendix/bridges-and-wrapped-tokens.md)
 for the sourced figures, per-hack root causes, and the exact Chainalysis
 citation). A verifier deployed as an upgradeable contract carries a related risk
 one layer down: no cross-chain bridge hack has traced to a stolen upgrade key,
@@ -468,7 +468,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
     (or a summary, if the full report is not publishable) must be linked from
     the README. This requirement exists because cross-chain bridges are the
     single most-attacked category of DeFi infrastructure (see
-    [Appendix: Cross-Chain Bridge Hack Taxonomy](../appendix/bridge-hack-taxonomy.md));
+    [Appendix: Bridges and Wrapped Tokens](../appendix/bridges-and-wrapped-tokens.md));
     it is not optional.
 09. Provide a **privacy properties document** covering: a formal statement of P1
     and P2 and the anonymity set each is measured against; exactly what is
@@ -513,7 +513,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
    upgrade key substituting malicious logic, and a legitimate, authorised
    upgrade shipping a catastrophic bug, the latter being the documented cause of
    real bridge losses (see Why This Matters and
-   [Appendix: Cross-Chain Bridge Hack Taxonomy](../appendix/bridge-hack-taxonomy.md)).
+   [Appendix: Bridges and Wrapped Tokens](../appendix/bridges-and-wrapped-tokens.md)).
    Proposals must document the chosen migration mechanism and how in-flight
    deposits and burns are honoured across a migration.
 9. The freeze authority (Functionality #13) stops new activity but does not by
