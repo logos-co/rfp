@@ -282,7 +282,7 @@ registry cannot:
 Curation by a single admin authority is not the only way to satisfy these
 concerns, and this RFP does not mandate it as the only deployment model. Because
 the design is open source, and supports multiple independently configured
-entities on both chains (Functionality #17), curation also enables competition:
+entities on both chains (Functionality #18), curation also enables competition:
 multiple entities or DAOs can each run their own configuration, with their own
 token registry and admin policy, competing on the quality of curation and the
 resulting reputation of their specific wrapped tokens, rather than the ecosystem
@@ -367,9 +367,10 @@ Use FURPS framework. Each numbered item should be a testable statement.
 #### Functionality
 
 01. Implement an EVM smart contract vault that escrows deposits of any ERC-20 in
-    the supported-token registry, plus native ETH. The vault must verify the
-    actual balance delta received and reject any deposit that does not deliver
-    the expected amount.
+    the supported-token registry, plus native ETH deposited directly: a user
+    locking ETH must not be required to convert it to WETH or any other ERC-20
+    themselves first. The vault must verify the actual balance delta received
+    and reject any deposit that does not deliver the expected amount.
 02. A deposit must not publish, store, or otherwise reveal its LEZ destination.
     No Ethereum transaction argument, event, or contract state may identify the
     account that will receive the wrapped tokens.
@@ -385,57 +386,63 @@ Use FURPS framework. Each numbered item should be a testable statement.
 06. Implement a burn path on the LEZ bridge program that entitles the holder to
     release the original asset from the Ethereum vault. The burn must not
     publish, store, or otherwise reveal its Ethereum destination.
-07. The Ethereum vault releases the original asset (the deposited ERC-20, or
+07. The wrapped token must be held in, and burned from, private LEZ state; a
+    design where the wrapped token sits in or is burned from a public LEZ
+    account does not satisfy this RFP, even if the burn transaction's other
+    contents remain private. Both legs of the token's life on LEZ, minting
+    (Functionality #4) and burning, are private by construction, not merely by
+    incidental transaction privacy.
+08. The Ethereum vault releases the original asset (the deposited ERC-20, or
     native ETH if the original deposit was ETH) on cryptographic verification of
     a valid LEZ burn, using a RISC0 proof verified natively via a precompile
     (Groth16 verifier or equivalent). Each burn may be redeemed at most once.
-08. The amounts visible on Ethereum must not identify which mint or burn they
+09. The amounts visible on Ethereum must not identify which mint or burn they
     correspond to. Proposals must state the mechanism chosen (fixed
     denominations are the expected baseline) and its effect on anonymity-set
     size.
-09. A user must be able to complete both flows without holding a funded account
+10. A user must be able to complete both flows without holding a funded account
     on either chain, and whoever submits or pays for a transaction on the user's
     behalf must not thereby learn, or be able to prove, which deposit or burn it
     corresponds to. That party must not be able to alter the destination or take
     more than an agreed fee.
-10. A user must be able to recover every one of their own unclaimed deposits and
+11. A user must be able to recover every one of their own unclaimed deposits and
     unreleased burns from credentials they already hold, with no dependence on
     any server-side index and no separately-backed-up secret generated during
     the flow. This does not extend to the wrapped token itself: once minted, it
     is an ordinary LEZ token redeemable by whoever holds it, regardless of who
     made the original deposit.
-11. An admin authority (per RFP-001, integrated via the SPEL framework where
+12. An admin authority (per RFP-001, integrated via the SPEL framework where
     applicable to the LEZ side) can register a supported ERC-20 (Ethereum
     address, LEZ wrapped mint, decimals, permitted amounts, caps) and deregister
     a token. Registration changes must be mirrored consistently on both sides;
     document how the two stay in sync and what happens if they temporarily
     diverge. The registry must reject fee-on-transfer and rebasing tokens.
-12. Global and per-token deposit and redemption caps, configurable by the admin
+13. Global and per-token deposit and redemption caps, configurable by the admin
     authority, bound the maximum value that can be minted or released within a
     rolling window, as a rate limiter independent of the freeze authority. Cap
     enforcement must not require identifying individual users.
-13. The finality depth required before a deposit may be claimed, and before a
+14. The finality depth required before a deposit may be claimed, and before a
     burn may be released, is configurable by the admin authority per deployment,
     defaulting to the depth recommended in Design Rationale, "Finality and reorg
     protection." A change to the configured depth must not invalidate a claim or
     release that was already valid under the previous depth.
-14. A protocol fee is charged on both minting and burning of the wrapped token
+15. A protocol fee is charged on both minting and burning of the wrapped token
     on LEZ, in a denomination (wrapped token, native LEZ token, or a
     configurable mix, per Design Rationale, "Fee structure") and at a rate
     configurable by the admin authority per deployment. No fee is mandated on
     the Ethereum side. The fee value must not distinguish a user's transaction
-    from others, consistent with Functionality #8.
-15. A freeze authority (per RFP-002) can pause minting and/or redemption, either
+    from others, consistent with Functionality #9.
+16. A freeze authority (per RFP-002) can pause minting and/or redemption, either
     globally or for a single registered token, on the Ethereum vault and the LEZ
     bridge program independently.
-16. The vault contract and every token registration it holds are scoped to a
+17. The vault contract and every token registration it holds are scoped to a
     specific EVM chain ID, recorded on both the Ethereum vault and the LEZ
     bridge program's registry, and checked as part of proof verification. The
     design must not assume Ethereum mainnet is the only source chain: the same
     vault contract and LEZ bridge program design must be deployable, unmodified,
     against any EVM chain, with proofs and registrations scoped so a deposit or
     registration valid for one chain ID is never accepted as valid for another.
-17. The design must let multiple entities each operate under their own
+18. The design must let multiple entities each operate under their own
     independent configuration (token registry, fee recipients and rates, admin
     authority, caps, finality depth) on the same pair of blockchain programs,
     with strict separation between them: one entity's configuration must have no
@@ -578,10 +585,10 @@ Use FURPS framework. Each numbered item should be a testable statement.
 3. A malicious party submitting on a user's behalf must not be able to redirect
    funds, inflate their fee, or replay the user's submission to a different
    destination. Test each case explicitly.
-4. Caps (Functionality #12) bound the maximum value at risk in any rolling
+4. Caps (Functionality #13) bound the maximum value at risk in any rolling
    window; proposals must document recommended defaults and the reasoning behind
    them.
-5. The freeze authority (Functionality #15) must be exercisable independently on
+5. The freeze authority (Functionality #16) must be exercisable independently on
    each half, so either can be paused without the other being operational or
    reachable.
 6. Soundness of supply: total wrapped supply on LEZ must never exceed the
@@ -601,7 +608,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
    [Appendix: Bridges and Wrapped Tokens](../appendix/bridges-and-wrapped-tokens.md)).
    Proposals must document the chosen migration mechanism and how in-flight
    deposits and burns are honoured across a migration.
-9. The freeze authority (Functionality #15) stops new activity but does not by
+9. The freeze authority (Functionality #16) stops new activity but does not by
    itself recover funds already at risk or resolve deposits and burns left
    in-flight once a vulnerability in the verification logic is found. Proposals
    must specify a failsafe strategy for this scenario, constrained as follows:
@@ -668,7 +675,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
    vault.
 5. Support for wrapping ERC-20 tokens from additional EVM chains (e.g. Arbitrum,
    Base) behind the same LEZ bridge program, reusing the registry and caps, and
-   building on the chain ID scoping already required by Functionality #16.
+   building on the chain ID scoping already required by Functionality #17.
    Consider whether anonymity sets should be shared across source chains to
    enlarge them.
 6. Hardware acceleration as an optional path for users with capable machines,
