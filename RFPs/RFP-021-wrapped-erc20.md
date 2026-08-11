@@ -142,7 +142,9 @@ that vector, since it requires no signer, validator, or federation to be trusted
 with a key at all. But key custody is not the only cause: a comparable share of
 losses (Wormhole, Nomad, BNB Bridge, Poly Network) came from bugs in
 verification logic itself, a risk a cryptographic design does not remove,
-because it depends on that logic being correct. A verifier deployed as an
+because it depends on that logic being correct (see
+[Appendix: Cross-Chain Bridge Hack Taxonomy](../appendix/bridge-hack-taxonomy.md)
+for the sourced figures and per-hack root causes). A verifier deployed as an
 upgradeable contract reintroduces the same key-custody problem one layer down,
 since whoever holds the upgrade key can substitute broken or malicious
 verification logic. For that reason this RFP prefers an immutable program with
@@ -193,52 +195,43 @@ must not claim otherwise:
    real tokens to a real address.
 
 Privacy is therefore preserved by making these public facts *uninformative about
-which counterparty they pair with*, not by attempting to hide them. Three
-consequences follow, and proposals must address each:
+which counterparty they pair with*, not by attempting to hide them. The
+following is offered as orientation on how, not prescription; proposals are free
+to achieve the required properties by other means, provided they argue the case.
+
+The well-understood construction for the destination side is a
+commitment-and-nullifier shielded pool on each leg: the deposit publishes a
+commitment rather than a destination, and the claimant later proves entitlement
+without revealing which deposit they are claiming, with a nullifier preventing
+double-claims. The redemption leg works the same way in reverse, which requires
+splitting redemption into two separately-timed stages so that the burn need not
+name its Ethereum destination. Minting into **private LEZ state** is the natural
+fit for the LEZ side of this, and keeps the recipient and balance off public
+view without additional machinery. A proof of source-chain consensus and state
+contains no user-specific data, so it can be produced by anyone and anchored
+on-chain permissionlessly, leaving the user's own device to prove only its own
+entitlement against it; this keeps user-specific proving cheap enough to run
+locally, which matters because whoever generates the entitlement proof learns
+the connection the design exists to protect.
+
+Three further consequences follow from what cannot be hidden, and proposals must
+address each:
 
 - **Amounts correlate.** A deposit of 1,337.42 USDC followed by a mint of
   1,337.42 wUSDC is matched by elimination regardless of what cryptography sits
   between them. The amount visible on the Ethereum side must not act as a
-  fingerprint.
+  fingerprint. Restricting transfers to a fixed set of per-token denominations
+  is the simpler and better-understood mitigation, and is the expected baseline
+  for this RFP; hiding amounts outright via value commitments is stronger but
+  considerably heavier, and is specified as a soft requirement below.
 - **Timing correlates.** A deposit followed promptly by a mint, at a quiet
   moment, is matched by inspection. The protocol must not force users into
   correlated timing.
 - **Fee payers correlate.** If the user pays their own gas to mint or release,
   the funding source of that account re-identifies them and the construction
-  collapses.
-
-### Suggested approach
-
-The following is offered as orientation, not prescription. Proposals are free to
-achieve the required properties by other means, provided they argue the case.
-
-A commitment-and-nullifier shielded pool on each leg is the well-understood
-construction for this problem: the deposit publishes a commitment rather than a
-destination, and the claimant later proves entitlement without revealing which
-deposit they are claiming, with a nullifier preventing double-claims. The
-redemption leg works the same way in reverse, which requires splitting
-redemption into two separately-timed stages so that the burn need not name its
-Ethereum destination.
-
-Minting into **private LEZ state** is the natural fit for the destination side,
-and keeps the recipient and balance off public view without additional
-machinery.
-
-For the amount-correlation problem, restricting transfers to a fixed set of
-per-token denominations is the simpler and better-understood option, and is the
-expected baseline for this RFP; hiding amounts outright via value commitments is
-stronger but considerably heavier, and is specified as a soft requirement below.
-
-For the fee-payer problem, permissionless relayers paid out of the bridged
-amount are the conventional answer, with the destination bound into the proof so
-a relayer cannot redirect funds or overcharge.
-
-For the trust problem, note that a proof of source-chain consensus and state
-contains no user-specific data, so it can be produced by anyone and anchored
-on-chain permissionlessly, leaving the user's own device to prove only their
-entitlement against it. This keeps user-specific proving cheap enough to run
-locally, which matters because whoever generates the entitlement proof learns
-the connection the design exists to protect.
+  collapses. Permissionless relayers paid out of the bridged amount are the
+  conventional mitigation, with the destination bound into the proof so a
+  relayer cannot redirect funds or overcharge.
 
 ### Trust model
 
@@ -475,8 +468,9 @@ Use FURPS framework. Each numbered item should be a testable statement.
     smart-contract security audit before mainnet deployment; the audit report
     (or a summary, if the full report is not publishable) must be linked from
     the README. This requirement exists because cross-chain bridges are the
-    single most-attacked category of DeFi infrastructure (Chainalysis has
-    tracked more than $2.8B stolen from bridges since 2022); it is not optional.
+    single most-attacked category of DeFi infrastructure (see
+    [Appendix: Cross-Chain Bridge Hack Taxonomy](../appendix/bridge-hack-taxonomy.md));
+    it is not optional.
 09. Provide a **privacy properties document** covering: a formal statement of P1
     and P2 and the anonymity set each is measured against; exactly what is
     visible on-chain at every step on both chains; what an adversary observing
@@ -512,6 +506,16 @@ Use FURPS framework. Each numbered item should be a testable statement.
 7. User-facing documentation must state the trustless verification model and the
    liveness-only role of any off-chain participant (see Design Rationale, "Trust
    model").
+8. The verifier (the LEZ bridge program and the Ethereum vault's proof
+   verification logic) must be deployed as an immutable program with an explicit
+   migration path (deploy a new version, drain and redirect to it) in preference
+   to an upgradeable contract governed by a mutable key. An upgrade key that can
+   silently swap verification logic is a key-custody attack surface of the same
+   kind this RFP's cryptographic design otherwise eliminates (see Why This
+   Matters and
+   [Appendix: Cross-Chain Bridge Hack Taxonomy](../appendix/bridge-hack-taxonomy.md)).
+   Proposals must document the chosen migration mechanism and how in-flight
+   deposits and burns are honoured across a migration.
 
 #### + Privacy Preservation
 
