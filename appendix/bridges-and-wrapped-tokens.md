@@ -1,14 +1,15 @@
-# Appendix: Cross-Chain Bridge Hack Taxonomy
+# Appendix: Bridges and Wrapped Tokens
 
-This appendix surveys major cross-chain bridge exploits, classifies their root
-causes, and sources the loss figures relevant to
+This appendix surveys the ecosystem context behind
 [RFP-021](../RFPs/RFP-021-wrapped-erc20.md), a privacy-preserving wrapped ERC-20
-bridge for LEZ. It provides the evidence base for RFP-021's claim that bridges
-are the most-attacked category of DeFi infrastructure, and for its design choice
-to eliminate signer/validator trust while still treating verification-logic
-correctness and upgrade-key custody as first-order risks. A second, shorter
-section sources RFP-021's stablecoin market-size claim, which motivates the
-specific tokens (USDC, USDT, DAI, WETH) the RFP proposes wrapping first.
+bridge for LEZ, in two parts. The first and larger part surveys major
+cross-chain bridge exploits, classifies their root causes, and sources the loss
+figures relevant to RFP-021's claim that bridges are the most-attacked category
+of DeFi infrastructure, and to its design choice to eliminate signer/validator
+trust while still treating verification-logic correctness and upgrade-key
+custody as first-order risks. The second, shorter part sources RFP-021's
+stablecoin market-size claim, which motivates the specific tokens (USDC, USDT,
+DAI, WETH) the RFP proposes wrapping first.
 
 ## Summary Table
 
