@@ -368,10 +368,10 @@ Use FURPS framework. Each numbered item should be a testable statement.
 #### Functionality
 
 01. Implement an EVM smart contract vault that escrows deposits of any ERC-20 in
-    the supported-token registry, plus native ETH (auto-wrapped to WETH, ie
-    sends ETH to the canonical WETH contract to immediately receive WETH). The
-    vault must verify the actual balance delta received and reject any deposit
-    that does not deliver the expected amount.
+    the supported-token registry, plus native ETH, auto-wrapped to WETH on
+    deposit so the vault only ever accounts for ERC-20 balances. The vault must
+    verify the actual balance delta received and reject any deposit that does
+    not deliver the expected amount.
 02. A deposit must not publish, store, or otherwise reveal its LEZ destination.
     No Ethereum transaction argument, event, or contract state may identify the
     account that will receive the wrapped tokens.
