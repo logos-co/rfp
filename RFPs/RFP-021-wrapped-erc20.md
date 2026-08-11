@@ -79,8 +79,9 @@ blockchains such as Ethereum, that move has to happen while preserving Logos'
 principle of sovereignty: no custodian, signer, or federation should be trusted
 with a user's assets or identity along the way.
 
-Wrapped tokens are what let users bring assets they already hold on Ethereum
-into that private DeFi: the privacy-preserving DEX
+Wrapped tokens are what let users bring assets they already hold, and whose
+value is already established, on Ethereum into that private DeFi, spending them
+there directly or posting them as collateral: the privacy-preserving DEX
 ([RFP-004](./RFP-004-privacy-preserving-dex.md)), the lending protocol
 ([RFP-008](./RFP-008-lending-borrowing-protocol.md)), the reflexive stablecoin
 ([RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)), and the price feeds
