@@ -298,8 +298,8 @@ whose values cannot be represented exactly in the chosen LEZ mint precision.
 
 Fee-on-transfer and rebasing ERC-20s break the invariant that the amount
 deposited equals the amount mintable. The registry must reject them, and the
-vault must verify the actual balance delta on deposit rather than trusting the
-requested amount.
+vault must measure the deposit by how much its own balance actually increased,
+rather than trusting the requested amount, per Functionality #1.
 
 ### Finality and reorg protection
 
@@ -369,8 +369,10 @@ Use FURPS framework. Each numbered item should be a testable statement.
 01. Implement an EVM smart contract vault that escrows deposits of any ERC-20 in
     the supported-token registry, plus native ETH deposited directly: a user
     locking ETH must not be required to convert it to WETH or any other ERC-20
-    themselves first. The vault must verify the actual balance delta received
-    and reject any deposit that does not deliver the expected amount.
+    themselves first. The vault must measure how much its own balance actually
+    increased by (before versus after the transfer), not trust the amount the
+    depositor claims to send, and reject any deposit that does not deliver the
+    expected amount.
 02. A deposit must not publish, store, or otherwise reveal its LEZ destination.
     No Ethereum transaction argument, event, or contract state may identify the
     account that will receive the wrapped tokens.
