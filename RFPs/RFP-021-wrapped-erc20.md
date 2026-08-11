@@ -79,15 +79,16 @@ blockchains such as Ethereum, that move has to happen while preserving Logos'
 principle of sovereignty: no custodian, signer, or federation should be trusted
 with a user's assets or identity along the way.
 
-The lending protocol ([RFP-008](./RFP-008-lending-borrowing-protocol.md)), the
-reflexive stablecoin ([RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)),
-and the on-chain TWAP oracle's own design ([RFP-019](./RFP-019-twap-oracle.md))
-all assume wrapped external assets (wBTC, wETH, wXMR, wZEC) are already
-available as LEZ tokens. None of those RFPs specify how a token actually gets
-wrapped; this RFP is that primitive for the Ethereum leg. Bitcoin, Monero, and
-Zcash reach LEZ liquidity through a different route: direct, trustless swaps
-against LEZ assets via [RFP-003](./RFP-003-atomic-swaps.md), rather than a
-wrapped representation.
+Wrapped tokens are what let users bring assets they already hold on Ethereum
+into that private DeFi: the privacy-preserving DEX
+([RFP-004](./RFP-004-privacy-preserving-dex.md)), the lending protocol
+([RFP-008](./RFP-008-lending-borrowing-protocol.md)), the reflexive stablecoin
+([RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)), and the price feeds
+that collateralise them ([RFP-019](./RFP-019-twap-oracle.md),
+[RFP-020](./RFP-020-redstone-oracle-adaptor.md)). This RFP delivers that
+wrapping primitive for the Ethereum leg. Bitcoin, Monero, and Zcash reach LEZ
+liquidity through a different route: direct, trustless swaps against LEZ assets
+via [RFP-003](./RFP-003-atomic-swaps.md), rather than a wrapped representation.
 
 RFP-003 explicitly carved Ethereum out of its scope for this reason. Bitcoin,
 Monero, and Zcash lack general smart-contract expressiveness, so a trustless
