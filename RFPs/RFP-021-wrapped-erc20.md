@@ -57,8 +57,6 @@ corresponding wrapped token once it has cryptographically verified, with no
 trusted intermediary, that the deposit really happened on Ethereum. Redemption
 reverses the flow: burning the wrapped token on LEZ entitles the holder to
 release the original ERC-20 from the vault, again on cryptographic proof alone.
-Verification rests on RISC0 zero-knowledge proofs of consensus and state,
-verified in-program on LEZ and via a native precompile on Ethereum.
 
 The bridge must achieve this **without letting a public observer connect a
 specific Ethereum deposit to the LEZ mint it funded, or a specific LEZ burn to
