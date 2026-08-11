@@ -78,8 +78,9 @@ LEZ DeFi cannot function without external collateral. The lending protocol
 oracle's own design ([RFP-019](./RFP-019-twap-oracle.md)) all assume wrapped
 external assets (wBTC, wETH, wXMR, wZEC) are already available as LEZ tokens.
 None of those RFPs specify how a token actually gets wrapped; this RFP is that
-missing primitive for the Ethereum leg (Bitcoin, Monero, and Zcash have their
-own trustless path via atomic swaps in [RFP-003](./RFP-003-atomic-swaps.md)).
+missing primitive for the Ethereum leg. Bitcoin, Monero, and Zcash reach LEZ
+liquidity through a different route: direct, trustless swaps against LEZ assets
+via [RFP-003](./RFP-003-atomic-swaps.md), rather than a wrapped representation.
 
 RFP-003 explicitly carved Ethereum out of its scope for exactly this reason:
 "ETH is expected to reach LEZ via wrapping, which requires no swap counterparty
@@ -539,8 +540,9 @@ Use FURPS framework. Each numbered item should be a testable statement.
 The following are explicitly excluded from this RFP:
 
 - Wrapping non-fungible assets (ERC-721, ERC-1155).
-- Bitcoin, Monero, and Zcash bridging: these have a dedicated trustless path via
-  atomic swaps, delivered in [RFP-003](./RFP-003-atomic-swaps.md).
+- Bitcoin, Monero, and Zcash liquidity: these reach LEZ via direct, trustless
+  swaps against LEZ assets, delivered in [RFP-003](./RFP-003-atomic-swaps.md),
+  not via a wrapped representation.
 - Mobile and in-browser proving. Basecamp is a desktop application and is the
   delivery surface for the mini-app, so any user-side proving targets desktop
   only. Proposals must not constrain their design to fit mobile-class resource
