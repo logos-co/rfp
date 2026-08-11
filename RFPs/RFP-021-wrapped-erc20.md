@@ -135,25 +135,29 @@ reflexive stablecoin a credible collateral base at launch.
 
 ### Bridge risks: hacking
 
-Chainalysis tracked over $2B stolen from cross-chain bridges in 2022 alone, 64%
-of all DeFi losses that year. Roughly half of that historical loss traces to
-compromised custody of validator or multisig keys (Ronin, Harmony Horizon,
-Multichain); this RFP's cryptographic verification design is aimed directly at
-that vector, since it requires no signer, validator, or federation to be trusted
-with a key at all. But key custody is not the only cause: a comparable share of
-losses (Wormhole, Nomad, BNB Bridge, Poly Network) came from bugs in
-verification logic itself, a risk a cryptographic design does not remove,
-because it depends on that logic being correct (see
+Chainalysis found that cross-chain bridge protocols accounted for 64% of the
+$3.1B stolen from DeFi in 2022, the single largest category that year. A large
+share of that historical loss traces to compromised custody of validator or
+multisig keys (Ronin, Harmony Horizon, Multichain); this RFP's cryptographic
+verification design is aimed directly at that vector, since it requires no
+signer, validator, or federation to be trusted with a key at all. But key
+custody is not the only cause, and by some reasonable ways of counting is not
+even the largest: a comparable or larger share of losses (Wormhole, Nomad, BNB
+Bridge, Poly Network) came from bugs in verification logic itself, a risk a
+cryptographic design does not remove, because it depends on that logic being
+correct (see
 [Appendix: Cross-Chain Bridge Hack Taxonomy](../appendix/bridge-hack-taxonomy.md)
-for the sourced figures and per-hack root causes). A verifier deployed as an
-upgradeable contract reintroduces the same key-custody problem one layer down,
-since whoever holds the upgrade key can substitute broken or malicious
-verification logic. For that reason this RFP prefers an immutable program with
-an explicit migration path over an upgradeable one, and treats verification
-logic correctness (audit, formal methods, extensive adversarial testing) as a
-security requirement of the same order as eliminating signer trust. Per-token
-and global caps and an admin-governed freeze authority remain as operational
-safety nets against both failure modes.
+for the sourced figures, per-hack root causes, and the exact Chainalysis
+citation). A verifier deployed as an upgradeable contract carries a related risk
+one layer down: no cross-chain bridge hack has traced to a stolen upgrade key,
+but legitimate, authorised upgrades have shipped catastrophic verification bugs
+(Nomad; a second Ronin incident in 2024), which an immutable program with no
+upgrade path forecloses by construction. For that reason this RFP prefers an
+immutable program with an explicit migration path over an upgradeable one, and
+treats verification logic correctness (audit, formal methods, extensive
+adversarial testing) as a security requirement of the same order as eliminating
+signer trust. Per-token and global caps and an admin-governed freeze authority
+remain as operational safety nets against both failure modes.
 
 ## 🏗 Design Rationale
 
@@ -504,10 +508,11 @@ Use FURPS framework. Each numbered item should be a testable statement.
 8. The verifier (the LEZ bridge program and the Ethereum vault's proof
    verification logic) must be deployed as an immutable program with an explicit
    migration path (deploy a new version, drain and redirect to it) in preference
-   to an upgradeable contract governed by a mutable key. An upgrade key that can
-   silently swap verification logic is a key-custody attack surface of the same
-   kind this RFP's cryptographic design otherwise eliminates (see Why This
-   Matters and
+   to an upgradeable contract governed by a mutable key. An upgradeable verifier
+   carries two risks this eliminates by construction: a stolen or misused
+   upgrade key substituting malicious logic, and a legitimate, authorised
+   upgrade shipping a catastrophic bug, the latter being the documented cause of
+   real bridge losses (see Why This Matters and
    [Appendix: Cross-Chain Bridge Hack Taxonomy](../appendix/bridge-hack-taxonomy.md)).
    Proposals must document the chosen migration mechanism and how in-flight
    deposits and burns are honoured across a migration.
