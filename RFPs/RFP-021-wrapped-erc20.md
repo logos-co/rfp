@@ -58,13 +58,14 @@ trusted intermediary, that the deposit really happened on Ethereum. Redemption
 reverses the flow: burning the wrapped token on LEZ entitles the holder to
 release the original ERC-20 from the vault, again on cryptographic proof alone.
 
-The bridge must achieve this **without letting a public observer connect a
-specific Ethereum deposit to the LEZ mint it funded, or a specific LEZ burn to
-the Ethereum release it triggered.** That privacy property is a hard requirement
-of the same standing as solvency, and it shapes the whole design: the deposit
-cannot name its LEZ destination, the burn cannot name its Ethereum destination,
-and no component other than the user may hold the information that connects
-them.
+The bridge must **maximise privacy on both legs, minimising the linkability
+between a specific Ethereum deposit and the LEZ mint it funded, or between a
+specific LEZ burn and the Ethereum release it triggered.** This shapes the
+design: the deposit should not name its LEZ destination, the burn should not
+name its Ethereum destination, and information that would connect them should
+stay with the user wherever the design permits it. Where a specific form of
+linkability cannot be avoided, the proposal must document why and what residual
+correlation results.
 
 Teams will need experience with zero-knowledge proof systems, privacy-preserving
 protocol design, Solidity smart-contract development, and LEZ program
@@ -104,27 +105,22 @@ wrapping creates a genuine LEZ-native representation of the external asset
 itself, which is what lets it be deposited into an AMM pool, posted as loan
 collateral, or otherwise composed with LEZ DeFi programs directly.
 
-### A transparent bridge would deanonymise the whole chain
+### Minimising linkability between Ethereum and LEZ events
 
-Privacy is not a nice-to-have here; it is the difference between this bridge
-strengthening LEZ's privacy guarantees and silently destroying them.
+Privacy is baked into LEZ, and this bridge should maximise privacy where it
+touches a non-private chain. Ethereum is public: the deposit and the release it
+eventually triggers are visible to anyone. A conventional lock-and-mint bridge
+adds to that a deposit event naming both the Ethereum depositor and the LEZ
+recipient, and a redemption event naming the Ethereum destination alongside the
+LEZ account that funded it, each permanently binding a traceable Ethereum
+identity to LEZ activity for anyone to read.
 
-A conventional lock-and-mint bridge publishes a deposit event naming both the
-Ethereum depositor and the LEZ recipient. That single event permanently binds a
-traceable Ethereum address to a LEZ account, for anyone to read. Because
-virtually all external collateral would enter LEZ through this one primitive,
-such a bridge becomes the canonical deanonymisation oracle for the entire chain:
-an observer needs only to scrape one Ethereum contract's logs to build an
-identity map covering most of LEZ's collateral base. Every downstream privacy
-feature is undermined at the point of entry, no matter how well those components
-protect data internally: private accounts, the privacy-preserving DEX
-([RFP-004](./RFP-004-privacy-preserving-dex.md)), shielded lending positions.
-Privacy that leaks at the on-ramp is not privacy.
-
-The redemption leg is symmetric and, if anything, worse: a burn naming its
-Ethereum destination publishes the exit address alongside the LEZ account that
-funded it, closing the loop and connecting a user's entire LEZ activity to their
-Ethereum identity at both ends.
+The applicant must consider and document the bridge's strategy for reducing
+linkability between an Ethereum deposit and the LEZ mint it funds, and between a
+LEZ burn and the Ethereum release it triggers. Where a specific form of
+linkability cannot be avoided, given what a lock-and-mint bridge to a public
+chain necessarily reveals, the applicant must document why, and what residual
+correlation an observer is left with as a result.
 
 ### Stablecoins are the concrete prize
 
