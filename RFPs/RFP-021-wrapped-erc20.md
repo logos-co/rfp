@@ -307,8 +307,12 @@ Wrapped tokens must not be minted against an Ethereum deposit that a reorg could
 still remove, and the vault must not release against a LEZ burn that is not yet
 final. Both directions require a configured finality condition on the source
 chain. The chosen depth is a direct trade-off between user-facing latency and
-reorg risk; proposals must document the depth chosen and the residual risk it
-leaves.
+reorg risk; proposals must recommend a specific default depth for each direction
+and document the residual risk it leaves. The depth must also be configurable by
+the admin authority per deployment, for the same reason the token registry is
+(see "Token registry and decimal normalisation" above): different deployers may
+reasonably want to strike the latency-versus-risk balance differently, and a
+fixed, hard-coded depth would foreclose that choice.
 
 Once a user's claim is valid it must remain valid indefinitely, since users are
 expected to delay their own submissions for privacy reasons and must never be
@@ -382,7 +386,12 @@ Use FURPS framework. Each numbered item should be a testable statement.
     authority, bound the maximum value that can be minted or released within a
     rolling window, as a rate limiter independent of the freeze authority. Cap
     enforcement must not require identifying individual users.
-13. A freeze authority (per RFP-002) can pause minting and/or redemption, either
+13. The finality depth required before a deposit may be claimed, and before a
+    burn may be released, is configurable by the admin authority per deployment,
+    defaulting to the depth recommended in Design Rationale, "Finality and reorg
+    protection." A change to the configured depth must not invalidate a claim or
+    release that was already valid under the previous depth.
+14. A freeze authority (per RFP-002) can pause minting and/or redemption, either
     globally or for a single registered token, on the Ethereum vault and the LEZ
     bridge program independently.
 
@@ -524,7 +533,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
 4. Caps (Functionality #12) bound the maximum value at risk in any rolling
    window; proposals must document recommended defaults and the reasoning behind
    them.
-5. The freeze authority (Functionality #13) must be exercisable independently on
+5. The freeze authority (Functionality #14) must be exercisable independently on
    each half, so either can be paused without the other being operational or
    reachable.
 6. Soundness of supply: total wrapped supply on LEZ must never exceed the
@@ -544,7 +553,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
    [Appendix: Bridges and Wrapped Tokens](../appendix/bridges-and-wrapped-tokens.md)).
    Proposals must document the chosen migration mechanism and how in-flight
    deposits and burns are honoured across a migration.
-9. The freeze authority (Functionality #13) stops new activity but does not by
+9. The freeze authority (Functionality #14) stops new activity but does not by
    itself recover funds already at risk or resolve deposits and burns left
    in-flight once a vulnerability in the verification logic is found. Proposals
    must specify a failsafe strategy for this scenario, constrained as follows:
