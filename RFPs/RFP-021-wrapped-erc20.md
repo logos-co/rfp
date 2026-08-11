@@ -82,13 +82,18 @@ missing primitive for the Ethereum leg. Bitcoin, Monero, and Zcash reach LEZ
 liquidity through a different route: direct, trustless swaps against LEZ assets
 via [RFP-003](./RFP-003-atomic-swaps.md), rather than a wrapped representation.
 
-RFP-003 explicitly carved Ethereum out of its scope for exactly this reason:
-"ETH is expected to reach LEZ via wrapping, which requires no swap counterparty
-and is a much simpler construction." Bitcoin, Monero, and Zcash lack general
-smart-contract expressiveness, so a trustless swap protocol is the only
-construction available for them. Ethereum's programmability makes a
-lock-and-mint bridge with a vault contract and zero-knowledge proof verification
-possible instead.
+RFP-003 explicitly carved Ethereum out of its scope for this reason. Bitcoin,
+Monero, and Zcash lack general smart-contract expressiveness, so a trustless
+swap protocol, which needs a counterparty online at the same time to complete
+the trade, is the only construction available for them. Ethereum's
+programmability makes a wrapping bridge possible instead, and wrapping is the
+better choice on every count that matters here: a deposit does not need a
+counterparty to be online, so the exchange is non-interactive; it needs no
+additional infrastructure such as a market of counterparties or order matching;
+and unlike a swap, which merely trades an external asset for one already on LEZ,
+wrapping creates a genuine LEZ-native representation of the external asset
+itself, which is what lets it be deposited into an AMM pool, posted as loan
+collateral, or otherwise composed with LEZ DeFi programs directly.
 
 ### A transparent bridge would deanonymise the whole chain
 
