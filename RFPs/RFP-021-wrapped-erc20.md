@@ -159,43 +159,29 @@ safety nets against both failure modes.
 
 ### The privacy requirement, stated precisely
 
-Two facts are fixed by the environment and cannot be designed away. Proposals
-must not claim otherwise:
+Deposit amount and depositor address, and release amount and recipient, are
+public on Ethereum by construction: ordinary token transfers, not designed away.
+The hard requirement is precise about what it covers instead: **no information
+other than amount, token, and timing may enable an adversary who observes all
+public state on both chains, indefinitely, and who may themselves deposit and
+redeem, to link an Ethereum deposit to the LEZ mint it funded, or a LEZ burn to
+the Ethereum release it triggered.**
 
-1. **The Ethereum deposit amount is public**, as is the depositor's address: it
-   is an ordinary ERC-20 transfer into the vault, sent by the depositor.
-2. **The Ethereum release amount and recipient are public**: the vault must move
-   real tokens to a real address.
+- **P1 (inbound).** No signal other than amount, token, and timing may narrow
+  down which LEZ mint an Ethereum deposit funded, beyond uniform probability
+  over the remaining candidates.
+- **P2 (outbound).** No signal other than amount, token, and timing may narrow
+  down which Ethereum release a LEZ burn triggered, beyond uniform probability
+  over the remaining candidates.
 
-Amount, token, and timing are therefore visible on Ethereum by construction, and
-a design that claimed otherwise would be wrong. The hard requirement is narrower
-and precise about what it covers: **no information other than amount, token, and
-timing may enable an adversary to link an Ethereum deposit to the LEZ mint it
-funded, or a LEZ burn to the Ethereum release it triggered.**
-
-Stated against an adversary who observes **all** public state on both chains,
-indefinitely, and who may themselves deposit and redeem:
-
-- **P1 (inbound).** Given an Ethereum deposit, the adversary cannot determine
-  which LEZ mint it funded using any signal other than amount, token, and
-  timing, with probability better than uniform over the set of candidate mints
-  those three signals leave unresolved.
-- **P2 (outbound).** Given a LEZ burn, the adversary cannot determine which
-  Ethereum release it triggered using any signal other than amount, token, and
-  timing, with probability better than uniform over the set of candidate
-  releases those three signals leave unresolved.
-
-Both properties are stated relative to an *anonymity set*, the set of candidates
-amount, token, and timing do not already narrow down, and both degrade to
-nothing when that set is small. Sizing, measuring, and surfacing the anonymity
-set is therefore a first-class requirement, not an implementation detail; so is
-minimising how far amount and timing narrow it in the first place (see Soft
-Requirement 1, Hidden amounts, below).
-
-Privacy is therefore preserved by making these public facts *uninformative about
-which counterparty they pair with*, not by attempting to hide them. The
-following is offered as orientation on how, not prescription; proposals are free
-to achieve the required properties by other means, provided they argue the case.
+Both are stated relative to this *anonymity set*, the candidates amount, token,
+and timing leave unresolved, and degrade to nothing when that set is small.
+Sizing and minimising it (amount and timing above all, see Soft Requirement 1,
+Hidden amounts, below) is a first-class requirement. Privacy comes from making
+these public facts *uninformative about which counterparty they pair with*, not
+from hiding them. The following is orientation on how, not prescription;
+proposals are free to achieve the required properties by other means, provided
+they argue the case.
 
 The well-understood construction for the destination side is a
 commitment-and-nullifier shielded pool on each leg: the deposit publishes a
