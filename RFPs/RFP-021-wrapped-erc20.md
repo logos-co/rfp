@@ -320,14 +320,43 @@ forced to act promptly to avoid expiry.
 
 ### Fee structure
 
-This RFP does not mandate a specific protocol fee rate. Proposals must specify
-who pays, when fees are collected, the exact rate, and where fees are routed. A
-governance-activatable fee switch with an initial zero rate, gated by the admin
-authority per RFP-001, is the recommended baseline, consistent with the pattern
-used elsewhere in the Logos RFP set (see [RFP-017](./RFP-017-token-vesting.md),
-"Fee structure"). Any fee paid by a user (protocol or relayer) must take a value
-that does not distinguish their transaction from others, since a distinctive fee
-is itself a fingerprint.
+Unlike the pattern used elsewhere in the Logos RFP set (see
+[RFP-017](./RFP-017-token-vesting.md), "Fee structure"), this RFP mandates a
+protocol fee on both minting (deposit-side) and burning (redemption-side) of the
+wrapped token on LEZ. The rate itself is not mandated: it must be configurable
+by the admin authority per deployment, for the same reason the token registry
+and finality depth are (see "Token registry and decimal normalisation" and
+"Finality and reorg protection" above), so different deployers can compete on
+sustainability and fee policy rather than being locked into one rate. This RFP
+does not mandate a fee on the Ethereum side; the focus here is the Logos
+ecosystem and its privacy-preserving LEZ side, and an Ethereum-side protocol fee
+is left to the proposal if it chooses to specify one.
+
+Proposals must specify:
+
+1. **Denomination.** Whether the fee is charged in the wrapped token itself, in
+   native LEZ tokens, or a mix of both, with the design rationale for the
+   choice. Charging in the wrapped token keeps the fee self-contained to the
+   asset being bridged and requires no separate LEZ balance from the user;
+   charging in native LEZ tokens routes value to the LEZ token instead and
+   requires the user (or their relayer) to hold it. Proposals may support more
+   than one denomination if the admin authority can select between them per
+   deployment.
+2. **Rate.** The initial rate and range, and the mechanism (a
+   governance-activatable fee switch gated by the admin authority per RFP-001 is
+   the expected baseline) by which the admin authority adjusts it per
+   deployment.
+3. **Collection point.** Whether the mint-side fee is deducted at claim time,
+   and the burn-side fee at burn or at release, and how partial amounts (after
+   fee deduction) interact with the fixed-denomination requirement in "The
+   privacy requirement, stated precisely," above.
+4. **Routing.** The destination of collected fees (protocol treasury, relayer
+   compensation, burn, or a combination).
+
+Whatever the denomination and rate, any fee paid by a user (protocol or relayer)
+must take a value that does not distinguish their transaction from others, since
+a distinctive fee is itself a fingerprint; this constraint applies regardless of
+which token the fee is charged in.
 
 ## ✅ Scope of Work
 
@@ -391,7 +420,13 @@ Use FURPS framework. Each numbered item should be a testable statement.
     defaulting to the depth recommended in Design Rationale, "Finality and reorg
     protection." A change to the configured depth must not invalidate a claim or
     release that was already valid under the previous depth.
-14. A freeze authority (per RFP-002) can pause minting and/or redemption, either
+14. A protocol fee is charged on both minting and burning of the wrapped token
+    on LEZ, in a denomination (wrapped token, native LEZ token, or a
+    configurable mix, per Design Rationale, "Fee structure") and at a rate
+    configurable by the admin authority per deployment. No fee is mandated on
+    the Ethereum side. The fee value must not distinguish a user's transaction
+    from others, consistent with Functionality #8.
+15. A freeze authority (per RFP-002) can pause minting and/or redemption, either
     globally or for a single registered token, on the Ethereum vault and the LEZ
     bridge program independently.
 
@@ -533,7 +568,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
 4. Caps (Functionality #12) bound the maximum value at risk in any rolling
    window; proposals must document recommended defaults and the reasoning behind
    them.
-5. The freeze authority (Functionality #14) must be exercisable independently on
+5. The freeze authority (Functionality #15) must be exercisable independently on
    each half, so either can be paused without the other being operational or
    reachable.
 6. Soundness of supply: total wrapped supply on LEZ must never exceed the
@@ -553,7 +588,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
    [Appendix: Bridges and Wrapped Tokens](../appendix/bridges-and-wrapped-tokens.md)).
    Proposals must document the chosen migration mechanism and how in-flight
    deposits and burns are honoured across a migration.
-9. The freeze authority (Functionality #14) stops new activity but does not by
+9. The freeze authority (Functionality #15) stops new activity but does not by
    itself recover funds already at risk or resolve deposits and burns left
    in-flight once a vulnerability in the verification logic is found. Proposals
    must specify a failsafe strategy for this scenario, constrained as follows:
