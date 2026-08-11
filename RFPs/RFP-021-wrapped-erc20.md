@@ -142,19 +142,31 @@ authority) is designed directly against that track record.
 
 ### The privacy requirement, stated precisely
 
-Two properties must hold against an adversary who observes **all** public state
-on both chains, indefinitely, and who may themselves deposit and redeem:
+Amount, token, and timing are not designed away: they are visible on Ethereum by
+construction (see "What cannot be hidden" below), and a design that claimed
+otherwise would be wrong. The hard requirement is narrower and precise about
+what it covers: **no information other than amount, token, and timing may enable
+an adversary to link an Ethereum deposit to the LEZ mint it funded, or a LEZ
+burn to the Ethereum release it triggered.**
+
+Stated against an adversary who observes **all** public state on both chains,
+indefinitely, and who may themselves deposit and redeem:
 
 - **P1 (inbound).** Given an Ethereum deposit, the adversary cannot determine
-  which LEZ mint it funded, with probability better than uniform over the
-  inbound anonymity set.
+  which LEZ mint it funded using any signal other than amount, token, and
+  timing, with probability better than uniform over the set of candidate mints
+  those three signals leave unresolved.
 - **P2 (outbound).** Given a LEZ burn, the adversary cannot determine which
-  Ethereum release it triggered, with probability better than uniform over the
-  outbound anonymity set.
+  Ethereum release it triggered using any signal other than amount, token, and
+  timing, with probability better than uniform over the set of candidate
+  releases those three signals leave unresolved.
 
-Both properties are stated relative to an *anonymity set*, and both degrade to
-nothing when that set is small. Sizing, measuring and surfacing the anonymity
-set is therefore a first-class requirement, not an implementation detail.
+Both properties are stated relative to an *anonymity set*, the set of candidates
+amount, token, and timing do not already narrow down, and both degrade to
+nothing when that set is small. Sizing, measuring, and surfacing the anonymity
+set is therefore a first-class requirement, not an implementation detail; so is
+minimising how far amount and timing narrow it in the first place (see "What
+cannot be hidden" below and Soft Requirement 1, Hidden amounts).
 
 ### What cannot be hidden
 
@@ -491,8 +503,9 @@ Use FURPS framework. Each numbered item should be a testable statement.
 
 1. **P1 must hold under test.** Provide an automated test that constructs a
    population of deposits and mints and asserts that no correlation derivable
-   from public state identifies the true pairing better than chance across the
-   anonymity set.
+   from public state, other than amount, token, and timing, identifies the true
+   pairing better than chance across the anonymity set those three signals leave
+   unresolved.
 2. **P2 must hold under test.** The equivalent test for burn-to-release
    pairings.
 3. No transaction argument, event, log, or account-state change on either chain
