@@ -436,17 +436,13 @@ Use FURPS framework. Each numbered item should be a testable statement.
     vault contract and LEZ bridge program design must be deployable, unmodified,
     against any EVM chain, with proofs and registrations scoped so a deposit or
     registration valid for one chain ID is never accepted as valid for another.
-17. On Ethereum, the design must allow multiple independent instances of the
-    vault contract to run at the same time, each deployed by a different entity.
-    On LEZ, where a program's identity is fixed by its bytecode and cannot be
-    redeployed, the bridge program must instead let multiple entities each
-    operate under their own independent configuration (token registry, fee
-    recipients and rates, admin authority, caps, finality depth) within a single
-    program deployment, with strict separation between them: one entity's
-    configuration must have no privileged access over another's configuration or
-    funds, as if each were a fully separate deployment. Document how a client
-    identifies and switches between configurations, and, on the Ethereum side,
-    between vault instances.
+17. The design must let multiple entities each operate under their own
+    independent configuration (token registry, fee recipients and rates, admin
+    authority, caps, finality depth) on the same pair of blockchain programs,
+    with strict separation between them: one entity's configuration must have no
+    privileged access over another's configuration or funds, as if each were a
+    fully separate deployment. Document how a client identifies and switches
+    between configurations.
 
 #### Usability
 
