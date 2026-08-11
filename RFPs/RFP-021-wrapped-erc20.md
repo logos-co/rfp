@@ -688,6 +688,21 @@ Use FURPS framework. Each numbered item should be a testable statement.
 7. Design the proof-system components as pluggable, so that future zkVM
    improvements, proof compression, or hardware acceleration can be adopted
    without restructuring the vault or the bridge program.
+8. **Gas-token bootstrapping.** An ERC-20 on Ethereum representing the native
+   gas token of a given Logos zone, where "minting" that ERC-20 is actually a
+   release of native gas token already escrowed on the LEZ side, and burning it
+   on Ethereum mints it back on LEZ, the inverse of this RFP's primary flow. The
+   goal is to let a user with no existing holdings on the zone acquire its gas
+   token via the bridge from Ethereum, so they are never blocked from their
+   first transaction by not already holding gas. If achievable, proposals should
+   treat this as symmetric to the primary flow (same privacy, caps, freeze
+   authority, and finality requirements apply to the gas-token leg) and document
+   how the Ethereum-side escrow of native gas token is funded and replenished,
+   since unlike a wrapped external asset, there is no independent market minting
+   new supply of it on Ethereum. If not achievable within this RFP's design, or
+   only achievable with materially different trust or custody assumptions than
+   the primary flow, document why, and what alternative bootstrapping mechanism
+   (a faucet, gas sponsorship, meta-transactions) would need to exist instead.
 
 ### Out of Scope
 
