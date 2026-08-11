@@ -183,24 +183,7 @@ and timing leave unresolved, and degrade to nothing when that set is small.
 Sizing and minimising it (amount and timing above all, see Soft Requirement 1,
 Hidden amounts, below) is a first-class requirement. Privacy comes from making
 these public facts *uninformative about which counterparty they pair with*, not
-from hiding them. The following is orientation on how, not prescription;
-proposals are free to achieve the required properties by other means, provided
-they argue the case.
-
-The well-understood construction for the destination side is a
-commitment-and-nullifier shielded pool on each leg: the deposit publishes a
-commitment rather than a destination, and the claimant later proves entitlement
-without revealing which deposit they are claiming, with a nullifier preventing
-double-claims. The redemption leg works the same way in reverse, which requires
-splitting redemption into two separately-timed stages so that the burn need not
-name its Ethereum destination. Minting into **private LEZ state** is the natural
-fit for the LEZ side of this, and keeps the recipient and balance off public
-view without additional machinery. A proof of source-chain consensus and state
-contains no user-specific data, so it can be produced by anyone and anchored
-on-chain permissionlessly, leaving the user's own device to prove only its own
-entitlement against it; this keeps user-specific proving cheap enough to run
-locally, which matters because whoever generates the entitlement proof learns
-the connection the design exists to protect.
+from hiding them.
 
 Three further consequences follow from what cannot be hidden, and proposals must
 address each:
