@@ -231,11 +231,11 @@ documented as such.
 
 ### Loss of access
 
-A wrapped token does not carry a bridge position with it: once minted, it is an
-ordinary LEZ token, and whoever holds it, however they acquired it (received
-directly from their own deposit, or bought on an AMM from someone else) can burn
-it and claim the underlying Ethereum asset. Redemption depends only on holding
-the token, never on the original depositor's credentials.
+Once minted, a wrapped token is an ordinary LEZ token: whoever holds it, however
+they acquired it (received directly from their own deposit, or bought on an AMM
+from someone else), can burn it and claim the underlying Ethereum asset.
+Redemption depends only on holding the token, never on the original depositor's
+credentials.
 
 The credentials-recovery problem is narrower than that, and specific to the two
 windows where a claim is outstanding: between depositing on Ethereum and
