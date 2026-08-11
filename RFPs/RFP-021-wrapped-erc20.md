@@ -436,13 +436,12 @@ Use FURPS framework. Each numbered item should be a testable statement.
     vault contract and LEZ bridge program design must be deployable, unmodified,
     against any EVM chain, with proofs and registrations scoped so a deposit or
     registration valid for one chain ID is never accepted as valid for another.
-17. The vault contract and the LEZ bridge program must be deployable as
-    independent instances: the same bytecode, deployed separately by different
-    entities, each with its own independent configuration (token registry, fee
-    recipients and rates, admin authority, caps, finality depth). One instance's
-    admin authority must have no privileged access over another instance's
-    configuration or funds. Document how a client identifies and switches
-    between deployed instances.
+17. The design must allow multiple independent deployments of the vault contract
+    and LEZ bridge program to run at the same time, each deployed and configured
+    by a different entity: its own token registry, fee recipients and rates,
+    admin authority, caps, and finality depth. One deployment's admin authority
+    must have no privileged access over another deployment's configuration or
+    funds. Document how a client identifies and switches between deployments.
 
 #### Usability
 
