@@ -281,12 +281,12 @@ registry cannot:
 
 Curation by a single admin authority is not the only way to satisfy these
 concerns, and this RFP does not mandate it as the only deployment model. Because
-the vault contract and bridge program are open source and independently
-deployable (Functionality #17), curation also enables competition: multiple
-entities or DAOs can each run their own deployment with their own token registry
-and admin policy, competing on the quality of curation and the resulting
-reputation of their specific wrapped tokens, rather than the ecosystem depending
-on one canonical, centrally-curated list.
+the design is open source, and supports multiple independently configured
+entities on both chains (Functionality #17), curation also enables competition:
+multiple entities or DAOs can each run their own configuration, with their own
+token registry and admin policy, competing on the quality of curation and the
+resulting reputation of their specific wrapped tokens, rather than the ecosystem
+depending on one canonical, centrally-curated list.
 
 Each supported ERC-20 is registered individually by the admin authority: its
 Ethereum contract address, its LEZ wrapped-token mint, its decimals, its
@@ -436,12 +436,17 @@ Use FURPS framework. Each numbered item should be a testable statement.
     vault contract and LEZ bridge program design must be deployable, unmodified,
     against any EVM chain, with proofs and registrations scoped so a deposit or
     registration valid for one chain ID is never accepted as valid for another.
-17. The design must allow multiple independent deployments of the vault contract
-    and LEZ bridge program to run at the same time, each deployed and configured
-    by a different entity: its own token registry, fee recipients and rates,
-    admin authority, caps, and finality depth. One deployment's admin authority
-    must have no privileged access over another deployment's configuration or
-    funds. Document how a client identifies and switches between deployments.
+17. On Ethereum, the design must allow multiple independent instances of the
+    vault contract to run at the same time, each deployed by a different entity.
+    On LEZ, where a program's identity is fixed by its bytecode and cannot be
+    redeployed, the bridge program must instead let multiple entities each
+    operate under their own independent configuration (token registry, fee
+    recipients and rates, admin authority, caps, finality depth) within a single
+    program deployment, with strict separation between them: one entity's
+    configuration must have no privileged access over another's configuration or
+    funds, as if each were a fully separate deployment. Document how a client
+    identifies and switches between configurations, and, on the Ethereum side,
+    between vault instances.
 
 #### Usability
 
