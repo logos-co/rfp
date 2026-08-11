@@ -133,7 +133,7 @@ markets and DEXes actually run on, which makes them a concrete target for this
 strategy: wrapping USDC, USDT, DAI, and WETH gives the lending protocol and the
 reflexive stablecoin a credible collateral base at launch.
 
-### Bridges are the most attacked category of infrastructure in DeFi
+### Bridge risks: hacking
 
 Chainalysis tracked over $2B stolen from cross-chain bridges in 2022 alone, 64%
 of all DeFi losses that year. Roughly half of that historical loss traces to
