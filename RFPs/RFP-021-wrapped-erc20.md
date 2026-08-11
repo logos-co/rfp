@@ -516,6 +516,21 @@ Use FURPS framework. Each numbered item should be a testable statement.
    [Appendix: Cross-Chain Bridge Hack Taxonomy](../appendix/bridge-hack-taxonomy.md)).
    Proposals must document the chosen migration mechanism and how in-flight
    deposits and burns are honoured across a migration.
+9. The freeze authority (Functionality #13) stops new activity but does not by
+   itself recover funds already at risk or resolve deposits and burns left
+   in-flight once a vulnerability in the verification logic is found. Proposals
+   must specify a failsafe strategy for this scenario, constrained as follows:
+   the failsafe must not become a backdoor, meaning any recovery must still be
+   claimed by the depositor or burner proving their own entitlement, the same
+   way an ordinary claim or redemption works (see Design Rationale, "Trust
+   model" and "Loss of access"), not by an admin authority or any other party
+   identifying who owns what and redirecting funds on their behalf; it must not
+   be able to mint, redirect, or release funds to any destination other than the
+   address or account the proof specifies; and it must not be able to act on
+   funds beyond what a specific, proven vulnerability put at risk. If no
+   mechanism satisfying these constraints is achievable, the proposal must
+   instead document explicitly why a failsafe should not be implemented, and
+   what happens to affected funds and in-flight positions in its absence.
 
 #### + Privacy Preservation
 
