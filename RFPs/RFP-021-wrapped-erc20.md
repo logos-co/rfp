@@ -258,6 +258,36 @@ that secret is lost, however it was backed up.
 
 ### Token registry and decimal normalisation
 
+The registry is admin-curated rather than permissionless: anyone can deploy an
+ERC-20 on Ethereum, and a bridge that minted a wrapped representation for any
+token a depositor names would inherit every failure mode of an open listing
+process. Curation defends against several distinct problems a permissionless
+registry cannot:
+
+- **Metadata and configuration errors.** A wrong symbol, name, or decimals value
+  in the LEZ mint, whether an honest mistake or deliberate, corrupts every
+  downstream integration that reads that metadata, and is exactly the class of
+  error the decimals-conversion requirement below exists to catch. Curated
+  registration is the point at which that check happens.
+- **Scam and impersonation tokens.** A permissionless registry lets anyone
+  deploy a token with a name or symbol crafted to be confused with an
+  established asset, and have the bridge mint a wrapped version
+  indistinguishable in a wallet UI from the real thing. Curation is what
+  prevents the bridge itself from becoming a vector for that.
+- **Unbounded registry growth.** Every registered token adds to on-chain state
+  that the bridge program and its clients must read and iterate over; an
+  open-ended, permissionless list of approved tokens has no bound on this cost,
+  where a curated registry does.
+
+Curation by a single admin authority is not the only way to satisfy these
+concerns, and this RFP does not mandate it as the only deployment model. Because
+the vault contract and bridge program are open source and anyone can deploy
+their own instance, curation also enables competition: multiple entities or DAOs
+can each run their own deployment with their own token registry and admin
+policy, competing on the quality of curation and the resulting reputation of
+their specific wrapped tokens, rather than the ecosystem depending on one
+canonical, centrally-curated list.
+
 Each supported ERC-20 is registered individually by the admin authority: its
 Ethereum contract address, its LEZ wrapped-token mint, its decimals, its
 permitted transfer amounts, and its per-token caps. ERC-20 tokens do not share a
