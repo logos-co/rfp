@@ -231,15 +231,24 @@ directly from their own deposit, or bought on an AMM from someone else) can burn
 it and claim the underlying Ethereum asset. Redemption depends only on holding
 the token, never on the original depositor's credentials.
 
-The credentials-recovery problem is narrower than that, and specific to the
-window between depositing on Ethereum and claiming the mint on LEZ: in any
-design meeting these requirements, the protocol cannot identify who owns what,
-so there is no administrative recovery path if a user loses the credentials
-needed to claim their own deposit before it is claimed. This is the largest UX
-risk in the RFP and must be designed against rather than disclaimed: a user must
-be able to recover every unclaimed deposit of their own from credentials they
-already hold and already back up. Requiring users to separately back up new
-secrets generated during a deposit is not acceptable.
+The credentials-recovery problem is narrower than that, and specific to the two
+windows where a claim is outstanding: between depositing on Ethereum and
+claiming the mint on LEZ, and between burning on LEZ and claiming the release on
+Ethereum. In any design meeting these requirements, the protocol cannot identify
+who owns what, so there is no administrative recovery path if a user loses
+access to a deposit or burn before it is claimed. This is the largest UX risk in
+the RFP and must be designed against rather than disclaimed: a user must be able
+to recover every one of their own unclaimed deposits and unreleased burns from
+their existing wallet seed alone, with no other information and no separately
+backed-up secret. Concretely, if data loss occurs between lock and mint, or
+between burn and release, the client must be able to rediscover and re-derive
+everything it needs from the user's seed plus on-chain state, with no dependence
+on locally-cached state that isn't recoverable that way. A construction where
+the claim or entitlement data can be regenerated from on-chain events or state
+(for example, re-deriving a proof from a deposit event the user's own keys can
+scan for) is preferred over one that generates an ad hoc secret at deposit or
+burn time with no on-chain trace, since the latter is unrecoverable the moment
+that secret is lost, however it was backed up.
 
 ### Token registry and decimal normalisation
 
