@@ -252,12 +252,21 @@ documented as such.
 
 ### Loss of access
 
-In any design meeting these requirements, the protocol cannot identify who owns
-what, so there is no administrative recovery path when a user loses access. This
-is the largest UX risk in the RFP and must be designed against rather than
-disclaimed: a user must be able to recover their full bridge position from
-credentials they already hold and already back up. Requiring users to separately
-back up new secrets generated during a deposit is not acceptable.
+A wrapped token does not carry a bridge position with it: once minted, it is an
+ordinary LEZ token, and whoever holds it, however they acquired it (received
+directly from their own deposit, or bought on an AMM from someone else) can burn
+it and claim the underlying Ethereum asset. Redemption depends only on holding
+the token, never on the original depositor's credentials.
+
+The credentials-recovery problem is narrower than that, and specific to the
+window between depositing on Ethereum and claiming the mint on LEZ: in any
+design meeting these requirements, the protocol cannot identify who owns what,
+so there is no administrative recovery path if a user loses the credentials
+needed to claim their own deposit before it is claimed. This is the largest UX
+risk in the RFP and must be designed against rather than disclaimed: a user must
+be able to recover every unclaimed deposit of their own from credentials they
+already hold and already back up. Requiring users to separately back up new
+secrets generated during a deposit is not acceptable.
 
 ### Token registry and decimal normalisation
 
@@ -339,10 +348,12 @@ Use FURPS framework. Each numbered item should be a testable statement.
     behalf must not thereby learn, or be able to prove, which deposit or burn it
     corresponds to. That party must not be able to alter the destination or take
     more than an agreed fee.
-10. A user must be able to recover their full bridge position (every claimable
-    deposit and every unredeemed burn) from credentials they already hold, with
-    no dependence on any server-side index and no separately-backed-up secret
-    generated during the flow.
+10. A user must be able to recover every one of their own unclaimed deposits and
+    unreleased burns from credentials they already hold, with no dependence on
+    any server-side index and no separately-backed-up secret generated during
+    the flow. This does not extend to the wrapped token itself: once minted, it
+    is an ordinary LEZ token redeemable by whoever holds it, regardless of who
+    made the original deposit.
 11. An admin authority (per RFP-001, integrated via the SPEL framework where
     applicable to the LEZ side) can register a supported ERC-20 (Ethereum
     address, LEZ wrapped mint, decimals, permitted amounts, caps) and deregister
