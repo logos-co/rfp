@@ -171,12 +171,14 @@ public state on both chains, indefinitely, and who may themselves deposit and
 redeem, to link an Ethereum deposit to the LEZ mint it funded, or a LEZ burn to
 the Ethereum release it triggered.**
 
-- **PP1 (inbound).** No signal other than amount, token, and timing may narrow
-  down which LEZ mint an Ethereum deposit funded, beyond uniform probability
-  over the remaining candidates.
-- **PP2 (outbound).** No signal other than amount, token, and timing may narrow
-  down which Ethereum release a LEZ burn triggered, beyond uniform probability
-  over the remaining candidates.
+- **Inbound.** No signal other than amount, token, and timing may narrow down
+  which LEZ mint an Ethereum deposit funded, beyond uniform probability over the
+  remaining candidates. Formalised as a testable requirement in Privacy
+  Preservation #1, below.
+- **Outbound.** No signal other than amount, token, and timing may narrow down
+  which Ethereum release a LEZ burn triggered, beyond uniform probability over
+  the remaining candidates. Formalised as a testable requirement in Privacy
+  Preservation #2, below.
 
 Both are stated relative to this *anonymity set*, the candidates amount, token,
 and timing leave unresolved, and degrade to nothing when that set is small.
@@ -553,12 +555,12 @@ Use FURPS framework. Each numbered item should be a testable statement.
     smart-contract security audit before mainnet deployment; the audit report
     must be published.
 09. Provide a **privacy properties document** covering: a formal statement of
-    PP1 and PP2 and the anonymity set each is measured against; exactly what is
-    visible on-chain at every step on both chains; what an adversary observing
-    all public state can and cannot infer; what every off-chain participant in
-    the design can observe; residual leakage from timing, amount selection, fee
-    payment, network metadata and usage patterns; and the conditions under which
-    the guarantees degrade or fail.
+    Privacy Preservation #1 and #2 and the anonymity set each is measured
+    against; exactly what is visible on-chain at every step on both chains; what
+    an adversary observing all public state can and cannot infer; what every
+    off-chain participant in the design can observe; residual leakage from
+    timing, amount selection, fee payment, network metadata and usage patterns;
+    and the conditions under which the guarantees degrade or fail.
 10. Document the anonymity-set growth model: expected set size over time at
     projected volumes, the minimum below which the guarantees are considered not
     to hold, and guidance for users bridging before the pool has matured.
@@ -633,13 +635,17 @@ Use FURPS framework. Each numbered item should be a testable statement.
 
 #### + Privacy Preservation
 
-1. **PP1 must hold under test.** Provide an automated test that constructs a
-   population of deposits and mints and asserts that no correlation derivable
-   from public state, other than amount, token, and timing, identifies the true
-   pairing better than chance across the anonymity set those three signals leave
-   unresolved.
-2. **PP2 must hold under test.** The equivalent test for burn-to-release
-   pairings.
+1. **Inbound unlinkability must hold under test.** No signal other than amount,
+   token, and timing may narrow down which LEZ mint an Ethereum deposit funded,
+   beyond uniform probability over the remaining candidates. Provide an
+   automated test that constructs a population of deposits and mints and asserts
+   that no correlation derivable from public state, other than amount, token,
+   and timing, identifies the true pairing better than chance across the
+   anonymity set those three signals leave unresolved.
+2. **Outbound unlinkability must hold under test.** No signal other than amount,
+   token, and timing may narrow down which Ethereum release a LEZ burn
+   triggered, beyond uniform probability over the remaining candidates. The
+   equivalent test for burn-to-release pairings.
 3. No transaction argument, event, log, or account-state change on either chain
    may reveal a deposit's LEZ destination or a burn's Ethereum destination.
    Provide a test asserting this over full event and state diffs for a complete
@@ -753,7 +759,8 @@ on redemption. This requires the token mint/burn authority primitives in
 #### Private LEZ account state
 
 Minting and burning must both support private LEZ accounts (Functionality #4,
-#6), and the privacy guarantees (PP1, PP2) apply when a user chooses that path.
+#6), and the privacy guarantees (Privacy Preservation #1, #2) apply when a user
+chooses that path.
 
 #### RISC0 zkVM
 
