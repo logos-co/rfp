@@ -711,13 +711,16 @@ Use FURPS framework. Each numbered item should be a testable statement.
    zone acquire gas from Ethereum, rather than being unable to make a first
    transaction for want of gas.
 
-   The same privacy, caps, freeze authority, and finality requirements apply to
-   this leg. Proposals taking it on must document how the Ethereum-side supply
-   of the ERC-20 is initially issued and replenished, since no external market
-   mints it the way it does a wrapped external asset. Proposals that judge it
-   out of reach here, or reachable only under different trust or custody
-   assumptions, should say why, and name the bootstrapping mechanism (faucet,
-   gas sponsorship, meta-transactions) that would be needed instead.
+   A proposal does not need to solve this. Committing to research it and to
+   report the findings is enough, and a proposal may also implement it. Either
+   way, the open question to address is how the Ethereum-side supply of the
+   ERC-20 is initially issued and replenished, since no external market mints it
+   the way one does for a wrapped external asset. If the conclusion is that this
+   cannot be done here, or only under different trust or custody assumptions
+   than the primary flow, the research should say why and name the bootstrapping
+   mechanism (faucet, gas sponsorship, meta-transactions) that would be needed
+   instead. Any implementation is held to the same privacy, caps, freeze
+   authority, and finality requirements as the primary flow.
 
 ### Out of Scope
 
