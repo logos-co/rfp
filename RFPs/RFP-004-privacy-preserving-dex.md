@@ -6,9 +6,9 @@ funding: $XXXXX
 status: closed
 dependencies:
   - id: LP-0013
-    reason: Token transfer-authority primitives are required for the DEX program to custody pool reserves, pay swap output, return LP deposits, and route trading fees.
+    reason: Token transfer-authority primitives are required for the DEX program to custody pool reserves, pay swap output, return LP deposits, and route trading fees to LPs and the protocol treasury.
   - id: RFP-001
-    reason: Provides the standardised admin authority library that governs the TWAP accumulator surface integrated per F.10 (per-pool tick-delta clamp, observation cardinality registration, as defined by RFP-019).
+    reason: Provides the standardised admin authority library that governs each DEX instance (protocol fee share and treasury address per F.11, F.12) and the TWAP accumulator surface integrated per F.10 (per-pool tick-delta clamp, observation cardinality registration, as defined by RFP-019).
   - id: LP-0015
     reason: General cross-program calls via tail calls, used to compose token transfers with reserve and state updates within a single atomic swap.
   - id: LP-0014
@@ -89,7 +89,8 @@ inherently fairer for all participants.
 06. The pool creator selects a fee tier at pool creation time (e.g., 0.01%,
     0.05%, 0.3%, 1%); the fee tier is immutable per pool. Multiple pools for the
     same token pair with different fee tiers can coexist. Trading fees are paid
-    by the trader and distributed to LPs.
+    by the trader and distributed to LPs, net of the protocol fee share defined
+    in F.11.
 07. Implement slippage protection with user-configurable tolerance and minimum
     output guarantees.
 08. The DEX program must be compatible with Associated Token Accounts (ATAs) for
@@ -112,42 +113,95 @@ inherently fairer for all participants.
     price accumulators are maintained. If the component is not yet available
     when the DEX is delivered, the program must expose the integration point so
     the component can be hooked in later without redesigning pool state.
+11. Implement a protocol fee: a configurable share of each pool's trading fee
+    that is diverted from LPs to a protocol treasury account. The protocol fee
+    is a share of the existing trading fee, not an additional charge on the
+    trader; the trader-facing fee tier selected under F.6 is unchanged by it.
+    The share and the treasury address are set by the instance's admin authority
+    (F.12) using the standardised library from
+    [RFP-001](./RFP-001-admin-authority-lib.md), and are updatable after
+    deployment. The share must be bounded by a hard cap enforced in program
+    code, so an admin authority cannot divert the whole trading fee away from
+    LPs; the proposal must state the cap and justify it. The initial share may
+    be zero (fee switch off), and setting it back to zero must be supported.
+    Updates apply only to fees accrued after the update, never retroactively to
+    fees already earned by LPs. This RFP does not mandate a specific share; see
+    [Appendix: DEX Ecosystem Behaviour, section 3](../appendix/dex-ecosystem-behaviour.md#3-trading-fees-paid-by-trader-distributed-to-lps)
+    for the protocol-share split across surveyed protocols.
+12. Support several independent instances of the DEX coexisting on the same
+    chain. Each instance has its own admin authority, protocol fee share,
+    treasury, and set of pools; no global or singleton state may be shared
+    across instances. An instance is created permissionlessly, and pool
+    addresses must be derived such that pools of different instances never
+    collide, even for the same token pair and fee tier. Every state-changing
+    instruction must resolve pool, vault, treasury, and admin accounts against
+    the instance the pool belongs to, and reject accounts belonging to another
+    instance. Deploying a second instance must not require redeploying or
+    modifying the program.
 
 #### Usability
 
-1. Provide an SDK that can be used to build Logos modules for interacting with
-   the DEX (swapping, pool creation, liquidity management). When the user
-   interacts from a private account, the SDK must handle the atomic deshield —
-   transferring both the swap token and a small amount of native token for gas —
-   as a single indivisible action, preventing accidental privacy leaks from
-   externally funding account A.
-2. Provide a Logos mini-app GUI with local build instructions, downloadable
-   assets, and loadable in Logos app (Basecamp) via git repo.
-3. Provide a CLI that covers core functionality of the program (pool creation,
-   swapping, LP management). The CLI may have fewer features than the GUI
-   mini-app but must support all essential operations.
-4. Provide an IDL for the DEX program, preferably using the
-   [SPEL framework](https://github.com/logos-co/spel).
-5. Provide a pool analytics view showing aggregate volume, TVL, and fee revenue
-   without revealing individual positions.
-6. Documentation must clearly explain what information is public vs. private for
-   each action (trade size and pool used are visible on-chain; the private
-   account that originated or receives the funds is not traceable).
-7. Failed or rejected swaps must return clear, actionable error messages.
-8. Before each swap or liquidity operation, the mini-app must show the estimated
-   transaction fee. When the user interacts from a private account, it must also
-   confirm that the shielded balance covers both the operation amount and fees
-   within the single deshield action; a clear, actionable error must be shown if
-   the balance is insufficient (preventing partial deshields that could leave
-   funds stranded in an ephemeral account).
-9. The mini-app must display a swap preview before the user confirms: estimated
-   output amount, effective price, price impact, and fee taken, so the user can
-   evaluate the trade before confirming.
+01. Provide an SDK that can be used to build Logos modules for interacting with
+    the DEX (swapping, pool creation, liquidity management). When the user
+    interacts from a private account, the SDK must handle the atomic deshield —
+    transferring both the swap token and a small amount of native token for gas
+    — as a single indivisible action, preventing accidental privacy leaks from
+    externally funding account A.
+02. Provide a Logos mini-app GUI with local build instructions, downloadable
+    assets, and loadable in Logos app (Basecamp) via git repo.
+03. Provide a CLI that covers core functionality of the program (pool creation,
+    swapping, LP management). The CLI may have fewer features than the GUI
+    mini-app but must support all essential operations.
+04. Provide an IDL for the DEX program, preferably using the
+    [SPEL framework](https://github.com/logos-co/spel).
+05. Provide a pool analytics view showing aggregate volume, TVL, and fee revenue
+    without revealing individual positions.
+06. Documentation must clearly explain what information is public vs. private
+    for each action (trade size and pool used are visible on-chain; the private
+    account that originated or receives the funds is not traceable).
+07. Failed or rejected swaps must return clear, actionable error messages.
+08. Before each swap or liquidity operation, the mini-app must show the
+    estimated transaction fee. When the user interacts from a private account,
+    it must also confirm that the shielded balance covers both the operation
+    amount and fees within the single deshield action; a clear, actionable error
+    must be shown if the balance is insufficient (preventing partial deshields
+    that could leave funds stranded in an ephemeral account).
+09. The mini-app must display a swap preview before the user confirms: estimated
+    output amount, effective price, price impact, and fee taken, so the user can
+    evaluate the trade before confirming.
+10. The SDK, CLI, and mini-app must let the caller select which DEX instance to
+    operate against, and must make the active instance visible in the mini-app.
+    Pools of different instances must never be silently mixed in quotes,
+    routing, or LP position listings.
+11. The mini-app and CLI must show the current protocol fee share for the
+    instance in use, and the swap preview (U.9) must break the fee down into the
+    LP share and the protocol share. The pool analytics view (U.5) must report
+    protocol fee revenue separately from LP fee revenue.
+12. The SDK, CLI, and mini-app must expose the admin operations for an instance:
+    setting the protocol fee share, setting the treasury address, and the admin
+    authority transfer and renunciation operations provided by RFP-001.
+    Attempting an admin operation without the admin authority must fail with a
+    clear, actionable error.
 
 #### Reliability
 
 1. Pool state must remain consistent under concurrent swap submissions; no
    double-spend or incorrect pool balance.
+2. Instances must be isolated: an operation on a pool of one instance must never
+   read or write the state, vaults, or treasury of another instance, and an
+   admin authority must never be able to change the parameters of an instance it
+   does not govern. This must hold even when an attacker supplies deliberately
+   mismatched accounts from a second instance.
+3. Protocol fee accounting must be exact: for every swap, the sum of the LP
+   share and the protocol share equals the trading fee charged to the trader,
+   with rounding resolved in favour of the pool (LPs) rather than the treasury.
+   Accrued protocol fees must be tracked so that they are never paid out of LP
+   principal, and a protocol fee share of zero must leave the full trading fee
+   with LPs.
+4. A protocol fee update must not be applicable to a swap already in flight in a
+   way that changes the fee split the trader was quoted; the split applied is
+   the one in effect when the swap executes, and the swap must respect the
+   trader's slippage bound (F.7) regardless.
 
 #### Performance
 
@@ -161,23 +215,33 @@ inherently fairer for all participants.
 
 #### Supportability
 
-1. The DEX program is deployed and tested on LEZ devnet/testnet.
-2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
-   and are included in CI.
-3. CI must be green on the default branch.
-4. Every hard requirement in Functionality, Usability, Reliability, and
-   Performance has at least one corresponding test.
-5. A README documents end-to-end usage: deployment steps, program addresses, and
-   step-by-step instructions for interacting with the DEX via CLI and front-end
-   (pool creation, swapping, LP management).
-6. Submit a
-   [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-   for the SDK, covering the developer integration journey for pool creation,
-   swapping, and liquidity management.
-7. Submit a
-   [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-   for the CLI, covering the core operator/user journey.
-8. Provide Figma designs or equivalent for the mini-app GUI.
+01. The DEX program is deployed and tested on LEZ devnet/testnet.
+02. End-to-end integration tests run against a LEZ sequencer (standalone mode)
+    and are included in CI.
+03. CI must be green on the default branch.
+04. Every hard requirement in Functionality, Usability, Reliability, and
+    Performance has at least one corresponding test.
+05. A README documents end-to-end usage: deployment steps, program addresses,
+    and step-by-step instructions for interacting with the DEX via CLI and
+    front-end (pool creation, swapping, LP management). It must also document
+    how to create a new instance, how instance and pool addresses are derived,
+    and how the admin authority configures the protocol fee share and treasury.
+06. Integration tests must cover at least two instances coexisting on the same
+    deployment: pools with the same token pair and fee tier in each instance,
+    swaps and liquidity operations against both, and negative tests that supply
+    accounts from the wrong instance and assert rejection (Reliability R.2).
+07. Integration tests must cover the protocol fee across a zero share, a
+    non-zero share, and an update between the two, asserting the fee split,
+    treasury balance, and LP entitlement in each case, and asserting that a
+    share above the cap is rejected.
+08. Submit a
+    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+    for the SDK, covering the developer integration journey for pool creation,
+    swapping, and liquidity management.
+09. Submit a
+    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+    for the CLI, covering the core operator/user journey.
+10. Provide Figma designs or equivalent for the mini-app GUI.
 
 #### + Privacy
 
@@ -223,6 +287,48 @@ The following are explicitly excluded from this RFP:
   not. See
   [Appendix: DEX Ecosystem Behaviour, section 10](../appendix/dex-ecosystem-behaviour.md#10-reserve-reconciliation-sync-and-skim).
 
+### Fee Structure
+
+The trading fee is set by the pool's immutable fee tier (F.6) and is paid by the
+trader. The protocol fee (F.11) does not add to what the trader pays: it is a
+share carved out of that trading fee before the remainder accrues to LPs. A
+share of zero means LPs receive the entire trading fee, which is the behaviour
+of Uniswap V2 before its fee switch was activated.
+
+This mirrors the ecosystem. Every protocol surveyed in
+[Appendix: DEX Ecosystem Behaviour, section 3](../appendix/dex-ecosystem-behaviour.md#3-trading-fees-paid-by-trader-distributed-to-lps)
+splits a single trader-paid fee between LPs and the protocol rather than
+charging two separate fees: Uniswap V2 takes 1/6 of the 0.3% fee
+(post-UNIfication), Raydium CLMM routes 12% to RAY buybacks and 4% to treasury,
+and Orca Whirlpools routes 12% to the DAO treasury and 1% to its Climate Fund.
+Uniswap V4 and Balancer V3 make the protocol share configurable per pool.
+
+The RFP does not mandate a share. It requires that the share be admin-settable,
+bounded by a cap in program code, and defaulted in a way the proposal justifies.
+The cap exists because an unbounded share would let an admin authority take the
+entire trading fee, which changes the economics LPs signed up for after they
+have already deposited.
+
+### Multiple Instances
+
+The program must support several independent instances on the same chain (F.12)
+rather than assuming a single canonical deployment. Each instance carries its
+own admin authority, protocol fee share, treasury, and pools.
+
+This matters for three reasons. First, it lets the Logos ecosystem run a
+reference instance while others deploy their own with different fee policy,
+without competing for a single global state account or asking a foreign admin
+authority for permission. Second, it keeps the blast radius of an admin
+authority small: a compromised or misconfigured admin can affect only the pools
+of its own instance. Third, it makes testing and staged rollout practical, since
+a test instance can run alongside a production one on the same deployment.
+
+The requirement is a constraint on program state layout: no global singleton
+accounts, and address derivation that includes the instance so that pools for
+the same token pair and fee tier in two instances never collide. Retrofitting
+this after the fact means redesigning pool state, which is why it is a hard
+requirement rather than a soft one.
+
 ### Privacy Architecture
 
 All DEX liquidity pools are public on-chain state. User privacy is enforced at
@@ -253,7 +359,9 @@ liquidity):
 #### What is public (observable on-chain)
 
 - All pool state: token pair, fee tier, total TVL, cumulative volume, current
-  price.
+  price, and the instance the pool belongs to.
+- All instance state: admin authority, protocol fee share, treasury address, and
+  accrued protocol fee revenue.
 - All swap and liquidity transactions: trade size, direction, and the
   originating account address (the ephemeral intermediary account for private
   account interactions, the user's public account otherwise).
@@ -288,11 +396,13 @@ currently **open**.
 
 #### Admin authority (RFP-001)
 
-The TWAP accumulator component integrated per Functionality requirement F.10
-carries admin-governed parameters defined by
-[RFP-019](./RFP-019-twap-oracle.md): the per-pool tick-delta clamp
+Each DEX instance is governed by its own admin authority (Functionality
+requirement F.12), which configures the protocol fee share and the treasury
+address (F.11) and can be transferred or renounced. The TWAP accumulator
+component integrated per F.10 carries further admin-governed parameters defined
+by [RFP-019](./RFP-019-twap-oracle.md): the per-pool tick-delta clamp
 (`MAX_TICK_DELTA`) and observation cardinality registration are owner-gated.
-Managing them uses the standardised admin authority library from
+Managing all of these uses the standardised admin authority library from
 [RFP-001](./RFP-001-admin-authority-lib.md). The RFP is closed (candidate
 picked) and the library is in development.
 
@@ -351,9 +461,9 @@ relying on it.
 
 LEZ currently processes one private transaction per block (as of 2026-04). A
 swap that deshields, transfers into the pool vault, computes output, transfers
-output, re-shields, and updates reserves is compute-intensive. On Solana, where
-the per-instruction default is 200,000 compute units and the per-transaction
-maximum is 1.4M compute units (see
+output, re-shields, updates reserves, and accounts the protocol fee share is
+compute-intensive. On Solana, where the per-instruction default is 200,000
+compute units and the per-transaction maximum is 1.4M compute units (see
 [Solana compute budget](https://solana.com/docs/core/fees/compute-budget)), a
 multi-step settlement consumes hundreds of thousands of compute units; the exact
 figure for LEZ depends on the implementation. If LEZ's per-transaction compute
