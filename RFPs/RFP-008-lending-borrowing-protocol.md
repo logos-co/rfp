@@ -2,7 +2,7 @@
 id: RFP-008
 title: Lending & Borrowing Protocol
 tier: XL
-status: open
+status: closed
 category: Applications & Integrations
 dependencies:
   - id: LP-0013
