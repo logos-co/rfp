@@ -11,7 +11,6 @@ body:
       label: RFP ID
       description: Which RFP are you applying for? Pick the matching RFP — this drives the per-RFP label used for tracking.
       options:
-        - "RFP-008 — Lending & Borrowing Protocol"
         - "RFP-012 — Curated Lending Vaults"
         - "RFP-014 — Liquidation & Auction Engine"
         - "RFP-015 — Token Launchpad: Bonding Curve"
