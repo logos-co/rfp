@@ -714,23 +714,13 @@ Use FURPS framework. Each numbered item should be a testable statement.
    improvements, proof compression, or hardware acceleration can be adopted
    without restructuring the vault or the bridge program.
 
-8. **Gas-token bootstrapping.** Run the bridge in reverse for a zone's native
-   gas token: an ERC-20 on Ethereum represents it, locking that ERC-20 on
-   Ethereum releases native gas token on LEZ, and locking gas token on LEZ
-   releases the ERC-20 on Ethereum. This lets a user who holds nothing on the
-   zone acquire gas from Ethereum, rather than being unable to make a first
-   transaction for want of gas.
-
-   A proposal does not need to solve this. Committing to research it and to
-   report the findings is enough, and a proposal may also implement it. Either
-   way, the open question to address is how the Ethereum-side supply of the
-   ERC-20 is initially issued and replenished, since no external market mints it
-   the way one does for a wrapped external asset. If the conclusion is that this
-   cannot be done here, or only under different trust or custody assumptions
-   than the primary flow, the research should say why and name the bootstrapping
-   mechanism (faucet, gas sponsorship, meta-transactions) that would be needed
-   instead. Any implementation is held to the same privacy, caps, freeze
-   authority, and finality requirements as the primary flow.
+8. **Reverse direction for a zone's native gas token**, letting a user who holds
+   nothing on the zone acquire gas from Ethereum, is delivered separately by
+   [RFP-023](./RFP-023-gas-token-bridge.md), which inverts the roles so that the
+   LEZ program is the vault and the Ethereum contract is the minter. It builds
+   on the vault, mint, and privacy construction specified here. Proposals for
+   this RFP are not asked to address it, but should avoid design choices that
+   would make the reverse direction harder to build on the same patterns.
 
 ### Out of Scope
 
@@ -870,6 +860,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [RFP-022 — Trustless Ethereum State Attestation for LEZ](./RFP-022-ethereum-state-attestation.md)
   (delivers the verification of finalised Ethereum state that the inbound mint
   path consumes)
+- [RFP-023 — Native Gas Token Bridge for LEZ](./RFP-023-gas-token-bridge.md)
+  (the reverse direction, with LEZ as the vault, built on this RFP's patterns)
 - [LP-0012: Event/Log mechanism for LEZ](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)
 - [LP-0013: Token program improvements: authorities](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0013.md)
 - [RISC0 — Zero-Knowledge VM](https://github.com/risc0/risc0)
