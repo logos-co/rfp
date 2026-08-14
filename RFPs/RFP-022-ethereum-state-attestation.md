@@ -77,8 +77,8 @@ the RISC0 zkVM.
 ## 🔥 Why This Matters
 
 Every LEZ program that wants to react to something that happened on Ethereum
-faces the same problem, and today each would have to solve it independently. Two
-workstreams already need it, and they need the same thing:
+faces the same problem, and today each would have to solve it independently.
+Three workstreams already need it, and they need the same thing:
 
 - **The wrapped-token bridge** ([RFP-021](./RFP-021-wrapped-erc20.md)). An
   Ethereum vault escrows an ERC-20 or native ETH and a LEZ program mints a
@@ -94,14 +94,20 @@ workstreams already need it, and they need the same thing:
   verified escrow statement, with no mint and no wrapped asset created. This is
   the read-only consumer, using the same attestation with no minting action
   attached.
+- **The native gas token bridge** ([RFP-023](./RFP-023-gas-token-bridge.md)).
+  The reverse-direction counterpart to RFP-021, in which LEZ is the vault and
+  Ethereum the minter. Releasing native gas token from the LEZ vault requires
+  proof that the corresponding ERC-20 was really burned on Ethereum, which is
+  another verified statement over finalised Ethereum state, consumed by a
+  program doing something different again with it.
 
-The two consumers do different things with the statement and carry different
-trust and compliance surfaces, but they rely on the same attestation. That is
-the case for building it once, as a shared primitive with a single audited
-verification path, rather than twice inside two applications. It also means the
-hardest and most security-critical part of a cross-chain design (consensus
-verification) gets one audit, one test suite, and one set of documented trust
-assumptions, instead of one per consumer.
+These consumers do different things with the statement and carry different trust
+and compliance surfaces, but they rely on the same attestation. That is the case
+for building it once, as a shared primitive with a single audited verification
+path, rather than separately inside each application. It also means the hardest
+and most security-critical part of a cross-chain design (consensus verification)
+gets one audit, one test suite, and one set of documented trust assumptions,
+instead of one per consumer.
 
 Building it once has a second consequence worth stating: it lowers the barrier
 for any future LEZ program that wants to read Ethereum. Cross-chain lending
@@ -610,6 +616,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   verification core between a library and a program deployment shape)
 - [RFP-021 — Privacy-Preserving Wrapped ERC-20 and Ether Bridge for LEZ](./RFP-021-wrapped-erc20.md)
   (primary consumer; the mint side depends on this attestation)
+- [RFP-023 — Native Gas Token Bridge for LEZ](./RFP-023-gas-token-bridge.md)
+  (consumer; the gas-token release path depends on this attestation)
 - [Appendix: Bridges and Wrapped Tokens](../appendix/bridges-and-wrapped-tokens.md)
   (bridge failure taxonomy, including verification-logic bugs)
 - [LP-0012: Event/Log mechanism for LEZ](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)

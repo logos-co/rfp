@@ -14,6 +14,7 @@ body:
         - "RFP-005 — Multisig and Coordination"
         - "RFP-021 — Wrapped ERC-20 Bridge for LEZ"
         - "RFP-022 — Trustless Ethereum State Attestation for LEZ"
+        - "RFP-023 — Native Gas Token Bridge for LEZ"
     validations:
       required: true
 
