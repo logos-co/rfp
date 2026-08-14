@@ -5,6 +5,8 @@ tier: L
 status: open
 category: Developer Tooling & Infrastructure
 dependencies:
+  - id: RFP-022
+    reason: The trustless Ethereum state attestation primitive is what the LEZ bridge program uses to verify a deposit really happened on Ethereum, as specified in Functionality.
   - id: RFP-001
     reason: Admin authority governs the supported-token registry and the deposit/redemption caps, as specified in Functionality.
   - id: RFP-002
@@ -54,9 +56,12 @@ and exit back to Ethereum on redemption.
 
 An Ethereum-side vault contract escrows deposits. A LEZ-side program mints the
 corresponding wrapped token once it has cryptographically verified, with no
-trusted intermediary, that the deposit really happened on Ethereum. Redemption
-reverses the flow: burning the wrapped token on LEZ entitles the holder to
-release the original ERC-20 from the vault, again on cryptographic proof alone.
+trusted intermediary, that the deposit really happened on Ethereum; that
+verification is the attestation primitive specified in
+[RFP-022](./RFP-022-ethereum-state-attestation.md), which this RFP consumes
+rather than rebuilds. Redemption reverses the flow: burning the wrapped token on
+LEZ entitles the holder to release the original ERC-20 from the vault, again on
+cryptographic proof alone.
 
 The bridge must **maximise privacy on both legs, minimising the linkability
 between a specific Ethereum deposit and the LEZ mint it funded, or between a
@@ -389,7 +394,12 @@ Use FURPS framework. Each numbered item should be a testable statement.
     account that will receive the wrapped tokens.
 03. Implement a LEZ bridge program that mints the corresponding wrapped token on
     cryptographic verification of a valid Ethereum deposit. Verification must
-    require no trusted party.
+    require no trusted party, and must consume the attestation primitive from
+    [RFP-022](./RFP-022-ethereum-state-attestation.md) rather than implementing
+    its own Ethereum consensus and inclusion verification. Uniqueness (that one
+    deposit cannot be minted against twice, per Reliability #3) is this
+    program's responsibility, keyed on the statement identifier the attestation
+    carries.
 04. Minting must support both a private LEZ account and a public LEZ account as
     the destination, at the depositor's choice.
 05. Implement a burn path on the LEZ bridge program that entitles the holder to
@@ -746,6 +756,19 @@ The following are explicitly excluded from this RFP:
 
 ### Hard dependencies
 
+#### Ethereum state attestation (RFP-022)
+
+The inbound leg mints only against a deposit proven to have been finalised on
+Ethereum, with no signer or federation trusted to attest to it (Functionality
+#3). That verification, establishing Ethereum finality, proving inclusion of the
+deposit under a finalised header, and emitting a verified statement, is
+delivered as a shared primitive by
+[RFP-022](./RFP-022-ethereum-state-attestation.md). This RFP consumes it and
+does not rebuild it, so that the consensus verification path is audited once and
+shared with the other LEZ programs that need to read Ethereum state. The
+outbound leg, verifying a LEZ burn natively on Ethereum, is specific to this
+bridge and remains in scope here.
+
 #### Admin authority (RFP-001)
 
 The Functionality requirements specify that an admin authority registers and
@@ -781,10 +804,11 @@ The UI must use the wallet SDK from the Lambda Prize wallet-SDK work.
 
 #### RISC0 zkVM
 
-The bridge verifies proofs of consensus and state in-program on LEZ. Because LEZ
-itself runs on RISC0, a production-ready zkVM, this leg of the design is a
-LEZ-runtime dependency rather than a choice the proposal makes; proposals must
-leverage mature RISC0 implementations (e.g.
+The bridge verifies proofs in-program on LEZ (the deposit attestation from
+RFP-022 on the inbound leg, and the bridge's own claim and burn logic
+throughout). Because LEZ itself runs on RISC0, a production-ready zkVM, this leg
+of the design is a LEZ-runtime dependency rather than a choice the proposal
+makes; proposals must leverage mature RISC0 implementations (e.g.
 [Zisk](https://github.com/risc0/zisk)) for LEZ-side proving rather than building
 custom circuits.
 
@@ -843,6 +867,9 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   external assets as priced collateral)
 - [RFP-020 — RedStone Off-Chain Oracle Adaptor for LEZ](./RFP-020-redstone-oracle-adaptor.md)
   (reference for in-program proof verification cost measurement)
+- [RFP-022 — Trustless Ethereum State Attestation for LEZ](./RFP-022-ethereum-state-attestation.md)
+  (delivers the verification of finalised Ethereum state that the inbound mint
+  path consumes)
 - [LP-0012: Event/Log mechanism for LEZ](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)
 - [LP-0013: Token program improvements: authorities](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0013.md)
 - [RISC0 — Zero-Knowledge VM](https://github.com/risc0/risc0)
