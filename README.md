@@ -1,4 +1,31 @@
-![Banner](/public/logos-rfps.png)
+# Cedar Protocol
+
+Cedar is a Morpho Blue equivalent on LEZ, designed to bring lending functionality to the Logos ecosystem. This README provides an overview of the project, its build instructions, and other relevant information.
+
+## Build Instructions
+
+To build the Cedar Protocol, follow these steps:
+
+1. Ensure you have Rust installed. You can install it from [rustup.rs](https://rustup.rs/).
+2. Install the necessary dependencies for LEZ and SPEL.
+3. Run `make build` to compile the code.
+
+## Project Structure
+
+The project is organized as follows:
+
+- `cedar_core/`: Shared crate containing instruction enums, account layouts, PDA-seed builders, and pure math.
+- `irm-core/`: No-std crate for AdaptiveCurveIRM math.
+- `methods/guest/`: RISC Zero zkVM guest binaries for Cedar lending and IRM.
+- `app/core/`: Rust FFI core module without GUI.
+- `app/gui/`: QML + C++ Basecamp module wrapping `app/core`.
+- `app/cli/`: CLI over `app/core`.
+- `services/liquidator/`: Reference liquidator daemon over `app/core`.
+- `services/risk-monitor/`: Reference risk monitor over `app/core`.
+
+## License
+
+All code is licensed under the MIT + Apache-2.0 dual license.
 
 # Logos RFP Program
 

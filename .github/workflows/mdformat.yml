@@ -1,13 +1,45 @@
 name: Check Markdown formatting
-
-# Verifies all Markdown is formatted per .mdformat.toml (number = true,
-# wrap = 80). Run `mdformat .` locally to fix any failures.
-
 on:
-  pull_request:
   push:
-    branches: [master]
-
+    branches:
+      - main
+  pull_request:
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+      - name: Install mdformat
+        run: |
+          pip install mdformat mdformat-gfm mdformat-frontmatter
+      - name: Check Markdown formatting
+        run: mdformat --check .
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+      - name: Install mdformat
+        run: |
+          pip install mdformat mdformat-gfm mdformat-frontmatter
+      - name: Check Markdown formatting
+        run: mdformat --check .
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+      - name: Install mdformat
+        run: |
+          pip install mdformat mdformat-gfm mdformat-frontmatter
+      - name: Check Markdown formatting
+        run: mdformat --check .
 jobs:
   mdformat:
     runs-on: ubuntu-latest
