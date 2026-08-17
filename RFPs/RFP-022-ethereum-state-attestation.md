@@ -462,24 +462,39 @@ Use FURPS framework. Each numbered item should be a testable statement.
    and inclusion proof over state that was never finalised on the canonical
    chain, verification must fail. This is the central adversarial test of the
    RFP and must be exercised explicitly, not implied by other tests.
+
 2. Verification must reject: a header signed by a committee that was never
    validly handed off from the configured checkpoint; a sync-committee signature
    below the required participation threshold; a valid inclusion proof against a
    header that is not finalised; a valid finalised header with a tampered state
    or receipts root; a proof replayed against a different chain ID; and a
    predicate asserted over state the inclusion proof does not cover.
-3. The verifier must be deployed as an immutable program with an explicit
-   migration path (deploy a new version, redirect consumers to it) in preference
-   to an upgradeable one governed by a mutable key. Legitimate, authorised
-   upgrades have shipped catastrophic verification bugs in production bridges
-   (see
+
+3. **Verification logic must be fixed at deployment.** LEZ program code is
+   immutable by construction, since a `ProgramId` is the RISC0 image ID computed
+   from the bytecode and the deployed-program registry is append-only, so this
+   requirement is about indirection rather than upgradeability: the module must
+   not reach any part of its consensus or inclusion verification through a
+   `ProgramId` held in mutable account state, or any equivalent that lets a
+   party repoint it after deployment. Legitimate, authorised upgrades have
+   shipped catastrophic verification bugs in production bridges (see
    [Appendix: Bridges and Wrapped Tokens](../appendix/bridges-and-wrapped-tokens.md)),
-   which an immutable program forecloses by construction. Document the migration
-   mechanism and how consumers are expected to move across a migration.
+   and a repointable verifier reintroduces that risk in a different form. Change
+   is delivered by deploying a new version and having consumers move to it;
+   document the migration mechanism and what consumers must do.
+
+   Because consumers reference this module by its image ID, the same discipline
+   applies on their side, and the consumer documentation (Supportability #6)
+   must say so: a consuming program that holds this module's `ProgramId` in
+   mutable state inherits exactly the risk this requirement removes, since
+   whoever controls that pointer can substitute a module that attests to
+   anything.
+
 4. Document the failure modes that follow from a compromised or colluding sync
    committee, and what a consuming application can do to bound its exposure (for
    example, caps and freeze authorities on the consumer side, as
    [RFP-021](./RFP-021-wrapped-erc20.md) specifies).
+
 5. User-facing and developer-facing documentation must state the trustless
    verification model and the liveness-only role of any off-chain participant
    (see Design Rationale, "The anchor: Ethereum finality via the sync

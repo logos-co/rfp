@@ -156,16 +156,34 @@ cryptographic design does not remove, because it depends on that logic being
 correct (see
 [Appendix: Bridges and Wrapped Tokens](../appendix/bridges-and-wrapped-tokens.md)
 for the sourced figures, per-hack root causes, and the exact Chainalysis
-citation). A verifier deployed as an upgradeable contract carries a related risk
-one layer down: no cross-chain bridge hack has traced to a stolen upgrade key,
-but legitimate, authorised upgrades have shipped catastrophic verification bugs
-(Nomad; a second Ronin incident in 2024), which an immutable program with no
-upgrade path forecloses by construction. For that reason this RFP prefers an
-immutable program with an explicit migration path over an upgradeable one, and
-treats verification logic correctness (audit, formal methods, extensive
-adversarial testing) as a security requirement of the same order as eliminating
-signer trust. Per-token and global caps and an admin-governed freeze authority
-remain as operational safety nets against both failure modes.
+citation). Mutable verification logic carries a related risk one layer down: no
+cross-chain bridge hack has traced to a stolen upgrade key, but legitimate,
+authorised upgrades have shipped catastrophic verification bugs (Nomad; a second
+Ronin incident in 2024), which fixed verification logic forecloses by
+construction.
+
+The two chains differ in how that risk arises, and the requirement below is
+written accordingly. On Ethereum it is the familiar one: a verifier behind an
+upgradeable proxy can have its implementation replaced, whether by a stolen key
+or by an authorised upgrade that ships a bug. On LEZ it cannot arise the same
+way, because a program's identity is the hash of its code: a `ProgramId` is the
+RISC0 image ID computed from the bytecode, the deployed-program registry is
+append-only, and a deployment transaction carries no authority or deployer
+identity that could later authorise a change. Changing one byte produces a
+different program, not a new version of the same one. LEZ program code is
+therefore immutable by construction rather than by choice.
+
+What remains possible on LEZ is indirection. A program may hold another
+program's `ProgramId` in its own account state and dispatch to it at runtime, so
+an immutable bridge program could still point at swappable verification logic
+and a party controlling that pointer could repoint it at a verifier that accepts
+anything. That is the same fund-stealing capability as a stolen upgrade key,
+relocated from the code to the pointer, which is why the requirement below
+addresses the pointer rather than the deployment. This RFP treats verification
+logic correctness (audit, formal methods, extensive adversarial testing) as a
+security requirement of the same order as eliminating signer trust. Per-token
+and global caps and an admin-governed freeze authority remain as operational
+safety nets against both failure modes.
 
 ## 🏗 Design Rationale
 
@@ -596,6 +614,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
    the Ethereum vault must reject invalid proofs, including those with incorrect
    public inputs, proofs for incorrect chain state, tampered headers, and
    replayed proofs.
+
 2. A malicious party submitting on a user's behalf must not be able to redirect
    funds, inflate their fee, or replay the user's submission to a different
    destination: a deposit and a burn must each secretly commit to the
@@ -606,29 +625,47 @@ Use FURPS framework. Each numbered item should be a testable statement.
    on, can be used to steal it (see Functionality #2, #5). An adversary who
    observes everything public about a deposit or burn, but does not hold the
    originating seed, cannot construct a valid claim for a different destination.
+
 3. Caps (Functionality #11) bound the maximum value at risk in any rolling
    window; proposals must document recommended defaults and the reasoning behind
    them.
+
 4. The freeze authority (Functionality #14) must be exercisable independently on
    each half, so either can be paused without the other being operational or
    reachable.
+
 5. Soundness of supply: total wrapped supply on LEZ must never exceed the
    vault's holdings. Minting without a valid deposit, minting twice from one
    deposit, and releasing without a valid burn must all fail.
+
 6. User-facing documentation must state the trustless verification model and the
    liveness-only role of any off-chain participant (see Design Rationale, "Trust
    model").
-7. The verifier (the LEZ bridge program and the Ethereum vault's proof
-   verification logic) must be deployed as an immutable program with an explicit
-   migration path (deploy a new version, drain and redirect to it) in preference
-   to an upgradeable contract governed by a mutable key. An upgradeable verifier
-   carries two risks this eliminates by construction: a stolen or misused
-   upgrade key substituting malicious logic, and a legitimate, authorised
-   upgrade shipping a catastrophic bug, the latter being the documented cause of
+
+7. **Verification logic must be fixed at deployment on both chains.** No party,
+   however privileged, may change what the bridge accepts as a valid proof after
+   deployment. Concretely:
+
+   - **LEZ.** Program code is immutable by construction, so the requirement is
+     about dispatch: the bridge program must not reach its verification logic
+     through a `ProgramId` held in mutable account state, or any equivalent
+     indirection that lets an authority repoint it. The verifying program's
+     image ID is fixed in the bridge program's own code at deployment.
+   - **Ethereum.** The vault's proof verification logic must have no upgrade
+     path: no proxy whose implementation can be substituted, no
+     admin-replaceable verification key or address, no privileged path to alter
+     what the verifier accepts.
+
+   The risk being foreclosed is the same on both sides, and is documented in
    real bridge losses (see Why This Matters and
-   [Appendix: Bridges and Wrapped Tokens](../appendix/bridges-and-wrapped-tokens.md)).
-   Proposals must document the chosen migration mechanism and how in-flight
-   deposits and burns are honoured across a migration.
+   [Appendix: Bridges and Wrapped Tokens](../appendix/bridges-and-wrapped-tokens.md)):
+   an authority that can substitute verification logic, whether by holding an
+   upgrade key or by controlling a program pointer, can point the bridge at a
+   verifier that accepts anything and drain it. Change is delivered by migration
+   instead: deploy a new version and drain and redirect to it. Proposals must
+   document the migration mechanism and how in-flight deposits and burns are
+   honoured across a migration.
+
 8. The freeze authority (Functionality #14) stops new activity but does not by
    itself recover funds already at risk or resolve deposits and burns left
    in-flight once a vulnerability in the verification logic is found. Proposals
