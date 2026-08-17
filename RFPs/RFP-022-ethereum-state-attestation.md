@@ -470,24 +470,14 @@ Use FURPS framework. Each numbered item should be a testable statement.
    or receipts root; a proof replayed against a different chain ID; and a
    predicate asserted over state the inclusion proof does not cover.
 
-3. **Verification logic must be fixed at deployment.** LEZ program code is
-   immutable by construction, since a `ProgramId` is the RISC0 image ID computed
-   from the bytecode and the deployed-program registry is append-only, so this
-   requirement is about indirection rather than upgradeability: the module must
-   not reach any part of its consensus or inclusion verification through a
-   `ProgramId` held in mutable account state, or any equivalent that lets a
-   party repoint it after deployment. Legitimate, authorised upgrades have
-   shipped catastrophic verification bugs in production bridges (see
-   [Appendix: Bridges and Wrapped Tokens](../appendix/bridges-and-wrapped-tokens.md)),
-   and a repointable verifier reintroduces that risk in a different form. Change
-   is delivered by deploying a new version and having consumers move to it;
-   document the migration mechanism and what consumers must do.
+3. **The verification logic cannot be swapped.** No consensus or inclusion
+   verification may be reached through a `ProgramId` held in mutable account
+   state. Change requires deploying a new version and having consumers move to
+   it; document the migration mechanism and what consumers must do.
 
-   Because consumers reference this module by its image ID, the same discipline
-   applies on their side, and the consumer documentation (Supportability #6)
-   must say so: a consuming program that holds this module's `ProgramId` in
-   mutable state inherits exactly the risk this requirement removes, since
-   whoever controls that pointer can substitute a module that attests to
+   The consumer documentation (Supportability #6) must state that the same rule
+   applies to consumers: a program holding this module's `ProgramId` in mutable
+   state lets whoever controls that pointer substitute a module that attests to
    anything.
 
 4. Document the failure modes that follow from a compromised or colluding sync
