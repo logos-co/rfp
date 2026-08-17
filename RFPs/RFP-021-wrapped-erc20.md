@@ -593,9 +593,9 @@ Use FURPS framework. Each numbered item should be a testable statement.
 #### + Bridge Security
 
 1. Proof verification must be independently verifiable. Both the LEZ program and
-   the Ethereum vault must reject invalid proofs, tested with incorrect public
-   inputs, proofs for incorrect chain state, tampered headers, and replayed
-   proofs.
+   the Ethereum vault must reject invalid proofs, including those with incorrect
+   public inputs, proofs for incorrect chain state, tampered headers, and
+   replayed proofs.
 2. A malicious party submitting on a user's behalf must not be able to redirect
    funds, inflate their fee, or replay the user's submission to a different
    destination: a deposit and a burn must each secretly commit to the
@@ -603,10 +603,9 @@ Use FURPS framework. Each numbered item should be a testable statement.
    whoever holds the seed or credentials that produced the commitment, and no
    information that leaks beyond that seed, whether from the deposit or burn
    transaction itself, public or observable state, or any party the flow depends
-   on, can be used to steal it (see Functionality #2, #5). Test that an
-   adversary who observes everything public about a deposit or burn, but does
-   not hold the originating seed, cannot construct a valid claim for a different
-   destination.
+   on, can be used to steal it (see Functionality #2, #5). An adversary who
+   observes everything public about a deposit or burn, but does not hold the
+   originating seed, cannot construct a valid claim for a different destination.
 3. Caps (Functionality #11) bound the maximum value at risk in any rolling
    window; proposals must document recommended defaults and the reasoning behind
    them.
@@ -614,8 +613,8 @@ Use FURPS framework. Each numbered item should be a testable statement.
    each half, so either can be paused without the other being operational or
    reachable.
 5. Soundness of supply: total wrapped supply on LEZ must never exceed the
-   vault's holdings. Provide tests attempting to mint without a valid deposit,
-   mint twice from one deposit, and release without a valid burn.
+   vault's holdings. Minting without a valid deposit, minting twice from one
+   deposit, and releasing without a valid burn must all fail.
 6. User-facing documentation must state the trustless verification model and the
    liveness-only role of any off-chain participant (see Design Rationale, "Trust
    model").
@@ -660,12 +659,11 @@ Use FURPS framework. Each numbered item should be a testable statement.
    triggered, beyond uniform probability over the remaining candidates. The
    equivalent test for burn-to-release pairings.
 3. No transaction argument, event, log, or account-state change on either chain
-   may reveal a deposit's LEZ destination or a burn's Ethereum destination.
-   Provide a test asserting this over full event and state diffs for a complete
-   round trip.
+   may reveal a deposit's LEZ destination or a burn's Ethereum destination. This
+   must hold over full event and state diffs for a complete round trip.
 4. Information that would connect the two legs must never leave the user's
-   control. Document every component that handles user data, and provide a test
-   asserting such information is absent from all submitted transaction data.
+   control. Document every component that handles user data; such information
+   must be absent from all submitted transaction data.
 5. Failure and error paths must not reveal which deposit or burn was involved: a
    rejected claim, a repeat claim, and a cap rejection must be indistinguishable
    in that respect.

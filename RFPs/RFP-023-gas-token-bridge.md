@@ -342,8 +342,8 @@ Use FURPS framework. Each numbered item should be a testable statement.
     its own Ethereum consensus and inclusion verification. **Claiming that
     release must not require the recipient to already hold native gas token**,
     and no specific paymaster or other off-chain party may be a required
-    counterparty (see Design Rationale, "The gas circularity"). Test the release
-    path end to end with a recipient account holding a zero balance.
+    counterparty (see Design Rationale, "The gas circularity"). This must hold
+    end to end for a recipient account holding a zero balance.
 05. **Paymaster service.** Provide an off-chain paymaster that accepts a drafted
     LEZ release transaction, submits it, and pays the gas, so that a user with a
     zero balance can complete a release. It must be implemented as a **Logos
@@ -353,11 +353,10 @@ Use FURPS framework. Each numbered item should be a testable statement.
     valid attestation of a burn of its own deployment's ERC-20, at or above a
     configured minimum amount, whose statement identifier it has not already
     sponsored. Eligibility must depend on no property of the requester: no
-    account, allowlist, registration, or payment relationship. Test that a
-    request carrying no burn, a burn of a different token or deployment, a burn
-    below the minimum, or an already-sponsored burn is refused, and that a
-    request carrying a valid unsponsored burn is accepted regardless of who
-    sends it.
+    account, allowlist, registration, or payment relationship. A request
+    carrying no burn, a burn of a different token or deployment, a burn below
+    the minimum, or an already-sponsored burn is refused; a request carrying a
+    valid unsponsored burn is accepted regardless of who sends it.
 07. The paymaster is reachable over **Logos Delivery** and over **Tor**, and a
     user must be able to complete a release using either transport alone.
     Proposals must establish whether Logos Delivery's spam protection requires
@@ -367,10 +366,10 @@ Use FURPS framework. Each numbered item should be a testable statement.
 08. **The paymaster must not observe or record requester IP addresses.** This
     must hold by construction rather than by logging policy: the service must
     have no configuration, deployment shape, or transport fallback through which
-    an originating address becomes available to it. Provide a test asserting
-    that no requester address is present in any log, metric, persisted record,
-    or in-memory request context, and document the deployment constraints that
-    preserve this (see Privacy Preservation #7).
+    an originating address becomes available to it. No requester address may be
+    present in any log, metric, persisted record, or in-memory request context.
+    Document the deployment constraints that preserve this (see Privacy
+    Preservation #7).
 09. Sponsorship is refused without revealing why in a way that identifies the
     burn: refusal responses for an ineligible request, an already-sponsored
     burn, and a paymaster out of funds must be indistinguishable in that
@@ -378,14 +377,14 @@ Use FURPS framework. Each numbered item should be a testable statement.
 10. Nothing in the protocol may privilege a particular paymaster. A deployment
     must support running several, a user must be able to select or switch
     between them per operation, and a user who holds gas must be able to submit
-    the release themselves with no paymaster involved. Test the release path
-    with no paymaster running.
+    the release themselves with no paymaster involved, including when no
+    paymaster is running at all.
 11. The paymaster's exposure to invalid or repeated requests must be bounded, so
     that an attacker submitting well-formed but ineligible requests cannot drain
     it (see Design Rationale, "Griefing the paymaster"). Proposals must state
     the chosen mechanism, which must not require identifying the requester.
-    Provide a test that floods the paymaster with ineligible requests and
-    asserts a bounded cost per request and continued service to a valid one.
+    Under a flood of ineligible requests, cost per request stays bounded and a
+    valid request is still served.
 12. A burn on Ethereum must not publish, store, or otherwise reveal its LEZ
     destination.
 13. Releasing must support both a private LEZ account and a public LEZ account
@@ -496,8 +495,8 @@ Use FURPS framework. Each numbered item should be a testable statement.
 04. A valid claim remains valid indefinitely; later chain activity must never
     invalidate a user's outstanding entitlement.
 05. Position recovery is complete: a client restored from user credentials alone
-    must rediscover every claimable lock and unreleased burn, verified by a test
-    that wipes all local state.
+    must rediscover every claimable lock and unreleased burn, after all local
+    state is wiped.
 06. Temporary RPC or connectivity failure on either chain leaves any off-chain
     component in a recoverable state, able to resume without duplicating work
     already done.
@@ -601,15 +600,15 @@ Use FURPS framework. Each numbered item should be a testable statement.
 #### + Bridge Security
 
 1. Proof verification must be independently verifiable. Both the LEZ vault
-   program and the Ethereum contract must reject invalid proofs, tested with
-   incorrect public inputs, proofs for incorrect chain state, tampered headers,
-   and replayed proofs.
+   program and the Ethereum contract must reject invalid proofs, including those
+   with incorrect public inputs, proofs for incorrect chain state, tampered
+   headers, and replayed proofs.
 2. A malicious party submitting on a user's behalf must not be able to redirect
    funds, inflate their fee, or replay the user's submission to a different
    destination: a lock and a burn must each secretly commit to the destination
    on the other chain, so that the claim can only be completed by whoever holds
-   the seed or credentials that produced the commitment. Test that an adversary
-   who observes everything public about a lock or burn, but does not hold the
+   the seed or credentials that produced the commitment. An adversary who
+   observes everything public about a lock or burn, but does not hold the
    originating seed, cannot construct a valid claim for a different destination.
    This applies with particular force to the release path, where a paymaster is
    submitting on behalf of a user who cannot submit for themselves.
@@ -622,13 +621,13 @@ Use FURPS framework. Each numbered item should be a testable statement.
    exceed the native gas token locked in the LEZ vault. The ERC-20 must have no
    privileged minter and no pre-issued supply: every unit in existence is backed
    by gas token locked on LEZ, and burning it is the only way to unlock that gas
-   token. Provide tests attempting to mint without a valid lock, mint twice from
-   one lock, release without a valid burn, and release twice from one burn.
-   Testing must explicitly include attempts to mint via any admin, deployer,
-   owner, or upgrade path, and any path that interacts with the ERC-20 contract
-   directly rather than through the bridge entry point, since that is the
-   documented Meter Passport failure mode (see Design Rationale, "Supply is
-   demand-driven, and the ERC-20 has no privileged minter").
+   token. Minting without a valid lock, minting twice from one lock, releasing
+   without a valid burn, and releasing twice from one burn must all fail, as
+   must any attempt to mint via an admin, deployer, or owner path, or by
+   interacting with the ERC-20 contract directly rather than through the bridge
+   entry point, since that is the documented Meter Passport failure mode (see
+   Design Rationale, "Supply is demand-driven, and the ERC-20 has no privileged
+   minter").
 6. User-facing documentation must state the trustless verification model and the
    liveness-only role of any off-chain participant, including whoever submits a
    release on a user's behalf.
@@ -656,22 +655,20 @@ Use FURPS framework. Each numbered item should be a testable statement.
 
 1. **Inbound unlinkability must hold under test.** No signal other than amount
    and timing may narrow down which LEZ release an Ethereum burn funded, beyond
-   uniform probability over the remaining candidates. Provide an automated test
-   that constructs a population of burns and releases and asserts that no
-   correlation derivable from public state, other than amount and timing,
-   identifies the true pairing better than chance across the anonymity set those
-   signals leave unresolved.
+   uniform probability over the remaining candidates. Across a population of
+   burns and releases, no correlation derivable from public state, other than
+   amount and timing, identifies the true pairing better than chance across the
+   anonymity set those signals leave unresolved.
 2. **Outbound unlinkability must hold under test.** No signal other than amount
    and timing may narrow down which Ethereum mint a LEZ lock triggered, beyond
    uniform probability over the remaining candidates. The equivalent test for
    lock-to-mint pairings.
 3. No transaction argument, event, log, or account-state change on either chain
    may reveal a lock's Ethereum destination or a burn's LEZ destination. Provide
-   a test asserting this over full event and state diffs for a complete round
-   trip.
+   This must hold over full event and state diffs for a complete round trip.
 4. Information that would connect the two legs must never leave the user's
-   control. Document every component that handles user data, and provide a test
-   asserting such information is absent from all submitted transaction data.
+   control. Document every component that handles user data; such information
+   must be absent from all submitted transaction data.
 5. Failure and error paths must not reveal which lock or burn was involved: a
    rejected claim, a repeat claim, and a cap rejection must be indistinguishable
    in that respect.
@@ -685,11 +682,10 @@ Use FURPS framework. Each numbered item should be a testable statement.
    identifier, and its own on-chain footprint as fee payer must not distinguish
    one sponsored release from another. Document precisely what it learns, ensure
    the user can switch between paymasters and transports per operation, and
-   provide a test asserting that neither the paymaster's identity nor its
-   payment narrows the anonymity set. This is the requirement most at risk from
-   the gas circularity, since it is the one point where the user must talk to
-   somebody, and must be treated as a primary design constraint rather than a
-   late mitigation.
+   ensure that neither the paymaster's identity nor its payment narrows the
+   anonymity set. This is the requirement most at risk from the gas circularity,
+   since it is the one point where the user must talk to somebody, and must be
+   treated as a primary design constraint rather than a late mitigation.
 8. The default configuration must be the private one. No user action may be
    required to obtain the privacy guarantees, and any override that weakens them
    must require explicit confirmation.
