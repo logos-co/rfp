@@ -318,8 +318,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
     signal beyond what is already public on Ethereum. The public inputs of the
     verified statement must be limited to what the consumer explicitly chooses
     to expose, and must not reveal the identity of the consuming LEZ account or
-    the consuming transaction. Provide a test asserting this over full event and
-    state diffs.
+    the consuming transaction. This must hold over full event and state diffs.
 09. An admin authority (per [RFP-001](./RFP-001-admin-authority-lib.md),
     integrated via the [SPEL framework](https://github.com/logos-co/spel) where
     applicable) can configure the weak-subjectivity checkpoint, the supported
