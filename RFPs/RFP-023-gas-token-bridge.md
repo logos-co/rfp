@@ -75,7 +75,13 @@ representation, with a correspondingly different audit target.
 
 One problem is genuinely new and has no analogue in RFP-021: releasing native
 gas token to a recipient who, by construction, has no gas with which to pay for
-the release.
+the release. This RFP resolves it with an **off-chain paymaster service**, the
+third component of a deployment alongside the vault and the Ethereum contract. A
+user who has burned the ERC-20 drafts the release transaction locally and
+contacts the paymaster over Logos Delivery or Tor; the paymaster checks the
+attestation, submits the transaction, and pays the gas. It sponsors only burns
+of its own deployment's ERC-20, never learns the requester's network address,
+and can decline without blocking anyone.
 
 Teams will need experience with zero-knowledge proof systems, privacy-preserving
 protocol design, Solidity smart-contract development, and LEZ program
@@ -181,23 +187,99 @@ the recipient of that release is, in the motivating case, someone who holds no
 gas token at all. If claiming the release requires the claimant to already hold
 gas, the bridge does not solve the problem it exists to solve.
 
-This RFP requires the release path to work for a recipient with a zero balance
-(Functionality #4) but does not mandate how. Several shapes are viable, and
-which is best depends on LEZ capabilities at delivery time: a permissionless
-relayer paid out of the released amount, with the destination bound into the
-proof so the relayer can neither redirect funds nor overcharge, which is the
-mechanism RFP-021 already relies on for its fee-payer mitigation; a
-protocol-level fee abstraction if LEZ offers one; or sequencer-level sponsorship
-for this specific program.
+The mechanism this RFP specifies is an **off-chain paymaster service**, deployed
+alongside the vault and the Ethereum contract as the third component of a
+deployment. A user who has burned the ERC-20 on Ethereum drafts the LEZ release
+transaction locally, contacts the paymaster over an anonymising transport, and
+the paymaster submits it and pays the gas. The complete deployer journey is
+therefore: deploy the LEZ vault program, deploy the EVM mint and burn contract
+with its dedicated ERC-20, and run the paymaster.
 
-Whatever the mechanism, it is bound by RFP-021's trust model: no specific
-relayer or off-chain party may be a required counterparty, any such role must be
-permissionless so that a single participant declining to act never blocks the
-user, and no participant may be able to steal, redirect, forge, censor
-selectively, or deanonymise. It is also bound by the privacy requirement below,
-which is the harder constraint: whoever pays for the release must not become a
-correlation signal that links the Ethereum burn to the LEZ account receiving the
-gas.
+The eligibility rule is what keeps this from being an open faucet, and it is
+expressed entirely in terms of the proof rather than the requester. The
+paymaster sponsors a transaction if and only if that transaction carries a valid
+attestation of a burn of **its own deployment's** ERC-20, at or above a
+configured minimum amount, whose statement identifier has not already been
+sponsored. Nothing about the requester enters the decision: no account, no
+allowlist, no registration, no payment relationship. Someone who has not burned
+the ERC-20 cannot obtain sponsorship, and someone who has burned it once cannot
+obtain it twice, because the nullifier that already exists for double-spend
+protection (Functionality #14) doubles as the anti-abuse budget. The cost of
+abusing the paymaster is the cost of acquiring and burning real ERC-20, which is
+the same barrier that protects the vault itself.
+
+The paymaster is a liveness convenience, never a trust dependency. It cannot
+redirect the release, because the destination is bound into the proof (Bridge
+Security #2); it cannot forge or censor selectively without simply declining,
+which any other paymaster instance can cover; and it holds nothing of the
+user's. A deployment may run several, a user may try them in any order, and a
+user who already holds gas can always submit the transaction themselves and skip
+the paymaster entirely. Nothing in the protocol privileges a particular
+paymaster or requires one to exist.
+
+#### Transport, and why it needs care
+
+The paymaster is contacted over **Logos Delivery**, the ecosystem-native
+transport, with **Tor as a required alternative**. The alternative is not
+redundancy for its own sake: Delivery's spam protection may itself require LEZ
+gas for RLN, which the user by definition does not have, so a deployment that
+offered only Delivery could reintroduce the very circularity this component
+exists to break. Proposals must establish whether that dependency applies at
+delivery time and document the finding either way; the Tor path must work
+regardless, so the user always has a route that assumes nothing on LEZ.
+
+Transport is where the privacy of this whole construction is most easily lost.
+The paymaster necessarily learns the release transaction it is asked to submit,
+which names the destination account. If it also learns the requester's IP, it
+can link that account to a network identity, and the unlinkability the rest of
+the design works to preserve is gone at the last step, in the one place where
+the user has no choice but to talk to somebody. **The paymaster must therefore
+never observe or record requester IP addresses.** Both transports are chosen for
+this reason (Delivery and Tor each conceal the origin), and the requirement is
+not satisfied by a promise not to log: the service must be built so that the
+address is not available to it in the first place, and any deployment
+configuration that would expose it, such as a plain HTTP fallback or a reverse
+proxy passing an originating-address header, must be absent rather than merely
+discouraged.
+
+What the paymaster does learn is the destination account and the amount, at the
+moment of submission. That is unavoidable for any party that submits on a user's
+behalf, and it is why the operator's knowledge is an explicit documentation
+deliverable (Supportability #9) rather than something to gloss over. It does not
+link back to the Ethereum burn unless the transport leaks the requester, which
+is what the IP requirement forecloses.
+
+#### Griefing the paymaster
+
+Eligibility is checked against the attestation, but *checking* it costs the
+paymaster something, and on LEZ that cost may land before the check completes.
+Fee reservation precedes execution and failed transactions are still charged, so
+a paymaster that commits to paying before the proof is verified can be drained
+by an attacker submitting well-formed garbage: each submission costs the
+attacker nothing and costs the paymaster a reserved fee. This is not a
+hypothetical concern about the design; it is the concrete blocker identified in
+[`fryorcraken/lez-proof-vault`](https://github.com/fryorcraken/lez-proof-vault),
+whose README works through why naive program-sponsored gas is unsafe under a fee
+market and suggests deposit-and-reimburse as the alternative shape.
+
+Proposals must therefore specify how the paymaster bounds this cost, and the
+choice is theirs: verifying the attestation off-chain before submitting anything
+on-chain, so the paymaster spends nothing on an invalid request; a cheap
+reservation-time check that rejects the bulk of garbage before the expensive
+path; a deposit-and-reimburse construction where the submitter fronts the fee
+and is repaid out of the release; or per-transport rate limiting that does not
+require identifying the requester. Whatever is chosen must not reintroduce a
+requester identity, since that would defeat the transport privacy above, and
+must be measured rather than asserted (Performance #7).
+
+That repository is the closest prior art for the LEZ-side vault and its
+proof-submission shape, and is useful reading for the ownership-versus-
+authorization framing of a program-owned vault and for the claimant, submitter
+and payer role split it sets out. It is prior art and not a specification: it
+implements no paymaster, no transport, and no burn or mint flow, its proof is a
+SHA-256 preimage standing in for a real proof system, and it documents its own
+gaps (no recipient binding, no authority binding on initialisation). Proposals
+should not treat it as a pattern to conform to.
 
 ### Privacy mirrors RFP-021 exactly
 
@@ -259,41 +341,83 @@ Use FURPS framework. Each numbered item should be a testable statement.
     [RFP-022](./RFP-022-ethereum-state-attestation.md) rather than implementing
     its own Ethereum consensus and inclusion verification. **Claiming that
     release must not require the recipient to already hold native gas token**,
-    and no specific relayer or other off-chain party may be a required
+    and no specific paymaster or other off-chain party may be a required
     counterparty (see Design Rationale, "The gas circularity"). Test the release
     path end to end with a recipient account holding a zero balance.
-05. A burn on Ethereum must not publish, store, or otherwise reveal its LEZ
+05. **Paymaster service.** Provide an off-chain paymaster that accepts a drafted
+    LEZ release transaction, submits it, and pays the gas, so that a user with a
+    zero balance can complete a release. It must be implemented as a **Logos
+    module accompanied by a Logos Core headless CLI/daemon**, runnable
+    standalone by the deployer of a vault and contract pair.
+06. The paymaster sponsors a request if and only if the transaction carries a
+    valid attestation of a burn of its own deployment's ERC-20, at or above a
+    configured minimum amount, whose statement identifier it has not already
+    sponsored. Eligibility must depend on no property of the requester: no
+    account, allowlist, registration, or payment relationship. Test that a
+    request carrying no burn, a burn of a different token or deployment, a burn
+    below the minimum, or an already-sponsored burn is refused, and that a
+    request carrying a valid unsponsored burn is accepted regardless of who
+    sends it.
+07. The paymaster is reachable over **Logos Delivery** and over **Tor**, and a
+    user must be able to complete a release using either transport alone.
+    Proposals must establish whether Logos Delivery's spam protection requires
+    LEZ gas for RLN at delivery time and document the finding; the Tor path must
+    function regardless, so that a user holding nothing on LEZ always has a
+    working route.
+08. **The paymaster must not observe or record requester IP addresses.** This
+    must hold by construction rather than by logging policy: the service must
+    have no configuration, deployment shape, or transport fallback through which
+    an originating address becomes available to it. Provide a test asserting
+    that no requester address is present in any log, metric, persisted record,
+    or in-memory request context, and document the deployment constraints that
+    preserve this (see Privacy Preservation #7).
+09. Sponsorship is refused without revealing why in a way that identifies the
+    burn: refusal responses for an ineligible request, an already-sponsored
+    burn, and a paymaster out of funds must be indistinguishable in that
+    respect.
+10. Nothing in the protocol may privilege a particular paymaster. A deployment
+    must support running several, a user must be able to select or switch
+    between them per operation, and a user who holds gas must be able to submit
+    the release themselves with no paymaster involved. Test the release path
+    with no paymaster running.
+11. The paymaster's exposure to invalid or repeated requests must be bounded, so
+    that an attacker submitting well-formed but ineligible requests cannot drain
+    it (see Design Rationale, "Griefing the paymaster"). Proposals must state
+    the chosen mechanism, which must not require identifying the requester.
+    Provide a test that floods the paymaster with ineligible requests and
+    asserts a bounded cost per request and continued service to a valid one.
+12. A burn on Ethereum must not publish, store, or otherwise reveal its LEZ
     destination.
-06. Releasing must support both a private LEZ account and a public LEZ account
+13. Releasing must support both a private LEZ account and a public LEZ account
     as the destination, at the burner's choice.
-07. Uniqueness is enforced in both directions: no lock can be minted against
+14. Uniqueness is enforced in both directions: no lock can be minted against
     twice and no burn released against twice, deterministically and under
     adversarial retry. On the LEZ side this is keyed on the statement identifier
     the RFP-022 attestation carries.
-08. The amounts visible on Ethereum must not identify which lock or release they
+15. The amounts visible on Ethereum must not identify which lock or release they
     correspond to. Proposals must state the mechanism chosen (fixed
     denominations are the expected baseline) and its effect on anonymity-set
     size.
-09. A user must be able to recover every one of their own unclaimed locks and
+16. A user must be able to recover every one of their own unclaimed locks and
     unreleased burns from credentials they already hold, with no dependence on
     any server-side index and no separately-backed-up secret generated during
     the flow, on the same terms as RFP-021, "Loss of access."
-10. An admin authority (per [RFP-001](./RFP-001-admin-authority-lib.md),
+17. An admin authority (per [RFP-001](./RFP-001-admin-authority-lib.md),
     integrated via the [SPEL framework](https://github.com/logos-co/spel) where
     applicable to the LEZ side) can configure the caps, the finality depth, and
     the fee parameters per deployment.
-11. Global caps, configurable by the admin authority, bound the maximum value
+18. Global caps, configurable by the admin authority, bound the maximum value
     that can be minted or released within a rolling window, as a rate limiter
     independent of the freeze authority. Cap enforcement must not require
     identifying individual users.
-12. The finality depth required before a lock may be minted against, and before
+19. The finality depth required before a lock may be minted against, and before
     a burn may be released against, is configurable by the admin authority per
     deployment. A change to the configured depth must not invalidate a claim
     that was already valid under the previous depth.
-13. A freeze authority (per [RFP-002](./RFP-002-freeze-authority-lib.md)) can
+20. A freeze authority (per [RFP-002](./RFP-002-freeze-authority-lib.md)) can
     pause minting and/or release, on the Ethereum contract and the LEZ vault
     program independently.
-14. Each LEZ vault program deployment refers to a specific Ethereum contract
+21. Each LEZ vault program deployment refers to a specific Ethereum contract
     deployment on a specific chain (contract address plus chain ID), and
     reciprocally each Ethereum contract deployment refers to a specific zone
     instance (LEZ blockchain ID, zone ID, and program ID), with each pairing
@@ -301,81 +425,94 @@ Use FURPS framework. Each numbered item should be a testable statement.
     pairing is never accepted as valid for another. The same program and
     contract design must be deployable, unmodified, against any EVM chain,
     mainnet or testnet.
-15. The design must let multiple entities each operate under their own
+22. The design must let multiple entities each operate under their own
     independent configuration (caps, fees, admin authority, finality depth), on
     the same or different pairs of blockchain programs, with strict separation
     between them: one entity's configuration must have no privileged access over
     another's configuration or funds. Document how a client identifies and
     switches between configurations.
-16. A protocol fee may be charged on minting and on release, at a rate
+23. A protocol fee may be charged on minting and on release, at a rate
     configurable by the admin authority per deployment, including zero. The fee
     value must not distinguish a user's transaction from others, consistent with
-    Functionality #8. Where the release-path mechanism compensates a relayer out
-    of the released amount, document how that compensation interacts with the
-    fixed-denomination requirement.
+    Functionality #15. Where the release-path mechanism reimburses a paymaster
+    out of the released amount, document how that reimbursement interacts with
+    the fixed-denomination requirement.
 
 #### Usability
 
-1. Build core functionalities for both users and admin in a Logos core module,
-   enabling the delivery of different Logos ui modules: locking gas token,
-   claiming the Ethereum mint, burning the ERC-20, claiming the LEZ release,
-   recovering a position from user credentials, and reading and administering
-   the configuration.
-2. Provide a Logos mini-app, aka Logos ui module, covering both flows end to
-   end, position recovery, and a view showing permitted amounts, caps and
-   current utilisation. Also provide a UI for the admin functionality; whether
-   this is combined into one UI or delivered as two separate ones is left to the
-   applicant's choice.
-3. The onboarding flow must be usable by someone who holds nothing on the zone.
-   The mini-app must not require a funded LEZ account to complete a release, and
-   must not present a step that silently assumes one.
-4. Any long-running off-chain component the design requires must be provided as
-   a **Logos module accompanied by a Logos Core headless CLI/daemon**, runnable
-   standalone, supporting configurable RPC endpoints for both chains,
-   configurable finality depth, structured logging, and a clean shutdown path.
-   Document the operator journey end-to-end: install, configure, run, monitor.
-5. Provide an IDL for the LEZ vault program using the
-   [SPEL framework](https://github.com/logos-co/spel).
-6. The mitigations to the three correlation points in Design Rationale, "Privacy
-   mirrors RFP-021 exactly" (amount, timing, fee payer) must be enabled by
-   default. The mini-app and CLI must show a clear indicator of what data would
-   be leaked by the user's current choices, and default to the recommended
-   parameters rather than requiring the user to select them.
-7. The mini-app and CLI must default to inviting the user to release into, and
-   lock from, a private account: the private path is the pre-selected option,
-   and choosing the public path requires an explicit action, consistent with
-   Privacy Preservation #8.
-8. Documentation and UI must clearly explain what is public and what is private
-   at each step on both chains, and must set the expectation described in Design
-   Rationale, "Supply is demand-driven", that the ERC-20 is available only to
-   the extent someone has moved gas token outward.
-9. Return clear, actionable error messages for all failure modes: invalid
-   amount, cap exceeded, verification failure, insufficient finality, already
-   claimed, and program frozen. Error messages must not reveal which lock or
-   burn a failed attempt referred to.
+01. Build core functionalities for both users and admin in a Logos core module,
+    enabling the delivery of different Logos ui modules: locking gas token,
+    claiming the Ethereum mint, burning the ERC-20, claiming the LEZ release,
+    recovering a position from user credentials, and reading and administering
+    the configuration.
+02. Provide a Logos mini-app, aka Logos ui module, covering both flows end to
+    end, position recovery, and a view showing permitted amounts, caps and
+    current utilisation. Also provide a UI for the admin functionality; whether
+    this is combined into one UI or delivered as two separate ones is left to
+    the applicant's choice.
+03. The onboarding flow must be usable by someone who holds nothing on the zone.
+    The mini-app must not require a funded LEZ account to complete a release,
+    and must not present a step that silently assumes one.
+04. Any long-running off-chain component the design requires, including the
+    paymaster, must be provided as a **Logos module accompanied by a Logos Core
+    headless CLI/daemon**, runnable standalone, supporting configurable RPC
+    endpoints for both chains, configurable finality depth, structured logging,
+    and a clean shutdown path. Document the operator journey end-to-end:
+    install, configure, run, monitor.
+05. The client must let the user select which paymaster to contact and over
+    which transport, retry against another on refusal or timeout, and fall back
+    to self-submission when the user holds gas. A paymaster refusing or being
+    unreachable must produce a clear, actionable state rather than a stalled
+    flow.
+06. Provide an IDL for the LEZ vault program using the
+    [SPEL framework](https://github.com/logos-co/spel).
+07. The mitigations to the three correlation points in Design Rationale,
+    "Privacy mirrors RFP-021 exactly" (amount, timing, fee payer) must be
+    enabled by default. The mini-app and CLI must show a clear indicator of what
+    data would be leaked by the user's current choices, and default to the
+    recommended parameters rather than requiring the user to select them.
+08. The mini-app and CLI must default to inviting the user to release into, and
+    lock from, a private account: the private path is the pre-selected option,
+    and choosing the public path requires an explicit action, consistent with
+    Privacy Preservation #8.
+09. Documentation and UI must clearly explain what is public and what is private
+    at each step on both chains, and must set the expectation described in
+    Design Rationale, "Supply is demand-driven", that the ERC-20 is available
+    only to the extent someone has moved gas token outward.
+10. Return clear, actionable error messages for all failure modes: invalid
+    amount, cap exceeded, verification failure, insufficient finality, already
+    claimed, and program frozen. Error messages must not reveal which lock or
+    burn a failed attempt referred to.
 
 #### Reliability
 
-1. Minting is atomic: a failed or rejected mint claim leaves the lock claimable
-   on retry and consumes nothing.
-2. Release is atomic: a failed burn does not destroy the ERC-20 without
-   preserving the holder's entitlement to release, and a failed release leaves
-   that entitlement intact.
-3. No lock can be minted against twice and no burn released against twice,
-   deterministically and under adversarial retry.
-4. A valid claim remains valid indefinitely; later chain activity must never
-   invalidate a user's outstanding entitlement.
-5. Position recovery is complete: a client restored from user credentials alone
-   must rediscover every claimable lock and unreleased burn, verified by a test
-   that wipes all local state.
-6. Temporary RPC or connectivity failure on either chain leaves any off-chain
-   component in a recoverable state, able to resume without duplicating work
-   already done.
-7. An interrupted user-side operation does not consume, corrupt, or expose the
-   user's entitlement.
-8. Proposals must integrate mature, audited proof-system implementations rather
-   than reimplementing zero-knowledge primitives from scratch.
-9. CI must be green on the default branch.
+01. Minting is atomic: a failed or rejected mint claim leaves the lock claimable
+    on retry and consumes nothing.
+02. Release is atomic: a failed burn does not destroy the ERC-20 without
+    preserving the holder's entitlement to release, and a failed release leaves
+    that entitlement intact.
+03. No lock can be minted against twice and no burn released against twice,
+    deterministically and under adversarial retry.
+04. A valid claim remains valid indefinitely; later chain activity must never
+    invalidate a user's outstanding entitlement.
+05. Position recovery is complete: a client restored from user credentials alone
+    must rediscover every claimable lock and unreleased burn, verified by a test
+    that wipes all local state.
+06. Temporary RPC or connectivity failure on either chain leaves any off-chain
+    component in a recoverable state, able to resume without duplicating work
+    already done.
+07. An interrupted user-side operation does not consume, corrupt, or expose the
+    user's entitlement. A paymaster that accepts a request and then fails,
+    crashes, or never submits must leave the user's entitlement intact and
+    re-submittable, to the same or another paymaster, with no state stranded on
+    the failed one.
+08. No paymaster is required for correctness. With every paymaster offline, a
+    user holding gas must still be able to complete a release themselves, and a
+    user without gas must be left in a recoverable state rather than losing the
+    entitlement. Test with no paymaster reachable over either transport.
+09. Proposals must integrate mature, audited proof-system implementations rather
+    than reimplementing zero-knowledge primitives from scratch.
+10. CI must be green on the default branch.
 
 #### Performance
 
@@ -393,11 +530,18 @@ Use FURPS framework. Each numbered item should be a testable statement.
    declares as supported, and state that minimum explicitly.
 4. Document end-to-end latency in both directions, each broken down by
    source-chain finality wait, proof generation, any privacy-motivated delay,
-   and on-chain verification.
+   on-chain verification, and the paymaster round trip over each supported
+   transport, since Delivery and Tor differ materially in latency.
 5. Document the compute resources (CPU, RAM, time) required to run any off-chain
-   component the design requires.
+   component the design requires, including the paymaster.
 6. Document the growth rate and on-chain storage cost of all bridge state that
    accumulates with usage, with projections at 1M and 10M operations.
+7. **Measure the paymaster's cost per request**, separately for an eligible
+   request and for each class of rejected request, and state the resulting bound
+   on what an attacker can force the paymaster to spend per unit of their own
+   cost (see Design Rationale, "Griefing the paymaster"). Document the operating
+   budget a paymaster needs at a stated request volume, and the behaviour when
+   its funds are exhausted.
 
 #### Supportability
 
@@ -424,7 +568,12 @@ Use FURPS framework. Each numbered item should be a testable statement.
 07. Submit a
     [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
     for the deployer journey, covering how an entity stands up its own
-    independently configured deployment (Functionality #15).
+    independently configured deployment (Functionality #22) as a complete set:
+    deploying the LEZ vault program, deploying the EVM mint and burn contract
+    with its dedicated ERC-20, and running the paymaster. The paymaster section
+    must cover funding it, configuring the minimum sponsored amount, exposing it
+    over Logos Delivery and Tor, and the deployment constraints that keep
+    requester addresses out of reach (Functionality #8).
 08. The Ethereum contract undergoes an independent third-party smart-contract
     security audit before mainnet deployment; the audit report must be
     published. The audit scope must explicitly include the mint authorisation
@@ -434,9 +583,13 @@ Use FURPS framework. Each numbered item should be a testable statement.
     and #2 and the anonymity set each is measured against; exactly what is
     visible on-chain at every step on both chains; what an adversary observing
     all public state can and cannot infer; what every off-chain participant can
-    observe, with specific attention to whoever pays for a release; residual
-    leakage from timing, amount selection, fee payment, network metadata and
-    usage patterns; and the conditions under which the guarantees degrade.
+    observe, with a specific section on the paymaster stating exactly what it
+    learns (the destination account and amount at submission time), what it
+    cannot learn (the requester's network address, and the link back to the
+    Ethereum burn), and what a malicious or compromised paymaster could and
+    could not do; residual leakage from timing, amount selection, fee payment,
+    network metadata and usage patterns, including what each supported transport
+    exposes; and the conditions under which the guarantees degrade.
 10. Document the anonymity-set growth model: expected set size over time at
     projected volumes, the minimum below which the guarantees are considered not
     to hold, and guidance for users bridging before the pool has matured.
@@ -458,11 +611,11 @@ Use FURPS framework. Each numbered item should be a testable statement.
    the seed or credentials that produced the commitment. Test that an adversary
    who observes everything public about a lock or burn, but does not hold the
    originating seed, cannot construct a valid claim for a different destination.
-   This applies with particular force to the release path, where a relayer may
-   be submitting on behalf of a user who cannot submit for themselves.
-3. Caps (Functionality #11) bound the maximum value at risk in any rolling
+   This applies with particular force to the release path, where a paymaster is
+   submitting on behalf of a user who cannot submit for themselves.
+3. Caps (Functionality #18) bound the maximum value at risk in any rolling
    window; proposals must document recommended defaults and the reasoning.
-4. The freeze authority (Functionality #13) must be exercisable independently on
+4. The freeze authority (Functionality #20) must be exercisable independently on
    each half, so either can be paused without the other being operational or
    reachable.
 5. **Soundness of supply.** Total supply of the ERC-20 on Ethereum must never
@@ -525,14 +678,18 @@ Use FURPS framework. Each numbered item should be a testable statement.
 6. The client must not make any network request that reveals which lock or burn
    it is acting on. Document every network call made during a privacy-sensitive
    operation and justify each.
-7. **The release payer must not become a correlation signal.** Whoever pays for
-   a release, whether a relayer, a sponsor, or the protocol itself, must not
-   thereby link the Ethereum burn to the LEZ account receiving the gas. Document
-   precisely what that party learns, ensure the user can switch between such
-   parties per operation, and provide a test asserting that the payer's identity
-   and payment do not narrow the anonymity set. This is the requirement most at
-   risk from the gas circularity and must be treated as a primary design
-   constraint, not a late mitigation.
+7. **The paymaster must not become a correlation signal.** Whoever pays for a
+   release must not thereby link the Ethereum burn to the LEZ account receiving
+   the gas. Concretely: the paymaster must not observe or record requester IP
+   addresses (Functionality #8), must not require or accept any requester
+   identifier, and its own on-chain footprint as fee payer must not distinguish
+   one sponsored release from another. Document precisely what it learns, ensure
+   the user can switch between paymasters and transports per operation, and
+   provide a test asserting that neither the paymaster's identity nor its
+   payment narrows the anonymity set. This is the requirement most at risk from
+   the gas circularity, since it is the one point where the user must talk to
+   somebody, and must be treated as a primary design constraint rather than a
+   late mitigation.
 8. The default configuration must be the private one. No user action may be
    required to obtain the privacy guarantees, and any override that weakens them
    must require explicit confirmation.
@@ -551,8 +708,8 @@ Use FURPS framework. Each numbered item should be a testable statement.
    [RFP-020](./RFP-020-redstone-oracle-adaptor.md).
 
 3. **Shared components with RFP-021.** Where the two bridges genuinely share
-   logic (fixed-denomination handling, position recovery, relayer submission,
-   the privacy test harness), factor it so both can consume one implementation
+   logic (fixed-denomination handling, position recovery, submission paths, the
+   privacy test harness), factor it so both can consume one implementation
    rather than maintaining two divergent copies. Document what is shared and
    what is necessarily distinct.
 
@@ -561,7 +718,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
    else and without any protocol-level disclosure capability.
 
 5. **Additional EVM chains**, each served by its own deployment per
-   Functionality #14 (one program per chain ID, not one program juggling several
+   Functionality #21 (one program per chain ID, not one program juggling several
    chains internally).
 
 6. **Generalisation beyond the gas token.** If the design generalises at no
@@ -592,9 +749,13 @@ The following are explicitly excluded from this RFP:
 - **Fiat on-ramps, faucets, and centralised distribution** of the gas token.
   This RFP delivers a trustless path for a user who already holds assets on
   Ethereum; it does not address a user who holds nothing anywhere.
-- **Network-level anonymity.** The guarantees here are properties of on-chain
-  state. IP-level correlation is out of scope as an implementation concern, but
-  must be disclosed as residual leakage under Supportability #9.
+- **Building new anonymising network infrastructure.** The paymaster must be
+  reachable over Logos Delivery and Tor and must not observe requester addresses
+  (Functionality #7, #8), but this RFP integrates existing transports rather
+  than designing a mixnet or hardening the transports themselves. Residual
+  network-level leakage outside the paymaster path, such as which Ethereum RPC
+  or LEZ sequencer a user's client contacts, stays an implementation concern and
+  must be disclosed under Supportability #9 rather than solved here.
 - **Protocol-level compliance, disclosure, or selective-deanonymisation
   mechanisms.** Voluntary user-held viewing keys are Soft Requirement #4; any
   capability allowing a third party to deanonymise a user without their consent
@@ -648,6 +809,17 @@ control. This requires the token authority primitives in
 [LP-0013](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0013.md),
 which is **closed** (delivered).
 
+#### Logos Delivery
+
+The paymaster is reachable over Logos Delivery as its ecosystem-native transport
+(Functionality #7). Tor is a required alternative and the release path must work
+over Tor alone, so Delivery being unavailable never blocks a user. Proposals
+must establish whether Delivery's RLN spam protection requires LEZ gas at
+delivery time, since a user in the motivating case has none, and document the
+finding either way. Following [RFP-003](./RFP-003-atomic-swaps.md), the
+application must handle Delivery being temporarily unreachable gracefully and
+must not depend on it to complete an operation already in progress.
+
 #### Logos Ethereum core module
 
 The Ethereum side must use the Logos Ethereum core module, including its
@@ -686,8 +858,11 @@ Team experienced with:
   inclusion proofs)
 - LEZ program development, private-state programs, and on-chain proof
   verification
-- Fee abstraction, relayer design, or account-abstraction style sponsored
-  transactions, given the gas circularity this RFP has to solve
+- Fee abstraction, paymaster or relayer design, or account-abstraction style
+  sponsored transactions, given the gas circularity this RFP has to solve
+- Anonymising transports (Tor hidden services, mixnets, Logos Delivery) and
+  building services that are structurally unable to observe client network
+  addresses
 - Smart-contract security auditing (proof validation, replay attacks, reorg
   handling, cap bypass, unauthorised mint paths, privacy-leak analysis)
 - Cross-chain system design and integration testing
@@ -724,8 +899,13 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [RFP-022 — Trustless Ethereum State Attestation for LEZ](./RFP-022-ethereum-state-attestation.md)
   (delivers the verification of finalised Ethereum state the release path
   consumes)
+- [RFP-003 — Atomic Swaps](./RFP-003-atomic-swaps.md) (precedent for using Logos
+  Delivery for coordination without depending on it for completion)
 - [Appendix: Bridges and Wrapped Tokens](../appendix/bridges-and-wrapped-tokens.md)
   (bridge failure taxonomy, including the Meter Passport native-gas-token mint)
+- [`fryorcraken/lez-proof-vault`](https://github.com/fryorcraken/lez-proof-vault)
+  (prior art for a program-owned LEZ vault releasing on proof; documents the
+  reserve-before-verify griefing problem for sponsored gas)
 - [LP-0012: Event/Log mechanism for LEZ](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)
 - [LP-0013: Token program improvements: authorities](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0013.md)
 - [RISC0 — Zero-Knowledge VM](https://github.com/risc0/risc0)
