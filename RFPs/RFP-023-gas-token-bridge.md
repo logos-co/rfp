@@ -631,19 +631,14 @@ Use FURPS framework. Each numbered item should be a testable statement.
 6. User-facing documentation must state the trustless verification model and the
    liveness-only role of any off-chain participant, including whoever submits a
    release on a user's behalf.
-7. **Verification logic must be fixed at deployment on both chains**, on the
-   same terms as RFP-021, Bridge Security #7: no party may change what the
-   bridge accepts as a valid proof after deployment. On LEZ, where program code
-   is immutable by construction, this means the vault program must not reach its
-   verification logic through a `ProgramId` held in mutable account state or any
-   equivalent repointable indirection. On Ethereum, the contract's verification
-   logic must have no upgrade path, proxy substitution, or admin-replaceable
-   verifier address. This matters as much here as in RFP-021, since a
-   substituted verifier on the Ethereum side could mint the gas-token ERC-20
-   against a lock that never happened, breaking the supply invariant in #5. See
-   [Appendix: Bridges and Wrapped Tokens](../appendix/bridges-and-wrapped-tokens.md).
-   Change is delivered by migration; proposals must document the mechanism and
-   how in-flight locks and burns are honoured across it.
+7. **The verification logic cannot be swapped**, on the same terms as RFP-021,
+   Bridge Security #7: on LEZ the verifying program's image ID is fixed in the
+   vault program's code and never read from mutable account state; on Ethereum
+   there is no substitutable proxy and no admin-replaceable verifier address. A
+   swapped verifier here would mint the gas-token ERC-20 against a lock that
+   never happened, breaking the supply invariant in #5. Change requires
+   deploying a new version and migrating; document the mechanism and how
+   in-flight locks and burns are honoured across it.
 8. The freeze authority stops new activity but does not by itself recover funds
    already at risk or resolve locks and burns left in-flight once a
    vulnerability in the verification logic is found. Proposals must specify a
