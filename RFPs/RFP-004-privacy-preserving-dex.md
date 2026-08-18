@@ -116,12 +116,9 @@ inherently fairer for all participants.
     protocol fee is a subpart of the trading fee, not an additional charge on
     the trader. The namespace admin authority sets the protocol fee as a
     fraction of the trading fee, along with the treasury address that receives
-    it, and both are updatable. The fraction may be zero, in which case LPs
-    receive the entire trading fee. It must be bounded by a cap enforced in
-    program code so that an admin authority cannot take the whole trading fee
-    from LPs; the proposal states the cap. Surveyed SVM concentrated-liquidity
-    DEXes route 13% to 16% of the trading fee to the protocol (see
-    [Appendix: DEX Ecosystem Behaviour, section 3](../appendix/dex-ecosystem-behaviour.md#3-trading-fees-paid-by-trader-distributed-to-lps)).
+    it, and both are updatable. The program does not restrict the trading fee or
+    the protocol fee to a fixed range or a set of preset tiers; the only bound
+    is that the protocol fee cannot exceed the trading fee. Either may be zero.
 12. Accrued protocol fees are tracked separately from pool reserves rather than
     inferred from the difference between vault balance and reserves, so that fee
     accounting and LP accounting cannot corrupt each other. Withdrawing accrued
@@ -283,7 +280,9 @@ The program is deployed once. After that, anyone can create a namespace with
 their own seed, admin authority, fees, treasury, and pools, without permission
 from the deployer. This is what allows several independent AMMs to coexist on
 the chain, and it keeps the reach of any admin authority limited to its own
-namespace.
+namespace. Fee ranges are left open for the same reason: a namespace admin
+setting an uncompetitive fee affects only their own pools, and LPs and traders
+can move to another namespace or create one.
 
 Accrued protocol fees are tracked in their own state rather than derived from
 vault balance minus reserves. Curve StableSwapNG uses this separation and
