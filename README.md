@@ -89,8 +89,8 @@ Click an RFP to view details. Use the Submit Proposal button to apply.
 | RFP-017 | [Privacy-Preserving Token Vesting](RFPs/RFP-017-token-vesting.md)                           | L    | open   | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
 | RFP-019 | [On-Chain TWAP Oracle](RFPs/RFP-019-twap-oracle.md)                                         | L    | closed | Developer Tooling & Infrastructure | Closed                                                                              |
 | RFP-020 | [RedStone Off-Chain Oracle Adaptor for LEZ](RFPs/RFP-020-redstone-oracle-adaptor.md)        | M    | closed | Developer Tooling & Infrastructure | Closed                                                                              |
-| RFP-021 | [Privacy-Preserving Wrapped ERC-20 and Ether Bridge for LEZ](RFPs/RFP-021-wrapped-erc20.md) | L    | open   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
-| RFP-022 | [Trustless Ethereum State Attestation for LEZ](RFPs/RFP-022-ethereum-state-attestation.md)  | M    | open   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
+| RFP-021 | [Trustless Ethereum State Attestation for LEZ](RFPs/RFP-021-ethereum-state-attestation.md)  | M    | open   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
+| RFP-022 | [Privacy-Preserving Wrapped ERC-20 and Ether Bridge for LEZ](RFPs/RFP-022-wrapped-erc20.md) | L    | open   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
 | RFP-023 | [Native Gas Token Bridge for LEZ](RFPs/RFP-023-gas-token-bridge.md)                         | M    | open   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
 
 <!-- RFP_TABLE_END -->
