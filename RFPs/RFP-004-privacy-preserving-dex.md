@@ -8,7 +8,7 @@ dependencies:
   - id: LP-0013
     reason: Token transfer-authority primitives are required for the DEX program to custody pool reserves, pay swap output, return LP deposits, and route trading fees to LPs and the protocol treasury.
   - id: RFP-001
-    reason: Provides the standardised admin authority library that governs each DEX instance (protocol fee share and treasury address per F.11, F.12) and the TWAP accumulator surface integrated per F.10 (per-pool tick-delta clamp, observation cardinality registration, as defined by RFP-019).
+    reason: Provides the standardised admin authority library that governs each AMM namespace (trading fee, protocol fee, and treasury address per F.6, F.11, F.13) and the TWAP accumulator surface integrated per F.10 (per-pool tick-delta clamp, observation cardinality registration, as defined by RFP-019).
   - id: LP-0015
     reason: General cross-program calls via tail calls, used to compose token transfers with reserve and state updates within a single atomic swap.
   - id: LP-0014
@@ -86,11 +86,10 @@ inherently fairer for all participants.
 05. Traders and LPs using public accounts can interact with the same pools;
     their transactions are executed transparently on-chain (standard public
     account behaviour).
-06. The pool creator selects a fee tier at pool creation time (e.g., 0.01%,
-    0.05%, 0.3%, 1%); the fee tier is immutable per pool. Multiple pools for the
-    same token pair with different fee tiers can coexist. Trading fees are paid
-    by the trader and distributed to LPs, net of the protocol fee share defined
-    in F.11.
+06. Trading fees are paid by the trader on every swap. The fee rate is set by
+    the namespace admin authority and applies uniformly to all pools in that
+    namespace; it is not selected per pool and is updatable after deployment.
+    The fee is split between LPs and the protocol treasury per F.11.
 07. Implement slippage protection with user-configurable tolerance and minimum
     output guarantees.
 08. The DEX program must be compatible with Associated Token Accounts (ATAs) for
@@ -113,31 +112,31 @@ inherently fairer for all participants.
     price accumulators are maintained. If the component is not yet available
     when the DEX is delivered, the program must expose the integration point so
     the component can be hooked in later without redesigning pool state.
-11. Implement a protocol fee: a configurable share of each pool's trading fee
-    that is diverted from LPs to a protocol treasury account. The protocol fee
-    is a share of the existing trading fee, not an additional charge on the
-    trader; the trader-facing fee tier selected under F.6 is unchanged by it.
-    The share and the treasury address are set by the instance's admin authority
-    (F.12) using the standardised library from
-    [RFP-001](./RFP-001-admin-authority-lib.md), and are updatable after
-    deployment. The share must be bounded by a hard cap enforced in program
-    code, so an admin authority cannot divert the whole trading fee away from
-    LPs; the proposal must state the cap and justify it. The initial share may
-    be zero (fee switch off), and setting it back to zero must be supported.
-    Updates apply only to fees accrued after the update, never retroactively to
-    fees already earned by LPs. This RFP does not mandate a specific share; see
-    [Appendix: DEX Ecosystem Behaviour, section 3](../appendix/dex-ecosystem-behaviour.md#3-trading-fees-paid-by-trader-distributed-to-lps)
-    for the protocol-share split across surveyed protocols.
-12. Support several independent instances of the DEX coexisting on the same
-    chain. Each instance has its own admin authority, protocol fee share,
-    treasury, and set of pools; no global or singleton state may be shared
-    across instances. An instance is created permissionlessly, and pool
-    addresses must be derived such that pools of different instances never
-    collide, even for the same token pair and fee tier. Every state-changing
-    instruction must resolve pool, vault, treasury, and admin accounts against
-    the instance the pool belongs to, and reject accounts belonging to another
-    instance. Deploying a second instance must not require redeploying or
-    modifying the program.
+11. The trading fee of F.6 is split into an LP share and a protocol fee. The
+    protocol fee is a subpart of the trading fee, not an additional charge on
+    the trader. The namespace admin authority sets the protocol fee as a
+    fraction of the trading fee, along with the treasury address that receives
+    it, and both are updatable. The fraction may be zero, in which case LPs
+    receive the entire trading fee. It must be bounded by a cap enforced in
+    program code so that an admin authority cannot take the whole trading fee
+    from LPs; the proposal states the cap. Surveyed SVM concentrated-liquidity
+    DEXes route 13% to 16% of the trading fee to the protocol (see
+    [Appendix: DEX Ecosystem Behaviour, section 3](../appendix/dex-ecosystem-behaviour.md#3-trading-fees-paid-by-trader-distributed-to-lps)).
+12. Accrued protocol fees are tracked separately from pool reserves rather than
+    inferred from the difference between vault balance and reserves, so that fee
+    accounting and LP accounting cannot corrupt each other. Withdrawing accrued
+    protocol fees must not draw on LP principal.
+13. A single deployment of the program supports any number of independent AMM
+    namespaces. Anyone can permissionlessly create a namespace, seeding it with
+    its own admin authority, trading fee, protocol fee, treasury, and pools.
+    Creating a namespace does not require redeploying or modifying the program,
+    nor permission from the deployer or from any existing namespace.
+14. Namespaces share no global or singleton state. Pool addresses are derived
+    such that pools of different namespaces never collide for the same token
+    pair. Every state-changing instruction resolves pool, vault, treasury, and
+    admin accounts against the namespace the pool belongs to, and rejects
+    accounts belonging to another namespace. An admin authority has no power
+    over any namespace other than its own.
 
 #### Usability
 
@@ -169,39 +168,33 @@ inherently fairer for all participants.
 09. The mini-app must display a swap preview before the user confirms: estimated
     output amount, effective price, price impact, and fee taken, so the user can
     evaluate the trade before confirming.
-10. The SDK, CLI, and mini-app must let the caller select which DEX instance to
-    operate against, and must make the active instance visible in the mini-app.
-    Pools of different instances must never be silently mixed in quotes,
-    routing, or LP position listings.
-11. The mini-app and CLI must show the current protocol fee share for the
-    instance in use, and the swap preview (U.9) must break the fee down into the
-    LP share and the protocol share. The pool analytics view (U.5) must report
-    protocol fee revenue separately from LP fee revenue.
-12. The SDK, CLI, and mini-app must expose the admin operations for an instance:
-    setting the protocol fee share, setting the treasury address, and the admin
-    authority transfer and renunciation operations provided by RFP-001.
-    Attempting an admin operation without the admin authority must fail with a
-    clear, actionable error.
+10. The SDK, CLI, and mini-app let the caller select which namespace to operate
+    against, and the mini-app shows the active namespace. Pools of different
+    namespaces are never mixed in quotes, routing, or LP position listings.
+11. The mini-app and CLI show the current trading fee and protocol fee for the
+    namespace in use. The swap preview of U.9 breaks the fee into the LP share
+    and the protocol share. The pool analytics view of U.5 reports protocol fee
+    revenue separately from LP fee revenue.
+12. The SDK, CLI, and mini-app expose namespace creation and the admin
+    operations for a namespace: setting the trading fee, the protocol fee, and
+    the treasury address, plus the admin authority transfer and renunciation
+    operations of RFP-001. An admin operation attempted without the admin
+    authority fails with a clear, actionable error.
 
 #### Reliability
 
 1. Pool state must remain consistent under concurrent swap submissions; no
    double-spend or incorrect pool balance.
-2. Instances must be isolated: an operation on a pool of one instance must never
-   read or write the state, vaults, or treasury of another instance, and an
-   admin authority must never be able to change the parameters of an instance it
-   does not govern. This must hold even when an attacker supplies deliberately
-   mismatched accounts from a second instance.
-3. Protocol fee accounting must be exact: for every swap, the sum of the LP
-   share and the protocol share equals the trading fee charged to the trader,
-   with rounding resolved in favour of the pool (LPs) rather than the treasury.
-   Accrued protocol fees must be tracked so that they are never paid out of LP
-   principal, and a protocol fee share of zero must leave the full trading fee
-   with LPs.
-4. A protocol fee update must not be applicable to a swap already in flight in a
-   way that changes the fee split the trader was quoted; the split applied is
-   the one in effect when the swap executes, and the swap must respect the
-   trader's slippage bound (F.7) regardless.
+2. An operation on a pool of one namespace never reads or writes the state,
+   vaults, or treasury of another namespace, including when supplied with
+   deliberately mismatched accounts from a second namespace.
+3. For every swap, the LP share and the protocol share sum to the trading fee
+   charged to the trader, with rounding resolved in favour of the pool rather
+   than the treasury.
+4. A trading fee or protocol fee update applies only to fees accrued after the
+   update, never retroactively to fees already earned by LPs. The split applied
+   to a swap is the one in effect when the swap executes, and the swap respects
+   the trader's slippage bound of F.7 regardless.
 
 #### Performance
 
@@ -215,33 +208,25 @@ inherently fairer for all participants.
 
 #### Supportability
 
-01. The DEX program is deployed and tested on LEZ devnet/testnet.
-02. End-to-end integration tests run against a LEZ sequencer (standalone mode)
-    and are included in CI.
-03. CI must be green on the default branch.
-04. Every hard requirement in Functionality, Usability, Reliability, and
-    Performance has at least one corresponding test.
-05. A README documents end-to-end usage: deployment steps, program addresses,
-    and step-by-step instructions for interacting with the DEX via CLI and
-    front-end (pool creation, swapping, LP management). It must also document
-    how to create a new instance, how instance and pool addresses are derived,
-    and how the admin authority configures the protocol fee share and treasury.
-06. Integration tests must cover at least two instances coexisting on the same
-    deployment: pools with the same token pair and fee tier in each instance,
-    swaps and liquidity operations against both, and negative tests that supply
-    accounts from the wrong instance and assert rejection (Reliability R.2).
-07. Integration tests must cover the protocol fee across a zero share, a
-    non-zero share, and an update between the two, asserting the fee split,
-    treasury balance, and LP entitlement in each case, and asserting that a
-    share above the cap is rejected.
-08. Submit a
-    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-    for the SDK, covering the developer integration journey for pool creation,
-    swapping, and liquidity management.
-09. Submit a
-    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-    for the CLI, covering the core operator/user journey.
-10. Provide Figma designs or equivalent for the mini-app GUI.
+1. The DEX program is deployed and tested on LEZ devnet/testnet.
+2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
+   and are included in CI.
+3. CI must be green on the default branch.
+4. Every hard requirement in Functionality, Usability, Reliability, and
+   Performance has at least one corresponding test.
+5. A README documents end-to-end usage: deployment steps, program addresses, and
+   step-by-step instructions for interacting with the DEX via CLI and front-end
+   (pool creation, swapping, LP management). It must also document how to create
+   a namespace, how namespace and pool addresses are derived, and how the admin
+   authority configures the trading fee, protocol fee, and treasury.
+6. Submit a
+   [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+   for the SDK, covering the developer integration journey for pool creation,
+   swapping, and liquidity management.
+7. Submit a
+   [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+   for the CLI, covering the core operator/user journey.
+8. Provide Figma designs or equivalent for the mini-app GUI.
 
 #### + Privacy
 
@@ -287,47 +272,24 @@ The following are explicitly excluded from this RFP:
   not. See
   [Appendix: DEX Ecosystem Behaviour, section 10](../appendix/dex-ecosystem-behaviour.md#10-reserve-reconciliation-sync-and-skim).
 
-### Fee Structure
+### Fee Structure and Namespaces
 
-The trading fee is set by the pool's immutable fee tier (F.6) and is paid by the
-trader. The protocol fee (F.11) does not add to what the trader pays: it is a
-share carved out of that trading fee before the remainder accrues to LPs. A
-share of zero means LPs receive the entire trading fee, which is the behaviour
-of Uniswap V2 before its fee switch was activated.
+The trading fee is paid by the trader; the protocol fee is a subpart of it, not
+an additional charge. A protocol fee of zero leaves the entire trading fee with
+LPs. Both are set by the namespace admin authority and apply uniformly to every
+pool in that namespace.
 
-This mirrors the ecosystem. Every protocol surveyed in
-[Appendix: DEX Ecosystem Behaviour, section 3](../appendix/dex-ecosystem-behaviour.md#3-trading-fees-paid-by-trader-distributed-to-lps)
-splits a single trader-paid fee between LPs and the protocol rather than
-charging two separate fees: Uniswap V2 takes 1/6 of the 0.3% fee
-(post-UNIfication), Raydium CLMM routes 12% to RAY buybacks and 4% to treasury,
-and Orca Whirlpools routes 12% to the DAO treasury and 1% to its Climate Fund.
-Uniswap V4 and Balancer V3 make the protocol share configurable per pool.
+The program is deployed once. After that, anyone can create a namespace with
+their own seed, admin authority, fees, treasury, and pools, without permission
+from the deployer. This is what allows several independent AMMs to coexist on
+the chain, and it keeps the reach of any admin authority limited to its own
+namespace.
 
-The RFP does not mandate a share. It requires that the share be admin-settable,
-bounded by a cap in program code, and defaulted in a way the proposal justifies.
-The cap exists because an unbounded share would let an admin authority take the
-entire trading fee, which changes the economics LPs signed up for after they
-have already deposited.
-
-### Multiple Instances
-
-The program must support several independent instances on the same chain (F.12)
-rather than assuming a single canonical deployment. Each instance carries its
-own admin authority, protocol fee share, treasury, and pools.
-
-This matters for three reasons. First, it lets the Logos ecosystem run a
-reference instance while others deploy their own with different fee policy,
-without competing for a single global state account or asking a foreign admin
-authority for permission. Second, it keeps the blast radius of an admin
-authority small: a compromised or misconfigured admin can affect only the pools
-of its own instance. Third, it makes testing and staged rollout practical, since
-a test instance can run alongside a production one on the same deployment.
-
-The requirement is a constraint on program state layout: no global singleton
-accounts, and address derivation that includes the instance so that pools for
-the same token pair and fee tier in two instances never collide. Retrofitting
-this after the fact means redesigning pool state, which is why it is a hard
-requirement rather than a soft one.
+Accrued protocol fees are tracked in their own state rather than derived from
+vault balance minus reserves. Curve StableSwapNG uses this separation and
+documents its failure mode: fee state that is immune to a negative rebase can be
+withdrawn ahead of LPs, leaving LPs to absorb the shortfall (MixBytes audit,
+October 2023). Proposals should address withdrawal ordering.
 
 ### Privacy Architecture
 
@@ -358,10 +320,10 @@ liquidity):
 
 #### What is public (observable on-chain)
 
-- All pool state: token pair, fee tier, total TVL, cumulative volume, current
-  price, and the instance the pool belongs to.
-- All instance state: admin authority, protocol fee share, treasury address, and
-  accrued protocol fee revenue.
+- All pool state: token pair, total TVL, cumulative volume, current price, and
+  the namespace the pool belongs to.
+- All namespace state: admin authority, trading fee, protocol fee, treasury
+  address, and accrued protocol fee revenue.
 - All swap and liquidity transactions: trade size, direction, and the
   originating account address (the ephemeral intermediary account for private
   account interactions, the user's public account otherwise).
@@ -390,20 +352,21 @@ swaps on-chain.
 
 The DEX program is a token custodian: it holds pool reserves for each token
 pair, pays swap output to traders, returns deposits to LPs on withdrawal, and
-routes trading fees to LPs. This requires the transfer-authority primitives in
+routes trading fees to LPs and the protocol treasury. This requires the
+transfer-authority primitives in
 [LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md),
 currently **open**.
 
 #### Admin authority (RFP-001)
 
-Each DEX instance is governed by its own admin authority (Functionality
-requirement F.12), which configures the protocol fee share and the treasury
-address (F.11) and can be transferred or renounced. The TWAP accumulator
-component integrated per F.10 carries further admin-governed parameters defined
-by [RFP-019](./RFP-019-twap-oracle.md): the per-pool tick-delta clamp
-(`MAX_TICK_DELTA`) and observation cardinality registration are owner-gated.
-Managing all of these uses the standardised admin authority library from
-[RFP-001](./RFP-001-admin-authority-lib.md). The RFP is closed (candidate
+Each AMM namespace is governed by its own admin authority (Functionality
+requirement F.13), which configures the trading fee (F.6), the protocol fee, and
+the treasury address (F.11), and can be transferred or renounced. The TWAP
+accumulator component integrated per F.10 carries further admin-governed
+parameters defined by [RFP-019](./RFP-019-twap-oracle.md): the per-pool
+tick-delta clamp (`MAX_TICK_DELTA`) and observation cardinality registration are
+owner-gated. Managing all of these uses the standardised admin authority library
+from [RFP-001](./RFP-001-admin-authority-lib.md). The RFP is closed (candidate
 picked) and the library is in development.
 
 ### Resolved dependencies
