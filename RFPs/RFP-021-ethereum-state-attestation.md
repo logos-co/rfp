@@ -5,8 +5,6 @@ tier: M
 status: open
 category: Developer Tooling & Infrastructure
 dependencies:
-  - id: RFP-001
-    reason: Admin authority governs the weak-subjectivity checkpoint, the chain registry, and the finality parameters, as specified in Functionality.
   - id: LP-0012
     reason: Structured on-chain events let clients and off-chain components follow committee handoffs and attestation submissions without polling every account.
 ---
@@ -171,6 +169,64 @@ produce a proof, which is why proof generation must be a liveness role rather
 than a trust role: no single party may be able to turn a refusal into a block on
 an honest user.
 
+### Where the tracking state lives: the permissionless operator
+
+Two costs sit inside an attestation and they are not alike. Proving a header is
+finalised requires BLS12-381 aggregate signature verification over
+sync-committee signatures plus verification of committee handoffs, and it is
+expensive. Proving a piece of state is included under that header is
+Merkle-Patricia path verification, and it is cheap. Header finality is also a
+fact every consumer needs and no consumer needs privately, whereas inclusion is
+specific to the consumer's own transaction.
+
+The expected design follows that asymmetry. An **operator** runs off-chain,
+follows sync-committee handoffs, generates a proof that a light-client finality
+update is validly signed, and submits it to LEZ, where a module account
+accumulates the verified committee and finalised header roots. A **consumer**
+then submits only an inclusion proof against a header already verified in that
+shared state, performing no signature verification of its own.
+
+**The operator must be permissionless.** Anyone can spend the gas and advance
+the state; no party is designated, and none can be excluded. The operator is
+untrusted because submission is proof-checked: it cannot insert a header the
+sync committee did not sign, since doing so would require forging signatures
+from two thirds of the committee. It can only stop, which is a liveness failure
+repaired by anyone else running the same software.
+
+Nobody is obliged to run an operator, and the design does not pretend otherwise.
+What makes the role viable is that the cost of one submission is small, it
+amortises across every consumer reading the resulting header, and the protocols
+whose users depend on fresh headers are motivated to keep them fresh. The
+guarantee is not that an operator will always act; it is that a stalled
+deployment can be restarted by any party willing to pay, without permission and
+without any prior relationship to the deployment. The failure mode is delay, not
+loss.
+
+Trust enters once, at deployment, through the weak-subjectivity checkpoint. That
+input is independently verifiable against public Ethereum history, which is why
+Functionality #9 requires a documented procedure for confirming it rather than
+only a configured value. And it is recoverable: nothing prevents a second
+deployment with a corrected checkpoint, so a failed bootstrap is repaired by
+deploying again rather than by a privileged party mutating the existing one.
+
+The counterweight is that fragmenting across deployments splits the operator
+incentive, duplicates gas, and forces every consumer to choose which contract to
+trust, dissolving the shared-state benefit that motivates the architecture. A
+single canonical deployment that consumers converge on is the intended outcome,
+and redeployment is a recovery path rather than a routine one.
+
+This pattern is established rather than novel, and it has been built and audited
+several times over: Telepathy and SP1 Helios both implement it, and
+`r0vm-helios` implements it on the RISC Zero zkVM. Telepathy was audited by
+Veridise, SP1 Helios by Zellic, and `r0vm-helios` by zkSecurity. Applicants
+should assess reuse rather than assume a rewrite, per the Design Rationale note
+below. The
+[Ethereum Light Client Ecosystem appendix](../appendix/ethereum-light-client-ecosystem.md)
+surveys these implementations, their trust models, and a production fork that
+deliberately made submission permissioned, which is direct evidence that
+permissionlessness is a design choice rather than a property zk proofs confer
+automatically.
+
 ### Trust assumptions the design carries
 
 The anchor is not free of assumptions, and both must be documented for consumers
@@ -187,9 +243,9 @@ rather than buried:
   from a trusted checkpoint, a known-good committee, following handoffs forward
   from there. That initial checkpoint is a trust anchor. The design is trustless
   after bootstrap, given a correct starting committee, so the specification must
-  say who supplies the checkpoint, how a verifier confirms it independently, and
-  how it is refreshed if a deployment falls outside the weak-subjectivity
-  period.
+  say how a verifier confirms the checkpoint independently, and when a
+  deployment that has fallen outside the weak-subjectivity period must be
+  replaced.
 
 Applicants may propose a stronger anchor than sync-committee tracking (full
 validator-set verification, or a hybrid) and are encouraged to state the cost
@@ -249,19 +305,31 @@ LEZ event natively on Ethereum, is specific to the bridge and stays in
 
 ### Consumption model
 
-The primitive is delivered as a library callable from a consuming LEZ program,
-not only as a standalone program with an account interface. A consumer must be
-able to verify an attestation inline within its own transaction, so that
-verification and the action it authorises are atomic and the consumer never has
-to trust an intermediate account written by someone else.
+On testnet and mainnet the primitive is a deployed LEZ program with a published
+interface, and a consumer calls it. Source-level availability matters for local
+testing, review, and reproducing the cost measurements, but it is not the
+deployment model: consumers do not each compile and deploy their own copy of the
+verification logic, because doing so would fragment the shared consensus state
+the architecture depends on and multiply the audited surface.
 
-A standalone program that verifies and records attestations to a public account
-is a legitimate additional deployment shape, since it lets cost be amortised
-when many consumers care about the same Ethereum state, and it is specified as a
-soft requirement rather than a hard one. Where both shapes exist they must share
-a single verification core, so the audit surface and the cost profile stay
-common, following the pattern established in
-[RFP-020](./RFP-020-redstone-oracle-adaptor.md).
+What has to be atomic in the consumer's transaction is the part specific to that
+consumer. Two things are being consumed and they differ:
+
+- **Verified consensus state**, the tracked committee and the finalised header
+  roots, is necessarily shared and necessarily written by an operator. That is
+  the point of the architecture, and it is safe because submission is
+  proof-checked: the consumer's trust rests on the verification the module
+  performed on submission, not on the operator's honesty.
+- **Inclusion and predicate evaluation** must occur inside the consumer's own
+  transaction, against a header the consumer checks for itself, so that
+  verification and the action it authorises cannot come apart.
+
+A deployment shape that records evaluated statements to a public account, so
+that cost can be amortised when many consumers care about the same Ethereum
+state, is a legitimate addition and is specified as a soft requirement. Where it
+exists it must share a single verification core with the direct path, so the
+audit surface and the cost profile stay common, following the pattern
+established in [RFP-020](./RFP-020-redstone-oracle-adaptor.md).
 
 ### Cost is a primary deliverable
 
@@ -277,6 +345,27 @@ component, is therefore a first-class deliverable and not a side report, exactly
 as it was for RFP-020. Consumers cannot size their own designs without those
 numbers, and if the cost turns out to be unacceptable the measurement is the
 input to a follow-on RFP proposing a BLS12-381 precompile for LEZ.
+
+The shared-state architecture changes the shape of this problem without removing
+it. Consensus verification cost sits in the operator's submission and amortises
+across every consumer, while a consumer's own transaction carries only inclusion
+verification. The BLS cost still has to be paid and still has to be measured;
+what it no longer has to do is fit inside each consumer's budget.
+
+### Assess reuse before rewriting
+
+[`r0vm-helios`](https://github.com/boundless-xyz/r0vm-helios) is an Ethereum
+light client built on the RISC Zero zkVM, forked from SP1 Helios and
+independently audited by zkSecurity. It solves the hardest and most
+security-critical component of this RFP on the same zkVM LEZ runs on, which
+makes it a materially different starting point from a blank sheet.
+
+It is not a drop-in. It targets EVM destination chains with Solidity contracts,
+and LEZ is neither. How much transfers, whether the guest program, the operator,
+or only the architecture, is a judgement the applicant is better placed to make
+than this specification. That evaluation is itself work, and Reliability #6
+scopes it as a deliverable. Reuse is expected to be assessed seriously; it is
+not mandated.
 
 ## ✅ Scope of Work
 
@@ -310,44 +399,59 @@ Use FURPS framework. Each numbered item should be a testable statement.
     identifier derived from the attested Ethereum state, suitable for a consumer
     to key a nullifier on. Identical Ethereum state yields an identical
     identifier; distinct state yields a distinct one.
-07. The module is callable as a library from a consuming LEZ program, so that
-    verification and the action it authorises occur in a single transaction. A
-    consumer must be able to integrate without depending on any account written
-    by a third party.
+07. The module is deployed as a LEZ program with a published interface any
+    consuming program can call. Inclusion verification and predicate evaluation
+    occur inside the consuming transaction, and no consumption path requires a
+    consumer to act on a predicate result computed in an earlier transaction.
 08. Verifying and consuming an attestation must not introduce any correlation
     signal beyond what is already public on Ethereum. The public inputs of the
     verified statement must be limited to what the consumer explicitly chooses
     to expose, and must not reveal the identity of the consuming LEZ account or
     the consuming transaction. This must hold over full event and state diffs.
-09. An admin authority (per [RFP-001](./RFP-001-admin-authority-lib.md),
-    integrated via the [SPEL framework](https://github.com/logos-co/spel) where
-    applicable) can configure the weak-subjectivity checkpoint, the supported
-    chain and chain ID, and the finality parameters, per deployment. Document a
+09. The weak-subjectivity checkpoint, the supported chain and chain ID, and the
+    finality parameters are set once per deployment, at deployment. Document a
     procedure by which anyone can independently verify a configured checkpoint
     against public Ethereum sources before relying on the deployment.
-10. Provide a checkpoint-refresh path for a deployment that has fallen outside
-    the weak-subjectivity period, and document when a deployment is required to
-    use it.
-11. Proof generation must be a permissionless liveness role: no specific party
-    may be required to produce an attestation, and any party declining to act
-    must not block a user. Proposals must identify every off-chain participant
-    the design requires and justify that none of them, individually or as a
-    class, can block an attestation from eventually being produced.
-12. The design must not assume Ethereum mainnet is the only target. The same
+10. A deployment that has fallen outside the weak-subjectivity period is
+    replaced by a fresh deployment rather than refreshed in place. Document when
+    a deployment must be replaced, and what a consumer must do to migrate to a
+    replacement.
+11. Advancing the tracked consensus state is permissionless: any party may
+    submit a valid update, and submission carries no access control, allowlist,
+    role, or registration. A deployment in which one party, or a fixed set fixed
+    at deployment, is the only entity able to advance the state does not satisfy
+    this requirement. An account with no prior relationship to the deployment
+    can advance the state.
+12. Proof generation and submission are liveness roles, not trust roles: no
+    specific party may be required for an attestation to be produced, and any
+    party declining to act must not block a user. Proposals must identify every
+    off-chain participant the design requires, state for each whether it can
+    affect safety or only liveness, and justify that none of them, individually
+    or as a class, can block an attestation from eventually being produced.
+13. The weak-subjectivity checkpoint is fixed at deployment and is not mutable
+    by any party thereafter. Recovery from a mis-configured or stale checkpoint
+    is by fresh deployment, per Functionality #10, not by mutation of an
+    existing one.
+14. The design must not assume Ethereum mainnet is the only target. The same
     module must be deployable, unmodified, against any Ethereum-consensus chain,
     mainnet or testnet, with the chain binding in Functionality #5 keeping
     deployments separate.
+15. Multiple independent deployments of the module can coexist, each with its
+    own checkpoint and chain configuration, without interfering with one
+    another. A consumer binds to a specific deployment and a statement from one
+    deployment is never accepted by a consumer bound to another.
 
 #### Usability
 
-1. Build the attestation functionality for both consumers and admins in a Logos
+1. Build the attestation functionality for consumers and operators in a Logos
    core module, so that different Logos ui modules can be built on it: producing
-   an attestation, verifying one, and reading and administering the checkpoint
-   and chain configuration.
+   an attestation, verifying one, submitting a consensus-state update, and
+   reading the checkpoint and chain configuration of a deployment.
 2. Provide a CLI that covers producing an attestation for a given
    `(chain, contract, storage slot or log, predicate)` tuple, verifying one
-   off-chain as a dry run, and reading and administering the configuration. The
-   dry run must report the same typed error codes the on-chain path returns.
+   off-chain as a dry run, submitting a consensus-state update, and reading a
+   deployment's configuration. The dry run must report the same typed error
+   codes the on-chain path returns.
 3. Any long-running off-chain component the design requires (for example a
    process that follows sync-committee handoffs and keeps update material
    available) must be provided as a **Logos module accompanied by a Logos Core
@@ -380,14 +484,24 @@ Use FURPS framework. Each numbered item should be a testable statement.
 6. Proposals must integrate mature, audited implementations of BLS12-381
    signature verification, Merkle-Patricia proof verification, and the
    light-client protocol rather than reimplementing cryptographic primitives
-   from scratch.
-7. CI must be green on the default branch.
+   from scratch. Evaluating what existing implementations offer, and stating
+   what is reused, what is rewritten, and the cost and audit-surface
+   consequences of that split, is a scoped deliverable to be budgeted in the
+   proposal (see Design Rationale, "Assess reuse before rewriting").
+7. A deployment left unadvanced does not lose safety: attestations against
+   already-verified headers continue to verify, and a stalled deployment resumes
+   correctly when any party submits the outstanding updates, with no manual
+   repair and no gap in the verified handoff chain.
+8. Concurrent submission of the same update by competing operators is handled
+   without corrupting tracked state: a duplicate or already-applied update is
+   rejected cleanly rather than double-applied.
+9. CI must be green on the default branch.
 
 #### Performance
 
 1. Verifying an attestation and evaluating its predicate must complete within a
    single LEZ transaction at the per-transaction compute budget in force at
-   delivery time, in the library consumption path of Functionality #7. If this
+   delivery time, in the direct consumption path of Functionality #7. If this
    proves infeasible at delivery time, the measurement in Performance #2 stands
    as the deliverable and the shortfall must be documented with the specific
    component responsible.
@@ -448,13 +562,19 @@ Use FURPS framework. Each numbered item should be a testable statement.
     supermajority assumption and the cost of the attack it admits; the
     weak-subjectivity checkpoint, who supplies it and how a verifier confirms it
     independently; what an attestation does and does not prove; what every
-    off-chain participant in the design can observe; and the conditions under
-    which the guarantees degrade or fail.
-09. The module undergoes an independent third-party security audit of the
+    off-chain participant in the design can observe; whether each can affect
+    safety or only liveness; and the conditions under which the guarantees
+    degrade or fail.
+09. Document the operator role for the deployment: what running an operator
+    costs, at what cadence updates should be submitted, how anyone can start one
+    without permission, and how to detect that a deployment has stalled. State
+    plainly that no party is obliged to operate and that liveness rests on
+    interested parties choosing to spend the gas.
+10. The module undergoes an independent third-party security audit of the
     consensus and inclusion verification logic before any mainnet-facing
     deployment; the audit report must be published.
-10. The deliverable must be published on the module catalog.
-11. The repository must use the standard Logos GitHub Actions.
+11. The deliverable must be published on the module catalog.
+12. The repository must use the standard Logos GitHub Actions.
 
 #### + Verification Security
 
@@ -490,15 +610,20 @@ Use FURPS framework. Each numbered item should be a testable statement.
    (see Design Rationale, "The anchor: Ethereum finality via the sync
    committee").
 
+6. An update is accepted on proof validity alone and never on the submitter's
+   identity: any account submitting a valid proof advances the state, and any
+   account submitting an invalid proof is rejected.
+
 ### Soft Requirements
 
-1. **Standalone attestation program.** In addition to the library path
-   (Functionality #7), provide a LEZ program that verifies attestations and
-   records verified statements to a public account, so cost can be amortised
+1. **Recorded-statement account.** In addition to the direct path (Functionality
+   #7), provide a deployment shape that evaluates a predicate and records the
+   resulting verified statement to a public account, so cost can be amortised
    when many consumers care about the same Ethereum state. It must share a
-   single verification core with the library path, following the pattern in
+   single verification core with the direct path, following the pattern in
    [RFP-020](./RFP-020-redstone-oracle-adaptor.md), so that the audit surface
-   and the cost profile stay common.
+   and the cost profile stay common. Document that a consumer reading such an
+   account trusts whoever wrote it, which the direct path does not require.
 
 2. **Batching.** Amortise verification cost across multiple attestations over
    the same finalised header in a single transaction, analogous to the
@@ -520,7 +645,13 @@ Use FURPS framework. Each numbered item should be a testable statement.
 
 6. **Additional chains.** Extend the attestation to other chains with a
    light-client-verifiable consensus, each served by its own configuration per
-   Functionality #12.
+   Functionality #14.
+
+7. **Operator incentive.** Propose a mechanism that rewards whoever advances the
+   consensus state, so that liveness does not rest solely on interested parties
+   choosing to spend the gas. Any such mechanism must preserve the
+   permissionless property in Functionality #11: it may make operating
+   attractive, but must not make it exclusive.
 
 ### Out of Scope
 
@@ -550,13 +681,6 @@ The following are explicitly excluded from this RFP:
 ## ⚠ Platform Dependencies
 
 ### Hard dependencies
-
-#### Admin authority (RFP-001)
-
-The Functionality requirements specify that an admin authority configures the
-weak-subjectivity checkpoint, the supported chain and chain ID, and the finality
-parameters. These admin-gated functions require the standardised admin authority
-library from [RFP-001](./RFP-001-admin-authority-lib.md).
 
 #### Event emission (LP-0012)
 
@@ -603,7 +727,7 @@ Estimated software delivery duration: **8–12 weeks**. The scope is a single
 primitive with no application logic, but sync-committee tracking, in-zkVM
 BLS12-381 verification, and the cost measurement deliverable are each
 substantial. This excludes the third-party audit lead time required before any
-mainnet-facing deployment (Supportability #9), which is typically procured and
+mainnet-facing deployment (Supportability #10), which is typically procured and
 scheduled separately.
 
 ## 🌍 Open Source Requirement
@@ -612,21 +736,27 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 
 ## Resources
 
-- [RFP-001 — Admin Authority Library](./RFP-001-admin-authority-lib.md)
 - [RFP-003 — Atomic Swaps](./RFP-003-atomic-swaps.md) (trustless swap path for
   chains without general smart-contract expressiveness)
 - [RFP-020 — RedStone Off-Chain Oracle Adaptor for LEZ](./RFP-020-redstone-oracle-adaptor.md)
   (reference for in-program verification cost measurement, and for the shared
-  verification core between a library and a program deployment shape)
+  verification core between two consumption paths)
 - [RFP-022 — Privacy-Preserving Wrapped ERC-20 and Ether Bridge for LEZ](./RFP-022-wrapped-erc20.md)
   (primary consumer; the mint side depends on this attestation)
 - [RFP-023 — Native Gas Token Bridge for LEZ](./RFP-023-gas-token-bridge.md)
   (consumer; the gas-token release path depends on this attestation)
+- [Appendix: Ethereum Light Client Ecosystem](../appendix/ethereum-light-client-ecosystem.md)
+  (production zk light clients, operator models, and the permissioned-updater
+  counter-example)
 - [Appendix: Bridges and Wrapped Tokens](../appendix/bridges-and-wrapped-tokens.md)
   (bridge failure taxonomy, including verification-logic bugs)
 - [LP-0012: Event/Log mechanism for LEZ](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)
 - [Ethereum Altair light-client specification](https://github.com/ethereum/consensus-specs/tree/dev/specs/altair/light-client)
 - [Ethereum weak subjectivity specification](https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/weak-subjectivity.md)
+- [`boundless-xyz/r0vm-helios`](https://github.com/boundless-xyz/r0vm-helios)
+  (Boundless Ethereum light client, audited by zkSecurity; reuse candidate)
+- [`succinctlabs/sp1-helios`](https://github.com/succinctlabs/sp1-helios)
+  (upstream implementation of the same pattern)
 - [RISC0 — Zero-Knowledge VM](https://github.com/risc0/risc0)
 - [Zisk — RISC0 Proof Generation](https://github.com/risc0/zisk)
 - [`fryorcraken/lez-signature-bench`](https://github.com/fryorcraken/lez-signature-bench)
