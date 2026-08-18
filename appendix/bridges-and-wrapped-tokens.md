@@ -1,13 +1,13 @@
 # Appendix: Bridges and Wrapped Tokens
 
 This appendix surveys the ecosystem context behind
-[RFP-021](../RFPs/RFP-021-wrapped-erc20.md), a privacy-preserving wrapped ERC-20
+[RFP-022](../RFPs/RFP-022-wrapped-erc20.md), a privacy-preserving wrapped ERC-20
 bridge for LEZ, in two parts. The first and larger part surveys major
 cross-chain bridge exploits, classifies their root causes, and sources the loss
-figures relevant to RFP-021's claim that bridges are the most-attacked category
+figures relevant to RFP-022's claim that bridges are the most-attacked category
 of DeFi infrastructure, and to its design choice to eliminate signer/validator
 trust while still treating verification-logic correctness and upgrade-key
-custody as first-order risks. The second, shorter part sources RFP-021's
+custody as first-order risks. The second, shorter part sources RFP-022's
 stablecoin market-size claim, which motivates the specific tokens (USDC, USDT,
 DAI, WETH) the RFP proposes wrapping first.
 
@@ -64,7 +64,7 @@ THORChain's own post-mortem confirms both as router logic bugs, not key
 compromises [27][28]. Losses were approximately $8M in each incident. Included
 here as a borderline case: it is a cross-chain bridging component being
 exploited via a logic bug, but THORChain's overall architecture is an
-AMM/liquidity network, not a lock-and-mint bridge in the RFP-021 sense.
+AMM/liquidity network, not a lock-and-mint bridge in the RFP-022 sense.
 
 ### Qubit Finance / QBridge (27-28 January 2022)
 
@@ -227,7 +227,7 @@ in a multisig-controlled vault.
 
 ## Upgrade-key compromise: what the evidence shows
 
-RFP-021 treats an upgradeable verifier contract's *upgrade key* as a key-custody
+RFP-022 treats an upgradeable verifier contract's *upgrade key* as a key-custody
 attack surface of the same kind as a validator or multisig key, one layer
 removed: whoever holds the upgrade key can substitute the verification logic
 itself, rather than directly signing a fraudulent withdrawal. This is a distinct
@@ -284,7 +284,7 @@ and OpenZeppelin) treats post-deployment upgrade mechanisms as a
 disproportionate source of protocol losses as a general class, but without a
 bridge-specific incident list to cite.
 
-The practical reading for RFP-021's argument: the *category* of risk (a mutable
+The practical reading for RFP-022's argument: the *category* of risk (a mutable
 verifier controlled by a key that can swap in malicious or broken logic) is
 real, attested by security-firm framing, and has caused actual bridge losses
 through Pattern A (a legitimate upgrade shipping a bug, Nomad and Ronin 2024)
@@ -299,7 +299,7 @@ patterns rather than only the one with a clean historical precedent.
 ## Root-cause breakdown
 
 Excluding THORChain (a borderline case, not a lock-and-mint bridge in the
-RFP-021 sense) and treating Poly Network and Multichain per their categorization
+RFP-022 sense) and treating Poly Network and Multichain per their categorization
 above, the ten core hacks in the summary table break down as follows by dollar
 value (approximate, using the midpoint of any reported range):
 
@@ -323,7 +323,7 @@ Network because the bug's effect mimicked a stolen governance key without one
 being stolen). If Poly Network is instead counted toward key custody (its effect
 being equivalent to a stolen keeper key) and BNB Bridge's actually-exfiltrated
 figure is used rather than its minted figure, category (a) plus Poly Network's
-$611M would dominate instead. The underlying point RFP-021 makes — that key
+$611M would dominate instead. The underlying point RFP-022 makes — that key
 custody is a large but not exclusive source of bridge losses, and
 verification-logic bugs are a comparably large source — holds directionally
 across every reasonable way of drawing the boundary cases; a precise 50/50 split
@@ -333,7 +333,7 @@ counted.
 
 ## Chainalysis figures: what the primary sources actually say
 
-RFP-021 cites Chainalysis for the claim that over $2B was stolen from
+RFP-022 cites Chainalysis for the claim that over $2B was stolen from
 cross-chain bridges in 2022, representing 64% of that year's DeFi hacking
 losses. Chainalysis in fact published two separate figures, from two separate
 reports, that are often conflated:
@@ -356,7 +356,7 @@ reports, that are often conflated:
 Both figures are directionally consistent and both support the underlying claim
 that bridges were the single largest category of DeFi hacking losses in 2022.
 But the $2B dollar figure and the 64% percentage, as commonly paired in
-secondary reporting (including news aggregation that RFP-021's figure likely
+secondary reporting (including news aggregation that RFP-022's figure likely
 traces to), actually come from two different Chainalysis reports measuring
 different populations over different time windows, not from a single, internally
 consistent statistic. The more defensible citation is the February 2023 report's
@@ -390,7 +390,7 @@ categories (notably exchange and private-key compromises).
 
 ## Stablecoin Market Context
 
-RFP-021 cites USDT and USDC together holding "over 80%" of a stablecoin market
+RFP-022 cites USDT and USDC together holding "over 80%" of a stablecoin market
 "above $300B in mid-2026" as the rationale for prioritising those two assets
 (alongside DAI and WETH) as the bridge's first wrapped tokens. DefiLlama tracks
 total stablecoin market capitalisation at approximately $310B-$313B through
@@ -404,7 +404,7 @@ approximately $183.4B and roughly 59-64% of total stablecoin supply depending on
 the exact date sampled [36][37]. Circle's USDC is second, at approximately
 $72B-$75B, roughly 23-24% of supply [37][38]. Combined, USDT and USDC hold
 approximately 89% of total stablecoin market capitalisation as of early August
-2026 [36][37] — comfortably clearing RFP-021's "over 80%" claim rather than
+2026 [36][37] — comfortably clearing RFP-022's "over 80%" claim rather than
 merely meeting it.
 
 Supply share is not the same claim as settlement dominance, and the two should
@@ -417,7 +417,7 @@ USDC/USDT pairs, and stablecoin swaps make up the majority of DEX trading volume
 on Ethereum [39]. On lending markets, Aave, the largest lending venue by
 deposits, reportedly holds an 80%+ share of USDT and USDC deposits/borrows on
 Ethereum, with stablecoin pools forming the protocol's largest liquidity base
-[41]. Taken together, this supports RFP-021's framing that USDT and USDC are the
+[41]. Taken together, this supports RFP-022's framing that USDT and USDC are the
 settlement asset most DeFi money markets and DEXes actually run on, though the
 volume and collateral-share figures are drawn from secondary market trackers and
 platform-level reporting rather than a single authoritative cross-protocol
@@ -478,5 +478,5 @@ measured.
 
 ______________________________________________________________________
 
-*This appendix was prepared to support RFP-021. For clarification or additions,
+*This appendix was prepared to support RFP-022. For clarification or additions,
 please use the RFP repository Discussions.*

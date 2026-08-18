@@ -1,11 +1,11 @@
 ---
-id: RFP-021
+id: RFP-022
 title: Privacy-Preserving Wrapped ERC-20 and Ether Bridge for LEZ
 tier: L
 status: open
 category: Developer Tooling & Infrastructure
 dependencies:
-  - id: RFP-022
+  - id: RFP-021
     reason: The trustless Ethereum state attestation primitive is what the LEZ bridge program uses to verify a deposit really happened on Ethereum, as specified in Functionality.
   - id: RFP-001
     reason: Admin authority governs the supported-token registry and the deposit/redemption caps, as specified in Functionality.
@@ -17,7 +17,7 @@ dependencies:
 
 <!-- Don't forget to add this RFP to the table in README.md (between RFP_TABLE_START / RFP_TABLE_END markers) -->
 
-# RFP-021 — Privacy-Preserving Wrapped ERC-20 and Ether Bridge for LEZ
+# RFP-022 — Privacy-Preserving Wrapped ERC-20 and Ether Bridge for LEZ
 
 > **Note.** This specification describes an outcome that may benefit the Logos
 > ecosystem. It is a proposal rather than an instruction. Its requirements
@@ -58,7 +58,7 @@ An Ethereum-side vault contract escrows deposits. A LEZ-side program mints the
 corresponding wrapped token once it has cryptographically verified, with no
 trusted intermediary, that the deposit really happened on Ethereum; that
 verification is the attestation primitive specified in
-[RFP-022](./RFP-022-ethereum-state-attestation.md), which this RFP consumes
+[RFP-021](./RFP-021-ethereum-state-attestation.md), which this RFP consumes
 rather than rebuilds. Redemption reverses the flow: burning the wrapped token on
 LEZ entitles the holder to release the original ERC-20 from the vault, again on
 cryptographic proof alone.
@@ -395,7 +395,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
 03. Implement a LEZ bridge program that mints the corresponding wrapped token on
     cryptographic verification of a valid Ethereum deposit. Verification must
     require no trusted party, and must consume the attestation primitive from
-    [RFP-022](./RFP-022-ethereum-state-attestation.md) rather than implementing
+    [RFP-021](./RFP-021-ethereum-state-attestation.md) rather than implementing
     its own Ethereum consensus and inclusion verification. Uniqueness (that one
     deposit cannot be minted against twice, per Reliability #3) is this
     program's responsibility, keyed on the statement identifier the attestation
@@ -420,15 +420,14 @@ Use FURPS framework. Each numbered item should be a testable statement.
     the flow. This does not extend to the wrapped token itself: once minted, it
     is an ordinary LEZ token redeemable by whoever holds it, regardless of who
     made the original deposit.
-10. An admin authority (per RFP-001, integrated via the SPEL framework where
-    applicable to the LEZ side) can register a supported ERC-20 (Ethereum
+10. An admin authority (per RFP-001) can register a supported ERC-20 (Ethereum
     address, LEZ wrapped mint, decimals, permitted amounts, caps) and deregister
     a token. Documentation needs to be provided to handle registration changes
     with minimum impact for users, including delisting of a token.
 11. Global and per-token deposit and redemption caps, configurable by the admin
     authority, bound the maximum value that can be minted or released within a
     rolling window, as a rate limiter independent of the freeze authority. Cap
-    enforcement must not require identifying individual users.
+    enforcement per blockchain account is sufficient.
 12. The finality depth required before a deposit may be claimed, and before a
     burn may be released, is configurable by the admin authority per deployment,
     defaulting to the depth recommended in Design Rationale, "Finality and reorg
@@ -462,64 +461,88 @@ Use FURPS framework. Each numbered item should be a testable statement.
 
 #### Usability
 
-1. Build core functionalities for both users and admin in a Logos core module,
-   enabling the delivery of different Logos ui modules to use these programs:
-   depositing, claiming a deposit on LEZ, redeeming, releasing on Ethereum,
-   recovering a position from user credentials, and reading and administering
-   the supported-token registry and its permitted amounts.
-2. Provide a Logos mini-app, aka Logos ui module, covering the deposit and
-   redemption flows end to end, position recovery, and a registry view showing
-   supported tokens, permitted amounts, caps and current utilisation. Also
-   provide a UI for the admin functionality; whether this is combined into one
-   UI or delivered as two separate ones is left to the applicant's choice.
-3. Any long-running off-chain component the design requires must be provided as
-   a **Logos module accompanied by a Logos Core headless CLI/daemon**, runnable
-   standalone, supporting configurable RPC endpoints for both chains,
-   configurable finality depth, structured logging, and a clean shutdown path.
-   Document the operator journey end-to-end: install, configure, run, monitor.
-4. Provide an IDL for the LEZ bridge program using the
-   [SPEL framework](https://github.com/logos-co/spel).
-5. The mitigations to the three correlation points in Design Rationale, "The
-   privacy requirement, stated precisely" (amount, timing, fee payer) must be
-   enabled by default for users. The mini-app and CLI must show a clear
-   indicator of what data would be leaked by the user's current choices, and
-   default to the recommended parameters (fixed denomination, delayed
-   submission, permissionless relayer) rather than requiring the user to select
-   them.
-6. Although minting and burning both support public LEZ accounts (Functionality
-   #4, #6), the mini-app and CLI must default to inviting the user to mint into,
-   and burn from, a private account: the private path is the pre-selected option
-   in the flow, and choosing the public path instead requires an explicit
-   action, consistent with Privacy Preservation #8.
-7. Documentation and UI must clearly explain what is public and what is private
-   at each step on both chains, so users can judge their own exposure.
-8. Return clear, actionable error messages for all failure modes: unsupported
-   token, invalid amount, cap exceeded, verification failure, insufficient
-   finality, already claimed, and program or per-token frozen. Error messages
-   must not reveal which deposit or burn a failed attempt referred to.
+01. Build core functionalities for both users and admin in a Logos core module,
+    enabling the delivery of different Logos ui modules to use these programs:
+    depositing, claiming a deposit on LEZ, redeeming, releasing on Ethereum,
+    recovering a position from user credentials, and reading and administering
+    the supported-token registry and its permitted amounts.
+02. Provide a Logos mini-app, aka Logos ui module, covering the deposit and
+    redemption flows end to end, position recovery, and a registry view showing
+    supported tokens, permitted amounts, caps and current utilisation. Also
+    provide a UI for the admin functionality; whether this is combined into one
+    UI or delivered as two separate ones is left to the applicant's choice.
+03. Any long-running off-chain component the design requires must be provided as
+    a **Logos module accompanied by a Logos Core headless CLI/daemon**, runnable
+    standalone, using LEZ module and Ethereum module for the respective chains
+    access, configurable finality depth, structured logging, and a clean
+    shutdown path. Document the operator journey end-to-end: install, configure,
+    run, monitor.
+04. Provide an IDL for the LEZ bridge program using the
+    [SPEL framework](https://github.com/logos-co/spel).
+05. The mitigations to the three correlation points in Design Rationale, "The
+    privacy requirement, stated precisely" (amount, timing, fee payer) must be
+    enabled by default for users. The mini-app and CLI must show a clear
+    indicator of what data would be leaked by the user's current choices, and
+    default to the recommended parameters (fixed denomination, delayed
+    submission, permissionless relayer) rather than requiring the user to select
+    them.
+06. Although minting and burning both support public LEZ accounts (Functionality
+    #4, #6), the mini-app and CLI must default to inviting the user to mint
+    into, and burn from, a private account: the private path is the pre-selected
+    option in the flow, and choosing the public path instead requires an
+    explicit action, consistent with Privacy Preservation #7.
+07. Documentation and UI must clearly explain what is public and what is private
+    at each step on both chains, so users can judge their own exposure.
+08. Return clear, actionable error messages for all failure modes: unsupported
+    token, invalid amount, cap exceeded, verification failure, insufficient
+    finality, already claimed, and program or per-token frozen. Error messages
+    must not reveal which deposit or burn a failed attempt referred to.
+09. The UI must let users change the targeted Ethereum RPC address and the
+    targeted LEZ sequencer or zone.
+10. All resulting modules are published in catalogue for easy installation.
 
 #### Reliability
 
-1. Minting is atomic: a failed or rejected claim leaves the deposit claimable on
-   retry and consumes nothing.
-2. Redemption is atomic at each stage: a failed burn does not destroy wrapped
-   tokens without preserving the holder's entitlement to release, and a failed
-   release leaves that entitlement intact.
-3. No deposit can be claimed twice and no burn redeemed twice, deterministically
-   and under adversarial retry.
-4. A valid claim remains valid indefinitely; later chain activity must never
-   invalidate a user's outstanding entitlement.
-5. Position recovery is complete: a client restored from user credentials alone
-   must rediscover every claimable deposit and unredeemed burn, verified by a
-   test that wipes all local state.
-6. Temporary RPC or connectivity failure on either chain leaves any off-chain
-   component in a recoverable state, able to resume without duplicating work
-   already done.
-7. An interrupted user-side operation does not consume, corrupt, or expose the
-   user's entitlement.
-8. Proposals must integrate mature, audited proof-system implementations rather
-   than reimplementing zero-knowledge primitives from scratch.
-9. CI must be green on the default branch.
+01. Minting is atomic: a failed or rejected claim leaves the deposit claimable
+    on retry and consumes nothing.
+02. Redemption is atomic at each stage: a failed burn does not destroy wrapped
+    tokens without preserving the holder's entitlement to release, and a failed
+    release leaves that entitlement intact.
+03. No deposit can be claimed twice and no burn redeemed twice,
+    deterministically and under adversarial retry.
+04. A valid claim remains valid indefinitely; later chain activity must never
+    invalidate a user's outstanding entitlement.
+05. Position recovery is complete: a client restored from user credentials alone
+    must rediscover every claimable deposit and unredeemed burn, verified by a
+    test that wipes all local state.
+06. Temporary RPC or connectivity failure on either chain leaves any off-chain
+    component in a recoverable state, able to resume without duplicating work
+    already done.
+07. An interrupted user-side operation does not consume, corrupt, or expose the
+    user's entitlement.
+08. Proposals must integrate mature, audited proof-system implementations rather
+    than reimplementing zero-knowledge primitives from scratch.
+09. If any off-chain component is necessary, and expected to be run by a 3rd
+    party, document the effect, and mitigate it, of an outage or malfunction of
+    said component.
+10. End-to-end integration tests exercise the full deposit and redemption round
+    trip against a LEZ sequencer (standalone mode) and an Ethereum test network
+    or local fork, and are included in CI.
+11. Every hard requirement has at least one corresponding test.
+12. Submit a
+    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+    for the core module, covering the developer integration journey for both
+    flows including position recovery.
+13. Submit a
+    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+    for the CLI and any operator-facing components, covering the core user and
+    operator journeys respectively.
+14. Submit a
+    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+    for the deployer journey, covering how an entity stands up its own
+    independently configured deployment (Functionality #16): registering tokens,
+    setting fees, configuring the admin and freeze authorities, and the finality
+    depth.
 
 #### Performance
 
@@ -548,56 +571,20 @@ Use FURPS framework. Each numbered item should be a testable statement.
 
 #### Supportability
 
-01. The Ethereum vault contract and the LEZ bridge program are deployed and
-    tested on a public Ethereum testnet and LEZ testnet respectively.
-02. End-to-end integration tests exercise the full deposit and redemption round
-    trip against a LEZ sequencer (standalone mode) and an Ethereum test network
-    or local fork, and are included in CI.
-03. Every hard requirement in Functionality, Usability, Reliability,
-    Performance, and Privacy Preservation has at least one corresponding test.
-04. A README documents end-to-end usage: contract and program addresses,
-    deployment steps for both chains, and step-by-step instructions for
-    depositing and redeeming via CLI and mini-app.
-05. Submit a
-    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-    for the core module, covering the developer integration journey for both
-    flows including position recovery.
-06. Submit a
-    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-    for the CLI and any operator-facing components, covering the core user and
-    operator journeys respectively.
-07. Submit a
-    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-    for the deployer journey, covering how an entity stands up its own
-    independently configured deployment (Functionality #16): registering tokens,
-    setting fees, configuring the admin and freeze authorities, and the finality
-    depth.
-08. The Ethereum vault contract undergoes an independent third-party
-    smart-contract security audit before mainnet deployment; the audit report
-    must be published.
-09. Provide a **privacy properties document** covering: a formal statement of
-    Privacy Preservation #1 and #2 and the anonymity set each is measured
-    against; exactly what is visible on-chain at every step on both chains; what
-    an adversary observing all public state can and cannot infer; what every
-    off-chain participant in the design can observe; residual leakage from
-    timing, amount selection, fee payment, network metadata and usage patterns;
-    and the conditions under which the guarantees degrade or fail.
-10. Document the anonymity-set growth model: expected set size over time at
-    projected volumes, the minimum below which the guarantees are considered not
-    to hold, and guidance for users bridging before the pool has matured.
-11. The UI must let users change the targeted Ethereum RPC address and the
-    targeted LEZ sequencer or zone.
-12. The deliverable must be published on the module catalog.
-13. The repository must use the standard Logos GitHub Actions.
+1. The Ethereum vault contract and the LEZ bridge program are deployed and
+   tested on a public Ethereum testnet and LEZ testnet respectively.
+2. The modules work on both Linux and MacOS platforms.
+3. The repository must use the standard Logos GitHub Actions.
 
-#### + Bridge Security
+#### + Security
 
-1. Proof verification must be independently verifiable. Both the LEZ program and
+1. Both blockchain contracts undergoes an independent third-party smart-contract
+   security audit before mainnet deployment; the audit report must be published.
+2. Proof verification must be independently verifiable. Both the LEZ program and
    the Ethereum vault must reject invalid proofs, including those with incorrect
    public inputs, proofs for incorrect chain state, tampered headers, and
    replayed proofs.
-
-2. A malicious party submitting on a user's behalf must not be able to redirect
+3. A malicious party submitting on a user's behalf must not be able to redirect
    funds, inflate their fee, or replay the user's submission to a different
    destination: a deposit and a burn must each secretly commit to the
    destination on the other chain, so that the claim can only be completed by
@@ -607,36 +594,23 @@ Use FURPS framework. Each numbered item should be a testable statement.
    on, can be used to steal it (see Functionality #2, #5). An adversary who
    observes everything public about a deposit or burn, but does not hold the
    originating seed, cannot construct a valid claim for a different destination.
-
-3. Caps (Functionality #11) bound the maximum value at risk in any rolling
+4. Caps (Functionality #11) bound the maximum value at risk in any rolling
    window; proposals must document recommended defaults and the reasoning behind
    them.
-
-4. The freeze authority (Functionality #14) must be exercisable independently on
+5. The freeze authority (Functionality #14) must be exercisable independently on
    each half, so either can be paused without the other being operational or
    reachable.
-
-5. Soundness of supply: total wrapped supply on LEZ must never exceed the
+6. Soundness of supply: total wrapped supply on LEZ must never exceed the
    vault's holdings. Minting without a valid deposit, minting twice from one
    deposit, and releasing without a valid burn must all fail.
-
-6. User-facing documentation must state the trustless verification model and the
+7. User-facing documentation must state the trustless verification model and the
    liveness-only role of any off-chain participant (see Design Rationale, "Trust
    model").
-
-7. **The verification logic cannot be swapped.** No party may change what the
-   bridge accepts as a valid proof after deployment.
-
-   - **LEZ.** The verifying program's image ID is fixed in the bridge program's
-     code, never read from mutable account state.
-   - **Ethereum.** No proxy whose implementation can be substituted, and no
-     admin-replaceable verifier address or key.
-
-   Change requires deploying a new version and migrating to it. Proposals must
-   document the migration mechanism and how in-flight deposits and burns are
-   honoured across it.
-
-8. The freeze authority (Functionality #14) stops new activity but does not by
+8. **The verification logic cannot be swapped.** No party may change what the
+   bridge accepts as a valid proof after deployment. Change requires deploying a
+   new version and migrating to it. Proposals must document the migration
+   mechanism and how in-flight deposits and burns are honoured across it.
+9. The freeze authority (Functionality #14) stops new activity but does not by
    itself recover funds already at risk or resolve deposits and burns left
    in-flight once a vulnerability in the verification logic is found. Proposals
    must specify a failsafe strategy for this scenario, constrained as follows:
@@ -674,13 +648,10 @@ Use FURPS framework. Each numbered item should be a testable statement.
 5. Failure and error paths must not reveal which deposit or burn was involved: a
    rejected claim, a repeat claim, and a cap rejection must be indistinguishable
    in that respect.
-6. The client must not make any network request that reveals which deposit or
-   burn it is acting on. Document every network call made during a
-   privacy-sensitive operation and justify each.
-7. Where a third party submits on the user's behalf, document precisely what
+6. Where a third party submits on the user's behalf, document precisely what
    that party learns, and ensure the user can switch between such parties per
    operation.
-8. The default configuration must be the private one. No user action may be
+7. The default configuration must be the private one. No user action may be
    required to obtain the privacy guarantees, and any override that weakens them
    must require explicit confirmation.
 
@@ -693,39 +664,17 @@ Use FURPS framework. Each numbered item should be a testable statement.
    under the hard requirements should be designed so this can be adopted later
    without redeploying the vault or resetting accumulated anonymity; document
    the intended migration path even if it is not implemented.
-
-2. Batching: amortise verification cost across multiple operations in a single
-   transaction, analogous to the multi-feed batching soft requirement in
-   RFP-020.
-
-3. Optional viewing keys allowing a user to *voluntarily* disclose their own
+2. Optional viewing keys allowing a user to *voluntarily* disclose their own
    bridge activity to a chosen third party, without weakening privacy for anyone
    else and without any protocol-level disclosure capability.
-
-4. A configurable per-token release delay, in addition to finality and any
+3. A configurable per-token release delay, in addition to finality and any
    user-chosen delay, as an extra circuit-breaker window allowing the admin
    authority to react to anomalous redemption volume before funds leave the
    vault.
-
-5. Support for wrapping ERC-20 tokens from additional EVM chains (e.g. Arbitrum,
-   Base), each served by its own LEZ bridge program deployment per Functionality
-   #15 (one program per chain ID, not one program juggling several chains
-   internally).
-
-6. Hardware acceleration as an optional path for users with capable machines,
-   without making it a requirement.
-
-7. Design the proof-system components as pluggable, so that future zkVM
+4. Design the proof-system components as pluggable, so that future zkVM
    improvements, proof compression, or hardware acceleration can be adopted
-   without restructuring the vault or the bridge program.
-
-8. **Reverse direction for a zone's native gas token**, letting a user who holds
-   nothing on the zone acquire gas from Ethereum, is delivered separately by
-   [RFP-023](./RFP-023-gas-token-bridge.md), which inverts the roles so that the
-   LEZ program is the vault and the Ethereum contract is the minter. It builds
-   on the vault, mint, and privacy construction specified here. Proposals for
-   this RFP are not asked to address it, but should avoid design choices that
-   would make the reverse direction harder to build on the same patterns.
+   without restructuring the vault or the bridge program (redeployment and
+   migration would be necessary, per Security #8)
 
 ### Out of Scope
 
@@ -735,9 +684,9 @@ The following are explicitly excluded from this RFP:
 - Network-level anonymity. The guarantees here are properties of on-chain state.
   IP-level correlation between a user's Ethereum deposit and their later LEZ
   activity is out of scope as an implementation concern, but must be disclosed
-  as residual leakage under Supportability #9.
+  as residual leakage under Privacy Preservation #6.
 - Protocol-level compliance, disclosure, or selective-deanonymisation
-  mechanisms. Voluntary user-held viewing keys are Soft Requirement #3; any
+  mechanisms. Voluntary user-held viewing keys are Soft Requirement #2; any
   capability allowing a third party to deanonymise a user without their consent
   is contrary to the design and out of scope.
 - Circuit optimisation or custom zkVM accelerators for the LEZ side: LEZ itself
@@ -751,14 +700,14 @@ The following are explicitly excluded from this RFP:
 
 ### Hard dependencies
 
-#### Ethereum state attestation (RFP-022)
+#### Ethereum state attestation (RFP-021)
 
 The inbound leg mints only against a deposit proven to have been finalised on
 Ethereum, with no signer or federation trusted to attest to it (Functionality
 #3). That verification, establishing Ethereum finality, proving inclusion of the
 deposit under a finalised header, and emitting a verified statement, is
 delivered as a shared primitive by
-[RFP-022](./RFP-022-ethereum-state-attestation.md). This RFP consumes it and
+[RFP-021](./RFP-021-ethereum-state-attestation.md). This RFP consumes it and
 does not rebuild it, so that the consensus verification path is audited once and
 shared with the other LEZ programs that need to read Ethereum state. The
 outbound leg, verifying a LEZ burn natively on Ethereum, is specific to this
@@ -800,7 +749,7 @@ The UI must use the wallet SDK from the Lambda Prize wallet-SDK work.
 #### RISC0 zkVM
 
 The bridge verifies proofs in-program on LEZ (the deposit attestation from
-RFP-022 on the inbound leg, and the bridge's own claim and burn logic
+RFP-021 on the inbound leg, and the bridge's own claim and burn logic
 throughout). Because LEZ itself runs on RISC0, a production-ready zkVM, this leg
 of the design is a LEZ-runtime dependency rather than a choice the proposal
 makes; proposals must leverage mature RISC0 implementations (e.g.
@@ -839,8 +788,8 @@ Estimated software delivery duration: **16–20 weeks**. This is longer than a
 transparent lock-and-mint bridge would require; the privacy construction,
 user-side proving, position recovery, and the privacy test suite are the
 additional scope. This excludes the third-party audit lead time required before
-mainnet deployment (Supportability #8), which is typically procured and
-scheduled separately.
+mainnet deployment (Security #1), which is typically procured and scheduled
+separately.
 
 ## 🌍 Open Source Requirement
 
@@ -862,7 +811,7 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   external assets as priced collateral)
 - [RFP-020 — RedStone Off-Chain Oracle Adaptor for LEZ](./RFP-020-redstone-oracle-adaptor.md)
   (reference for in-program proof verification cost measurement)
-- [RFP-022 — Trustless Ethereum State Attestation for LEZ](./RFP-022-ethereum-state-attestation.md)
+- [RFP-021 — Trustless Ethereum State Attestation for LEZ](./RFP-021-ethereum-state-attestation.md)
   (delivers the verification of finalised Ethereum state that the inbound mint
   path consumes)
 - [RFP-023 — Native Gas Token Bridge for LEZ](./RFP-023-gas-token-bridge.md)

@@ -5,9 +5,9 @@ tier: M
 status: open
 category: Developer Tooling & Infrastructure
 dependencies:
-  - id: RFP-021
-    reason: Delivers the vault, mint, registry, caps and privacy construction this RFP inverts; the two bridges share their patterns and their proof-verification approach.
   - id: RFP-022
+    reason: Delivers the vault, mint, registry, caps and privacy construction this RFP inverts; the two bridges share their patterns and their proof-verification approach.
+  - id: RFP-021
     reason: The trustless Ethereum state attestation primitive is what the LEZ vault program uses to verify an ERC-20 burn really happened on Ethereum, as specified in Functionality.
   - id: RFP-001
     reason: Admin authority governs the caps, the finality depth, and the chain and zone pairing, as specified in Functionality.
@@ -53,7 +53,7 @@ dependencies:
 ## 🧭 Overview
 
 Build the reverse-direction counterpart to
-[RFP-021](./RFP-021-wrapped-erc20.md): a trustless, privacy-preserving bridge in
+[RFP-022](./RFP-022-wrapped-erc20.md): a trustless, privacy-preserving bridge in
 which **LEZ is the vault** and Ethereum is the minter, so a zone's native gas
 token can be represented as an ERC-20 on Ethereum and acquired by someone who
 holds nothing on the zone yet.
@@ -63,9 +63,9 @@ vault entitles the holder to mint the corresponding ERC-20 on Ethereum, on
 cryptographic proof of the lock. Burning that ERC-20 on Ethereum entitles the
 holder to release native gas token from the LEZ vault, on cryptographic proof of
 the burn, verified in-program on LEZ via the attestation primitive from
-[RFP-022](./RFP-022-ethereum-state-attestation.md).
+[RFP-021](./RFP-021-ethereum-state-attestation.md).
 
-This is RFP-021's construction with the chains swapped, and it inherits that
+This is RFP-022's construction with the chains swapped, and it inherits that
 RFP's requirements accordingly: the same trustless verification model, the same
 unlinkability guarantees, the same caps and freeze authority, the same immutable
 verifier preference. It is a separate deliverable because the roles invert. The
@@ -73,7 +73,7 @@ vault logic and the mint logic move to opposite chains, which makes the LEZ
 program the thing holding value and the Ethereum contract the thing issuing a
 representation, with a correspondingly different audit target.
 
-One problem is genuinely new and has no analogue in RFP-021: releasing native
+One problem is genuinely new and has no analogue in RFP-022: releasing native
 gas token to a recipient who, by construction, has no gas with which to pay for
 the release. This RFP resolves it with an **off-chain paymaster service**, the
 third component of a deployment alongside the vault and the Ethereum contract. A
@@ -115,8 +115,8 @@ pattern exists to avoid.
 This RFP is the trustless entry path. Someone who holds ETH and an Ethereum
 wallet can acquire native gas token by burning an ERC-20 representation, with no
 custodian, no faucet operator, and no funding source that links their new LEZ
-account to their Ethereum identity. It closes the loop that RFP-021 opens:
-RFP-021 brings external *value* onto LEZ as wrapped assets, but a user still
+account to their Ethereum identity. It closes the loop that RFP-022 opens:
+RFP-022 brings external *value* onto LEZ as wrapped assets, but a user still
 needs gas to do anything with it, and wrapped USDC does not pay for a
 transaction. Together the two bridges make a user's first interaction with a
 zone possible without trusting anyone.
@@ -130,20 +130,20 @@ the zone having bootstrapped its own DEX first.
 
 ### Inverted roles
 
-In RFP-021, the Ethereum contract is the vault and the LEZ program is the
+In RFP-022, the Ethereum contract is the vault and the LEZ program is the
 minter. Here the roles swap:
 
 - **Outbound (LEZ to Ethereum).** A user locks native gas token in the LEZ vault
   program. Proof of that lock entitles the holder to mint the corresponding
   ERC-20 on Ethereum. The proof is verified natively on Ethereum, the same
-  problem RFP-021 solves for its burn-to-release leg.
+  problem RFP-022 solves for its burn-to-release leg.
 - **Inbound (Ethereum to LEZ).** A user burns the ERC-20 on Ethereum. Proof of
   that burn entitles the holder to release native gas token from the LEZ vault.
   The proof is verified in-program on LEZ, consuming the attestation primitive
-  from [RFP-022](./RFP-022-ethereum-state-attestation.md) rather than rebuilding
+  from [RFP-021](./RFP-021-ethereum-state-attestation.md) rather than rebuilding
   Ethereum consensus and inclusion verification.
 
-Everything else follows RFP-021. The requirements below mirror it item for item
+Everything else follows RFP-022. The requirements below mirror it item for item
 wherever the mirroring is exact, and say so rather than restating the reasoning.
 
 ### Supply is demand-driven, and the ERC-20 has no privileged minter
@@ -151,7 +151,7 @@ wherever the mirroring is exact, and say so rather than restating the reasoning.
 The ERC-20 is not a float that anyone stocks in advance. It comes into existence
 only when someone locks native gas token in the LEZ vault, and it leaves
 existence only when someone burns it to release that gas token. Supply tracks
-demand by construction, exactly as the wrapped-token supply does in RFP-021, and
+demand by construction, exactly as the wrapped-token supply does in RFP-022, and
 no seeding, replenishment, or market-making mechanism is required to make the
 mechanism work.
 
@@ -281,26 +281,26 @@ SHA-256 preimage standing in for a real proof system, and it documents its own
 gaps (no recipient binding, no authority binding on initialisation). Proposals
 should not treat it as a pattern to conform to.
 
-### Privacy mirrors RFP-021 exactly
+### Privacy mirrors RFP-022 exactly
 
 The privacy construction carries over with the chains swapped, and it carries
 over in full. Each leg of each bridge has exactly one public endpoint, and it is
 the Ethereum endpoint in both:
 
-- RFP-021 inbound: public Ethereum deposit, hidden LEZ mint destination.
+- RFP-022 inbound: public Ethereum deposit, hidden LEZ mint destination.
 - RFP-023 inbound: public Ethereum burn, hidden LEZ release destination.
-- RFP-021 outbound: hidden LEZ burn, public Ethereum release recipient.
+- RFP-022 outbound: hidden LEZ burn, public Ethereum release recipient.
 - RFP-023 outbound: hidden LEZ lock, public Ethereum mint recipient.
 
 Minting an ERC-20 to a public Ethereum address reveals neither more nor less
 than releasing one from escrow to a public Ethereum address. The hard
-requirement is therefore identical to RFP-021's, with the terms substituted:
+requirement is therefore identical to RFP-022's, with the terms substituted:
 **no information other than amount, token, and timing may enable an adversary
 who observes all public state on both chains, indefinitely, and who may
 themselves use the bridge, to link an Ethereum burn to the LEZ release it
 funded, or a LEZ lock to the Ethereum mint it triggered.**
 
-The three correlation points from RFP-021, "The privacy requirement, stated
+The three correlation points from RFP-022, "The privacy requirement, stated
 precisely," apply unchanged and proposals must address each: amounts correlate
 unless transfers are restricted to fixed per-token denominations; timing
 correlates unless the protocol permits and the UI encourages delay; and fee
@@ -310,7 +310,7 @@ own way.
 
 ### Finality, caps, freeze, and pairing
 
-These follow RFP-021 without modification in substance: a configured finality
+These follow RFP-022 without modification in substance: a configured finality
 condition on the source chain in each direction, admin-configurable per
 deployment; global and per-deployment caps as a rate limiter independent of the
 freeze authority; a freeze authority exercisable independently on each half; and
@@ -338,7 +338,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
     Ethereum. Verification must require no trusted party.
 04. The LEZ vault releases native gas token on cryptographic verification of a
     valid ERC-20 burn on Ethereum, consuming the attestation primitive from
-    [RFP-022](./RFP-022-ethereum-state-attestation.md) rather than implementing
+    [RFP-021](./RFP-021-ethereum-state-attestation.md) rather than implementing
     its own Ethereum consensus and inclusion verification. **Claiming that
     release must not require the recipient to already hold native gas token**,
     and no specific paymaster or other off-chain party may be a required
@@ -392,7 +392,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
 14. Uniqueness is enforced in both directions: no lock can be minted against
     twice and no burn released against twice, deterministically and under
     adversarial retry. On the LEZ side this is keyed on the statement identifier
-    the RFP-022 attestation carries.
+    the RFP-021 attestation carries.
 15. The amounts visible on Ethereum must not identify which lock or release they
     correspond to. Proposals must state the mechanism chosen (fixed
     denominations are the expected baseline) and its effect on anonymity-set
@@ -400,7 +400,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
 16. A user must be able to recover every one of their own unclaimed locks and
     unreleased burns from credentials they already hold, with no dependence on
     any server-side index and no separately-backed-up secret generated during
-    the flow, on the same terms as RFP-021, "Loss of access."
+    the flow, on the same terms as RFP-022, "Loss of access."
 17. An admin authority (per [RFP-001](./RFP-001-admin-authority-lib.md),
     integrated via the [SPEL framework](https://github.com/logos-co/spel) where
     applicable to the LEZ side) can configure the caps, the finality depth, and
@@ -466,7 +466,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
 06. Provide an IDL for the LEZ vault program using the
     [SPEL framework](https://github.com/logos-co/spel).
 07. The mitigations to the three correlation points in Design Rationale,
-    "Privacy mirrors RFP-021 exactly" (amount, timing, fee payer) must be
+    "Privacy mirrors RFP-022 exactly" (amount, timing, fee payer) must be
     enabled by default. The mini-app and CLI must show a clear indicator of what
     data would be leaked by the user's current choices, and default to the
     recommended parameters rather than requiring the user to select them.
@@ -518,7 +518,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
 1. Verifying a burn and releasing gas token must complete within a single LEZ
    transaction at the per-transaction compute budget in force at delivery time.
    Document the compute-unit cost with a breakdown by component, separating the
-   RFP-022 attestation verification cost from this RFP's own logic, and
+   RFP-021 attestation verification cost from this RFP's own logic, and
    extending the measurement methodology from
    [RFP-020](./RFP-020-redstone-oracle-adaptor.md).
 2. Document the Ethereum-side gas cost of a mint, of a burn, and of the LEZ-lock
@@ -577,18 +577,18 @@ Use FURPS framework. Each numbered item should be a testable statement.
     security audit before mainnet deployment; the audit report must be
     published. The audit scope must explicitly include the mint authorisation
     path, given the Meter Passport precedent in Design Rationale.
-09. Provide a **privacy properties document** on the same terms as RFP-021,
-    Supportability #9, covering: a formal statement of Privacy Preservation #1
-    and #2 and the anonymity set each is measured against; exactly what is
-    visible on-chain at every step on both chains; what an adversary observing
-    all public state can and cannot infer; what every off-chain participant can
-    observe, with a specific section on the paymaster stating exactly what it
-    learns (the destination account and amount at submission time), what it
-    cannot learn (the requester's network address, and the link back to the
-    Ethereum burn), and what a malicious or compromised paymaster could and
-    could not do; residual leakage from timing, amount selection, fee payment,
-    network metadata and usage patterns, including what each supported transport
-    exposes; and the conditions under which the guarantees degrade.
+09. Provide a **privacy properties document** covering: a formal statement of
+    Privacy Preservation #1 and #2 and the anonymity set each is measured
+    against; exactly what is visible on-chain at every step on both chains; what
+    an adversary observing all public state can and cannot infer; what every
+    off-chain participant can observe, with a specific section on the paymaster
+    stating exactly what it learns (the destination account and amount at
+    submission time), what it cannot learn (the requester's network address, and
+    the link back to the Ethereum burn), and what a malicious or compromised
+    paymaster could and could not do; residual leakage from timing, amount
+    selection, fee payment, network metadata and usage patterns, including what
+    each supported transport exposes; and the conditions under which the
+    guarantees degrade.
 10. Document the anonymity-set growth model: expected set size over time at
     projected volumes, the minimum below which the guarantees are considered not
     to hold, and guidance for users bridging before the pool has matured.
@@ -631,10 +631,10 @@ Use FURPS framework. Each numbered item should be a testable statement.
 6. User-facing documentation must state the trustless verification model and the
    liveness-only role of any off-chain participant, including whoever submits a
    release on a user's behalf.
-7. **The verification logic cannot be swapped**, on the same terms as RFP-021,
-   Bridge Security #7: on LEZ the verifying program's image ID is fixed in the
-   vault program's code and never read from mutable account state; on Ethereum
-   there is no substitutable proxy and no admin-replaceable verifier address. A
+7. **The verification logic cannot be swapped**, on the same terms as RFP-022,
+   Security #8: on LEZ the verifying program's image ID is fixed in the vault
+   program's code and never read from mutable account state; on Ethereum there
+   is no substitutable proxy and no admin-replaceable verifier address. A
    swapped verifier here would mint the gas-token ERC-20 against a lock that
    never happened, breaking the supply invariant in #5. Change requires
    deploying a new version and migrating; document the mechanism and how
@@ -642,14 +642,14 @@ Use FURPS framework. Each numbered item should be a testable statement.
 8. The freeze authority stops new activity but does not by itself recover funds
    already at risk or resolve locks and burns left in-flight once a
    vulnerability in the verification logic is found. Proposals must specify a
-   failsafe strategy, constrained as in RFP-021, Bridge Security #8: any
-   recovery must still be claimed by the locker or burner proving their own
-   entitlement, not by an admin authority identifying who owns what; it must not
-   be able to mint, redirect, or release to any destination other than the one
-   the proof specifies; and it must not act on funds beyond what a specific,
-   proven vulnerability put at risk. If no mechanism satisfying these
-   constraints is achievable, the proposal must document why and what happens to
-   affected funds in its absence.
+   failsafe strategy, constrained as in RFP-022, Security #9: any recovery must
+   still be claimed by the locker or burner proving their own entitlement, not
+   by an admin authority identifying who owns what; it must not be able to mint,
+   redirect, or release to any destination other than the one the proof
+   specifies; and it must not act on funds beyond what a specific, proven
+   vulnerability put at risk. If no mechanism satisfying these constraints is
+   achievable, the proposal must document why and what happens to affected funds
+   in its absence.
 
 #### + Privacy Preservation
 
@@ -703,7 +703,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
    single transaction, analogous to the batching soft requirement in
    [RFP-020](./RFP-020-redstone-oracle-adaptor.md).
 
-3. **Shared components with RFP-021.** Where the two bridges genuinely share
+3. **Shared components with RFP-022.** Where the two bridges genuinely share
    logic (fixed-denomination handling, position recovery, submission paths, the
    privacy test harness), factor it so both can consume one implementation
    rather than maintaining two divergent copies. Document what is shared and
@@ -733,11 +733,11 @@ Use FURPS framework. Each numbered item should be a testable statement.
 The following are explicitly excluded from this RFP:
 
 - **Wrapping external ERC-20s and ETH into LEZ.** That is the primary flow,
-  owned by [RFP-021](./RFP-021-wrapped-erc20.md). This RFP inverts the
+  owned by [RFP-022](./RFP-022-wrapped-erc20.md). This RFP inverts the
   direction, it does not duplicate the primary flow.
 - **The Ethereum state attestation primitive.** Verifying Ethereum consensus,
   finality, and state inclusion is owned by
-  [RFP-022](./RFP-022-ethereum-state-attestation.md). This RFP consumes that
+  [RFP-021](./RFP-021-ethereum-state-attestation.md). This RFP consumes that
   primitive, it does not define or rebuild it.
 - **Seeding, replenishment, or market-making for the ERC-20.** Supply is
   demand-driven by construction (see Design Rationale); there is no float to
@@ -764,23 +764,23 @@ The following are explicitly excluded from this RFP:
 
 ### Hard dependencies
 
-#### Wrapped ERC-20 and Ether bridge (RFP-021)
+#### Wrapped ERC-20 and Ether bridge (RFP-022)
 
 This RFP is the reverse-direction counterpart of
-[RFP-021](./RFP-021-wrapped-erc20.md) and inherits its vault and mint patterns,
+[RFP-022](./RFP-022-wrapped-erc20.md) and inherits its vault and mint patterns,
 its trust model, its privacy construction, and its approach to caps, freeze
-authority, finality and position recovery. RFP-021 establishes those patterns
+authority, finality and position recovery. RFP-022 establishes those patterns
 and carries the reasoning behind them; this RFP applies them with the chains
 swapped and does not restate them. Delivering this RFP against a materially
 different set of patterns would fragment the two bridges for no benefit, so
-RFP-021 is treated as a hard dependency rather than a reference.
+RFP-022 is treated as a hard dependency rather than a reference.
 
-#### Ethereum state attestation (RFP-022)
+#### Ethereum state attestation (RFP-021)
 
 The inbound leg releases gas token only against an ERC-20 burn proven to have
 been finalised on Ethereum, with no signer or federation trusted to attest to it
 (Functionality #4). That verification is delivered as a shared primitive by
-[RFP-022](./RFP-022-ethereum-state-attestation.md). This RFP consumes it and
+[RFP-021](./RFP-021-ethereum-state-attestation.md). This RFP consumes it and
 does not rebuild it. The outbound leg, verifying a LEZ lock natively on
 Ethereum, is specific to this bridge and remains in scope here.
 
@@ -866,8 +866,8 @@ Team experienced with:
 ## ⏱ Timeline Expectations
 
 Estimated software delivery duration: **10–14 weeks**. The construction mirrors
-[RFP-021](./RFP-021-wrapped-erc20.md) and consumes
-[RFP-022](./RFP-022-ethereum-state-attestation.md) for the Ethereum-reading
+[RFP-022](./RFP-022-wrapped-erc20.md) and consumes
+[RFP-021](./RFP-021-ethereum-state-attestation.md) for the Ethereum-reading
 half, so the patterns and much of the tooling are established rather than
 invented here. The new work is the LEZ-side vault, the Ethereum-side mintable
 ERC-20 with its authorisation path, and the gasless release mechanism, which is
@@ -890,9 +890,9 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   (same atomic-deshield assumption)
 - [RFP-020 — RedStone Off-Chain Oracle Adaptor for LEZ](./RFP-020-redstone-oracle-adaptor.md)
   (reference for in-program proof verification cost measurement)
-- [RFP-021 — Privacy-Preserving Wrapped ERC-20 and Ether Bridge for LEZ](./RFP-021-wrapped-erc20.md)
+- [RFP-022 — Privacy-Preserving Wrapped ERC-20 and Ether Bridge for LEZ](./RFP-022-wrapped-erc20.md)
   (the primary flow this RFP inverts)
-- [RFP-022 — Trustless Ethereum State Attestation for LEZ](./RFP-022-ethereum-state-attestation.md)
+- [RFP-021 — Trustless Ethereum State Attestation for LEZ](./RFP-021-ethereum-state-attestation.md)
   (delivers the verification of finalised Ethereum state the release path
   consumes)
 - [RFP-003 — Atomic Swaps](./RFP-003-atomic-swaps.md) (precedent for using Logos

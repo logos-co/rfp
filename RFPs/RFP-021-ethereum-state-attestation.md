@@ -1,5 +1,5 @@
 ---
-id: RFP-022
+id: RFP-021
 title: Trustless Ethereum State Attestation for LEZ
 tier: M
 status: open
@@ -13,7 +13,7 @@ dependencies:
 
 <!-- Don't forget to add this RFP to the table in README.md (between RFP_TABLE_START / RFP_TABLE_END markers) -->
 
-# RFP-022 — Trustless Ethereum State Attestation for LEZ
+# RFP-021 — Trustless Ethereum State Attestation for LEZ
 
 > **Note.** This specification describes an outcome that may benefit the Logos
 > ecosystem. It is a proposal rather than an instruction. Its requirements
@@ -80,11 +80,11 @@ Every LEZ program that wants to react to something that happened on Ethereum
 faces the same problem, and today each would have to solve it independently.
 Three workstreams already need it, and they need the same thing:
 
-- **The wrapped-token bridge** ([RFP-021](./RFP-021-wrapped-erc20.md)). An
+- **The wrapped-token bridge** ([RFP-022](./RFP-022-wrapped-erc20.md)). An
   Ethereum vault escrows an ERC-20 or native ETH and a LEZ program mints a
   canonical wrapped representation. Minting must happen only against a real,
   finalised deposit, with no signer or federation trusted to attest to it. That
-  is a verified deposit statement feeding a mint. RFP-021 already requires
+  is a verified deposit statement feeding a mint. RFP-022 already requires
   trustless verification of Ethereum consensus and state rather than an
   inclusion check alone; this RFP is where that verification is specified and
   built.
@@ -95,7 +95,7 @@ Three workstreams already need it, and they need the same thing:
   the read-only consumer, using the same attestation with no minting action
   attached.
 - **The native gas token bridge** ([RFP-023](./RFP-023-gas-token-bridge.md)).
-  The reverse-direction counterpart to RFP-021, in which LEZ is the vault and
+  The reverse-direction counterpart to RFP-022, in which LEZ is the vault and
   Ethereum the minter. Releasing native gas token from the LEZ vault requires
   proof that the corresponding ERC-20 was really burned on Ethereum, which is
   another verified statement over finalised Ethereum state, consumed by a
@@ -235,7 +235,7 @@ documentation deliverable (Supportability #6).
 by construction. Amounts and timing of deposits and releases are visible on the
 public chain, and linking them to LEZ activity is a separate privacy problem,
 handled by the consuming application through fixed denominations, delayed
-submission, and anonymity-set growth (see [RFP-021](./RFP-021-wrapped-erc20.md),
+submission, and anonymity-set growth (see [RFP-022](./RFP-022-wrapped-erc20.md),
 Design Rationale, "The privacy requirement, stated precisely"). What this RFP
 must guarantee is narrower and still essential: verifying and consuming an
 attestation must not itself add a new correlation signal beyond what Ethereum
@@ -245,7 +245,7 @@ statement's public inputs are constrained in Functionality #8.
 
 **It does not verify LEZ state on Ethereum.** The reverse direction, proving a
 LEZ event natively on Ethereum, is specific to the bridge and stays in
-[RFP-021](./RFP-021-wrapped-erc20.md).
+[RFP-022](./RFP-022-wrapped-erc20.md).
 
 ### Consumption model
 
@@ -483,7 +483,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
 4. Document the failure modes that follow from a compromised or colluding sync
    committee, and what a consuming application can do to bound its exposure (for
    example, caps and freeze authorities on the consumer side, as
-   [RFP-021](./RFP-021-wrapped-erc20.md) specifies).
+   [RFP-022](./RFP-022-wrapped-erc20.md) specifies).
 
 5. User-facing and developer-facing documentation must state the trustless
    verification model and the liveness-only role of any off-chain participant
@@ -527,7 +527,7 @@ Use FURPS framework. Each numbered item should be a testable statement.
 The following are explicitly excluded from this RFP:
 
 - **Verifying LEZ state or events on Ethereum.** The reverse direction is
-  specific to the bridge and stays in [RFP-021](./RFP-021-wrapped-erc20.md).
+  specific to the bridge and stays in [RFP-022](./RFP-022-wrapped-erc20.md).
 - **Any application action.** Minting, escrow release, settlement, and every
   other action belong to the consuming program. This RFP emits a verified
   statement and stops there.
@@ -618,7 +618,7 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [RFP-020 — RedStone Off-Chain Oracle Adaptor for LEZ](./RFP-020-redstone-oracle-adaptor.md)
   (reference for in-program verification cost measurement, and for the shared
   verification core between a library and a program deployment shape)
-- [RFP-021 — Privacy-Preserving Wrapped ERC-20 and Ether Bridge for LEZ](./RFP-021-wrapped-erc20.md)
+- [RFP-022 — Privacy-Preserving Wrapped ERC-20 and Ether Bridge for LEZ](./RFP-022-wrapped-erc20.md)
   (primary consumer; the mint side depends on this attestation)
 - [RFP-023 — Native Gas Token Bridge for LEZ](./RFP-023-gas-token-bridge.md)
   (consumer; the gas-token release path depends on this attestation)
