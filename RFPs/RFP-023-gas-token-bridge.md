@@ -653,19 +653,17 @@ Use FURPS framework. Each numbered item should be a testable statement.
 
 #### + Privacy Preservation
 
-1. **Inbound unlinkability must hold under test.** No signal other than amount
-   and timing may narrow down which LEZ release an Ethereum burn funded, beyond
-   uniform probability over the remaining candidates. Across a population of
-   burns and releases, no correlation derivable from public state, other than
-   amount and timing, identifies the true pairing better than chance across the
-   anonymity set those signals leave unresolved.
-2. **Outbound unlinkability must hold under test.** No signal other than amount
-   and timing may narrow down which Ethereum mint a LEZ lock triggered, beyond
-   uniform probability over the remaining candidates. The equivalent test for
-   lock-to-mint pairings.
+1. **Inbound unlinkability.** No signal other than amount and timing may narrow
+   down which LEZ release an Ethereum burn funded. Across the anonymity set
+   those signals leave unresolved, no correlation derivable from public state
+   identifies the true burn-to-release pairing better than chance.
+2. **Outbound unlinkability.** No signal other than amount and timing may narrow
+   down which Ethereum mint a LEZ lock triggered. Across the anonymity set those
+   signals leave unresolved, no correlation derivable from public state
+   identifies the true lock-to-mint pairing better than chance.
 3. No transaction argument, event, log, or account-state change on either chain
-   may reveal a lock's Ethereum destination or a burn's LEZ destination. Provide
-   This must hold over full event and state diffs for a complete round trip.
+   may reveal a lock's Ethereum destination or a burn's LEZ destination. This
+   must hold over full event and state diffs for a complete round trip.
 4. Information that would connect the two legs must never leave the user's
    control. Document every component that handles user data; such information
    must be absent from all submitted transaction data.
