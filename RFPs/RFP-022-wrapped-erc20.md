@@ -512,9 +512,9 @@ Use FURPS framework. Each numbered item should be a testable statement.
     deterministically and under adversarial retry.
 04. A valid claim remains valid indefinitely; later chain activity must never
     invalidate a user's outstanding entitlement.
-05. Position recovery is complete: a client restored from user credentials alone
-    must rediscover every claimable deposit and unredeemed burn, verified by a
-    test that wipes all local state.
+05. Position recovery is complete: a client restored from user credentials
+    alone, with no local state, rediscovers every claimable deposit and
+    unredeemed burn.
 06. Temporary RPC or connectivity failure on either chain leaves any off-chain
     component in a recoverable state, able to resume without duplicating work
     already done.
@@ -628,17 +628,15 @@ Use FURPS framework. Each numbered item should be a testable statement.
 
 #### + Privacy Preservation
 
-1. **Inbound unlinkability must hold under test.** No signal other than amount,
-   token, and timing may narrow down which LEZ mint an Ethereum deposit funded,
-   beyond uniform probability over the remaining candidates. Provide an
-   automated test that constructs a population of deposits and mints and asserts
-   that no correlation derivable from public state, other than amount, token,
-   and timing, identifies the true pairing better than chance across the
-   anonymity set those three signals leave unresolved.
-2. **Outbound unlinkability must hold under test.** No signal other than amount,
-   token, and timing may narrow down which Ethereum release a LEZ burn
-   triggered, beyond uniform probability over the remaining candidates. The
-   equivalent test for burn-to-release pairings.
+1. **Inbound unlinkability.** No signal other than amount, token, and timing may
+   narrow down which LEZ mint an Ethereum deposit funded. Across the anonymity
+   set those three signals leave unresolved, no correlation derivable from
+   public state identifies the true deposit-to-mint pairing better than chance.
+2. **Outbound unlinkability.** No signal other than amount, token, and timing
+   may narrow down which Ethereum release a LEZ burn triggered. Across the
+   anonymity set those three signals leave unresolved, no correlation derivable
+   from public state identifies the true burn-to-release pairing better than
+   chance.
 3. No transaction argument, event, log, or account-state change on either chain
    may reveal a deposit's LEZ destination or a burn's Ethereum destination. This
    must hold over full event and state diffs for a complete round trip.
