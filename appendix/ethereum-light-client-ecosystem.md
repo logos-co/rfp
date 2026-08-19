@@ -119,13 +119,30 @@ finalized source-chain consensus updates and submitting them to the
 destination-chain SP1 Helios contract" [2].
 
 Two commitment modes are relevant to RFP-021's Functionality #3, which requires
-inclusion proofs for accounts, storage slots, and receipts or logs. The default
-mode commits the finalised light-client state and the execution state root. An
+inclusion proofs for accounts, storage slots, and event logs. The default mode
+commits the finalised light-client state and the execution state root. An
 execution-header mode additionally commits the finalised execution block hash
 and the finalised execution receipts root [2]. A design that needs receipt and
 log proofs requires the receipts root to be committed, which is a concrete
 interface decision an applicant will face; the documentation puts the cost of
 that mode at approximately 45k additional gas per successful update [2].
+
+An end to end attestation spans two proof systems, which is easy to miss when
+scoping the work. The sync-committee protocol finalises consensus-layer beacon
+headers, whereas the state and receipts roots are execution-layer fields, so the
+execution payload header has to be bound into the beacon block body by an SSZ
+generalised-index proof over SHA256 before any Merkle-Patricia proof over
+keccak256 against those roots carries meaning. The consensus specifications
+carry this as `execution_branch` on `LightClientHeader`, checked by
+`is_valid_light_client_header` [9]. Implementations that commit already-verified
+execution roots on chain, as SP1 Helios does, perform the SSZ half inside the
+prover so that a consumer does only the Merkle-Patricia half.
+
+Event logs are worth a further note. A log is not a trie leaf: the receipts trie
+commits whole receipts keyed by transaction index, and there is no logs root in
+the block header, only a bloom filter that is a probabilistic hint rather than a
+proof. Proving a log therefore means proving its receipt and reading the log out
+of it by position.
 
 ### r0vm-helios
 
