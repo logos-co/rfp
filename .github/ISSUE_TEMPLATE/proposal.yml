@@ -16,7 +16,6 @@ body:
         - "RFP-017 — Privacy-Preserving Token Vesting"
         - "RFP-021 — Trustless Ethereum State Attestation for LEZ"
         - "RFP-022 — Wrapped ERC-20 Bridge for LEZ"
-        - "RFP-023 — Native Gas Token Bridge for LEZ"
     validations:
       required: true
 
