@@ -769,8 +769,6 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   (Boundless Ethereum light client, audited by zkSecurity; reuse candidate)
 - [`succinctlabs/sp1-helios`](https://github.com/succinctlabs/sp1-helios)
   (upstream implementation of the same pattern)
-- [RISC0 — Zero-Knowledge VM](https://github.com/risc0/risc0)
-- [Zisk — RISC0 Proof Generation](https://github.com/risc0/zisk)
 
 ## ✏️ How to Apply
 
