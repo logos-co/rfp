@@ -117,8 +117,8 @@ inherently fairer for all participants.
     the trader. The namespace admin authority sets the protocol fee as a
     fraction of the trading fee, along with the treasury address that receives
     it, and both are updatable. The program does not restrict the trading fee or
-    the protocol fee to a fixed range or a set of preset tiers; the only bound
-    is that the protocol fee cannot exceed the trading fee. Either may be zero.
+    the protocol fee to a fixed range or a set of preset tiers. Either may be
+    zero.
 12. Accrued protocol fees are tracked separately from pool reserves rather than
     inferred from the difference between vault balance and reserves, so that fee
     accounting and LP accounting cannot corrupt each other. Withdrawing accrued
