@@ -123,11 +123,10 @@ inherently fairer for all participants.
     inferred from the difference between vault balance and reserves, so that fee
     accounting and LP accounting cannot corrupt each other. Withdrawing accrued
     protocol fees must not draw on LP principal.
-13. A single deployment of the program supports any number of independent AMM
-    namespaces. Anyone can permissionlessly create a namespace, seeding it with
-    its own admin authority, trading fee, protocol fee, treasury, and pools.
-    Creating a namespace does not require redeploying or modifying the program,
-    nor permission from the deployer or from any existing namespace.
+13. The program supports any number of independent AMM namespaces. Anyone can
+    permissionlessly create a namespace, seeding it with its own admin
+    authority, trading fee, protocol fee, treasury, and pools, without
+    permission from whoever deployed the program or from any existing namespace.
 14. Namespaces share no global or singleton state. Pool addresses are derived
     such that pools of different namespaces never collide for the same token
     pair. Every state-changing instruction resolves pool, vault, treasury, and
@@ -276,13 +275,13 @@ an additional charge. A protocol fee of zero leaves the entire trading fee with
 LPs. Both are set by the namespace admin authority and apply uniformly to every
 pool in that namespace.
 
-The program is deployed once. After that, anyone can create a namespace with
-their own seed, admin authority, fees, treasury, and pools, without permission
-from the deployer. This is what allows several independent AMMs to coexist on
-the chain, and it keeps the reach of any admin authority limited to its own
-namespace. Fee ranges are left open for the same reason: a namespace admin
-setting an uncompetitive fee affects only their own pools, and LPs and traders
-can move to another namespace or create one.
+Creating a namespace is permissionless: anyone can seed one with their own admin
+authority, fees, treasury, and pools, regardless of who deployed the program.
+This is what allows several independent AMMs to coexist on the chain, and it
+keeps the reach of any admin authority limited to its own namespace. Fee ranges
+are left open for the same reason: a namespace admin setting an uncompetitive
+fee affects only their own pools, and LPs and traders can move to another
+namespace or create one.
 
 Accrued protocol fees are tracked in their own state rather than derived from
 vault balance minus reserves. Curve StableSwapNG uses this separation and
