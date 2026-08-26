@@ -2,7 +2,7 @@
 id: RFP-014
 title: Liquidation & Auction Engine
 tier: L
-status: open
+status: closed
 dependencies:
   - id: RFP-013
     reason: Reflexive Stablecoin Protocol (or equivalent CDP host) provides the positions that this engine liquidates.

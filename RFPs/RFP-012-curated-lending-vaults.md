@@ -2,7 +2,7 @@
 id: RFP-012
 title: Curated Lending Vaults
 tier: L
-status: open
+status: closed
 dependencies:
   - id: RFP-008
     reason: The vault layer allocates deposits across the isolated lending markets delivered by RFP-008 and cannot proceed until the base protocol is live.
