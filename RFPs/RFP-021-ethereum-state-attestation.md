@@ -179,19 +179,12 @@ fact every consumer needs and no consumer needs privately, whereas inclusion is
 specific to the consumer's own transaction.
 
 The expected design follows that asymmetry. A **light client runs inside the LEZ
-program itself**: the module verifies the sync-committee signature and the
-committee handoff on-chain, and a module account accumulates the verified
+program itself**: a submitter supplies light-client update material fetched from
+an Ethereum consensus endpoint, the module verifies the sync-committee signature
+and the committee handoff, and a module account accumulates the verified
 committee and finalised header roots. A **consumer** then submits only an
 inclusion proof against a header already verified in that shared state,
 performing no signature verification of its own.
-
-Verification happens in the program, not off-chain. A submitter supplies the
-light-client update material fetched from an Ethereum consensus endpoint, and
-the module checks it. This RFP does not ask for a separate off-chain proving
-system that wraps the signature check in a proof for LEZ to verify: LEZ
-execution is already proven, so a second proof layer over the same check would
-add a translation step and its own audit surface without strengthening the
-guarantee. The sync-committee aggregate is used as it is.
 
 **Submission must be permissionless.** Anyone can spend the gas and advance the
 state; no party is designated, and none can be excluded. The submitter is
@@ -242,9 +235,8 @@ built and audited several times over: Telepathy, SP1 Helios, and `r0vm-helios`
 all implement it, audited by Veridise, Zellic, and zkSecurity respectively.
 Those systems target destination chains that cannot verify a sync-committee
 signature affordably, so they prove the check off-chain and verify a succinct
-proof on the destination. LEZ does not have that constraint, so what transfers
-here is the light-client logic rather than the outer proving layer. Applicants
-should assess reuse on that basis, per the Design Rationale note below. The
+proof on the destination. What transfers here is their light-client logic, which
+an applicant should assess for reuse per the Design Rationale note below. The
 [Ethereum Light Client Ecosystem appendix](../appendix/ethereum-light-client-ecosystem.md)
 surveys these implementations, their trust models, and a production fork that
 deliberately made submission permissioned, which is direct evidence that
@@ -406,12 +398,11 @@ RFP needs on the same zkVM LEZ runs on, which makes it a materially different
 starting point from a blank sheet, as does Helios itself upstream.
 
 It is not a drop-in. It targets EVM destination chains with Solidity contracts,
-and LEZ is neither, and its off-chain proving layer is not needed here. How much
-transfers, and whether the better base is one of these zkVM forks or the
-upstream light-client implementations they derive from, is a judgement the
-applicant is better placed to make than this specification. That evaluation is
-itself work, and Reliability #6 scopes it as a deliverable. Reuse is expected to
-be assessed seriously; it is not mandated.
+and LEZ is neither. How much transfers, and whether the better base is one of
+these zkVM forks or the upstream light-client implementations they derive from,
+is a judgement the applicant is better placed to make than this specification.
+That evaluation is itself work, and Reliability #6 scopes it as a deliverable.
+Reuse is expected to be assessed seriously; it is not mandated.
 
 ## ✅ Scope of Work
 
@@ -424,8 +415,8 @@ Use FURPS framework. Each numbered item should be a testable statement.
 01. Run the Ethereum light client inside the LEZ program: given a trusted
     starting checkpoint, the module verifies light-client updates and committee
     handoffs against material supplied by the submitter, and follows the
-    canonical finalised chain forward without running a full node. No off-chain
-    proving system stands between the sync committee and the module.
+    canonical finalised chain forward without running a full node. The module
+    checks the sync-committee aggregate itself.
 02. Verify that a supplied Ethereum block header is finalised, and reject any
     header that is not.
 03. Verify that a referenced piece of Ethereum state is included under a header
