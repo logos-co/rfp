@@ -161,42 +161,62 @@ An attestation therefore establishes three things, in this order:
    "contract C holds an escrow of amount X in token T".
 
 The output is a compact, proven assertion that the predicate holds of finalised
-Ethereum state, carrying no trust in whoever generated the attestation. A
-dishonest submitter cannot forge it, since forging it would require forging
-sync-committee signatures over a finalised header. A dishonest submitter can
-only decline to produce an attestation, which is why attestation generation must
-be a liveness role rather than a trust role: no single party may be able to turn
-a refusal into a block on an honest user.
+Ethereum state, carrying no trust in whoever supplied the inputs. A dishonest
+submitter cannot forge it, since the module checks the sync-committee signature
+itself and forging one would require signatures from two thirds of the
+committee. A dishonest submitter can only decline to supply update material,
+which is why supplying it must be a liveness role rather than a trust role: no
+single party may be able to turn a refusal into a block on an honest user.
 
-### Where the tracking state lives: the permissionless operator
+### Where the tracking state lives: the permissionless submitter
 
-Two costs sit inside an attestation and they are not alike. Proving a header is
-finalised requires BLS12-381 aggregate signature verification over
+Two costs sit inside an attestation and they are not alike. Establishing that a
+header is finalised requires BLS12-381 aggregate signature verification over
 sync-committee signatures plus verification of committee handoffs, and it is
-expensive. Proving a piece of state is included under that header is
+expensive. Establishing that a piece of state is included under that header is
 Merkle-Patricia path verification, and it is cheap. Header finality is also a
 fact every consumer needs and no consumer needs privately, whereas inclusion is
 specific to the consumer's own transaction.
 
-The expected design follows that asymmetry. An **operator** runs off-chain,
-follows sync-committee handoffs, generates a proof that a light-client finality
-update is validly signed, and submits it to LEZ, where a module account
-accumulates the verified committee and finalised header roots. A **consumer**
-then submits only an inclusion proof against a header already verified in that
-shared state, performing no signature verification of its own.
+The expected design follows that asymmetry. A **light client runs inside the LEZ
+program itself**: the module verifies the sync-committee signature and the
+committee handoff on-chain, and a module account accumulates the verified
+committee and finalised header roots. A **consumer** then submits only an
+inclusion proof against a header already verified in that shared state,
+performing no signature verification of its own.
 
-**The operator must be permissionless.** Anyone can spend the gas and advance
-the state; no party is designated, and none can be excluded. The operator is
-untrusted because submission is proof-checked: it cannot insert a header the
+Verification happens in the program, not off-chain. A submitter supplies the
+light-client update material fetched from an Ethereum consensus endpoint, and
+the module checks it. This RFP does not ask for a separate off-chain proving
+system that wraps the signature check in a proof for LEZ to verify: LEZ
+execution is already proven, so a second proof layer over the same check would
+add a translation step and its own audit surface without strengthening the
+guarantee. The sync-committee aggregate is used as it is.
+
+**Submission must be permissionless.** Anyone can spend the gas and advance the
+state; no party is designated, and none can be excluded. The submitter is
+untrusted because the module verifies the update: it cannot insert a header the
 sync committee did not sign, since doing so would require forging signatures
 from two thirds of the committee. It can only stop, which is a liveness failure
-repaired by anyone else running the same software.
+repaired by anyone else running the same software. Nothing about the role
+requires the submitter to be an Ethereum validator or to have any standing on
+Ethereum; it needs only access to a consensus endpoint and LEZ gas.
 
-Nobody is obliged to run an operator, and the design does not pretend otherwise.
+Permissionless submission creates a coordination problem worth designing for. If
+every operator submits the moment an update becomes available, the party with
+the lowest latency wins every race and pays for every update, while the others
+pay for rejected transactions and get the result for free. The rational response
+is to stop running one, and the role collapses precisely because it is contested
+and unrewarded. The submitting component therefore has to check whether an
+update is still needed before spending gas on it, and vary its timing so the
+cost lands on different operators across updates rather than always the same
+one.
+
+Nobody is obliged to submit updates, and the design does not pretend otherwise.
 What makes the role viable is that one submission serves every consumer reading
 the resulting header, so the cost is paid once per period rather than once per
 attestation, and the protocols whose users depend on fresh headers are motivated
-to keep them fresh. The guarantee is not that an operator will always act; it is
+to keep them fresh. The guarantee is not that a submitter will always act; it is
 that a stalled instance can be advanced by any party willing to pay, without
 permission and without any prior relationship to it. The failure mode is delay,
 not loss.
@@ -217,17 +237,19 @@ single canonical instance per chain, which consumers converge on, is the
 intended outcome, and a replacement instance is a recovery path rather than a
 routine one.
 
-This pattern is established rather than novel, and it has been built and audited
-several times over: Telepathy and SP1 Helios both implement it, and
-`r0vm-helios` implements it on the RISC Zero zkVM. Telepathy was audited by
-Veridise, SP1 Helios by Zellic, and `r0vm-helios` by zkSecurity. Applicants
-should assess reuse rather than assume a rewrite, per the Design Rationale note
-below. The
+Sync-committee tracking itself is established rather than novel, and has been
+built and audited several times over: Telepathy, SP1 Helios, and `r0vm-helios`
+all implement it, audited by Veridise, Zellic, and zkSecurity respectively.
+Those systems target destination chains that cannot verify a sync-committee
+signature affordably, so they prove the check off-chain and verify a succinct
+proof on the destination. LEZ does not have that constraint, so what transfers
+here is the light-client logic rather than the outer proving layer. Applicants
+should assess reuse on that basis, per the Design Rationale note below. The
 [Ethereum Light Client Ecosystem appendix](../appendix/ethereum-light-client-ecosystem.md)
 surveys these implementations, their trust models, and a production fork that
 deliberately made submission permissioned, which is direct evidence that
-permissionlessness is a design choice rather than a property zk proofs confer
-automatically.
+permissionlessness is a design choice rather than a property these systems
+confer automatically.
 
 ### Trust assumptions the design carries
 
@@ -324,10 +346,10 @@ What has to be atomic in the consumer's transaction is the part specific to that
 consumer. Two things are being consumed and they differ:
 
 - **Verified consensus state**, the tracked committee and the finalised header
-  roots, is necessarily shared and necessarily written by an operator. That is
-  the point of the architecture, and it is safe because submission is
-  proof-checked: the consumer's trust rests on the verification the module
-  performed on submission, not on the operator's honesty.
+  roots, is necessarily shared and necessarily written by an earlier
+  transaction. That is the point of the architecture, and it is safe because the
+  module verified the update when it was submitted: the consumer's trust rests
+  on that verification, not on the submitter's honesty.
 - **Inclusion and predicate evaluation** must occur inside the consumer's own
   transaction, against a header the consumer checks for itself, so that
   verification and the action it authorises cannot come apart.
@@ -348,30 +370,27 @@ the user's own device, so the same work becomes wall-clock latency in a user
 flow, on whatever hardware that user has.
 
 The two verification steps use different primitives, and the split follows from
-that. Proving a header finalised means BLS12-381 aggregate signature
-verification over sync-committee signatures, which is pairing-based and heavy.
-Proving state included under that header is hashing: SHA256 for the SSZ binding
-of the execution payload into the beacon body, then keccak256 down a
-Merkle-Patricia path. No elliptic curve operations appear in the inclusion step
-at all.
+that. Establishing that a header is finalised means BLS12-381 aggregate
+signature verification, which is pairing-based and heavy. Establishing that
+state is included under that header is hashing down an SSZ and Merkle-Patricia
+path, with no elliptic curve operations at all.
 
 BLS12-381 verification is needed only for headers, and a finalised Ethereum
 header is public: every consumer reads it and none needs to hide it.
-Sync-committee tracking therefore belongs on the public path, where the
-operator's submission is periodic, latency-tolerant, shared, and executed by the
-sequencer rather than proven on a user device. What has to be established there
-is throughput: whether in-program BLS12-381 verification fits the
-per-transaction compute budget at the cadence tracking requires. If it does not,
-that measurement is the input to a follow-on RFP proposing a BLS12-381
-precompile for LEZ, reachable only from public transactions, which is where this
-cost sits.
+Sync-committee tracking therefore belongs on the public path, where submission
+is periodic, latency-tolerant, shared, and executed by the sequencer rather than
+proven on a user device. What has to be established there is throughput: whether
+in-program BLS12-381 verification fits the per-transaction cycle budget at the
+cadence tracking requires. This is the central feasibility question of the RFP.
+If it does not fit, that measurement is the input to a follow-on RFP proposing a
+BLS12-381 precompile for LEZ, reachable only from public transactions, which is
+where this cost sits.
 
 The open question is the private path. A consumer that wants to use an
-attestation privately has to prove hash-based inclusion verification on its own
-hardware, and no existing measurement says whether that is viable. Hashing is
-cheap per operation, but inclusion verification repeats it across the SSZ
-binding and a full Merkle-Patricia path, and whether the total lands inside an
-interactive budget on a user's machine is unmeasured. That answer determines
+attestation privately has to prove inclusion verification on its own hardware,
+and no existing measurement says whether that is viable. Hashing is cheap per
+operation but repeats across the whole path, and whether the total lands inside
+an interactive budget on a user's machine is unmeasured. That answer determines
 whether the primitive is usable privately at all.
 
 Measuring and documenting both paths, separated by where the cost is paid, is
@@ -382,16 +401,17 @@ RFP-020. Consumers cannot size their own designs without those numbers.
 
 [`r0vm-helios`](https://github.com/boundless-xyz/r0vm-helios) is an Ethereum
 light client built on the RISC Zero zkVM, forked from SP1 Helios and
-independently audited by zkSecurity. It solves the hardest and most
-security-critical component of this RFP on the same zkVM LEZ runs on, which
-makes it a materially different starting point from a blank sheet.
+independently audited by zkSecurity. It implements the light-client logic this
+RFP needs on the same zkVM LEZ runs on, which makes it a materially different
+starting point from a blank sheet, as does Helios itself upstream.
 
 It is not a drop-in. It targets EVM destination chains with Solidity contracts,
-and LEZ is neither. How much transfers, whether the guest program, the operator,
-or only the architecture, is a judgement the applicant is better placed to make
-than this specification. That evaluation is itself work, and Reliability #6
-scopes it as a deliverable. Reuse is expected to be assessed seriously; it is
-not mandated.
+and LEZ is neither, and its off-chain proving layer is not needed here. How much
+transfers, and whether the better base is one of these zkVM forks or the
+upstream light-client implementations they derive from, is a judgement the
+applicant is better placed to make than this specification. That evaluation is
+itself work, and Reliability #6 scopes it as a deliverable. Reuse is expected to
+be assessed seriously; it is not mandated.
 
 ## ✅ Scope of Work
 
@@ -401,13 +421,13 @@ Use FURPS framework. Each numbered item should be a testable statement.
 
 #### Functionality
 
-01. Implement sync-committee tracking: given a trusted starting checkpoint,
-    verify light-client updates and committee handoffs so the module can follow
-    the canonical finalised chain forward across sync-committee periods without
-    running a full node.
-02. Verify that a supplied Ethereum block header is finalised, by checking
-    sync-committee signatures over the light-client finality update, and reject
-    any header that is not.
+01. Run the Ethereum light client inside the LEZ program: given a trusted
+    starting checkpoint, the module verifies light-client updates and committee
+    handoffs against material supplied by the submitter, and follows the
+    canonical finalised chain forward without running a full node. No off-chain
+    proving system stands between the sync committee and the module.
+02. Verify that a supplied Ethereum block header is finalised, and reject any
+    header that is not.
 03. Verify that a referenced piece of Ethereum state is included under a header
     the module has verified as finalised, covering at minimum an account, a
     contract storage slot, and an event log identified by its position within a
@@ -452,12 +472,13 @@ Use FURPS framework. Each numbered item should be a testable statement.
     initialisation, is the only entity able to advance the state does not
     satisfy this requirement. An account with no prior relationship to the
     instance can advance it.
-12. Proof generation and submission are liveness roles, not trust roles: no
-    specific party may be required for an attestation to be produced, and any
-    party declining to act must not block a user. Proposals must identify every
-    off-chain participant the design requires, state for each whether it can
-    affect safety or only liveness, and justify that none of them, individually
-    or as a class, can block an attestation from eventually being produced.
+12. Supplying update material and submitting it are liveness roles, not trust
+    roles: no specific party may be required for an attestation to be produced,
+    and any party declining to act must not block a user. Proposals must
+    identify every off-chain participant the design requires, state for each
+    whether it can affect safety or only liveness, and justify that none of
+    them, individually or as a class, can block an attestation from eventually
+    being produced.
 13. The program exposes no instruction that rewrites an initialised instance's
     checkpoint or chain configuration, whatever the caller. Recovery from a
     mis-configured or stale checkpoint is by initialising a fresh instance, per
@@ -483,13 +504,13 @@ Use FURPS framework. Each numbered item should be a testable statement.
    off-chain as a dry run, submitting a consensus-state update, and reading an
    instance's configuration. The dry run must report the same typed error codes
    the on-chain path returns.
-3. Any long-running off-chain component the design requires (for example a
-   process that follows sync-committee handoffs and keeps update material
-   available) must be provided as a **Logos module accompanied by a Logos Core
-   headless CLI/daemon**, runnable standalone, supporting configurable Ethereum
-   consensus and execution RPC endpoints, structured logging, and a clean
-   shutdown path. Document the operator journey end-to-end: install, configure,
-   run, monitor.
+3. Deliver the **update-submitting component**: a process that follows Ethereum
+   through the Logos Ethereum core module, detects when the tracked instance is
+   behind, and submits the outstanding light-client updates to LEZ. It must be
+   provided as a **Logos module accompanied by a Logos Core headless
+   CLI/daemon**, runnable standalone, supporting configurable Ethereum consensus
+   and execution RPC endpoints, structured logging, and a clean shutdown path.
+   Document the operator journey end-to-end: install, configure, run, monitor.
 4. Provide an IDL for the LEZ-side module using the
    [SPEL framework](https://github.com/logos-co/spel).
 5. Return clear, actionable error messages for all failure modes: header not
@@ -537,25 +558,36 @@ Use FURPS framework. Each numbered item should be a testable statement.
 08. Concurrent submission of the same update by competing operators is handled
     without corrupting tracked state: a duplicate or already-applied update is
     rejected cleanly rather than double-applied.
-09. Statement submissions are independent of one another, so that multiple
+09. The update-submitting component checks whether an update is still needed
+    immediately before submitting, and does not submit one another party has
+    already applied. Running several instances against the same LEZ instance
+    must not multiply the gas spent on a given update beyond what contention
+    makes unavoidable.
+10. Submission timing must not systematically concentrate cost on whichever
+    party reacts fastest. The component defers submission by an interval it
+    varies per instance, so that over many updates the gas cost is spread across
+    the operators running it rather than always falling on the same one, while
+    still submitting promptly once the deferral elapses and no other party has
+    acted. Document the deferral strategy and its effect on update latency.
+11. Statement submissions are independent of one another, so that multiple
     private transactions can submit statements in the same block, and a private
     transaction can compute its resulting state before inclusion.
-10. CI must be green on the default branch.
+12. CI must be green on the default branch.
 
 #### Performance
 
 1. Verifying an attestation and evaluating its predicate must complete within a
-   single LEZ transaction at the per-transaction compute budget in force at
+   single LEZ transaction at the per-transaction cycle budget in force at
    delivery time, in the direct consumption path of Functionality #7. If this
    proves infeasible at delivery time, the measurement in Performance #2 stands
    as the deliverable and the shortfall must be documented with the specific
    component responsible.
 2. Cost measurement is a primary deliverable. Measure and document, with a
    breakdown by program action: advancing the tracked Ethereum state, and
-   statement verification by type of statement. Report compute units, proof
-   time, and proof size for each, extending the measurement methodology from
-   [RFP-020](./RFP-020-redstone-oracle-adaptor.md). Numbers must be reproducible
-   from the test suite.
+   statement verification by type of statement. Report cycle count, gas cost,
+   proof time, and proof size for each, extending the measurement methodology
+   from [RFP-020](./RFP-020-redstone-oracle-adaptor.md). Numbers must be
+   reproducible from the test suite.
 3. Document the amortised per-attestation cost of sync-committee tracking at the
    recommended operating cadence, separately from the per-attestation
    verification cost, since the two amortise differently across consumers.
@@ -566,18 +598,19 @@ Use FURPS framework. Each numbered item should be a testable statement.
    running the attestation in a private transaction.
 5. Document end-to-end attestation latency, from the Ethereum event to a
    verified statement usable on LEZ, broken down by finality wait, update
-   availability, proof generation, and on-chain verification.
+   availability, and on-chain verification.
 6. Document the compute resources (CPU, RAM, time) required to run any off-chain
    component the design requires.
 7. Document the growth rate and on-chain storage cost of any module state that
    accumulates with usage, in particular committee-tracking state, with
    projections over one and five years of continuous operation.
-8. Document the cost delta between the in-program BLS12-381 path and a
+8. Document the cycle-count delta between the in-program BLS12-381 path and a
    hypothetical native precompile, so the measurement can inform whether a
    follow-on precompile RFP is warranted. A precompile is reachable only from
    public transactions, which the comparison must state.
-9. No action's gas cost scales with accumulated on-chain storage. Where a design
-   cannot avoid it, the proposal justifies why and documents the mitigations.
+9. No action's cycle count or gas cost scales with accumulated on-chain storage.
+   Where a design cannot avoid it, the proposal justifies why and documents the
+   mitigations.
 
 #### Supportability
 
@@ -609,8 +642,10 @@ Use FURPS framework. Each numbered item should be a testable statement.
     degrade or fail.
 07. Document the operator role for an instance: what running an operator costs,
     at what cadence updates should be submitted, how anyone can start one
-    without permission, and how to detect that an instance has stalled. State
-    plainly that no party is obliged to operate and that liveness rests on
+    without permission, what it requires (a consensus endpoint and LEZ gas, and
+    no standing on Ethereum), what an operator should expect when others are
+    running one concurrently, and how to detect that an instance has stalled.
+    State plainly that no party is obliged to operate and that liveness rests on
     interested parties choosing to spend the gas.
 08. The module undergoes an independent third-party security audit of the
     consensus and inclusion verification logic before any mainnet-facing
