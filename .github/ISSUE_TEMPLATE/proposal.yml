@@ -15,7 +15,7 @@ body:
         - "RFP-016 — Token Launchpad: LBP"
         - "RFP-017 — Privacy-Preserving Token Vesting"
         - "RFP-021 — Trustless Ethereum State Attestation for LEZ"
-        - "RFP-022 — Wrapped ERC-20 Bridge for LEZ"
+        - "RFP-022 — Privacy-Preserving Wrapped ERC-20 and Ether Bridge for LEZ"
     validations:
       required: true
 
