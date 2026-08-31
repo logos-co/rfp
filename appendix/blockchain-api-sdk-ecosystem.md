@@ -109,12 +109,13 @@ accidentally sign for or read from the wrong network.
 | NEAR     | `genesis_config` [13]              |
 | Sui      | `sui_getChainIdentifier` [17]      |
 | Logos L1 | [NOT FOUND] [19]                   |
-| LEZ      | [NOT FOUND] [21]                   |
+| LEZ      | `getChannelId` [21]                |
 
 **Why it exists.** [NOT FOUND]
 
-Neither Logos target reports a network identifier, so a client cannot verify
-from the API which network an endpoint serves.
+LEZ reports the zone's own channel identity, which distinguishes one zone from
+another. Logos L1 reports no chain identifier, so a client cannot verify from
+the API which network an L1 endpoint serves.
 
 ### 1.4 Retrieve a machine-readable API description
 
@@ -130,14 +131,16 @@ validated against the live node.
 | Cosmos   | [NOT FOUND] as an RPC; contract is committed `.proto` files [29]            |
 | Stellar  | [NOT FOUND] as a method; OpenRPC document published [12]                    |
 | NEAR     | [NOT FOUND] as a method; OpenAPI document published [14]                    |
-| Sui      | OpenRPC document published [17]                                             |
+| Sui      | [NOT FOUND] as a method; OpenRPC document published [17]                    |
 | Logos L1 | `GET /api-docs/openapi.json`, Swagger UI at `/swagger-ui` [20]              |
 | LEZ      | `getSchema` on the indexer [22]                                             |
 
 **Why it exists.** [NOT FOUND]
 
-Both Logos targets serve a machine-readable description at runtime, which
-Bitcoin and Solana do not.
+L1 serves a full OpenAPI interface description at runtime, which Bitcoin and
+Solana do not. The LEZ `getSchema` method returns a JSON Schema for the block
+type rather than an interface description, so a client cannot be generated from
+it [22].
 
 ### 1.5 Get a block by height or hash
 
@@ -349,27 +352,29 @@ directions.
 Runs a full transaction against current state without committing it, returning
 the outcome it would have had.
 
-| Chain    | Method                                                     |
-| -------- | ---------------------------------------------------------- |
-| Ethereum | `eth_simulateV1`, `eth_call` [35]                          |
-| Bitcoin  | `testmempoolaccept`; acceptance rather than execution [24] |
-| Solana   | `simulateTransaction` [25]                                 |
-| XRPL     | `simulate` [38]                                            |
-| Cosmos   | `Simulate` [29]                                            |
-| Stellar  | `simulateTransaction` [39]                                 |
-| NEAR     | [NOT FOUND] [13]                                           |
-| Sui      | `sui_dryRunTransactionBlock` [17]                          |
-| Logos L1 | [NOT FOUND] [19]                                           |
-| LEZ      | [NOT FOUND] [21]                                           |
+| Chain    | Method                                                      |
+| -------- | ----------------------------------------------------------- |
+| Ethereum | `eth_simulateV1`, `eth_call` [35]                           |
+| Bitcoin  | [NOT FOUND]; `testmempoolaccept` tests acceptance only [24] |
+| Solana   | `simulateTransaction` [25]                                  |
+| XRPL     | `simulate` [38]                                             |
+| Cosmos   | `Simulate` [29]                                             |
+| Stellar  | `simulateTransaction` [39]                                  |
+| NEAR     | [NOT FOUND] [13]                                            |
+| Sui      | `sui_dryRunTransactionBlock` [17]                           |
+| Logos L1 | [NOT FOUND] [19]                                            |
+| LEZ      | [NOT FOUND] [21]                                            |
 
-**Why it exists.** Stellar documents the motivation directly. Simulation lets a
-client "Calculate resource requirements", "Validate authorization", and "Test
-and analyze the potential outcomes of a transaction without actually submitting
-it to the network". It also returns `transactionData`, "The recommended Soroban
-Transaction Data to use when submitting the simulated transaction", which makes
-simulation a construction step rather than an optional check [39].
+**Why it exists.** Stellar documents the motivation directly: the endpoint
+"calculates the effective transaction data, required authorizations, and minimal
+resource fee", and "provides a way to test and analyze the potential outcomes of
+a transaction without actually submitting it to the network" [39]. Returning the
+transaction data the caller then submits makes simulation a construction step
+rather than an optional check.
 
-Neither Logos target exposes simulation. Six of the eight surveyed chains do.
+Neither Logos target exposes simulation. Six of the eight surveyed chains
+execute the transaction and return its outcome; Bitcoin checks acceptance
+without executing, and NEAR exposes no equivalent.
 
 ### 1.16 Estimate execution cost
 
@@ -407,7 +412,7 @@ confirms without overpaying.
 | NEAR     | `gas_price` [13]                                                  |
 | Sui      | `suix_getReferenceGasPrice` [17]                                  |
 | Logos L1 | `GET /mantle/gas-prices` [19]                                     |
-| LEZ      | [NOT FOUND]; fees unimplemented [21]                              |
+| LEZ      | [NOT FOUND] as a fee-estimation method [21]                       |
 
 **Why it exists.** EIP-1559 states the problem it set out to solve: first-price
 auctions require "complex fee estimation algorithms" that "often end up not
@@ -484,18 +489,18 @@ Checks a signature against a message and key without touching chain state.
 Hands a signed transaction to the node for gossip and inclusion, returning an
 identifier to track it by.
 
-| Chain    | Method                                                          |
-| -------- | --------------------------------------------------------------- |
-| Ethereum | `eth_sendRawTransaction` [36]                                   |
-| Bitcoin  | `sendrawtransaction` [24]                                       |
-| Solana   | `sendTransaction` [42]                                          |
-| XRPL     | `submit`, `submit_multisigned` [26]                             |
-| Cosmos   | `BroadcastTx`, `/broadcast_tx_sync`, `/broadcast_tx_async` [29] |
-| Stellar  | `sendTransaction` [27]                                          |
-| NEAR     | `send_tx`, `broadcast_tx_async` [34]                            |
-| Sui      | `sui_executeTransactionBlock` [17]                              |
-| Logos L1 | `POST /mempool/add/tx` [19]                                     |
-| LEZ      | `sendTransaction` [21]                                          |
+| Chain    | Method                                                              |
+| -------- | ------------------------------------------------------------------- |
+| Ethereum | `eth_sendRawTransaction` [36]                                       |
+| Bitcoin  | `sendrawtransaction` [24]                                           |
+| Solana   | `sendTransaction` [42]                                              |
+| XRPL     | `submit`, `submit_multisigned` [26]                                 |
+| Cosmos   | `BroadcastTx` [29], `/broadcast_tx_sync`, `/broadcast_tx_async` [9] |
+| Stellar  | `sendTransaction` [27]                                              |
+| NEAR     | `send_tx`, `broadcast_tx_async` [34]                                |
+| Sui      | `sui_executeTransactionBlock` [17]                                  |
+| Logos L1 | `POST /mempool/add/tx` [19]                                         |
+| LEZ      | `sendTransaction` [21]                                              |
 
 **Why it exists.** [NOT FOUND]
 
@@ -702,11 +707,11 @@ Walks a long result set in bounded pages.
 
 **Why it exists.** [NOT FOUND]
 
-Three idioms are visible: an opaque stable marker that "remains stable across
-requests even if the server's available ledger range changes" (XRPL) [47], a
-reusable protobuf pagination message shared by every module query (Cosmos) [49],
-and HAL hypermedia links (Stellar Horizon) [50]. LEZ uses both a cursor and an
-offset idiom in one interface.
+Three idioms are visible: an opaque marker whose "value is stable even if there
+is a change in the server's range of available ledgers" (XRPL) [47], a reusable
+protobuf pagination message shared by every module query (Cosmos) [49], and HAL
+hypermedia links (Stellar Horizon) [50]. LEZ uses both a cursor and an offset
+idiom in one interface.
 
 ### 1.31 Query historical transactions for an address
 
@@ -765,17 +770,23 @@ without gaps.
 | Stellar  | `cursor` on streaming mode [48]                                   |
 | NEAR     | [NOT FOUND]; no streaming surface [13]                            |
 | Sui      | [NOT FOUND] on the documented subscription methods [15]           |
-| Logos L1 | [NOT FOUND]; the block stream accepts no start position [19]      |
+| Logos L1 | `slot_from` on `/cryptarchia/blocks_range` [84]                   |
 | LEZ      | [NOT FOUND]; `subscribeToFinalizedBlocks` takes no arguments [22] |
 
 **Why it exists.** [NOT FOUND]
 
 This is the weakest-supported capability in the survey, and that is itself the
-finding. Only Stellar documents true cursor-based resumption: "Horizon will
-start at the earliest known effect unless a cursor is set, in which case it will
-start from that cursor" [48]. Bitcoin offers loss detection without replay.
-Every other surveyed chain, and both Logos targets, document no resume
+finding. Among the surveyed chains only Stellar documents cursor-based
+resumption on a live stream: "Horizon will start at the earliest known effect
+unless a cursor is set, in which case it will start from that cursor" [48].
+Bitcoin offers loss detection without replay. The other six document no resume
 mechanism.
+
+Logos L1 is an exception worth noting: `/cryptarchia/blocks_range` accepts
+`slot_from` and `slot_to` bounds with a server batch size, so a consumer can
+restart from a chosen slot [84]. Its unbounded live stream
+(`/cryptarchia/events/blocks/stream`) accepts no position, so resumption means
+switching to the range route rather than resuming the stream itself.
 
 ### 1.34 Structured errors and a code taxonomy
 
@@ -916,20 +927,21 @@ First party means the repository sits under the project's own GitHub
 organisation, or the official documentation labels it official. Where the two
 tests disagree, the row says so.
 
-| Chain    | TS/JS            | Rust                     | Go                         | Python           | Java/Kotlin      | Swift          | C/C++            | .NET           |
-| -------- | ---------------- | ------------------------ | -------------------------- | ---------------- | ---------------- | -------------- | ---------------- | -------------- |
-| Ethereum | community [67]   | community [68]           | first party [69]           | first party [70] | community [67]   | [NOT FOUND]    | [NOT FOUND]      | community [67] |
-| Bitcoin  | community [71]   | community [71]           | community [71]             | community [71]   | community [71]   | community [72] | community [71]   | community [71] |
-| Solana   | first party [73] | first party [74]         | community [73]             | community [73]   | community [73]   | [NOT FOUND]    | [NOT FOUND]      | [NOT FOUND]    |
-| XRPL     | first party [75] | [NOT FOUND]              | official, outside org [75] | first party [75] | first party [75] | [NOT FOUND]    | first party [75] | [NOT FOUND]    |
-| Cosmos   | first party [76] | [NOT FOUND]              | first party [77]           | [NOT FOUND]      | [NOT FOUND]      | [NOT FOUND]    | [NOT FOUND]      | [NOT FOUND]    |
-| Stellar  | first party [78] | first party [78]         | first party [78]           | community [78]   | community [78]   | community [78] | [NOT FOUND]      | community [78] |
-| NEAR     | first party [79] | first party [79]         | [NOT FOUND]                | community [79]   | [NOT FOUND]      | [NOT FOUND]    | [NOT FOUND]      | [NOT FOUND]    |
-| Sui      | first party [80] | first party [80]         | community [80]             | community [80]   | community [80]   | community [80] | [NOT FOUND]      | [NOT FOUND]    |
-| Logos L1 | [NOT FOUND]      | in-repo Rust client [19] | [NOT FOUND]                | [NOT FOUND]      | [NOT FOUND]      | [NOT FOUND]    | C ABI [81]       | [NOT FOUND]    |
-| LEZ      | [NOT FOUND]      | in-repo Rust client [21] | [NOT FOUND]                | [NOT FOUND]      | [NOT FOUND]      | [NOT FOUND]    | wallet FFI [21]  | [NOT FOUND]    |
+| Chain    | TS/JS            | Rust                     | Go               | Python           | Java/Kotlin      | Swift          | C/C++            | .NET           |
+| -------- | ---------------- | ------------------------ | ---------------- | ---------------- | ---------------- | -------------- | ---------------- | -------------- |
+| Ethereum | community [67]   | community [68]           | first party [69] | first party [70] | community [67]   | [NOT FOUND]    | [NOT FOUND]      | community [67] |
+| Bitcoin  | community [71]   | community [71]           | community [71]   | community [71]   | community [71]   | community [72] | community [71]   | community [71] |
+| Solana   | first party [73] | first party [74]         | community [73]   | community [73]   | community [73]   | [NOT FOUND]    | [NOT FOUND]      | [NOT FOUND]    |
+| XRPL     | first party [75] | first party [85]         | community [75]   | first party [75] | first party [75] | [NOT FOUND]    | first party [75] | [NOT FOUND]    |
+| Cosmos   | first party [76] | [NOT FOUND]              | first party [77] | [NOT FOUND]      | [NOT FOUND]      | [NOT FOUND]    | [NOT FOUND]      | [NOT FOUND]    |
+| Stellar  | first party [78] | first party [78]         | first party [78] | community [78]   | community [78]   | community [78] | [NOT FOUND]      | community [78] |
+| NEAR     | first party [79] | first party [79]         | [NOT FOUND]      | community [79]   | [NOT FOUND]      | [NOT FOUND]    | [NOT FOUND]      | [NOT FOUND]    |
+| Sui      | first party [80] | first party [80]         | community [80]   | community [80]   | community [80]   | community [80] | [NOT FOUND]      | [NOT FOUND]    |
+| Logos L1 | [NOT FOUND]      | in-repo Rust client [19] | [NOT FOUND]      | [NOT FOUND]      | [NOT FOUND]      | [NOT FOUND]    | C ABI [81]       | [NOT FOUND]    |
+| LEZ      | [NOT FOUND]      | in-repo Rust client [21] | [NOT FOUND]      | [NOT FOUND]      | [NOT FOUND]      | [NOT FOUND]    | wallet FFI [21]  | [NOT FOUND]    |
 
-TypeScript and Rust appear in every external ecosystem surveyed. Go and Python
+TypeScript and Rust appear in every external ecosystem surveyed except Cosmos,
+where no Rust client SDK sits under the `cosmos` organisation. Go and Python
 appear in seven of eight. At the thin end, C and C++ appear as a first-party SDK
 only for XRPL, .NET is community maintained everywhere it appears, and no
 surveyed chain publishes a first-party Swift SDK.
@@ -938,20 +950,23 @@ Bitcoin is the sharpest contrast: it has no foundation-published SDK at all. The
 `bitcoin` GitHub organisation contains the node and the BIPs, and every client
 library is community maintained [71].
 
-Ethereum, Bitcoin, and Cosmos publish no documentation page labelling SDKs
-official or community, so those rows rest on the organisation test alone. XRPL,
-Sui, and Stellar state maintainership explicitly. XRPL's Go row is a genuine
-conflict: the official documentation labels `Peersyst/xrpl-go` official, yet it
-sits outside the XRPLF organisation [75].
+Sui and Stellar state maintainership explicitly, splitting their SDK pages into
+official and community sections. Ethereum, Bitcoin, Cosmos, and XRPL publish no
+such labels, so those rows rest on the organisation test alone. XRPL's Go entry
+is the clearest case: its client-libraries page lists `Peersyst/xrpl-go` without
+comment, and the repository sits outside the XRPLF organisation [75].
 
 ### 3.2 Generating many SDKs from one core
 
 BDK is the clearest worked example of the FFI pattern. The `bdk-ffi` repository
 "creates a library ready for export to other languages using uniffi-rs for the
-Rust-based bdk_wallet library", generating Kotlin and Android, Swift, Kotlin
-JVM, Python, Dart, and React Native TypeScript packages from a single Rust core
-[72]. Notably it comes from a community project rather than a foundation, and
-the BDK core repository does not mention the bindings at all.
+Rust-based bdk_wallet library" [72]. It builds Kotlin, Android, and Swift
+targets in-repo, and Kotlin JVM, Python, Dart, and React Native TypeScript are
+maintained as separate downstream repositories consuming the same binding layer
+[72]. One Rust core therefore reaches six language targets, although only the
+first group is produced by the binding repository itself. Notably it comes from
+a community project rather than a foundation, and the BDK core repository does
+not mention the bindings at all.
 
 Schema-driven generation is the other route, and the survey shows both ends of
 the spectrum. Cosmos generates from protobuf: each module "exposes a Protobuf
@@ -990,33 +1005,34 @@ recommendation about what should be built.
 | Function                                       | Chains with it |
 | ---------------------------------------------- | -------------- |
 | Simulate transaction execution                 | 6 of 8         |
-| Estimate execution cost                        | 6 of 8         |
+| Estimate execution cost                        | 5 of 8         |
 | Pre-submission acceptance check                | 6 of 8         |
 | Wait for a chosen confirmation level           | 4 of 8         |
 | Read-only contract call                        | 6 of 8         |
-| Identify the network or chain                  | 8 of 8         |
 | Verify a signature                             | 3 of 8         |
-| Resume a stream from a known position          | 1 of 8         |
 | Build an unsigned transaction as a node method | 3 of 8         |
 | Encode and decode transaction bytes            | 2 of 8         |
 | Submit a batch or package                      | 1 of 8         |
 
-Network identification is the widest gap: all eight surveyed chains expose it
-and neither Logos target does. Stream resumption is absent on both, but it is
-also absent on seven of the eight surveyed chains.
+Simulation is the widest gap: six of the eight surveyed chains execute a
+transaction and return its outcome without committing it, and neither Logos
+target does. Pre-submission checking and read-only calls follow at six of eight.
+
+Network identification is absent on Logos L1 alone: all eight surveyed chains
+expose it, and LEZ exposes `getChannelId` [21].
 
 ### 4.2 Present but narrower than the surveyed norm
 
-| Function                      | Logos state                                                               |
-| ----------------------------- | ------------------------------------------------------------------------- |
-| Get a balance                 | L1 scoped to node-custodial keys, not arbitrary subjects [19]             |
-| Get transaction status        | L1 reports mempool status only, no lifecycle or finality [19]             |
-| Get execution effects         | L1 block scoped, no per-transaction effects view [19]; LEZ absent [21]    |
-| Paginate a result set         | LEZ mixes a cursor idiom and an offset idiom in one interface [22]        |
-| Subscribe to new blocks       | Neither accepts a start position, so a dropped stream loses data [19][22] |
-| Structured errors             | LEZ uses stock JSON-RPC codes with free text, no taxonomy [55]            |
-| Query historical transactions | LEZ indexer only, offset paginated [22]                                   |
-| Estimate the fee or fee rate  | L1 serves gas-price inputs, not an estimate for given bytes [19]          |
+| Function                      | Logos state                                                                                                   |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Get a balance                 | L1 scoped to node-custodial keys, not arbitrary subjects [19]                                                 |
+| Get transaction status        | L1 reports mempool status only, no lifecycle or finality [19]                                                 |
+| Get execution effects         | L1 block scoped, no per-transaction effects view [19]; LEZ absent [21]                                        |
+| Paginate a result set         | LEZ mixes a cursor idiom and an offset idiom in one interface [22]                                            |
+| Subscribe to new blocks       | Live streams accept no start position on either target; L1 offers a separate bounded range route [19][84][22] |
+| Structured errors             | LEZ uses stock JSON-RPC codes with free text, no taxonomy [55]                                                |
+| Query historical transactions | LEZ indexer only, offset paginated [22]                                                                       |
+| Estimate the fee or fee rate  | L1 serves gas-price inputs, not an estimate for given bytes [19]                                              |
 
 ### 4.3 Present and comparable
 
@@ -1195,3 +1211,7 @@ anchor [81].
     https://developers.stellar.org/docs/tools/sdks/build-your-own
 83. Solana, "web3.js Compatibility" documentation.
     https://solana.com/docs/frontend/web3-compat
+84. logos-blockchain, `nodes/api-common/src/paths.rs:33` and
+    `nodes/node/binary/src/api/queries.rs`, commit `ecb2cc6`.
+    https://github.com/logos-blockchain/logos-blockchain
+85. XRPL Foundation, "xrpl-rust" repository. https://github.com/XRPLF/xrpl-rust
