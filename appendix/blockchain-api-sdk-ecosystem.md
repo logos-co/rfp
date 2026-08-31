@@ -977,9 +977,12 @@ few named per-language SDKs: the protobuf contract plus each language's own gRPC
 toolchain substitutes for them. Sui similarly publishes protobuf interface
 definitions usable to generate client libraries [60].
 
-Stellar is explicitly the opposite. Its build-your-own-SDK guide describes
-manual implementation, listing value conversions, host functions, SDK types, and
-metadata as things the implementer writes [82].
+No surveyed chain publishes a written argument for hand-writing client SDKs
+instead of generating them. Stellar's build-your-own-SDK guide is sometimes read
+that way, but it scopes itself to contract SDKs: "This is for building an SDK
+for writing smart contracts" [82]. Its client SDKs are simply listed with their
+maintainers, several of them community-run [78], which is consistent with
+hand-writing without arguing for it.
 
 ### 3.3 Deprecations
 
