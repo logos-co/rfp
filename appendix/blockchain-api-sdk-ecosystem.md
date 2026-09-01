@@ -9,11 +9,33 @@ external SDKs built on top. Logos L1 and LEZ appear as the final rows of each
 table, recording what they expose today.
 
 Every claim carries a first-party source that was fetched and confirmed to
-resolve. Where a capability could not be confirmed on official documentation,
-the entry reads `[NOT FOUND]`: that records the limit of the sourcing, not an
-assertion that the capability is absent. Logos rows cite files and line numbers
-in `logos-blockchain` at commit `ecb2cc6` and `logos-execution-zone` at commit
-`47eba25`.
+resolve. Logos rows cite files and line numbers in `logos-blockchain` at commit
+`ecb2cc6` and `logos-execution-zone` at commit `47eba25`.
+
+### On `[NOT FOUND]`
+
+A survey of this kind fails in two directions: it can assert something that is
+not there, or it can quietly omit something it did not look hard enough for.
+Both markers below exist to keep the second failure visible rather than silent.
+
+`[NOT FOUND]` in a table cell means no method, field, or route for that function
+was found in the chain's official documentation. It is a statement about the
+search, not about the chain. Three things could produce it: the capability
+genuinely does not exist; it exists under a name the survey did not recognise;
+or it exists somewhere the survey did not read, such as a consensus-layer API or
+a non-canonical extension. Where the distinction was determinable the cell says
+so, for example "no equivalent" where a chain's architecture excludes the
+function outright, as with contract calls on Bitcoin.
+
+"No specific or relevant context has been found" under **Why it exists** means
+no changelog, standards-document motivation section, architecture decision
+record, or maintainer discussion explaining the capability's origin was located.
+This is the common case: twenty-three of the thirty-four functions carry it.
+Most API surfaces are simply not documented as to motivation, and absence of a
+recorded reason is not evidence that no reason existed.
+
+Neither marker should be read as a gap in the chain. Read them as the boundary
+of what was verified.
 
 ## Chains Surveyed
 
@@ -47,11 +69,12 @@ and errors. Each entry states what the operation does, which chains expose it
 and under what name, and the documented reason it exists where one could be
 found.
 
-Rationale is sourced in only four cases across the whole catalogue: transaction
-construction and offline signing (BIP-174), fee estimation (EIP-1559),
-simulation (Stellar's own documentation), and the wallet error taxonomy
-(EIP-1193). Every other function reads `[NOT FOUND]` under **Why it exists**.
-API surfaces are, on the evidence, largely undocumented as to motivation.
+Documented rationale was found for eleven of the thirty-four functions, drawn
+from standards documents with explicit motivation sections (BIP-174, BIP-331,
+ERC-191, EIP-234, EIP-695, EIP-1559, EIP-1767, EIP-1898, EIP-4444, NEP-413),
+architecture decision records, and maintainer discussions. The other
+twenty-three record that no specific or relevant context has been found. API
+surfaces are, on the evidence, largely undocumented as to motivation.
 
 ### 1.1 Get node version and software identity
 
@@ -71,17 +94,23 @@ what the node actually runs.
 | Logos L1 | `GET /version` [19]                     |
 | LEZ      | `checkHealth`, no version reported [21] |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 **What comes back.** The request is empty, so the response shape is the whole
-design. The range is wide. Cosmos returns a dependency manifest rather than a
-version string: `VersionInfo` carries `name`, `app_name`, `version`,
-`git_commit`, `build_tags`, `go_version`, `cosmos_sdk_version`, and a repeated
-`build_deps` of module path, version, and checksum [10]. A client can therefore
-detect capability per module, not just per node build. Logos L1 sits at the
-other end: `/version` returns a bare JSON string of package version and commit
-hash, with no field structure to carry a network identifier, feature flags, or
-retention bounds even if it wanted to [19].
+design. Fields are grouped below by what they tell the caller, since chains name
+the same concepts differently.
+
+| What the caller learns  | Where it appears                                                                                                           |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Software version        | Cosmos `version`, `git_commit`, `build_tags`, `go_version` [10]; Logos L1 a bare string of package version and commit [19] |
+| Framework version       | Cosmos `cosmos_sdk_version` [10]                                                                                           |
+| Per-dependency versions | Cosmos `build_deps`, a repeated module path, version, and checksum [10]                                                    |
+| Service identity        | Cosmos `name`, `app_name` [10]                                                                                             |
+
+The spread is the finding. Cosmos returns a dependency manifest, so a client can
+detect capability per module rather than per node build [10]. Logos L1 returns a
+bare JSON string, which leaves no field structure to carry a network identifier,
+feature flags, or retention bounds even if it wanted to [19].
 
 Cosmos also annotates the schema itself with the release each field arrived in,
 for example `(cosmos_proto.field_added_in) = "cosmos-sdk 0.43"` on
@@ -106,34 +135,36 @@ can avoid reading stale state.
 | Logos L1 | [NOT FOUND] [19]                                |
 | LEZ      | `checkHealth`, and indexer `getStatus` [21][22] |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 **What comes back.** This is where retention bounds live on most chains, not on
-the version call. Cosmos returns `syncing` alongside `earliest_block_height`,
-described as "the earliest block height available on this node", and
-`latest_block_height` \[10\]: the first of those is the pruning floor. Bitcoin
-splits sync into two heights, `blocks` for "the height of the most-work
-fully-validated chain" and `headers` for "the current number of headers we have
-validated", plus a normalised `verificationprogress` in the range 0 to 1, and
-expresses retention as four separate fields (`pruned`, `pruneheight`,
-`automatic_pruning`, `prune_target_size`) that distinguish whether pruning is
-on, where the floor is, and whether it is automatic [105].
+the version call. Grouped by what the caller learns:
 
-XRPL is the richest response in the survey and does three things worth noting.
-Retention is a possibly disjoint range expression rather than a single floor:
-`complete_ledgers` is documented as a "Range expression indicating the sequence
-numbers of the ledger versions the local `xrpld` has in its database. This may
-be a disjoint sequence such as `24900901-24900984,24901116-24901158`" [101].
-Finality is signalled by which field is present, since `validated_ledger` is
-omitted and `closed_ledger` sent instead when no fully-validated ledger is
-available [101]. And `amendment_blocked` is a self-reported "I cannot safely
-serve you" flag, distinct from being out of sync [101].
+| What the caller learns  | Where it appears                                                                        |
+| ----------------------- | --------------------------------------------------------------------------------------- |
+| Is the node caught up   | Cosmos `syncing` [10]; Bitcoin `initialblockdownload` [105]; LEZ `state` [115]          |
+| How far caught up       | Bitcoin `verificationprogress`, normalised 0 to 1 [105]                                 |
+| Current tip             | Cosmos `latest_block_height` [10]; Bitcoin `blocks` [105]; LEZ `indexed_block_id` [115] |
+| Headers ahead of blocks | Bitcoin `headers` [105]                                                                 |
+| Retention floor         | Cosmos `earliest_block_height` [10]; Bitcoin `pruneheight` [105]                        |
+| Retention as a range    | XRPL `complete_ledgers`, possibly disjoint [101]                                        |
+| Retention policy        | Bitcoin `pruned`, `automatic_pruning`, `prune_target_size` [105]                        |
+| Finality reached        | XRPL `validated_ledger` present, else `closed_ledger` [101]                             |
+| Cannot safely serve     | XRPL `amendment_blocked` [101]                                                          |
+| Why it stalled          | LEZ `stall_reason`, `last_error` [115]                                                  |
 
-LEZ discloses staleness on its indexer, which most surveyed chains do not.
-`getStatus` returns a "Status snapshot returned by `getStatus`: the ingestion
-state plus the indexed L2 tip and, when stalled, the stall diagnostics",
-carrying `state`, `last_error`, `indexed_block_id`, and `stall_reason` [115]. A
-client can tell how far behind an indexer-backed read is, and why.
+Three designs stand out. Bitcoin separates the validated chain from known
+headers, so a caller can tell a syncing node from a stalled one, and splits
+retention into four fields distinguishing whether pruning is on, where the floor
+is, and whether it is automatic [105]. XRPL expresses retention as a range
+expression rather than a floor, documented as possibly "a disjoint sequence such
+as `24900901-24900984,24901116-24901158`", and signals finality by which field
+is present rather than by a status enum [101].
+
+LEZ discloses indexer staleness, which most surveyed chains do not: its status
+is "the ingestion state plus the indexed L2 tip and, when stalled, the stall
+diagnostics" [115], so a client can tell how far behind an indexer-backed read
+is, and why.
 
 ### 1.3 Identify the network or chain
 
@@ -217,7 +248,7 @@ Fetches one block, ledger, or checkpoint and its contents by identifier.
 | Logos L1 | `GET /cryptarchia/blocks/:id` [19]                               |
 | LEZ      | `getBlock`, indexer `getBlockById` and `getBlockByHash` [21][22] |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 ### 1.6 Get the current chain tip
 
@@ -237,7 +268,7 @@ most subsequent reads.
 | Logos L1 | `GET /cryptarchia/info` [19]                                 |
 | LEZ      | `getLastBlockId`, indexer `getLastFinalizedBlockId` [21][22] |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 ### 1.7 Get an account or object
 
@@ -256,7 +287,7 @@ Reads the ledger record for one address, account, or object.
 | Logos L1 | [NOT FOUND]; nearest is the custodial wallet balance route [19]     |
 | LEZ      | `getAccount`, indexer `getAccount` and `getAccountAtBlock` [21][22] |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 ### 1.8 Get a balance
 
@@ -275,7 +306,7 @@ Returns the balance held by an address, for the native asset or a named token.
 | Logos L1 | `GET /wallet/:public_key/balance`, custodial keys only [19]          |
 | LEZ      | `getAccountBalance` [21]                                             |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 The L1 balance read is scoped to keys the node's wallet controls rather than
 being a general subject query.
@@ -297,7 +328,7 @@ Retrieves a single transaction, and normally its result, by identifier.
 | Logos L1 | `GET /cryptarchia/transaction/:id` [19]             |
 | LEZ      | `getTransaction`, indexer `getTransaction` [21][22] |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 **A response field name as a security property.** XRPL renamed a field in this
 response because the old name implied a guarantee it did not provide. Its
@@ -330,7 +361,7 @@ without producing a transaction.
 | Logos L1 | [NOT FOUND] [19]                                    |
 | LEZ      | [NOT FOUND] [21]                                    |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 **On fixed response shapes.** EIP-1767 records the cost of a server that cannot
 know which fields a caller wants. Fetching every receipt in a block leads node
@@ -360,7 +391,7 @@ light-client verification.
 | Logos L1 | `GET /mantle/sdp/declarations`, `GET /mantle/sdp/snapshot` [19]     |
 | LEZ      | [NOT FOUND] [21]                                                    |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 ### 1.12 Fetch construction parameters
 
@@ -455,7 +486,7 @@ directions.
 | Logos L1 | [NOT FOUND] as a node method [19]                                      |
 | LEZ      | [NOT FOUND] as a node method [21]                                      |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 ### 1.15 Simulate transaction execution
 
@@ -482,15 +513,25 @@ a transaction without actually submitting it to the network" [39]. Returning the
 transaction data the caller then submits makes simulation a construction step
 rather than an optional check.
 
-**What comes back.** Stellar's response is the fullest, returning
-`transactionData`, `minResourceFee`, `cost`, `results`, `restorePreamble`,
-`latestLedger`, `events`, and `stateChanges` [39]. Two of those make simulation
-a construction step: `transactionData` is "The recommended Soroban Transaction
-Data to use when submitting the simulated transaction" and `minResourceFee` is
-the "Recommended minimum resource fee to add when submitting the transaction"
-[39]. The caller copies both back into the transaction before submitting.
-`restorePreamble` signals that archived ledger entries must be restored first,
-so simulation can return a prerequisite step rather than a simple pass or fail.
+**What comes back.** Grouped by what the caller learns, using Stellar's response
+as the fullest example:
+
+| What the caller learns     | Where it appears                                                                                     |
+| -------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Did it succeed             | Stellar `results` [39]; Sui execution effects [17]                                                   |
+| What it would cost         | Stellar `cost`, `minResourceFee` [39]; Solana compute units consumed [25]; Sui gas cost summary [17] |
+| What state would change    | Stellar `stateChanges`, `events` [39]                                                                |
+| Data to submit with        | Stellar `transactionData` [39]                                                                       |
+| Prerequisite step required | Stellar `restorePreamble` [39]                                                                       |
+| Basis of the answer        | Stellar `latestLedger` [39]                                                                          |
+
+Two of those fields make simulation a construction step rather than a check.
+`transactionData` is "The recommended Soroban Transaction Data to use when
+submitting the simulated transaction" and `minResourceFee` is the "Recommended
+minimum resource fee to add when submitting the transaction" \[39\]: the caller
+copies both back into the transaction before submitting. `restorePreamble`
+signals that archived ledger entries must be restored first, so simulation can
+return a prerequisite rather than a simple pass or fail.
 
 Neither Logos target exposes simulation. Six of the eight surveyed chains
 execute the transaction and return its outcome; Bitcoin checks acceptance
@@ -514,7 +555,7 @@ can set a sufficient limit.
 | Logos L1 | [NOT FOUND] [19]                                               |
 | LEZ      | [NOT FOUND] [21]                                               |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 ### 1.17 Estimate the fee or fee rate
 
@@ -628,7 +669,7 @@ Checks a signature against a message and key without touching chain state.
 | Logos L1 | [NOT FOUND] as a client-facing verify method [19]   |
 | LEZ      | [NOT FOUND] as a client-facing verify method [21]   |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 ### 1.21 Broadcast a signed transaction
 
@@ -648,19 +689,29 @@ identifier to track it by.
 | Logos L1 | `POST /mempool/add/tx` [19]                                         |
 | LEZ      | `sendTransaction` [21]                                              |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 Solana's documentation warns that "a successful response doesn't guarantee the
 transaction will be processed or confirmed" [42].
 
-**What comes back.** Responses range from a bare identifier to a full result.
-Cosmos returns a `TxResponse` carrying `height`, `txhash`, `codespace`, `code`,
-`data`, `raw_log`, `logs`, `info`, `gas_wanted`, `gas_used`, `tx`, `timestamp`,
-and `events` [93]. The proto marks some of that as unreliable to parse: the
-comment on `raw_log` reads "The output of the application's logger (raw string).
-May be non-deterministic" [93]. XRPL returns `engine_result`,
-`engine_result_code`, `engine_result_message`, `tx_blob`, and `tx_json`, where
-the engine result is a provisional outcome rather than a ledger result [26].
+**What comes back.** Responses range from a bare identifier to a full result:
+
+| What the caller learns | Where it appears                                                                 |
+| ---------------------- | -------------------------------------------------------------------------------- |
+| Transaction identifier | Cosmos `txhash` [93]; Solana the first signature [42]                            |
+| Accepted or rejected   | Cosmos `code`, `codespace` [93]; XRPL `engine_result`, `engine_result_code` [26] |
+| Human-readable reason  | Cosmos `raw_log`, `info` [93]; XRPL `engine_result_message` [26]                 |
+| Where it landed        | Cosmos `height`, `timestamp` [93]                                                |
+| Resource usage         | Cosmos `gas_wanted`, `gas_used` [93]                                             |
+| Effects                | Cosmos `events`, `logs` [93]                                                     |
+| Echo of the submission | Cosmos `tx` [93]; XRPL `tx_blob`, `tx_json` [26]                                 |
+
+Two cautions are documented on the responses themselves. The Cosmos proto
+comments that `raw_log` is "The output of the application's logger (raw string).
+May be non-deterministic" [93], so it is not safe to parse. XRPL's engine result
+is a provisional outcome rather than a ledger result [26], and Solana warns that
+"a successful response doesn't guarantee the transaction will be processed or
+confirmed" [42].
 
 ### 1.22 Pre-submission acceptance check
 
@@ -680,7 +731,7 @@ broadcasting, so a doomed transaction fails locally and cheaply.
 | Logos L1 | [NOT FOUND]; validation happens on submission [19]                  |
 | LEZ      | [NOT FOUND] as a standalone method [21]                             |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 ### 1.23 Submit a batch or package of transactions
 
@@ -700,7 +751,7 @@ unit.
 | Logos L1 | [NOT FOUND] [19]                                                          |
 | LEZ      | [NOT FOUND] [21]                                                          |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 **Why it exists** (where it does). Bitcoin's package relay records the failure
 that per-transaction evaluation creates: "Only individually considering
@@ -734,7 +785,7 @@ executed, or final, and whether it succeeded.
 | Logos L1 | `POST /mantle/status`, mempool status only [19] |
 | LEZ      | status projected from `getTransaction` [21]     |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 Solana's `getSignatureStatuses` returns a `confirmationStatus` of processed,
 confirmed, or finalized [44].
@@ -757,9 +808,10 @@ rather than making the caller poll.
 | Logos L1 | [NOT FOUND] [19]                                         |
 | LEZ      | [NOT FOUND]; the module polls in a loop [21]             |
 
-**Why it exists.** [NOT FOUND] as an explicit rationale document. NEAR states
-the operational trade-off, noting the stricter milestones "can take several
-seconds", which is why the level is a caller parameter [34].
+**Why it exists.** No specific or relevant context has been found. as an
+explicit rationale document. NEAR states the operational trade-off, noting the
+stricter milestones "can take several seconds", which is why the level is a
+caller parameter [34].
 
 This is one of the sharpest divergences in the survey. NEAR parameterises the
 milestone on one method, offering `NONE`, `INCLUDED`, `EXECUTED_OPTIMISTIC`,
@@ -800,7 +852,7 @@ Lists transactions the node holds but has not yet included in a block.
 | Logos L1 | `GET /mempool/view` [19]                                      |
 | LEZ      | [NOT FOUND] [21]                                              |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 ### 1.27 Get execution effects and state changes
 
@@ -820,23 +872,32 @@ success flag.
 | Logos L1 | `GET /cryptarchia/blocks/:id/events`, block scoped [19]        |
 | LEZ      | [NOT FOUND] as a queryable per-transaction effects view [21]   |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 Stellar is the only surveyed chain with a dedicated effects resource rather than
 effects inferred from logs or receipts.
 
-**What comes back, and how it grew.** Ethereum's receipt schema is a record of
-several upgrades accumulating in one response type, with fields conditionally
-present by era. `root` is "The post-transaction state root. Only specified for
-transactions included before the Byzantium upgrade" while `status` is "Either 1
-(success) or 0 (failure). Only specified for transactions included after the
-Byzantium upgrade" [100]. Both are retained, because an effects response must
-describe transactions that predate its own current format. Later additions
-follow the same pattern: `blobGasUsed` is "Only specified for blob transactions
-as defined by EIP-4844" [100]. Cosmos records untyped events as a cost borne by
-the client, describing them as implemented "as `map[string]string`" which "makes
-these events difficult to consume as it requires a great deal of raw string
-matching and parsing" [106].
+**What comes back, and how it grew.** Ethereum's receipt is a record of several
+upgrades accumulating in one response type, with fields conditionally present by
+era:
+
+| What the caller learns | Field                     | Present when                          |
+| ---------------------- | ------------------------- | ------------------------------------- |
+| Did it succeed         | `root` [100]              | before the Byzantium upgrade          |
+| Did it succeed         | `status` [100]            | after the Byzantium upgrade           |
+| What it cost           | `effectiveGasPrice` [100] | defined against the EIP-1559 base fee |
+| What it cost           | `blobGasUsed` [100]       | blob transactions only, per EIP-4844  |
+| Cumulative block cost  | `cumulativeGasUsed` [100] | always                                |
+
+Both success indicators are retained, because an effects response must describe
+transactions that predate its own current format. `root` is "The
+post-transaction state root. Only specified for transactions included before the
+Byzantium upgrade" while `status` is "Either 1 (success) or 0 (failure). Only
+specified for transactions included after the Byzantium upgrade" [100].
+
+Cosmos records the cost of untyped effects, describing events implemented "as
+`map[string]string`" which "makes these events difficult to consume as it
+requires a great deal of raw string matching and parsing" [106].
 
 ### 1.28 Query contract events or logs
 
@@ -930,7 +991,7 @@ Walks a long result set in bounded pages.
 | Logos L1 | [NOT FOUND] as a cursor scheme [19]                                       |
 | LEZ      | `getBlocks` uses a cursor; `getTransactionsByAccount` uses an offset [22] |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 **A cautionary case.** Solana's `getProgramAccounts` used to degrade silently
 when given a bad filter. A changelog entry records the fix and the prior
@@ -963,7 +1024,7 @@ Returns the transaction history touching a given account.
 | Logos L1 | [NOT FOUND] [19]                                         |
 | LEZ      | indexer `getTransactionsByAccount` [22]                  |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 Ethereum has no address-history method on the standard node API, which is why
 third-party indexers occupy that role.
@@ -986,7 +1047,7 @@ occur.
 | Logos L1 | `GET /cryptarchia/events/blocks/stream` [19]    | [NOT FOUND] as a filtered event stream [19]                  |
 | LEZ      | indexer `subscribeToFinalizedBlocks` [22]       | [NOT FOUND] [22]                                             |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 ### 1.33 Resume a stream from a known position
 
@@ -1006,7 +1067,7 @@ without gaps.
 | Logos L1 | `slot_from` on `/cryptarchia/blocks_range` [84]                   |
 | LEZ      | [NOT FOUND]; `subscribeToFinalizedBlocks` takes no arguments [22] |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** No specific or relevant context has been found.
 
 This is the weakest-supported capability in the survey, and that is itself the
 finding. Among the surveyed chains only Stellar documents cursor-based
