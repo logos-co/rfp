@@ -132,7 +132,7 @@ can avoid reading stale state.
 | Stellar  | `getHealth` [27]                                |
 | NEAR     | `health` [13]                                   |
 | Sui      | [NOT FOUND] [15]                                |
-| Logos L1 | [NOT FOUND] [19]                                |
+| Logos L1 | `GET /cryptarchia/info` [19][118]               |
 | LEZ      | `checkHealth`, and indexer `getStatus` [21][22] |
 
 **Why it exists.** No specific or relevant context has been found.
@@ -140,18 +140,20 @@ can avoid reading stale state.
 **What comes back.** This is where retention bounds live on most chains, not on
 the version call. Grouped by what the caller learns:
 
-| What the caller learns  | Where it appears                                                                        |
-| ----------------------- | --------------------------------------------------------------------------------------- |
-| Is the node caught up   | Cosmos `syncing` [10]; Bitcoin `initialblockdownload` [105]; LEZ `state` [115]          |
-| How far caught up       | Bitcoin `verificationprogress`, normalised 0 to 1 [105]                                 |
-| Current tip             | Cosmos `latest_block_height` [10]; Bitcoin `blocks` [105]; LEZ `indexed_block_id` [115] |
-| Headers ahead of blocks | Bitcoin `headers` [105]                                                                 |
-| Retention floor         | Cosmos `earliest_block_height` [10]; Bitcoin `pruneheight` [105]                        |
-| Retention as a range    | XRPL `complete_ledgers`, possibly disjoint [101]                                        |
-| Retention policy        | Bitcoin `pruned`, `automatic_pruning`, `prune_target_size` [105]                        |
-| Finality reached        | XRPL `validated_ledger` present, else `closed_ledger` [101]                             |
-| Cannot safely serve     | XRPL `amendment_blocked` [101]                                                          |
-| Why it stalled          | LEZ `stall_reason`, `last_error` [115]                                                  |
+| What the caller learns  | Where it appears                                                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Is the node caught up   | Cosmos `syncing` [10]; Bitcoin `initialblockdownload` [105]; Logos L1 `state` [19]; LEZ `state` [115]                          |
+| How far caught up       | Bitcoin `verificationprogress`, normalised 0 to 1 [105]                                                                        |
+| Current tip             | Cosmos `latest_block_height` [10]; Bitcoin `blocks` [105]; Logos L1 `tip`, `height`, `slot` [19]; LEZ `indexed_block_id` [115] |
+| Headers ahead of blocks | Bitcoin `headers` [105]                                                                                                        |
+| Retention floor         | Cosmos `earliest_block_height` [10]; Bitcoin `pruneheight` [105]                                                               |
+| Retention as a range    | XRPL `complete_ledgers`, possibly disjoint [101]                                                                               |
+| Retention policy        | Bitcoin `pruned`, `automatic_pruning`, `prune_target_size` [105]                                                               |
+| Finality reached        | XRPL `validated_ledger` present, else `closed_ledger` [101]                                                                    |
+| Cannot safely serve     | XRPL `amendment_blocked` [101]                                                                                                 |
+| Why it stalled          | LEZ `stall_reason`, `last_error` [115]                                                                                         |
+| Which sync phase        | Logos L1 `phase`: awaiting genesis, initial block download, prolonged bootstrap, or following [118]                            |
+| Finality anchor         | Logos L1 `lib`, `lib_slot`, the last irreversible block [19]                                                                   |
 
 Three designs stand out. Bitcoin separates the validated chain from known
 headers, so a caller can tell a syncing node from a stalled one, and splits
@@ -165,6 +167,24 @@ LEZ discloses indexer staleness, which most surveyed chains do not: its status
 is "the ingestion state plus the indexed L2 tip and, when stalled, the stall
 diagnostics" [115], so a client can tell how far behind an indexer-backed read
 is, and why.
+
+Logos L1 reports sync at two granularities on one call. The consensus engine
+state is binary, `Bootstrapping` or `Online` [19], while the service phase is a
+four-stage lifecycle documented in the source: `AwaitingGenesisTime` ("The
+genesis time is in the future. Only read-only queries are served"),
+`InitialBlockDownload` ("Applying blocks while waiting for Initial Block
+Download to complete"), `ProlongedBootstrapPeriod` ("The Prolonged Bootstrap
+Period is running"), and `Following` ("Following the chain in real time") [118].
+Distinguishing "not yet started" from "downloading" from "following" is
+finer-grained than the boolean most surveyed chains return, and the first phase
+is the only case in the survey where a node documents that it will serve reads
+but not writes.
+
+One caveat on that endpoint. The OpenAPI annotation declares the response body
+as `CryptarchiaInfo` [19], but the project's own HTTP client deserialises it as
+`ChainServiceInfo`, which wraps `CryptarchiaInfo` alongside the `phase` field
+[118]. The published contract and the first-party client disagree about whether
+`phase` is part of the response.
 
 ### 1.3 Identify the network or chain
 
@@ -1628,3 +1648,9 @@ anchor [81].
      https://raw.githubusercontent.com/cosmos/cosmos-sdk/main/docs/architecture/adr-019-protobuf-state-encoding.md
 117. Coinbase, "mesh-specifications" repository.
      https://raw.githubusercontent.com/coinbase/mesh-specifications/master/README.md
+118. logos-blockchain,
+     `services/chain/chain-service/src/service/phases/mod.rs:22` (PhaseTag),
+     `services/chain/chain-service/src/lib.rs:230` (ChainServiceInfo),
+     `consensus/cryptarchia-engine/src/lib.rs:24` (State), and
+     `nodes/node/http-client/src/lib.rs:362` (client response type), commit
+     `ecb2cc6`. https://github.com/logos-blockchain/logos-blockchain
