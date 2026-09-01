@@ -117,23 +117,33 @@ for example `(cosmos_proto.field_added_in) = "cosmos-sdk 0.43"` on
 `cosmos_sdk_version` [10]. That makes version-conditional capability negotiation
 a property of the contract rather than of documentation.
 
+**Potential gaps.**
+
+- **Logos L1**: `GET /version` returns a bare JSON string, so there is no field
+  structure to carry a network identifier, feature flags, or retention bounds;
+  the build collects target, profile, rustc version, and tag name, and the
+  handler discards all four [119].
+- **LEZ**: Neither service reports a version or build identity; the nearest
+  substitute is `getProgramIds`, which the wallet uses to check that locally
+  compiled program images match the sequencer's [119].
+
 ### 1.2 Health and sync-status check
 
 Reports whether the node is healthy and caught up with the chain tip, so clients
 can avoid reading stale state.
 
-| Chain    | Method                                          |
-| -------- | ----------------------------------------------- |
-| Ethereum | `eth_syncing` [28]                              |
-| Bitcoin  | `getblockchaininfo` [24]                        |
-| Solana   | `getHealth` [25]                                |
-| XRPL     | `server_state` [26]                             |
-| Cosmos   | `/health`, `/status`, `GetSyncing` [9][10]      |
-| Stellar  | `getHealth` [27]                                |
-| NEAR     | `health` [13]                                   |
-| Sui      | [NOT FOUND] [15]                                |
-| Logos L1 | `GET /cryptarchia/info` [19][118]               |
-| LEZ      | `checkHealth`, and indexer `getStatus` [21][22] |
+| Chain    | Method                                                          |
+| -------- | --------------------------------------------------------------- |
+| Ethereum | `eth_syncing` [28]                                              |
+| Bitcoin  | `getblockchaininfo` [24]                                        |
+| Solana   | `getHealth` [25]                                                |
+| XRPL     | `server_state` [26]                                             |
+| Cosmos   | `/health`, `/status`, `GetSyncing` [9][10]                      |
+| Stellar  | `getHealth` [27]                                                |
+| NEAR     | `health` [13]                                                   |
+| Sui      | [NOT FOUND] [15]                                                |
+| Logos L1 | `GET /cryptarchia/info` [19][118]                               |
+| LEZ      | Indexer `getStatus`; sequencer `checkHealth` is a stub [22][21] |
 
 **Why it exists.** No specific or relevant context has been found.
 
@@ -142,7 +152,7 @@ the version call. Grouped by what the caller learns:
 
 | What the caller learns  | Where it appears                                                                                                               |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Is the node caught up   | Cosmos `syncing` [10]; Bitcoin `initialblockdownload` [105]; Logos L1 `state` [19]; LEZ `state` [115]                          |
+| Is the node caught up   | Cosmos `syncing` [10]; Bitcoin `initialblockdownload` [105]; Logos L1 `state` [19]; LEZ indexer `state` [115]                  |
 | How far caught up       | Bitcoin `verificationprogress`, normalised 0 to 1 [105]                                                                        |
 | Current tip             | Cosmos `latest_block_height` [10]; Bitcoin `blocks` [105]; Logos L1 `tip`, `height`, `slot` [19]; LEZ `indexed_block_id` [115] |
 | Headers ahead of blocks | Bitcoin `headers` [105]                                                                                                        |
@@ -166,7 +176,9 @@ is present rather than by a status enum [101].
 LEZ discloses indexer staleness, which most surveyed chains do not: its status
 is "the ingestion state plus the indexed L2 tip and, when stalled, the stall
 diagnostics" [115], so a client can tell how far behind an indexer-backed read
-is, and why.
+is, and why. That disclosure is indexer-only: the sequencer, which is the
+submission path, reports nothing, its `checkHealth` returning an unconditional
+empty success [119].
 
 Logos L1 reports sync at two granularities on one call. The consensus engine
 state is binary, `Bootstrapping` or `Online` [19], while the service phase is a
@@ -186,23 +198,32 @@ as `CryptarchiaInfo` [19], but the project's own HTTP client deserialises it as
 [118]. The published contract and the first-party client disagree about whether
 `phase` is part of the response.
 
+**Potential gaps.**
+
+- **Logos L1**: Finer-grained than most of the survey, reporting consensus state
+  plus a documented four-stage phase on one call [118]; no retention floor is
+  reported, so a client cannot tell which history the node still holds.
+- **LEZ**: The indexer discloses ingestion state, tip, and stall diagnostics
+  [115], but the sequencer, which is the submission path, reports nothing: its
+  `checkHealth` returns an unconditional empty success [119].
+
 ### 1.3 Identify the network or chain
 
 Returns a stable identifier for the chain the node serves, so a client cannot
 accidentally sign for or read from the wrong network.
 
-| Chain    | Method                             |
-| -------- | ---------------------------------- |
-| Ethereum | `eth_chainId` [28]                 |
-| Bitcoin  | `getblockchaininfo` [24]           |
-| Solana   | `getGenesisHash` [25]              |
-| XRPL     | `server_info` [26]                 |
-| Cosmos   | `/genesis`, `/genesis_chunked` [9] |
-| Stellar  | `getNetwork` [27]                  |
-| NEAR     | `genesis_config` [13]              |
-| Sui      | `sui_getChainIdentifier` [17]      |
-| Logos L1 | [NOT FOUND] [19]                   |
-| LEZ      | `getChannelId` [21]                |
+| Chain    | Method                                 |
+| -------- | -------------------------------------- |
+| Ethereum | `eth_chainId` [28]                     |
+| Bitcoin  | `getblockchaininfo` [24]               |
+| Solana   | `getGenesisHash` [25]                  |
+| XRPL     | `server_info` [26]                     |
+| Cosmos   | `/genesis`, `/genesis_chunked` [9]     |
+| Stellar  | `getNetwork` [27]                      |
+| NEAR     | `genesis_config` [13]                  |
+| Sui      | `sui_getChainIdentifier` [17]          |
+| Logos L1 | Inscribed at genesis, not served [119] |
+| LEZ      | `getChannelId` [21]                    |
 
 **Why it exists.** EIP-695 records the problem that a network identifier alone
 did not solve: "Currently although we can use `net_version` RPC call to get the
@@ -218,6 +239,15 @@ on one chain is invalid on its fork [86].
 LEZ reports the zone's own channel identity, which distinguishes one zone from
 another. Logos L1 reports no chain identifier, so a client cannot verify from
 the API which network an L1 endpoint serves.
+
+**Potential gaps.**
+
+- **Logos L1**: A validated chain identifier is inscribed at genesis and read at
+  ledger initialisation [119], but no route returns it, so a client cannot
+  detect that it has been pointed at the wrong network.
+- **LEZ**: `getChannelId` identifies the zone on the sequencer [21], but the
+  indexer exposes no equivalent, so a client reading from an indexer cannot
+  confirm which zone it indexes.
 
 ### 1.4 Retrieve a machine-readable API description
 
@@ -246,10 +276,22 @@ static: the response was itself extended in xrpld 3.2.0 to add transaction and
 ledger-entry format sections [102], which is the drift an SDK shipping a copied
 schema has to track.
 
-L1 serves a full OpenAPI interface description at runtime, which Bitcoin and
-Solana do not. The LEZ `getSchema` method returns a JSON Schema for the block
-type rather than an interface description, so a client cannot be generated from
-it [22].
+L1 serves an OpenAPI document at runtime, which Bitcoin and Solana do not,
+though it is incomplete: five wired routes including both signing endpoints are
+absent from it, most successful responses declare no body, and three component
+schemas are registered [119]. The LEZ `getSchema` method returns a JSON Schema
+for the block type rather than an interface description, so a client cannot be
+generated from it [22].
+
+**Potential gaps.**
+
+- **Logos L1**: The served document omits five wired routes including both
+  signing endpoints, declares no response body for most successful responses,
+  and registers three component schemas [119], so it indexes routes rather than
+  describing payloads.
+- **LEZ**: `getSchema` returns the JSON Schema of the block type rather than an
+  interface description [22], and the sequencer serves no schema, so neither
+  service can be used to generate a client.
 
 ### 1.5 Get a block by height or hash
 
@@ -269,6 +311,13 @@ Fetches one block, ledger, or checkpoint and its contents by identifier.
 | LEZ      | `getBlock`, indexer `getBlockById` and `getBlockByHash` [21][22] |
 
 **Why it exists.** No specific or relevant context has been found.
+
+**Potential gaps.**
+
+- **Logos L1**: Comparable, though lookup is by header id only, so a client
+  holding a height reaches the block through the slot-bounded range routes.
+- **LEZ**: Comparable, with lookup by id and hash on the indexer and by id on
+  the sequencer [22].
 
 ### 1.6 Get the current chain tip
 
@@ -290,6 +339,14 @@ most subsequent reads.
 
 **Why it exists.** No specific or relevant context has been found.
 
+**Potential gaps.**
+
+- **Logos L1**: Comparable: one call returns tip, height, slot, and the last
+  irreversible block [19].
+- **LEZ**: `getLastBlockId` and `getLastFinalizedBlockId` return an identifier
+  only, with no height, timestamp, or hash, so learning anything about the tip
+  costs a second call [21][22].
+
 ### 1.7 Get an account or object
 
 Reads the ledger record for one address, account, or object.
@@ -308,6 +365,14 @@ Reads the ledger record for one address, account, or object.
 | LEZ      | `getAccount`, indexer `getAccount` and `getAccountAtBlock` [21][22] |
 
 **Why it exists.** No specific or relevant context has been found.
+
+**Potential gaps.**
+
+- **Logos L1**: No general subject query exists, and there is no lookup by note
+  commitment or nullifier; the only account-shaped read is the wallet balance,
+  which returns 404 for any key the node does not hold [119].
+- **LEZ**: Comparable, with `getAccount` on both services and
+  `getAccountAtBlock` on the indexer [22].
 
 ### 1.8 Get a balance
 
@@ -330,6 +395,14 @@ Returns the balance held by an address, for the native asset or a named token.
 
 The L1 balance read is scoped to keys the node's wallet controls rather than
 being a general subject query.
+
+**Potential gaps.**
+
+- **Logos L1**: The balance route is scoped to keys in the node's own wallet
+  configuration [119], so an integrator cannot read an arbitrary address's
+  balance, and a 404 does not distinguish an unknown key from a zero balance.
+- **LEZ**: `getAccountBalance` returns a bare integer [21], with no per-token
+  breakdown and no block identifier saying which state the figure was read at.
 
 ### 1.9 Read a transaction by hash
 
@@ -363,6 +436,15 @@ prevent the misunderstandings and exploit described below" [103]. The change
 shipped behind an API version rather than in place: API v1 continues to render
 `Amount`, API v2 renders `DeliverMax` [103].
 
+**Potential gaps.**
+
+- **Logos L1**: The route returns the transaction body but no block id, slot, or
+  confirmation depth [119], so a caller learns that it exists but not where it
+  landed.
+- **LEZ**: The sequencer returns the transaction with its block id [21]; the
+  indexer returns the transaction alone [22], so the two disagree on what
+  context the same lookup supplies.
+
 ### 1.10 Read-only contract call
 
 Executes contract or program code against current state and returns the result
@@ -393,6 +475,14 @@ do not require this field. However, every call to `eth_getBlock` still retrieves
 this field, requiring a separate disk read, because the RPC server has no way of
 knowing if the user requires this field or not" [98].
 
+**Potential gaps.**
+
+- **Logos L1**: No equivalent and no general contract layer; execution is a
+  fixed set of operation types rather than deployed code.
+- **LEZ**: Programs are deployed and executed, and a state-diff computation runs
+  one against state without applying it [119], but nothing on the RPC surface
+  reaches it.
+
 ### 1.11 Get the validator or committee set
 
 Returns who is currently validating, needed for stake, governance, and
@@ -408,10 +498,18 @@ light-client verification.
 | Stellar  | [NOT FOUND] [27]                                                    |
 | NEAR     | `validators` [13]                                                   |
 | Sui      | `suix_getCommitteeInfo`, `suix_getLatestSuiSystemState` [17]        |
-| Logos L1 | `GET /mantle/sdp/declarations`, `GET /mantle/sdp/snapshot` [19]     |
+| Logos L1 | [NOT FOUND]; SDP routes list Blend providers, not validators [119]  |
 | LEZ      | [NOT FOUND] [21]                                                    |
 
 **Why it exists.** No specific or relevant context has been found.
+
+**Potential gaps.**
+
+- **Logos L1**: The SDP routes return Blend mixnet service providers, the
+  service-type enumeration having a single variant [119]; Cryptarchia leadership
+  is a private lottery, so there is no committee to enumerate.
+- **LEZ**: The zone has one sequencer, so there is no set to return, and no
+  method reports that sequencer's identity or signing key.
 
 ### 1.12 Fetch construction parameters
 
@@ -451,6 +549,15 @@ at a later time" [90].
 with `lastValidBlockHeight`, so the caller learns the expiry deadline together
 with the parameter rather than having to compute it [25].
 
+**Potential gaps.**
+
+- **Logos L1**: `/mantle/gas-prices` returns prices rather than a freshness or
+  ordering value, and because note selection needs unspent notes readable only
+  for wallet-held keys, a third party cannot fetch what it needs to construct a
+  transaction.
+- **LEZ**: `getAccountsNonces` covers the replay protector for many accounts at
+  once [21], but returns no expiry or validity window alongside it.
+
 ### 1.13 Build an unsigned transaction
 
 Assembles a well-formed but unsigned transaction from an intent, ready to hand
@@ -488,6 +595,13 @@ support that they "do not need to use this endpoint" [108]. The endpoint is
 enabled by default, so the protection is documentation rather than configuration
 [108].
 
+**Potential gaps.**
+
+- **Logos L1**: Construction is client side, matching most of the survey;
+  `POST /wallet/fund` is a partial exception that appends fee inputs and change
+  from the node's own wallet and requires funding keys the node holds [119].
+- **LEZ**: Construction is client side, matching most of the survey.
+
 ### 1.14 Encode and decode transaction bytes
 
 Converts between a structured transaction and its wire encoding, in both
@@ -507,6 +621,15 @@ directions.
 | LEZ      | [NOT FOUND] as a node method [21]                                      |
 
 **Why it exists.** No specific or relevant context has been found.
+
+**Potential gaps.**
+
+- **Logos L1**: No encode or decode method; the codec traits live in a separate
+  crate and are never re-exported through a handler [119], so a non-Rust client
+  must reimplement the layout to compute a hash or verify what it signed.
+- **LEZ**: Borsh codecs exist as library methods but none is an RPC method; the
+  only encoding helper exposed over FFI converts instruction bytes to prover
+  words and has no decode counterpart [119].
 
 ### 1.15 Simulate transaction execution
 
@@ -557,6 +680,14 @@ Neither Logos target exposes simulation. Six of the eight surveyed chains
 execute the transaction and return its outcome; Bitcoin checks acceptance
 without executing, and NEAR exposes no equivalent.
 
+**Potential gaps.**
+
+- **Logos L1**: No simulation of any kind; a transaction's outcome is knowable
+  only after inclusion.
+- **LEZ**: A validation routine returns a state diff without applying it, but
+  its only caller is the block builder [119], so the primitive a simulation
+  method would wrap exists and is unreachable over RPC.
+
 ### 1.16 Estimate execution cost
 
 Returns how much execution resource a transaction would consume, so the sender
@@ -576,6 +707,15 @@ can set a sufficient limit.
 | LEZ      | [NOT FOUND] [21]                                               |
 
 **Why it exists.** No specific or relevant context has been found.
+
+**Potential gaps.**
+
+- **Logos L1**: No endpoint returns a transaction's cost; the two-dimensional
+  calculation lives in the core library [119], and because execution gas depends
+  on proof length a client must reimplement that accounting to predict a fee.
+- **LEZ**: There is no cost to estimate: transactions carry no fee field and
+  fees are unimplemented, with execution bounded by a fixed cycle cap instead
+  [119].
 
 ### 1.17 Estimate the fee or fee rate
 
@@ -599,6 +739,14 @@ confirms without overpaying.
 auctions require "complex fee estimation algorithms" that "often end up not
 working very well, leading to frequent fee overpayment". The protocol-adjusted
 base fee was introduced so that wallets could "auto-set gas fees reliably" [41].
+
+**Potential gaps.**
+
+- **Logos L1**: `/mantle/gas-prices` returns two input prices and the tip they
+  were read at [119], with no fee for a given transaction or size, and no
+  history or percentile from which to choose a priority fee.
+- **LEZ**: No fee model exists to price: the only fee in the system is the L1
+  cost the sequencer pays to publish [119].
 
 ### 1.18 Sign a transaction
 
@@ -637,6 +785,15 @@ Bitcoin Core has kept its wallet RPCs but is separating the wallet into its own
 process, describing the monolithic structure as carrying "increased security
 risks due to the tight integration of components" [110].
 
+**Potential gaps.**
+
+- **Logos L1**: The node holds key material and signs on request [119], the
+  pattern five of eight surveyed chains omit and two have documented retreating
+  from; the router applies no authentication and defaults CORS to any origin
+  [119], and neither signing route appears in the served OpenAPI document.
+- **LEZ**: Signing is client side, and the wallet FFI offers no signature-only
+  export, so every exported path builds, signs, and submits in one call [119].
+
 ### 1.19 Sign an arbitrary message
 
 Signs a non-transaction payload, used for authentication and off-chain proof of
@@ -672,6 +829,16 @@ EIP-712 records the second problem, blind signing: "Currently signed messages
 are an opaque hex string displayed to the user with little context about the
 items that make up the message" [88].
 
+**Potential gaps.**
+
+- **Logos L1**: There is no separate message-signing route, but both signing
+  routes accept a caller-supplied 32-byte digest with no transaction attached
+  and sign it unchecked [119], so they sign any digest under a node-held key
+  without the domain separation ERC-191 and NEP-413 describe.
+- **LEZ**: No message signing is exposed; the account manager's similarly named
+  method builds a transaction witness set and is called only with a transaction
+  message hash [119].
+
 ### 1.20 Verify a signature
 
 Checks a signature against a message and key without touching chain state.
@@ -691,6 +858,13 @@ Checks a signature against a message and key without touching chain state.
 
 **Why it exists.** No specific or relevant context has been found.
 
+**Potential gaps.**
+
+- **Logos L1**: No client-facing verify method; verification exists per
+  operation type inside the ledger [119] and is not reachable from the API.
+- **LEZ**: No client-facing verify method; signature validation is a library
+  function reached only through submission's stateless check [119].
+
 ### 1.21 Broadcast a signed transaction
 
 Hands a signed transaction to the node for gossip and inclusion, returning an
@@ -706,7 +880,7 @@ identifier to track it by.
 | Stellar  | `sendTransaction` [27]                                              |
 | NEAR     | `send_tx`, `broadcast_tx_async` [34]                                |
 | Sui      | `sui_executeTransactionBlock` [17]                                  |
-| Logos L1 | `POST /mempool/add/tx` [19]                                         |
+| Logos L1 | `POST /mempool/add/tx`, returns no identifier [119]                 |
 | LEZ      | `sendTransaction` [21]                                              |
 
 **Why it exists.** No specific or relevant context has been found.
@@ -733,6 +907,15 @@ is a provisional outcome rather than a ledger result [26], and Solana warns that
 "a successful response doesn't guarantee the transaction will be processed or
 confirmed" [42].
 
+**Potential gaps.**
+
+- **Logos L1**: The submission route returns an empty body [119], so unlike
+  every surveyed chain it yields no identifier to track the transaction by,
+  while the Blend route does return one [119].
+- **LEZ**: `sendTransaction` returns the transaction hash but no acceptance
+  code, position, or reason [21], so a caller learns only that the node accepted
+  it into a queue.
+
 ### 1.22 Pre-submission acceptance check
 
 Validates a signed transaction against mempool or node policy before
@@ -752,6 +935,15 @@ broadcasting, so a doomed transaction fails locally and cheaply.
 | LEZ      | [NOT FOUND] as a standalone method [21]                             |
 
 **Why it exists.** No specific or relevant context has been found.
+
+**Potential gaps.**
+
+- **Logos L1**: No standalone check; validation happens on submission, and with
+  an empty response body a rejection is distinguishable only by HTTP status and
+  free text.
+- **LEZ**: No standalone check, though submission runs a real one and reports it
+  with a reason [119]; the state-level check that would predict execution
+  failure is not reachable over RPC [119].
 
 ### 1.23 Submit a batch or package of transactions
 
@@ -787,28 +979,46 @@ Cosmos messages, Stellar operations, NEAR actions, Solana instructions, and Sui
 programmable transaction blocks, rather than as a multi-transaction submission
 API.
 
+**Potential gaps.**
+
+- **Logos L1**: No batch submission, consistent with the survey; batching is
+  expressed as multiple operations within one transaction.
+- **LEZ**: No batch submission, and no in-transaction batching either: a public
+  transaction carries one program invocation [115], so LEZ lacks both forms the
+  survey found elsewhere.
+
 ### 1.24 Get transaction status
 
 Reports where a submitted transaction sits: unknown, pending, included,
 executed, or final, and whether it succeeded.
 
-| Chain    | Method                                          |
-| -------- | ----------------------------------------------- |
-| Ethereum | `eth_getTransactionReceipt` [33]                |
-| Bitcoin  | `gettransaction`, wallet scoped [24]            |
-| Solana   | `getSignatureStatuses` [44]                     |
-| XRPL     | `tx` [26]                                       |
-| Cosmos   | `GetTx`, `/tx` [29][9]                          |
-| Stellar  | `getTransaction` [27]                           |
-| NEAR     | `tx`, `EXPERIMENTAL_tx_status` [34]             |
-| Sui      | `sui_getTransactionBlock` [17]                  |
-| Logos L1 | `POST /mantle/status`, mempool status only [19] |
-| LEZ      | status projected from `getTransaction` [21]     |
+| Chain    | Method                                                   |
+| -------- | -------------------------------------------------------- |
+| Ethereum | `eth_getTransactionReceipt` [33]                         |
+| Bitcoin  | `gettransaction`, wallet scoped [24]                     |
+| Solana   | `getSignatureStatuses` [44]                              |
+| XRPL     | `tx` [26]                                                |
+| Cosmos   | `GetTx`, `/tx` [29][9]                                   |
+| Stellar  | `getTransaction` [27]                                    |
+| NEAR     | `tx`, `EXPERIMENTAL_tx_status` [34]                      |
+| Sui      | `sui_getTransactionBlock` [17]                           |
+| Logos L1 | `POST /mantle/status`, `Unknown` or `Pending` only [119] |
+| LEZ      | status projected from `getTransaction` [21]              |
 
 **Why it exists.** No specific or relevant context has been found.
 
 Solana's `getSignatureStatuses` returns a `confirmationStatus` of processed,
 confirmed, or finalized [44].
+
+**Potential gaps.**
+
+- **Logos L1**: Status reports only `Unknown` or `Pending` [119], documented as
+  best-effort, so `Unknown` conflates never-seen, mined, and evicted; the
+  response is positional with no hash echoed back, and its declared OpenAPI type
+  differs from what the service returns [119].
+- **LEZ**: There is no status method; a `Pending`, `Safe`, or `Finalized` marker
+  lives on the block [115], so a caller fetches the transaction, then its block,
+  to learn a confirmation level.
 
 ### 1.25 Wait for a chosen confirmation level
 
@@ -855,6 +1065,15 @@ the same thing. This is semantically unsound and confusion" [111]. The surviving
 `safe` tag is defined in the schema as "The most recent block that is safe from
 re-orgs under honest majority and certain synchronicity assumptions" [11].
 
+**Potential gaps.**
+
+- **Logos L1**: No wait or per-transaction subscription, so confirmation means
+  polling; with no identifier returned at submission the caller derives the hash
+  itself first.
+- **LEZ**: No wait mechanism; the first-party wallet polls in a loop with a
+  configurable retry and delay budget, the loop being timeout-based rather than
+  block-based [119].
+
 ### 1.26 Inspect the mempool or pending set
 
 Lists transactions the node holds but has not yet included in a block.
@@ -873,6 +1092,15 @@ Lists transactions the node holds but has not yet included in a block.
 | LEZ      | [NOT FOUND] [21]                                              |
 
 **Why it exists.** No specific or relevant context has been found.
+
+**Potential gaps.**
+
+- **Logos L1**: `GET /mempool/view` returns hashes only, with no fee, size,
+  ancestry, or arrival time per entry, and no pagination or cap on the returned
+  set.
+- **LEZ**: The sequencer holds a bounded mempool but the service uses its handle
+  only to push [119]; the only external visibility is a metrics gauge, so a
+  submitted transaction is unobservable until it appears in a block.
 
 ### 1.27 Get execution effects and state changes
 
@@ -919,6 +1147,16 @@ Cosmos records the cost of untyped effects, describing events implemented "as
 `map[string]string`" which "makes these events difficult to consume as it
 requires a great deal of raw string matching and parsing" [106].
 
+**Potential gaps.**
+
+- **Logos L1**: Events are typed and carry a transaction hash per entry, but
+  only three transaction payload variants exist, all deposit or reward specific
+  [119], so ordinary transfers produce no effects record and there is no success
+  or failure indicator.
+- **LEZ**: No effects view; the nearest is the post-state account snapshot
+  inside a privacy-preserving transaction's public actions [115], which is a
+  snapshot rather than a delta and absent from public transactions.
+
 ### 1.28 Query contract events or logs
 
 Retrieves structured events emitted by execution, filtered by address, topic, or
@@ -954,6 +1192,15 @@ maintainer issue proposing default block-range limits states the reason plainly:
 "Unlike Erigon Geth can not comply with get log requests with broad block ranges
 which would only result on timeouts and CPU abuse" [46]. The same query can
 therefore succeed against one client and fail against another.
+
+**Potential gaps.**
+
+- **Logos L1**: Events are retrievable one block at a time with no filter by
+  address, type, or range [119], so following an account means fetching and
+  scanning every block.
+- **LEZ**: Program execution emits no events or logs at all: program output
+  carries state and chained calls only [119], so there is nothing to query and
+  no way for a program to signal what it did.
 
 ### 1.29 Read historical state at a past version
 
@@ -994,6 +1241,15 @@ Sui is explicit about its own limits here: "there is no software-level
 guarantee/SLA that objects with past versions can be retrieved by this API"
 [17].
 
+**Potential gaps.**
+
+- **Logos L1**: A tip parameter pins three routes, but two are wallet-scoped
+  [119], so pinned reads are unavailable for third-party state; no route
+  declares a retention floor.
+- **LEZ**: `getAccountAtBlock` pins an account read [22], but the sequencer
+  offers no pinned read and neither service declares retention, so the limit is
+  discovered by a request that fails.
+
 ### 1.30 Paginate a result set
 
 Walks a long result set in bounded pages.
@@ -1027,6 +1283,15 @@ protobuf pagination message shared by every module query (Cosmos) [49], and HAL
 hypermedia links (Stellar Horizon) [50]. LEZ uses both a cursor and an offset
 idiom in one interface.
 
+**Potential gaps.**
+
+- **Logos L1**: No cursor is exposed; the headers route silently truncates at
+  512 entries with no indication of truncation, and the blocks route derives its
+  limit from the requested slot range with no server cap [119].
+- **LEZ**: Two idioms coexist, a cursor on `getBlocks` and a numeric offset on
+  `getTransactionsByAccount` [22], and neither returns a total, a next position,
+  or an indication that more remain.
+
 ### 1.31 Query historical transactions for an address
 
 Returns the transaction history touching a given account.
@@ -1049,6 +1314,14 @@ Returns the transaction history touching a given account.
 Ethereum has no address-history method on the standard node API, which is why
 third-party indexers occupy that role.
 
+**Potential gaps.**
+
+- **Logos L1**: No address-history method, and because the only account-scoped
+  read is wallet-scoped there is no first-party path to an address's history.
+- **LEZ**: `getTransactionsByAccount` covers this on the indexer [22], though
+  offset paging over a growing set can skip or repeat entries as new
+  transactions land ahead of the offset.
+
 ### 1.32 Subscribe to new blocks and to events
 
 Pushes new blocks, or matching events and account changes, to the client as they
@@ -1068,6 +1341,15 @@ occur.
 | LEZ      | indexer `subscribeToFinalizedBlocks` [22]       | [NOT FOUND] [22]                                             |
 
 **Why it exists.** No specific or relevant context has been found.
+
+**Potential gaps.**
+
+- **Logos L1**: The live block stream takes no parameters [119], so there is no
+  filtered event or account subscription and every consumer receives every block
+  in full.
+- **LEZ**: `subscribeToFinalizedBlocks` pushes block ids only [22], so a
+  subscriber fetches each block separately, and the sequencer declares no
+  subscriptions at all.
 
 ### 1.33 Resume a stream from a known position
 
@@ -1109,6 +1391,16 @@ Logos L1 is an exception worth noting: `/cryptarchia/blocks_range` accepts
 restart from a chosen slot [84]. Its unbounded live stream
 (`/cryptarchia/events/blocks/stream`) accepts no position, so resumption means
 switching to the range route rather than resuming the stream itself.
+
+**Potential gaps.**
+
+- **Logos L1**: `/cryptarchia/blocks_range` accepts slot bounds with a
+  batch-size hint [84], better supported than most of the survey; the live
+  stream accepts no position, so resuming means switching routes and reconciling
+  the overlap.
+- **LEZ**: `subscribeToFinalizedBlocks` takes no arguments [22], so a consumer
+  that drops the connection can only learn what it missed by diffing against
+  `getBlocks`.
 
 ### 1.34 Structured errors and a code taxonomy
 
@@ -1654,3 +1946,24 @@ anchor [81].
      `consensus/cryptarchia-engine/src/lib.rs:24` (State), and
      `nodes/node/http-client/src/lib.rs:362` (client response type), commit
      `ecb2cc6`. https://github.com/logos-blockchain/logos-blockchain
+
+**Potential gaps.**
+
+- **Logos L1**: The error body carries a code, but it is the HTTP status
+  duplicated [119], and five error variants collapse every internal failure into
+  one message string, so the first-party client resorts to substring matching to
+  detect a missing channel [119].
+- **LEZ**: Standard JSON-RPC codes plus one ad-hoc constant used at a single
+  call site [119], with the data field always empty; the same not-found
+  condition is signalled as that code in one method and as an empty success
+  elsewhere.
+
+119. Source read for the per-function gap notes, at commit `ecb2cc6`
+     (logos-blockchain) and `47eba25` (logos-execution-zone). Files cited
+     include `nodes/node/binary/src/api/openapi.rs`,
+     `nodes/node/binary/src/api/errors.rs`, `nodes/node/binary/src/version.rs`,
+     `services/api/src/http/mempool.rs`, `services/api/src/http/mantle.rs`,
+     `services/tx-service/src/backend/mod.rs`, `core/src/sdp/mod.rs`,
+     `core/src/mantle/gas.rs`, `lez/sequencer/service/src/service.rs`,
+     `lez/common/src/transaction.rs`, and `lez/wallet/src/poller.rs`.
+     https://github.com/logos-blockchain/logos-blockchain
