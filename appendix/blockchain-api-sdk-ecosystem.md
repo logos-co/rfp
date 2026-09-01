@@ -73,6 +73,21 @@ what the node actually runs.
 
 **Why it exists.** [NOT FOUND]
 
+**What comes back.** The request is empty, so the response shape is the whole
+design. The range is wide. Cosmos returns a dependency manifest rather than a
+version string: `VersionInfo` carries `name`, `app_name`, `version`,
+`git_commit`, `build_tags`, `go_version`, `cosmos_sdk_version`, and a repeated
+`build_deps` of module path, version, and checksum [10]. A client can therefore
+detect capability per module, not just per node build. Logos L1 sits at the
+other end: `/version` returns a bare JSON string of package version and commit
+hash, with no field structure to carry a network identifier, feature flags, or
+retention bounds even if it wanted to [19].
+
+Cosmos also annotates the schema itself with the release each field arrived in,
+for example `(cosmos_proto.field_added_in) = "cosmos-sdk 0.43"` on
+`cosmos_sdk_version` [10]. That makes version-conditional capability negotiation
+a property of the contract rather than of documentation.
+
 ### 1.2 Health and sync-status check
 
 Reports whether the node is healthy and caught up with the chain tip, so clients
@@ -93,6 +108,33 @@ can avoid reading stale state.
 
 **Why it exists.** [NOT FOUND]
 
+**What comes back.** This is where retention bounds live on most chains, not on
+the version call. Cosmos returns `syncing` alongside `earliest_block_height`,
+described as "the earliest block height available on this node", and
+`latest_block_height` \[10\]: the first of those is the pruning floor. Bitcoin
+splits sync into two heights, `blocks` for "the height of the most-work
+fully-validated chain" and `headers` for "the current number of headers we have
+validated", plus a normalised `verificationprogress` in the range 0 to 1, and
+expresses retention as four separate fields (`pruned`, `pruneheight`,
+`automatic_pruning`, `prune_target_size`) that distinguish whether pruning is
+on, where the floor is, and whether it is automatic [105].
+
+XRPL is the richest response in the survey and does three things worth noting.
+Retention is a possibly disjoint range expression rather than a single floor:
+`complete_ledgers` is documented as a "Range expression indicating the sequence
+numbers of the ledger versions the local `xrpld` has in its database. This may
+be a disjoint sequence such as `24900901-24900984,24901116-24901158`" [101].
+Finality is signalled by which field is present, since `validated_ledger` is
+omitted and `closed_ledger` sent instead when no fully-validated ledger is
+available [101]. And `amendment_blocked` is a self-reported "I cannot safely
+serve you" flag, distinct from being out of sync [101].
+
+LEZ discloses staleness on its indexer, which most surveyed chains do not.
+`getStatus` returns a "Status snapshot returned by `getStatus`: the ingestion
+state plus the indexed L2 tip and, when stalled, the stall diagnostics",
+carrying `state`, `last_error`, `indexed_block_id`, and `stall_reason` [115]. A
+client can tell how far behind an indexer-backed read is, and why.
+
 ### 1.3 Identify the network or chain
 
 Returns a stable identifier for the chain the node serves, so a client cannot
@@ -111,7 +153,16 @@ accidentally sign for or read from the wrong network.
 | Logos L1 | [NOT FOUND] [19]                   |
 | LEZ      | `getChannelId` [21]                |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** EIP-695 records the problem that a network identifier alone
+did not solve: "Currently although we can use `net_version` RPC call to get the
+current network ID, there's no RPC for querying the chain ID. This makes it
+impossible to determine the current actual blockchain using the RPC" [94]. The
+concrete failure is silent misconnection across a fork: "An ETH/ETC client can
+accidentally connect to an ETC/ETH RPC endpoint without knowing it unless it
+tries to sign a transaction or it fetches a transaction that is known to have
+signed with a chain ID" [94]. The chain identifier and the replay protection are
+the same value; EIP-155 introduced it into signing so that a transaction valid
+on one chain is invalid on its fork [86].
 
 LEZ reports the zone's own channel identity, which distinguishes one zone from
 another. Logos L1 reports no chain identifier, so a client cannot verify from
@@ -135,7 +186,14 @@ validated against the live node.
 | Logos L1 | `GET /api-docs/openapi.json`, Swagger UI at `/swagger-ui` [20]              |
 | LEZ      | `getSchema` on the indexer [22]                                             |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** XRPL states the purpose of serving its codec schema from the
+running node: `server_definitions` "returns an SDK-compatible
+`definitions.json`, generated from the `xrpld` instance currently running. You
+can use this to query a node in a network, quickly receiving the definitions
+necessary to serialize/deserialize its binary data" [102]. The schema is not
+static: the response was itself extended in xrpld 3.2.0 to add transaction and
+ledger-entry format sections [102], which is the drift an SDK shipping a copied
+schema has to track.
 
 L1 serves a full OpenAPI interface description at runtime, which Bitcoin and
 Solana do not. The LEZ `getSchema` method returns a JSON Schema for the block
@@ -241,6 +299,19 @@ Retrieves a single transaction, and normally its result, by identifier.
 
 **Why it exists.** [NOT FOUND]
 
+**A response field name as a security property.** XRPL renamed a field in this
+response because the old name implied a guarantee it did not provide. Its
+documentation states the consequence directly: "If a financial institution's
+integration with the XRP Ledger assumes that the `Amount` field of a Payment is
+always the full amount delivered, malicious actors may be able to exploit that
+assumption to steal money from the institution" [103]. Under partial payments
+the delivered amount can be less than `Amount`, and the correct field to read is
+`delivered_amount` in the transaction metadata [103]. The field was renamed to
+`DeliverMax` "to make the field name more specific to its behavior and help
+prevent the misunderstandings and exploit described below" [103]. The change
+shipped behind an API version rather than in place: API v1 continues to render
+`Amount`, API v2 renders `DeliverMax` [103].
+
 ### 1.10 Read-only contract call
 
 Executes contract or program code against current state and returns the result
@@ -260,6 +331,16 @@ without producing a transaction.
 | LEZ      | [NOT FOUND] [21]                                    |
 
 **Why it exists.** [NOT FOUND]
+
+**On fixed response shapes.** EIP-1767 records the cost of a server that cannot
+know which fields a caller wants. Fetching every receipt in a block leads node
+implementations to "end up fetching and deserializing the same data repeatedly,
+leading to `O(n^2)` effort to fetch all transaction receipts from a block
+instead of `O(n)`" [98]. The same document gives a concrete overfetch example:
+`totalDifficulty` is stored separately from the block header, "and many callers
+do not require this field. However, every call to `eth_getBlock` still retrieves
+this field, requiring a separate disk read, because the RPC server has no way of
+knowing if the user requires this field or not" [98].
 
 ### 1.11 Get the validator or committee set
 
@@ -299,7 +380,25 @@ carry to be valid.
 | Logos L1 | `GET /mantle/gas-prices` only [19]                                |
 | LEZ      | `getAccountsNonces` [21]                                          |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** The parameter is a replay protector, and fetching it is a
+bottleneck for anyone sending concurrently. Cosmos ADR-070 names the affected
+users: sequence values "prevent replay attacks and ensure transactions from the
+same sender are included in blocks and executed in sequential order.
+Unfortunately, this makes it difficult to reliably send many concurrent
+transactions from the same sender. Victims of such limitations include IBC
+relayers and crypto exchanges" [91].
+
+Solana documents the opposite failure, where the parameter expires before the
+transaction can be signed. Blockhashes are valid for roughly 150 blocks, and "a
+side-effect of using recent blockhashes is the forced mortality of a transaction
+even before its submission" [90]. Durable nonces exist to replace the expiring
+parameter with a stored one, which the same guide ties to multi-signature
+collection rounds where "one party signs a transaction, and others may confirm
+at a later time" [90].
+
+**What comes back.** Solana's `getLatestBlockhash` returns the blockhash paired
+with `lastValidBlockHeight`, so the caller learns the expiry deadline together
+with the parameter rather than having to compute it [25].
 
 ### 1.13 Build an unsigned transaction
 
@@ -326,6 +425,17 @@ people who use different wallet software from being able to easily do so." The
 goal was "a standard and extensible format that can be used between clients to
 allow people to pass around the same transaction to sign and combine their
 signatures" [37].
+
+The reason construction stays client-side is a trust boundary. Aptos is the
+instructive case because it ships a server-side encoder anyway, as an escape
+hatch for languages without a canonical serialisation library, and warns against
+it in its own node source: callers "may take advantage of
+/transactions/encode_submission. When using this endpoint, make sure you trust
+the node you're talking to, as it is possible they could manipulate your
+request" [108]. The same comment tells SDK users with native serialisation
+support that they "do not need to use this endpoint" [108]. The endpoint is
+enabled by default, so the protection is documentation rather than configuration
+[108].
 
 ### 1.14 Encode and decode transaction bytes
 
@@ -371,6 +481,16 @@ resource fee", and "provides a way to test and analyze the potential outcomes of
 a transaction without actually submitting it to the network" [39]. Returning the
 transaction data the caller then submits makes simulation a construction step
 rather than an optional check.
+
+**What comes back.** Stellar's response is the fullest, returning
+`transactionData`, `minResourceFee`, `cost`, `results`, `restorePreamble`,
+`latestLedger`, `events`, and `stateChanges` [39]. Two of those make simulation
+a construction step: `transactionData` is "The recommended Soroban Transaction
+Data to use when submitting the simulated transaction" and `minResourceFee` is
+the "Recommended minimum resource fee to add when submitting the transaction"
+[39]. The caller copies both back into the transaction before submitting.
+`restorePreamble` signals that archived ledger entries must be restored first,
+so simulation can return a prerequisite step rather than a simple pass or fail.
 
 Neither Logos target exposes simulation. Six of the eight surveyed chains
 execute the transaction and return its outcome; Bitcoin checks acceptance
@@ -445,6 +565,17 @@ Node-hosted signing is the historical pattern; five of the eight surveyed chains
 have no node signing method at all. Logos L1 holds key material and signs on the
 node.
 
+Two projects have documented moving away from it. Go Ethereum removed the
+`personal` namespace after deprecating it for roughly twenty months behind an
+opt-in flag, and the removal note gives a mechanical consequence that is easy to
+overlook: "With the removal of `personal`, as far as I know we have no more API
+methods which contain credentials, and if we want to implement
+logging-capabilities of RPC ingress payload, it would be possible after this"
+[109]. Node-held keys mean a node cannot safely log its own request payloads.
+Bitcoin Core has kept its wallet RPCs but is separating the wallet into its own
+process, describing the monolithic structure as carrying "increased security
+risks due to the tight integration of components" [110].
+
 ### 1.19 Sign an arbitrary message
 
 Signs a non-transaction payload, used for authentication and off-chain proof of
@@ -463,7 +594,22 @@ key control.
 | Logos L1 | [NOT FOUND] as a distinct message-signing route [19] |
 | LEZ      | [NOT FOUND] [21]                                     |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** Message signing is separated from transaction signing because
+an unconstrained signed blob can itself be a valid transaction. ERC-191
+introduced a prefix byte for exactly this: "The initial `0x19` byte is intended
+to ensure that the `signed_data` is not valid RLP", with the consequence that
+"any EIP-191 `signed_data` can never be an Ethereum transaction" [87]. NEAR
+reached the same conclusion independently in NEP-413, which states the hazard
+directly: "An attacker could make the user inadvertently sign a valid
+transaction which, once signed, could be submitted into the network to execute
+it" [92]. Both solve it with a prefix tag that makes the payload invalid under
+the chain's transaction encoding, and NEP-413 adds a nonce because "including a
+nonce helps to mitigate replay attacks, in which an attacker can delay or
+re-send a signed message" [92].
+
+EIP-712 records the second problem, blind signing: "Currently signed messages
+are an opaque hex string displayed to the user with little context about the
+items that make up the message" [88].
 
 ### 1.20 Verify a signature
 
@@ -507,6 +653,15 @@ identifier to track it by.
 Solana's documentation warns that "a successful response doesn't guarantee the
 transaction will be processed or confirmed" [42].
 
+**What comes back.** Responses range from a bare identifier to a full result.
+Cosmos returns a `TxResponse` carrying `height`, `txhash`, `codespace`, `code`,
+`data`, `raw_log`, `logs`, `info`, `gas_wanted`, `gas_used`, `tx`, `timestamp`,
+and `events` [93]. The proto marks some of that as unreliable to parse: the
+comment on `raw_log` reads "The output of the application's logger (raw string).
+May be non-deterministic" [93]. XRPL returns `engine_result`,
+`engine_result_code`, `engine_result_message`, `tx_blob`, and `tx_json`, where
+the engine result is a provisional outcome rather than a ledger result [26].
+
 ### 1.22 Pre-submission acceptance check
 
 Validates a signed transaction against mempool or node policy before
@@ -546,6 +701,15 @@ unit.
 | LEZ      | [NOT FOUND] [21]                                                          |
 
 **Why it exists.** [NOT FOUND]
+
+**Why it exists** (where it does). Bitcoin's package relay records the failure
+that per-transaction evaluation creates: "Only individually considering
+transactions for submission to the mempool creates a limitation in the node's
+ability to determine which transactions to include in the mempool, since it
+cannot take into account descendants until all the transactions are in the
+mempool", and "This limitation harms users' ability to fee-bump their
+transactions" [89]. A low-fee parent is rejected before the child that would pay
+for it can be seen.
 
 The dominant pattern is that batching is expressed inside one transaction, as
 Cosmos messages, Stellar operations, NEAR actions, Solana instructions, and Sui
@@ -603,6 +767,22 @@ milestone on one method, offering `NONE`, `INCLUDED`, `EXECUTED_OPTIMISTIC`,
 broadcast endpoints. Solana turns it into a subscription. Ethereum, Bitcoin,
 XRPL, and Stellar leave it to client-side polling.
 
+NEAR's six levels replaced a binary choice. The originating issue states the
+problem as "Currently there is only option to either broadcast tx or broadcast
+and wait for finality. There should be a way to configure what user wants to
+wait when broadcasting tx" [112]. The docs now describe the older pair as kept
+"for backward compatibility but offer less control over when the call returns"
+[34]. Note also that NEAR distinguishes refund receipts from non-refund receipts
+across its levels, because refunds settle later and most callers do not need to
+wait for them [34].
+
+Ethereum's block tags were argued in public rather than designed in one pass. A
+proposed `unsafe` tag was dropped after Danny Ryan objected that if a safe-head
+algorithm often returns the head, then ""safe" and "unsafe" would often return
+the same thing. This is semantically unsound and confusion" [111]. The surviving
+`safe` tag is defined in the schema as "The most recent block that is safe from
+re-orgs under honest majority and certain synchronicity assumptions" [11].
+
 ### 1.26 Inspect the mempool or pending set
 
 Lists transactions the node holds but has not yet included in a block.
@@ -645,6 +825,19 @@ success flag.
 Stellar is the only surveyed chain with a dedicated effects resource rather than
 effects inferred from logs or receipts.
 
+**What comes back, and how it grew.** Ethereum's receipt schema is a record of
+several upgrades accumulating in one response type, with fields conditionally
+present by era. `root` is "The post-transaction state root. Only specified for
+transactions included before the Byzantium upgrade" while `status` is "Either 1
+(success) or 0 (failure). Only specified for transactions included after the
+Byzantium upgrade" [100]. Both are retained, because an effects response must
+describe transactions that predate its own current format. Later additions
+follow the same pattern: `blobGasUsed` is "Only specified for blob transactions
+as defined by EIP-4844" [100]. Cosmos records untyped events as a cost borne by
+the client, describing them as implemented "as `map[string]string`" which "makes
+these events difficult to consume as it requires a great deal of raw string
+matching and parsing" [106].
+
 ### 1.28 Query contract events or logs
 
 Retrieves structured events emitted by execution, filtered by address, topic, or
@@ -663,7 +856,23 @@ type.
 | Logos L1 | `GET /cryptarchia/blocks/:id/events` [19]                       |
 | LEZ      | [NOT FOUND] [21]                                                |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** EIP-234 documents why a log query needs to name its own
+position. A subscription-based consumer cannot reliably track removals: "A
+client (dApp) who needs reliable notification of both log additions (on new
+blocks) and log removals (on chain reorgs) cannot achieve this while relying
+solely on subscriptions and filters. This is because a combination of a network
+or remote node failure during a reorg can result in the client getting out of
+sync with reality" [96]. The sharper point concerns empty results: if the
+response is an empty array, "the client is in a situation where they don't know
+what block the results are for", and "there is no decision the client can make
+that allows them a guarantee of recovery" [96]. A response must carry enough
+context to identify the position it describes.
+
+Unbounded log queries are also where per-provider divergence appears. A Geth
+maintainer issue proposing default block-range limits states the reason plainly:
+"Unlike Erigon Geth can not comply with get log requests with broad block ranges
+which would only result on timeouts and CPU abuse" [46]. The same query can
+therefore succeed against one client and fail against another.
 
 ### 1.29 Read historical state at a past version
 
@@ -682,7 +891,23 @@ Reads a ledger record as it stood at an earlier block, ledger, or version.
 | Logos L1 | `?tip=` parameter on the wallet balance route [19]        |
 | LEZ      | indexer `getAccountAtBlock` [22]                          |
 
-**Why it exists.** [NOT FOUND]
+**Why it exists.** EIP-1898 gives the clearest statement, and it is about read
+coherence rather than archival curiosity. Without a way to pin the block, "a
+wallet which just executed a transfer may want to display the balances of both
+the sender and recipient. If there is a re-org in between when the balance of
+the sender is queried via `eth_getBalance` and when the balance of the recipient
+is queried, the balances may not reconcile" [95]. The EIP explicitly rejects
+solving this with a stateful subscription, on the grounds that it "requires a
+persistent connection between the client and node" and "increases coupling
+between the client and the node" [95].
+
+The counterpart question, why old state stops being readable, is answered by
+EIP-4444: historical data "is not necessary for validating new blocks", and the
+proposal deliberately forces the issue rather than leaving it to chance, "to
+force clients to seek historical data from other sources, instead of relying on
+the optional behavior of some clients which would result in quality degradation"
+[97]. The design lesson for an API is that retention should be declared, not
+discovered through a failed request.
 
 Sui is explicit about its own limits here: "there is no software-level
 guarantee/SLA that objects with past versions can be retrieved by this API"
@@ -706,6 +931,14 @@ Walks a long result set in bounded pages.
 | LEZ      | `getBlocks` uses a cursor; `getTransactionsByAccount` uses an offset [22] |
 
 **Why it exists.** [NOT FOUND]
+
+**A cautionary case.** Solana's `getProgramAccounts` used to degrade silently
+when given a bad filter. A changelog entry records the fix and the prior
+behaviour: the endpoint "now returns JSON-RPC errors when malformed filters are
+provided (previously these malformed filters would be silently ignored and the
+RPC call would execute an unfiltered query)" [104]. The caller received a wrong
+answer and the node did the most expensive possible work. An invalid query
+should be rejected loudly rather than falling back to a permissive default.
 
 Three idioms are visible: an opaque marker whose "value is stable even if there
 is a change in the server's range of available ledgers" (XRPL) [47], a reusable
@@ -782,6 +1015,14 @@ unless a cursor is set, in which case it will start from that cursor" [48].
 Bitcoin offers loss detection without replay. The other six document no resume
 mechanism.
 
+There is a mechanical reason the majority lack it. Server-sent events carry
+resumption in the transport: the `Last-Event-ID` header "reports an EventSource
+object's last event ID string to the server when the user agent is to
+reestablish the connection" [66]. WebSocket has no equivalent standard
+mechanism, so every chain that streams over WebSocket must invent its own
+cursor, and most have not. Stellar's resumable stream is served over SSE from
+Horizon [48][59].
+
 Logos L1 is an exception worth noting: `/cryptarchia/blocks_range` accepts
 `slot_from` and `slot_to` bounds with a server batch size, so a consumer can
 restart from a chosen slot [84]. Its unbounded live stream
@@ -816,6 +1057,23 @@ rows follow from each chain's transport choice rather than from a per-chain
 documented error contract. XRPL is the one surveyed chain using named string
 codes such as `amendmentBlocked`, `tooBusy`, and `unknownCmd` rather than
 numeric JSON-RPC codes, despite serving JSON-RPC [53].
+
+**Why it exists.** EIP-1474 frames the error taxonomy as a response to client
+divergence rather than to error semantics: nodes "expose RPC endpoints with
+differing method signatures; this forces applications to work around method
+inconsistencies to maintain compatibility with various Ethereum RPC
+implementations" [99]. EIP-1898 supplies the design rule that the taxonomy
+itself does not state: two different failure causes must not share a code,
+because the caller's recovery differs, so a block-not-found error "should be
+different than the error code for the block not found case so that the caller
+can distinguish the cases" [95].
+
+Where an error is reported matters as much as its code. Solana moved signature
+verification failure out of the transport error channel and into the result
+body, so that it "will now be attached to the simulation result's `err` property
+as `TransactionError::SignatureFailure` instead of being thrown as a JSON RPC
+API error (-32003)" [104]. Transport failures and execution outcomes are
+different things, and moving one to the other is a breaking change.
 
 LEZ constructs errors with the standard JSON-RPC `InternalError` code and a
 free-text message, with no application code space, category, or retryability
@@ -917,6 +1175,25 @@ RPC documentation lists as an explicit non-goal: "A drop-in replacement for
 Horizon. Horizon provides several indexing features not commonly supported by
 RPC nodes" [11]. It is a deliberate node and indexer split.
 
+Sui's own justification for the split is published in a blog post rather than
+the documentation: "as applications on Sui have evolved to serve a wide variety
+of use cases, a one-size-fits-all query interface creates real bottlenecks.
+Different use cases need different things" [107]. The same post gives the
+retention argument for a separate archival service: "Full nodes prune data to
+stay performant. That's fine for most operations, but it makes deep historical
+queries difficult or impossible without running a dedicated full node yourself"
+[107]. The migration guide concedes the cost of replacing one interface with
+two: "Most exchanges and indexers end up using both: gRPC for the live data path
+and transaction submission, GraphQL for ad hoc queries" [16].
+
+Two retirement mechanics are worth recording. Algorand distinguishes a removed
+endpoint from a nonexistent one, routing previously valid v1 paths to "410 Gone"
+with a body pointing at v2 while leaving invalid v1 paths at 404 [113]. Solana
+removed fifteen named endpoints in one major version, with the stated reasoning
+that the server "is carrying around a lot of obsolete and deprecated endpoints.
+v2.0 means it is time to remove them" [114]. No project in the survey has
+published a retrospective on what such a removal cost its integrators.
+
 No transport migration was found for Ethereum, Cosmos, NEAR, Solana, or XRPL.
 
 ## 3. SDK Languages
@@ -967,6 +1244,14 @@ maintained as separate downstream repositories consuming the same binding layer
 first group is produced by the binding repository itself. Notably it comes from
 a community project rather than a foundation, and the BDK core repository does
 not mention the bindings at all.
+
+Cosmos's preference is recorded as an encoding decision that cascades into
+clients. ADR-019 lists "Codegen-based over reflection-based" among its criteria
+and states the problem with the predecessor: Amino "has proven to be a big
+pain-point in regards to supporting object serialization across clients written
+in various languages" [116]. Mesh makes generation a property of the
+specification, noting that requests and responses "can be crafted with
+auto-generated code using Swagger Codegen or OpenAPI Generator" [117].
 
 Schema-driven generation is the other route, and the survey shows both ends of
 the spectrum. Cosmos generates from protobuf: each module "exposes a Protobuf
@@ -1058,163 +1343,227 @@ anchor [81].
 
 ## References
 
-01. Go Ethereum, "JSON-RPC Server" documentation.
-    https://geth.ethereum.org/docs/interacting-with-geth/rpc
-02. Ethereum, "execution-apis" specification repository.
-    https://github.com/ethereum/execution-apis
-03. Bitcoin Core, "JSON-RPC Interface" documentation.
-    https://raw.githubusercontent.com/bitcoin/bitcoin/master/doc/JSON-RPC-interface.md
-04. Bitcoin Core, "Unauthenticated REST Interface" documentation.
-    https://github.com/bitcoin/bitcoin/blob/master/doc/REST-interface.md
-05. Solana, "RPC API" documentation. https://solana.com/docs/rpc
-06. XRPL, "HTTP and WebSocket APIs" reference.
-    https://xrpl.org/docs/references/http-websocket-apis
-07. XRPL, "xrp_ledger.proto" gRPC service definition (rippled).
-    https://raw.githubusercontent.com/XRPLF/rippled/develop/include/xrpl/proto/org/xrpl/rpc/v1/xrp_ledger.proto
-08. Cosmos SDK, "gRPC, REST, and CometBFT Endpoints" documentation, v0.50.
-    https://docs.cosmos.network/sdk/v0.50/learn/advanced/grpc_rest
-09. CometBFT, "RPC OpenAPI specification".
-    https://raw.githubusercontent.com/cometbft/cometbft/main/rpc/openapi/openapi.yaml
-10. Cosmos SDK, "cosmos/base/tendermint/v1beta1/query.proto".
-    https://raw.githubusercontent.com/cosmos/cosmos-sdk/main/proto/cosmos/base/tendermint/v1beta1/query.proto
-11. Stellar, "Stellar RPC" documentation.
-    https://developers.stellar.org/docs/data/apis/rpc
-12. Stellar, "stellar-rpc.openrpc.json" specification document.
-    https://raw.githubusercontent.com/stellar/stellar-docs/main/static/stellar-rpc.openrpc.json
-13. NEAR, "RPC API" documentation. https://docs.near.org/api/rpc/introduction
-14. NEAR, "nearcore JSON-RPC OpenAPI specification".
-    https://raw.githubusercontent.com/near/nearcore/master/chain/jsonrpc/openapi/openapi.json
-15. Sui, "Full Node Protocol" reference.
-    https://docs.sui.io/references/fullnode-protocol
-16. Sui, "JSON-RPC Migration" documentation.
-    https://docs.sui.io/develop/accessing-data/json-rpc-migration
-17. Sui, "Sui JSON-RPC OpenRPC specification", version 1.80.0.
-    https://raw.githubusercontent.com/MystenLabs/sui/main/crates/sui-open-rpc/spec/openrpc.json
-18. Sui, "GraphQL RPC" documentation. https://docs.sui.io/concepts/graphql-rpc
-19. logos-blockchain, `nodes/api-common/src/paths.rs` and
-    `nodes/node/binary/src/api/backend.rs`, commit `ecb2cc6`.
-    https://github.com/logos-blockchain/logos-blockchain
-20. logos-blockchain, `nodes/node/binary/src/api/openapi.rs` and
-    `nodes/node/binary/src/api/backend.rs:215`, commit `ecb2cc6`.
-    https://github.com/logos-blockchain/logos-blockchain
-21. logos-execution-zone, `lez/sequencer/service/rpc/src/lib.rs`, commit
-    `47eba25`. https://github.com/logos-blockchain/logos-execution-zone
-22. logos-execution-zone, `lez/indexer/service/rpc/src/lib.rs`, commit
-    `47eba25`. https://github.com/logos-blockchain/logos-execution-zone
-23. Ethereum, "JSON-RPC API" documentation.
-    https://ethereum.org/en/developers/docs/apis/json-rpc/
-24. Bitcoin, "Original Bitcoin client RPC API reference".
-    https://developer.bitcoin.org/reference/rpc/
-25. Solana, "RPC HTTP Methods" documentation. https://solana.com/docs/rpc/http
-26. XRPL, "Public API Methods" reference.
-    https://xrpl.org/public-api-methods.html
-27. Stellar, "Stellar RPC Methods" reference.
-    https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods
-28. Ethereum, "execution-apis: src/eth/client.yaml".
-    https://raw.githubusercontent.com/ethereum/execution-apis/main/src/eth/client.yaml
-29. Cosmos SDK, "cosmos/tx/v1beta1/service.proto".
-    https://raw.githubusercontent.com/cosmos/cosmos-sdk/main/proto/cosmos/tx/v1beta1/service.proto
-30. Ethereum, "execution-apis: src/eth/state.yaml".
-    https://raw.githubusercontent.com/ethereum/execution-apis/main/src/eth/state.yaml
-31. Cosmos SDK, "cosmos/auth/v1beta1/query.proto".
-    https://raw.githubusercontent.com/cosmos/cosmos-sdk/main/proto/cosmos/auth/v1beta1/query.proto
-32. Cosmos SDK, "cosmos/bank/v1beta1/query.proto".
-    https://raw.githubusercontent.com/cosmos/cosmos-sdk/main/proto/cosmos/bank/v1beta1/query.proto
-33. Ethereum, "execution-apis: src/eth/transaction.yaml".
-    https://raw.githubusercontent.com/ethereum/execution-apis/main/src/eth/transaction.yaml
-34. NEAR, "RPC: Transactions" documentation.
-    https://docs.near.org/api/rpc/transactions
-35. Ethereum, "execution-apis: src/eth/execute.yaml".
-    https://raw.githubusercontent.com/ethereum/execution-apis/main/src/eth/execute.yaml
-36. Ethereum, "execution-apis: src/eth/submit.yaml".
-    https://raw.githubusercontent.com/ethereum/execution-apis/main/src/eth/submit.yaml
-37. Bitcoin, "BIP-174: Partially Signed Bitcoin Transaction Format".
-    https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki
-38. XRPL, "simulate" transaction method.
-    https://xrpl.org/docs/references/http-websocket-apis/public-api-methods/transaction-methods/simulate
-39. Stellar, "simulateTransaction" method reference.
-    https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/simulateTransaction
-40. Ethereum, "execution-apis: src/eth/fee_market.yaml".
-    https://raw.githubusercontent.com/ethereum/execution-apis/main/src/eth/fee_market.yaml
-41. Ethereum, "EIP-1559: Fee market change for ETH 1.0 chain".
-    https://eips.ethereum.org/EIPS/eip-1559
-42. Solana, "sendTransaction" RPC method.
-    https://solana.com/docs/rpc/http/sendtransaction
-43. JSON-RPC Working Group, "JSON-RPC 2.0 Specification".
-    https://www.jsonrpc.org/specification
-44. Solana, "getSignatureStatuses" RPC method.
-    https://solana.com/docs/rpc/http/getsignaturestatuses
-45. Solana, "RPC WebSocket Methods" documentation.
-    https://solana.com/docs/rpc/websocket
-46. Ethereum, "execution-apis: src/eth/filter.yaml".
-    https://raw.githubusercontent.com/ethereum/execution-apis/main/src/eth/filter.yaml
-47. XRPL, "account_tx" account method.
-    https://xrpl.org/docs/references/http-websocket-apis/public-api-methods/account-methods/account_tx
-48. Stellar, "List All Effects" Horizon reference.
-    https://developers.stellar.org/docs/data/apis/horizon/api-reference/list-all-effects
-49. Cosmos SDK, "cosmos/base/query/v1beta1/pagination.proto".
-    https://raw.githubusercontent.com/cosmos/cosmos-sdk/main/proto/cosmos/base/query/v1beta1/pagination.proto
-50. Stellar, "Horizon Pagination" documentation.
-    https://developers.stellar.org/docs/data/apis/horizon/api-reference/structure/pagination
-51. Go Ethereum, "Publish and Subscribe" documentation.
-    https://geth.ethereum.org/docs/interacting-with-geth/rpc/pubsub
-52. Bitcoin Core, "ZeroMQ" documentation.
-    https://github.com/bitcoin/bitcoin/blob/master/doc/zmq.md
-53. XRPL, "Error Formatting" API convention.
-    https://xrpl.org/docs/references/http-websocket-apis/api-conventions/error-formatting
-54. gRPC, "Status codes and their use in gRPC".
-    https://grpc.io/docs/guides/status-codes/
-55. logos-execution-zone, `lez/indexer/service/src/service.rs:343-349`, commit
-    `47eba25`. https://github.com/logos-blockchain/logos-execution-zone
-56. Ethereum, "EIP-1193: Ethereum Provider JavaScript API".
-    https://eips.ethereum.org/EIPS/eip-1193
-57. Go Ethereum, "GraphQL Server" documentation.
-    https://geth.ethereum.org/docs/interacting-with-geth/rpc/graphql
-58. XRPL, "Request Formatting" API convention.
-    https://xrpl.org/docs/references/http-websocket-apis/api-conventions/request-formatting
-59. Stellar, "Horizon Streaming" documentation.
-    https://developers.stellar.org/docs/data/apis/horizon/api-reference/structure/streaming
-60. Sui, "sui-apis" protobuf interface definitions.
-    https://github.com/MystenLabs/sui-apis
-61. OpenRPC, project homepage. https://open-rpc.org/
-62. gRPC, "Introduction to gRPC".
-    https://grpc.io/docs/what-is-grpc/introduction/
-63. gRPC, "Core concepts, architecture and lifecycle".
-    https://grpc.io/docs/what-is-grpc/core-concepts/
-64. GraphQL Foundation, "GraphQL specification" repository.
-    https://raw.githubusercontent.com/graphql/graphql-spec/main/README.md
-65. GraphQL Foundation, "GraphQL over HTTP" specification repository.
-    https://github.com/graphql/graphql-over-http
-66. WHATWG, "Server-sent events", HTML Living Standard.
-    https://html.spec.whatwg.org/multipage/server-sent-events.html
-67. Ethereum, "JavaScript API libraries" documentation.
-    https://ethereum.org/en/developers/docs/apis/javascript/
-68. Ethereum, "Rust developer resources".
-    https://ethereum.org/en/developers/docs/programming-languages/rust/
-69. Ethereum, "go-ethereum" repository. https://github.com/ethereum/go-ethereum
-70. Ethereum, "web3.py" repository. https://github.com/ethereum/web3.py
-71. Bitcoin, "Bitcoin Development" resources page.
-    https://bitcoin.org/en/development
-72. Bitcoin Dev Kit, "bdk-ffi" repository.
-    https://github.com/bitcoindevkit/bdk-ffi
-73. Solana, "Solana Clients" documentation. https://solana.com/docs/clients
-74. Solana, "Rust Client" documentation. https://solana.com/docs/clients/rust
-75. XRPL, "Client Libraries" reference.
-    https://xrpl.org/docs/references/client-libraries
-76. Cosmos, "CosmJS" repository. https://github.com/cosmos/cosmjs
-77. Cosmos, "cosmos-sdk" repository. https://github.com/cosmos/cosmos-sdk
-78. Stellar, "Client SDKs" documentation.
-    https://developers.stellar.org/docs/tools/sdks/client-sdks
-79. NEAR, "NEAR API" documentation. https://docs.near.org/tools/near-api
-80. Sui, "Sui SDKs" reference. https://docs.sui.io/references/sui-sdks
-81. logos-blockchain, `c-bindings/logos_blockchain.h` and
-    `c-bindings/cbindgen.toml`, commit `ecb2cc6`.
-    https://github.com/logos-blockchain/logos-blockchain
-82. Stellar, "Build Your Own SDK" documentation.
-    https://developers.stellar.org/docs/tools/sdks/build-your-own
-83. Solana, "web3.js Compatibility" documentation.
-    https://solana.com/docs/frontend/web3-compat
-84. logos-blockchain, `nodes/api-common/src/paths.rs:33` and
-    `nodes/node/binary/src/api/queries.rs`, commit `ecb2cc6`.
-    https://github.com/logos-blockchain/logos-blockchain
-85. XRPL Foundation, "xrpl-rust" repository. https://github.com/XRPLF/xrpl-rust
+001. Go Ethereum, "JSON-RPC Server" documentation.
+     https://geth.ethereum.org/docs/interacting-with-geth/rpc
+002. Ethereum, "execution-apis" specification repository.
+     https://github.com/ethereum/execution-apis
+003. Bitcoin Core, "JSON-RPC Interface" documentation.
+     https://raw.githubusercontent.com/bitcoin/bitcoin/master/doc/JSON-RPC-interface.md
+004. Bitcoin Core, "Unauthenticated REST Interface" documentation.
+     https://github.com/bitcoin/bitcoin/blob/master/doc/REST-interface.md
+005. Solana, "RPC API" documentation. https://solana.com/docs/rpc
+006. XRPL, "HTTP and WebSocket APIs" reference.
+     https://xrpl.org/docs/references/http-websocket-apis
+007. XRPL, "xrp_ledger.proto" gRPC service definition (rippled).
+     https://raw.githubusercontent.com/XRPLF/rippled/develop/include/xrpl/proto/org/xrpl/rpc/v1/xrp_ledger.proto
+008. Cosmos SDK, "gRPC, REST, and CometBFT Endpoints" documentation, v0.50.
+     https://docs.cosmos.network/sdk/v0.50/learn/advanced/grpc_rest
+009. CometBFT, "RPC OpenAPI specification".
+     https://raw.githubusercontent.com/cometbft/cometbft/main/rpc/openapi/openapi.yaml
+010. Cosmos SDK, "cosmos/base/tendermint/v1beta1/query.proto".
+     https://raw.githubusercontent.com/cosmos/cosmos-sdk/main/proto/cosmos/base/tendermint/v1beta1/query.proto
+011. Stellar, "Stellar RPC" documentation.
+     https://developers.stellar.org/docs/data/apis/rpc
+012. Stellar, "stellar-rpc.openrpc.json" specification document.
+     https://raw.githubusercontent.com/stellar/stellar-docs/main/static/stellar-rpc.openrpc.json
+013. NEAR, "RPC API" documentation. https://docs.near.org/api/rpc/introduction
+014. NEAR, "nearcore JSON-RPC OpenAPI specification".
+     https://raw.githubusercontent.com/near/nearcore/master/chain/jsonrpc/openapi/openapi.json
+015. Sui, "Full Node Protocol" reference.
+     https://docs.sui.io/references/fullnode-protocol
+016. Sui, "JSON-RPC Migration" documentation.
+     https://docs.sui.io/develop/accessing-data/json-rpc-migration
+017. Sui, "Sui JSON-RPC OpenRPC specification", version 1.80.0.
+     https://raw.githubusercontent.com/MystenLabs/sui/main/crates/sui-open-rpc/spec/openrpc.json
+018. Sui, "GraphQL RPC" documentation. https://docs.sui.io/concepts/graphql-rpc
+019. logos-blockchain, `nodes/api-common/src/paths.rs` and
+     `nodes/node/binary/src/api/backend.rs`, commit `ecb2cc6`.
+     https://github.com/logos-blockchain/logos-blockchain
+020. logos-blockchain, `nodes/node/binary/src/api/openapi.rs` and
+     `nodes/node/binary/src/api/backend.rs:215`, commit `ecb2cc6`.
+     https://github.com/logos-blockchain/logos-blockchain
+021. logos-execution-zone, `lez/sequencer/service/rpc/src/lib.rs`, commit
+     `47eba25`. https://github.com/logos-blockchain/logos-execution-zone
+022. logos-execution-zone, `lez/indexer/service/rpc/src/lib.rs`, commit
+     `47eba25`. https://github.com/logos-blockchain/logos-execution-zone
+023. Ethereum, "JSON-RPC API" documentation.
+     https://ethereum.org/en/developers/docs/apis/json-rpc/
+024. Bitcoin, "Original Bitcoin client RPC API reference".
+     https://developer.bitcoin.org/reference/rpc/
+025. Solana, "RPC HTTP Methods" documentation. https://solana.com/docs/rpc/http
+026. XRPL, "Public API Methods" reference.
+     https://xrpl.org/public-api-methods.html
+027. Stellar, "Stellar RPC Methods" reference.
+     https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods
+028. Ethereum, "execution-apis: src/eth/client.yaml".
+     https://raw.githubusercontent.com/ethereum/execution-apis/main/src/eth/client.yaml
+029. Cosmos SDK, "cosmos/tx/v1beta1/service.proto".
+     https://raw.githubusercontent.com/cosmos/cosmos-sdk/main/proto/cosmos/tx/v1beta1/service.proto
+030. Ethereum, "execution-apis: src/eth/state.yaml".
+     https://raw.githubusercontent.com/ethereum/execution-apis/main/src/eth/state.yaml
+031. Cosmos SDK, "cosmos/auth/v1beta1/query.proto".
+     https://raw.githubusercontent.com/cosmos/cosmos-sdk/main/proto/cosmos/auth/v1beta1/query.proto
+032. Cosmos SDK, "cosmos/bank/v1beta1/query.proto".
+     https://raw.githubusercontent.com/cosmos/cosmos-sdk/main/proto/cosmos/bank/v1beta1/query.proto
+033. Ethereum, "execution-apis: src/eth/transaction.yaml".
+     https://raw.githubusercontent.com/ethereum/execution-apis/main/src/eth/transaction.yaml
+034. NEAR, "RPC: Transactions" documentation.
+     https://docs.near.org/api/rpc/transactions
+035. Ethereum, "execution-apis: src/eth/execute.yaml".
+     https://raw.githubusercontent.com/ethereum/execution-apis/main/src/eth/execute.yaml
+036. Ethereum, "execution-apis: src/eth/submit.yaml".
+     https://raw.githubusercontent.com/ethereum/execution-apis/main/src/eth/submit.yaml
+037. Bitcoin, "BIP-174: Partially Signed Bitcoin Transaction Format".
+     https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki
+038. XRPL, "simulate" transaction method.
+     https://xrpl.org/docs/references/http-websocket-apis/public-api-methods/transaction-methods/simulate
+039. Stellar, "simulateTransaction" method reference.
+     https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/simulateTransaction
+040. Ethereum, "execution-apis: src/eth/fee_market.yaml".
+     https://raw.githubusercontent.com/ethereum/execution-apis/main/src/eth/fee_market.yaml
+041. Ethereum, "EIP-1559: Fee market change for ETH 1.0 chain".
+     https://eips.ethereum.org/EIPS/eip-1559
+042. Solana, "sendTransaction" RPC method.
+     https://solana.com/docs/rpc/http/sendtransaction
+043. JSON-RPC Working Group, "JSON-RPC 2.0 Specification".
+     https://www.jsonrpc.org/specification
+044. Solana, "getSignatureStatuses" RPC method.
+     https://solana.com/docs/rpc/http/getsignaturestatuses
+045. Solana, "RPC WebSocket Methods" documentation.
+     https://solana.com/docs/rpc/websocket
+046. Ethereum, "execution-apis: src/eth/filter.yaml".
+     https://raw.githubusercontent.com/ethereum/execution-apis/main/src/eth/filter.yaml
+047. XRPL, "account_tx" account method.
+     https://xrpl.org/docs/references/http-websocket-apis/public-api-methods/account-methods/account_tx
+048. Stellar, "List All Effects" Horizon reference.
+     https://developers.stellar.org/docs/data/apis/horizon/api-reference/list-all-effects
+049. Cosmos SDK, "cosmos/base/query/v1beta1/pagination.proto".
+     https://raw.githubusercontent.com/cosmos/cosmos-sdk/main/proto/cosmos/base/query/v1beta1/pagination.proto
+050. Stellar, "Horizon Pagination" documentation.
+     https://developers.stellar.org/docs/data/apis/horizon/api-reference/structure/pagination
+051. Go Ethereum, "Publish and Subscribe" documentation.
+     https://geth.ethereum.org/docs/interacting-with-geth/rpc/pubsub
+052. Bitcoin Core, "ZeroMQ" documentation.
+     https://github.com/bitcoin/bitcoin/blob/master/doc/zmq.md
+053. XRPL, "Error Formatting" API convention.
+     https://xrpl.org/docs/references/http-websocket-apis/api-conventions/error-formatting
+054. gRPC, "Status codes and their use in gRPC".
+     https://grpc.io/docs/guides/status-codes/
+055. logos-execution-zone, `lez/indexer/service/src/service.rs:343-349`, commit
+     `47eba25`. https://github.com/logos-blockchain/logos-execution-zone
+056. Ethereum, "EIP-1193: Ethereum Provider JavaScript API".
+     https://eips.ethereum.org/EIPS/eip-1193
+057. Go Ethereum, "GraphQL Server" documentation.
+     https://geth.ethereum.org/docs/interacting-with-geth/rpc/graphql
+058. XRPL, "Request Formatting" API convention.
+     https://xrpl.org/docs/references/http-websocket-apis/api-conventions/request-formatting
+059. Stellar, "Horizon Streaming" documentation.
+     https://developers.stellar.org/docs/data/apis/horizon/api-reference/structure/streaming
+060. Sui, "sui-apis" protobuf interface definitions.
+     https://github.com/MystenLabs/sui-apis
+061. OpenRPC, project homepage. https://open-rpc.org/
+062. gRPC, "Introduction to gRPC".
+     https://grpc.io/docs/what-is-grpc/introduction/
+063. gRPC, "Core concepts, architecture and lifecycle".
+     https://grpc.io/docs/what-is-grpc/core-concepts/
+064. GraphQL Foundation, "GraphQL specification" repository.
+     https://raw.githubusercontent.com/graphql/graphql-spec/main/README.md
+065. GraphQL Foundation, "GraphQL over HTTP" specification repository.
+     https://github.com/graphql/graphql-over-http
+066. WHATWG, "Server-sent events", HTML Living Standard.
+     https://html.spec.whatwg.org/multipage/server-sent-events.html
+067. Ethereum, "JavaScript API libraries" documentation.
+     https://ethereum.org/en/developers/docs/apis/javascript/
+068. Ethereum, "Rust developer resources".
+     https://ethereum.org/en/developers/docs/programming-languages/rust/
+069. Ethereum, "go-ethereum" repository. https://github.com/ethereum/go-ethereum
+070. Ethereum, "web3.py" repository. https://github.com/ethereum/web3.py
+071. Bitcoin, "Bitcoin Development" resources page.
+     https://bitcoin.org/en/development
+072. Bitcoin Dev Kit, "bdk-ffi" repository.
+     https://github.com/bitcoindevkit/bdk-ffi
+073. Solana, "Solana Clients" documentation. https://solana.com/docs/clients
+074. Solana, "Rust Client" documentation. https://solana.com/docs/clients/rust
+075. XRPL, "Client Libraries" reference.
+     https://xrpl.org/docs/references/client-libraries
+076. Cosmos, "CosmJS" repository. https://github.com/cosmos/cosmjs
+077. Cosmos, "cosmos-sdk" repository. https://github.com/cosmos/cosmos-sdk
+078. Stellar, "Client SDKs" documentation.
+     https://developers.stellar.org/docs/tools/sdks/client-sdks
+079. NEAR, "NEAR API" documentation. https://docs.near.org/tools/near-api
+080. Sui, "Sui SDKs" reference. https://docs.sui.io/references/sui-sdks
+081. logos-blockchain, `c-bindings/logos_blockchain.h` and
+     `c-bindings/cbindgen.toml`, commit `ecb2cc6`.
+     https://github.com/logos-blockchain/logos-blockchain
+082. Stellar, "Build Your Own SDK" documentation.
+     https://developers.stellar.org/docs/tools/sdks/build-your-own
+083. Solana, "web3.js Compatibility" documentation.
+     https://solana.com/docs/frontend/web3-compat
+084. logos-blockchain, `nodes/api-common/src/paths.rs:33` and
+     `nodes/node/binary/src/api/queries.rs`, commit `ecb2cc6`.
+     https://github.com/logos-blockchain/logos-blockchain
+085. XRPL Foundation, "xrpl-rust" repository. https://github.com/XRPLF/xrpl-rust
+086. Ethereum, "EIP-155: Simple replay attack protection".
+     https://eips.ethereum.org/EIPS/eip-155
+087. Ethereum, "ERC-191: Signed Data Standard".
+     https://eips.ethereum.org/EIPS/eip-191
+088. Ethereum, "EIP-712: Typed structured data hashing and signing".
+     https://eips.ethereum.org/EIPS/eip-712
+089. Bitcoin, "BIP-331: Ancestor Package Relay".
+     https://github.com/bitcoin/bips/blob/master/bip-0331.mediawiki
+090. Solana, "Durable and Offline Transaction Signing using Nonces".
+     https://solana.com/developers/guides/advanced/introduction-to-durable-nonces
+091. Cosmos SDK, "ADR-070: Unordered Transactions".
+     https://raw.githubusercontent.com/cosmos/cosmos-sdk/main/docs/architecture/adr-070-unordered-account.md
+092. NEAR, "NEP-413: Wallet API for signing messages".
+     https://github.com/near/NEPs/blob/master/neps/nep-0413.md
+093. Cosmos SDK, "cosmos/base/abci/v1beta1/abci.proto".
+     https://raw.githubusercontent.com/cosmos/cosmos-sdk/main/proto/cosmos/base/abci/v1beta1/abci.proto
+094. Ethereum, "EIP-695: Create eth_chainId method for JSON-RPC".
+     https://eips.ethereum.org/EIPS/eip-695
+095. Ethereum, "EIP-1898: Add blockHash to defaultBlock methods".
+     https://eips.ethereum.org/EIPS/eip-1898
+096. Ethereum, "EIP-234: Add blockHash to JSON-RPC filter options".
+     https://eips.ethereum.org/EIPS/eip-234
+097. Ethereum, "EIP-4444: Bound Historical Data in Execution Clients".
+     https://eips.ethereum.org/EIPS/eip-4444
+098. Ethereum, "EIP-1767: GraphQL interface to Ethereum node data".
+     https://eips.ethereum.org/EIPS/eip-1767
+099. Ethereum, "EIP-1474: Remote procedure call specification".
+     https://eips.ethereum.org/EIPS/eip-1474
+100. Ethereum, "execution-apis: src/schemas/receipt.yaml".
+     https://raw.githubusercontent.com/ethereum/execution-apis/main/src/schemas/receipt.yaml
+101. XRPL, "server_info" method reference.
+     https://raw.githubusercontent.com/XRPLF/xrpl-dev-portal/master/docs/references/http-websocket-apis/public-api-methods/server-info-methods/server_info.md
+102. XRPL, "server_definitions" method reference.
+     https://raw.githubusercontent.com/XRPLF/xrpl-dev-portal/master/docs/references/http-websocket-apis/public-api-methods/server-info-methods/server_definitions.md
+103. XRPL, "Partial Payments" concept documentation.
+     https://raw.githubusercontent.com/XRPLF/xrpl-dev-portal/master/docs/concepts/payment-types/partial-payments.md
+104. Anza, "Agave CHANGELOG".
+     https://raw.githubusercontent.com/anza-xyz/agave/master/CHANGELOG.md
+105. Bitcoin Core, "src/rpc/blockchain.cpp".
+     https://raw.githubusercontent.com/bitcoin/bitcoin/master/src/rpc/blockchain.cpp
+106. Cosmos SDK, "ADR-032: Typed Events" (status: proposed).
+     https://raw.githubusercontent.com/cosmos/cosmos-sdk/main/docs/architecture/adr-032-typed-events.md
+107. Sui, "GraphQL and Archival Store Complete the Sui Data Stack".
+     https://www.sui.io/blog/graphql-archival-store-sui-data-stack
+108. Aptos, "aptos-core: api/src/transactions.rs".
+     https://raw.githubusercontent.com/aptos-labs/aptos-core/main/api/src/transactions.rs
+109. Go Ethereum, "all: remove personal RPC namespace", PR 30704.
+     https://github.com/ethereum/go-ethereum/pull/30704
+110. Bitcoin Core, "doc/design/multiprocess.md".
+     https://raw.githubusercontent.com/bitcoin/bitcoin/master/doc/design/multiprocess.md
+111. Ethereum, "JSON-RPC: Add finalized and safe blocks", execution-apis PR 200.
+     https://github.com/ethereum/execution-apis/pull/200
+112. NEAR, "RPC end point to configure broadcast transaction await", nearcore
+     issue 6837. https://github.com/near/nearcore/issues/6837
+113. Algorand, "algod: Sunset v1 handlers", go-algorand PR 4847.
+     https://github.com/algorand/go-algorand/pull/4847
+114. Anza, "Remove support for deprecated rpc endpoints", agave PR 1809.
+     https://github.com/anza-xyz/agave/pull/1809
+115. logos-execution-zone, `lez/indexer/service/protocol/src/lib.rs:444`, commit
+     `47eba25`. https://github.com/logos-blockchain/logos-execution-zone
+116. Cosmos SDK, "ADR-019: Protocol Buffer State Encoding".
+     https://raw.githubusercontent.com/cosmos/cosmos-sdk/main/docs/architecture/adr-019-protobuf-state-encoding.md
+117. Coinbase, "mesh-specifications" repository.
+     https://raw.githubusercontent.com/coinbase/mesh-specifications/master/README.md
