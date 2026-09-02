@@ -13,7 +13,7 @@ Everything below was read from source at these commits:
 | `logos-blockchain/logos-execution-zone`        | `47eba25` | LEZ sequencer, indexer, wallet     |
 | `logos-blockchain/logos-execution-zone-module` | `b220144` | LEZ core module (`lez_core` 0.4.0) |
 | `logos-blockchain/lez-indexer-module`          | `a1c10fe` | LEZ indexer module (1.1.1)         |
-| `logos-blockchain/logos-blockchain-module`     | current   | L1 module (`blockchain_module`)    |
+| `logos-blockchain/logos-blockchain-module`     | `93c5b16` | L1 module (`blockchain_module`)    |
 
 ## How the layers stack
 
@@ -24,8 +24,8 @@ stacks serve LEZ, and they do not meet:
 ```
   LEZ reads                          LEZ wallet and writes
   ---------                          ---------------------
-  lez_indexer_module   (12 methods)  lez_core module     (46 methods)
-    wraps 1:1                          wraps
+  lez_indexer_module   (11 methods)  lez_core module     (48 methods)
+    wraps the 8 queries              wraps
   indexer_ffi          (8 queries)   wallet_ffi          (63 functions)
     wraps                              wraps
   indexer RPC          (12 methods)  WalletCore
@@ -54,24 +54,38 @@ Logos L1 has a single stack:
 
 `lez/indexer/ffi/src/api/`. Ten exported functions: eight queries plus two
 lifecycle. This is the read surface an application reaches through
-`lez_indexer_module`, which wraps all eight queries one to one.
+`lez_indexer_module`, whose eleven public methods wrap all eight queries and
+both lifecycle functions, plus one method the FFI does not have: `reset_storage`
+calls the module's own stop and then deletes the store directory from C++. The
+module also flattens the FFI's error signalling, returning an empty string for
+both not-found and failure.
 
-| Function                        | Parameters                               | Returns                                    |
-| ------------------------------- | ---------------------------------------- | ------------------------------------------ |
-| `query_last_block`              | indexer                                  | `LastBlockIdResult`                        |
-| `query_status`                  | indexer                                  | `*mut c_char` (JSON)                       |
-| `query_block`                   | indexer, `block_id`                      | `PointerResult<FfiBlockOpt>`               |
-| `query_block_by_hash`           | indexer, `hash`                          | `PointerResult<FfiBlockOpt>`               |
-| `query_account`                 | indexer, `account_id`                    | `PointerResult<FfiAccount>`                |
-| `query_transaction`             | indexer, `hash`                          | `PointerResult<FfiOption<FfiTransaction>>` |
-| `query_block_vec`               | indexer, `before`, `limit`               | `PointerResult<FfiVec<FfiBlock>>`          |
-| `query_transactions_by_account` | indexer, `account_id`, `offset`, `limit` | `PointerResult<FfiVec<FfiTransaction>>`    |
-| `start_indexer`                 | config path                              | `OperationStatus`                          |
-| `stop_indexer`                  | indexer                                  | `OperationStatus`                          |
+| Function                        | Parameters                               | Returns                                             |
+| ------------------------------- | ---------------------------------------- | --------------------------------------------------- |
+| `query_last_block`              | indexer                                  | `LastBlockIdResult`                                 |
+| `query_status`                  | indexer                                  | `*mut c_char` (JSON)                                |
+| `query_block`                   | indexer, `block_id`                      | `PointerResult<FfiBlockOpt>`                        |
+| `query_block_by_hash`           | indexer, `hash`                          | `PointerResult<FfiBlockOpt>`                        |
+| `query_account`                 | indexer, `account_id`                    | `PointerResult<FfiAccount>`                         |
+| `query_transaction`             | indexer, `hash`                          | `PointerResult<FfiOption<FfiTransaction>>`          |
+| `query_block_vec`               | indexer, `before`, `limit`               | `PointerResult<FfiVec<FfiBlock>>`                   |
+| `query_transactions_by_account` | indexer, `account_id`, `offset`, `limit` | `PointerResult<FfiVec<FfiTransaction>>`             |
+| `start_indexer`                 | runtime, config path, storage dir        | `PointerResult<IndexerServiceFFI, OperationStatus>` |
+| `stop_indexer`                  | indexer                                  | `OperationStatus`                                   |
 
-The error type is four coarse variants: `Ok`, `NullPointer`,
-`InitializationError`, `ClientError`. `ClientError` covers every failure mode,
-so a caller cannot distinguish a missing record from an unreachable backend.
+The status type has four variants: `Ok`, `NullPointer`, `InitializationError`,
+`ClientError`. Not-found is signalled structurally rather than through that
+type, and the source is explicit that the two are distinct: an `Ok` result with
+`is_some == false` "means the indexer has no finalized block yet (an empty
+chain) which is distinct from an error". Blocks and transactions carry the same
+distinction through an `FfiOption`, and the list queries return an empty vector.
+`ClientError` is set only on a store or backend failure.
+
+Two exceptions are worth recording. `query_account` cannot express not-found at
+all: the store returns a default account for an unknown id, so a never-seen
+account is indistinguishable from a real one holding zero balance and zero
+nonce. And `query_status` has no status channel, returning a bare null pointer
+for both a null indexer handle and a serialisation failure.
 
 ## 2. LEZ Indexer RPC
 
@@ -127,7 +141,7 @@ block id, while the indexer's returns the transaction alone.
 module calls 56 of them; the seven it does not are PDA derivation (two), key
 import (two), a private-accounts key constructor, an instruction-word free
 function, and a serialisation helper. None is a chain read. The module exposes
-46 methods, excluding constructor and destructor.
+48 methods, excluding constructor, destructor, and the deleted copy operations.
 
 | Area                 | Functions | Module surface                                                       |
 | -------------------- | --------: | -------------------------------------------------------------------- |
@@ -171,13 +185,19 @@ returns a boolean, carrying no state, position, or finality.
 | Status helpers | `is_ok`, `is_error`                                                                                       |
 | Memory         | the remaining `free_*` functions                                                                          |
 
-The committed header `c-bindings/logos_blockchain.h` declares eleven functions
-and is stale against these 46; it is regenerated at build time.
+No C header is committed. `c-bindings/logos_blockchain.h` is gitignored and
+generated at build time by cbindgen, so a fresh clone contains no header at all
+and consumers regenerate it. A stale artefact from an earlier build declares ten
+functions, two of which no longer exist in source (`stop_node`, since renamed
+`shutdown_node`, and `free_transfer_funds`), which is the hazard of treating a
+generated file as a reference.
 
 ## 6. Logos L1 node HTTP API
 
-`nodes/api-common/src/paths.rs` defines 42 route constants, registered in
-`nodes/node/binary/src/api/backend.rs`. Grouped by area:
+`nodes/api-common/src/paths.rs` defines 42 route constants, each registered
+exactly once in `nodes/node/binary/src/api/backend.rs`. Grouped by area, with
+the Swagger UI paths listed last: those two are merged rather than routed, so
+the table lists 44 paths against 42 constants.
 
 | Area          | Routes                                                                                                                                                                                                                                                       |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -194,9 +214,9 @@ and is stale against these 46; it is regenerated at build time.
 | Admin         | `/admin/tracing/filter`                                                                                                                                                                                                                                      |
 | Discovery     | `/api-docs/openapi.json`, `/swagger-ui`                                                                                                                                                                                                                      |
 
-An OpenAPI document is served at `/api-docs/openapi.json`. It omits five wired
-routes, including both signing endpoints, declares no response body for most
-successful responses, and registers three component schemas.
+An OpenAPI document is served at `/api-docs/openapi.json`. It omits six wired
+routes, including both signing endpoints, declares no response body on twenty of
+its thirty-six registered handlers, and registers three component schemas.
 
 ## 7. Logos L1 module
 
@@ -214,17 +234,17 @@ Counting distinct capabilities rather than method names:
 | ------------------ | ---------------------------------- | ----: |
 | LEZ indexer RPC    | read methods plus one subscription |    12 |
 | LEZ indexer FFI    | queries plus lifecycle             |    10 |
-| LEZ indexer module | wrapped methods                    |    12 |
+| LEZ indexer module | public methods                     |    11 |
 | LEZ sequencer RPC  | read and write methods             |    12 |
 | LEZ wallet FFI     | exported functions                 |    63 |
-| LEZ core module    | public methods                     |    46 |
+| LEZ core module    | public methods                     |    48 |
 | L1 node HTTP       | route constants                    |    42 |
 | L1 C bindings      | exported functions                 |    46 |
 | L1 module          | public methods, plus 3 signals     |    29 |
 
 Two observations follow from the inventory. Four indexer RPC methods stop at the
 FFI boundary rather than at the module boundary, so the FFI is where the LEZ
-read surface is bounded. And nine sequencer methods have no indexer counterpart
+read surface is bounded. And six sequencer methods have no indexer counterpart
 at all, of which `getAccountBalance` and `getAccountsNonces` are derivable from
 data the indexer already stores, since its `Account` record carries both
 `balance` and `nonce`.
