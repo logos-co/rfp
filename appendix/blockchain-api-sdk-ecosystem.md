@@ -123,9 +123,10 @@ a property of the contract rather than of documentation.
   structure to carry a network identifier, feature flags, or retention bounds;
   the build collects target, profile, rustc version, and tag name, and the
   handler discards all four [119].
-- **LEZ**: Neither service reports a version or build identity; the nearest
-  substitute is `getProgramIds`, which the wallet uses to check that locally
-  compiled program images match the sequencer's [119].
+- **LEZ**: No FFI reports a node version or build identity. The `lez_core`
+  module returns its own module version [120], and the sequencer's
+  `getProgramIds` has no FFI export, so the image check the wallet performs
+  internally is unreachable.
 
 ### 1.2 Health and sync-status check
 
@@ -245,9 +246,11 @@ the API which network an L1 endpoint serves.
 - **Logos L1**: A validated chain identifier is inscribed at genesis and read at
   ledger initialisation [119], but no route returns it, so a client cannot
   detect that it has been pointed at the wrong network.
-- **LEZ**: `getChannelId` identifies the zone on the sequencer [21], but the
-  indexer exposes no equivalent, so a client reading from an indexer cannot
-  confirm which zone it indexes.
+- **LEZ**: Neither FFI exposes a zone identifier. `getChannelId` exists on the
+  sequencer RPC with no FFI export, and the indexer FFI's eight queries include
+  no equivalent [120], so an application cannot confirm which zone it reads
+  from. The nearest reachable value is `get_sequencer_addr`, a configured
+  address rather than a chain identity [120].
 
 ### 1.4 Retrieve a machine-readable API description
 
@@ -289,9 +292,10 @@ generated from it [22].
   signing endpoints, declares no response body for most successful responses,
   and registers three component schemas [119], so it indexes routes rather than
   describing payloads.
-- **LEZ**: `getSchema` returns the JSON Schema of the block type rather than an
-  interface description [22], and the sequencer serves no schema, so neither
-  service can be used to generate a client.
+- **LEZ**: No FFI serves a machine-readable description. `getSchema` exists on
+  the indexer RPC without an FFI export [120], and the module contract is
+  generated from the C++ header by a line-oriented parser, so no artefact
+  describes the reachable surface.
 
 ### 1.5 Get a block by height or hash
 
@@ -371,8 +375,11 @@ Reads the ledger record for one address, account, or object.
 - **Logos L1**: No general subject query exists, and there is no lookup by note
   commitment or nullifier; the only account-shaped read is the wallet balance,
   which returns 404 for any key the node does not hold [119].
-- **LEZ**: Comparable, with `getAccount` on both services and
-  `getAccountAtBlock` on the indexer [22].
+- **LEZ**: An account read is reachable through `query_account` and through the
+  module's account getters, but `getAccountAtBlock` has no FFI export, and the
+  indexer path cannot distinguish a never-seen account from one holding zero,
+  since the store returns a default record and the module returns an empty
+  string for both not-found and failure [120].
 
 ### 1.8 Get a balance
 
@@ -401,8 +408,11 @@ being a general subject query.
 - **Logos L1**: The balance route is scoped to keys in the node's own wallet
   configuration [119], so an integrator cannot read an arbitrary address's
   balance, and a 404 does not distinguish an unknown key from a zero balance.
-- **LEZ**: `getAccountBalance` returns a bare integer [21], with no per-token
-  breakdown and no block identifier saying which state the figure was read at.
+- **LEZ**: The reachable balance read is wallet-scoped: `get_balance` takes a
+  wallet handle and returns a 16-byte value for an account the wallet holds,
+  with no block identifier [120]. The sequencer's `getAccountBalance` for an
+  arbitrary address has no FFI export, so a third-party balance is available
+  only by reading the indexer's account record.
 
 ### 1.9 Read a transaction by hash
 
@@ -441,9 +451,10 @@ shipped behind an API version rather than in place: API v1 continues to render
 - **Logos L1**: The route returns the transaction body but no block id, slot, or
   confirmation depth [119], so a caller learns that it exists but not where it
   landed.
-- **LEZ**: The sequencer returns the transaction with its block id [21]; the
-  indexer returns the transaction alone [22], so the two disagree on what
-  context the same lookup supplies.
+- **LEZ**: Only the indexer path reaches an application: `query_transaction`
+  returns the transaction without its block id [120]. The sequencer's variant,
+  which pairs the transaction with its block id, has no FFI export, so the
+  richer of the two results is unreachable.
 
 ### 1.10 Read-only contract call
 
@@ -555,8 +566,11 @@ with the parameter rather than having to compute it [25].
   ordering value, and because note selection needs unspent notes readable only
   for wallet-held keys, a third party cannot fetch what it needs to construct a
   transaction.
-- **LEZ**: `getAccountsNonces` covers the replay protector for many accounts at
-  once [21], but returns no expiry or validity window alongside it.
+- **LEZ**: No FFI exposes a nonce or other construction parameter as such.
+  `getAccountsNonces` exists on the sequencer RPC without an FFI export, and the
+  indexer's account record carries a nonce that `query_account` returns with no
+  expiry or validity window [120]. Nonce selection stays inside the wallet core,
+  reachable only by submitting through the transfer functions.
 
 ### 1.13 Build an unsigned transaction
 
@@ -1016,9 +1030,11 @@ confirmed, or finalized [44].
   best-effort, so `Unknown` conflates never-seen, mined, and evicted; the
   response is positional with no hash echoed back, and its declared OpenAPI type
   differs from what the service returns [119].
-- **LEZ**: There is no status method; a `Pending`, `Safe`, or `Finalized` marker
-  lives on the block [115], so a caller fetches the transaction, then its block,
-  to learn a confirmation level.
+- **LEZ**: The reachable status call is `poll_transaction_status`, which returns
+  a bare boolean meaning found or not found [120], conflating never-seen,
+  pending, and rejected. The `Pending`, `Safe`, and `Finalized` marker lives on
+  the block [115], so a confirmation level costs a transaction fetch and then a
+  block fetch on the separate indexer stack.
 
 ### 1.25 Wait for a chosen confirmation level
 
@@ -1070,9 +1086,10 @@ re-orgs under honest majority and certain synchronicity assumptions" [11].
 - **Logos L1**: No wait or per-transaction subscription, so confirmation means
   polling; with no identifier returned at submission the caller derives the hash
   itself first.
-- **LEZ**: No wait mechanism; the first-party wallet polls in a loop with a
-  configurable retry and delay budget, the loop being timeout-based rather than
-  block-based [119].
+- **LEZ**: No FFI exposes a wait. The retry and delay budget lives inside the
+  wallet core, below the boundary; an application polls
+  `poll_transaction_status` itself [120], and its boolean return offers no
+  confirmation level to wait on.
 
 ### 1.26 Inspect the mempool or pending set
 
@@ -1246,9 +1263,10 @@ guarantee/SLA that objects with past versions can be retrieved by this API"
 - **Logos L1**: A tip parameter pins three routes, but two are wallet-scoped
   [119], so pinned reads are unavailable for third-party state; no route
   declares a retention floor.
-- **LEZ**: `getAccountAtBlock` pins an account read [22], but the sequencer
-  offers no pinned read and neither service declares retention, so the limit is
-  discovered by a request that fails.
+- **LEZ**: No FFI exposes a pinned read. `getAccountAtBlock` exists on the
+  indexer RPC but is not among the eight exported queries [120], so every
+  account read an application can make is against current state, and neither
+  stack declares a retention floor.
 
 ### 1.30 Paginate a result set
 
@@ -1347,9 +1365,10 @@ occur.
 - **Logos L1**: The live block stream takes no parameters [119], so there is no
   filtered event or account subscription and every consumer receives every block
   in full.
-- **LEZ**: `subscribeToFinalizedBlocks` pushes block ids only [22], so a
-  subscriber fetches each block separately, and the sequencer declares no
-  subscriptions at all.
+- **LEZ**: No FFI exposes a subscription. `subscribeToFinalizedBlocks` exists on
+  the indexer RPC without an FFI export, the indexer FFI is request-response
+  only, and the indexer module declares no signals [120], so an application
+  follows the chain by polling.
 
 ### 1.33 Resume a stream from a known position
 
@@ -1398,9 +1417,9 @@ switching to the range route rather than resuming the stream itself.
   batch-size hint [84], better supported than most of the survey; the live
   stream accepts no position, so resuming means switching routes and reconciling
   the overlap.
-- **LEZ**: `subscribeToFinalizedBlocks` takes no arguments [22], so a consumer
-  that drops the connection can only learn what it missed by diffing against
-  `getBlocks`.
+- **LEZ**: There is no stream to resume, because no FFI exposes a subscription.
+  Following the chain means repeated `query_last_block` and `query_block_vec`
+  calls [120], with the consumer holding its own position throughout.
 
 ### 1.34 Structured errors and a code taxonomy
 
@@ -1660,6 +1679,17 @@ packages "are superseded. New apps build directly on `@solana/kit`" [83].
 What Logos L1 and LEZ expose today against the functions catalogued above,
 collected from the tables in section 1. This records observed state; it makes no
 recommendation about what should be built.
+
+The Potential gaps notes in section 1 are written against the module and FFI
+boundary rather than the service RPC, because that boundary is what an
+application reaches. A capability present on the LEZ sequencer or indexer RPC
+but absent from every FFI is therefore recorded as a gap. Four indexer methods
+stop at that boundary (`getAccountAtBlock`, `subscribeToFinalizedBlocks`,
+`getSchema`, `checkHealth`), and six sequencer methods have no indexer
+counterpart and no FFI export (`sendTransaction`, `getAccountBalance`,
+`getAccountsNonces`, `getProofsAndRoot`, `getProgramIds`, `getChannelId`). The
+surfaces themselves are inventoried in
+[Appendix: Logos API Surfaces](./logos-api-surfaces.md) [120].
 
 ### 4.1 Absent on both targets
 
@@ -1967,3 +1997,7 @@ anchor [81].
      `core/src/mantle/gas.rs`, `lez/sequencer/service/src/service.rs`,
      `lez/common/src/transaction.rs`, and `lez/wallet/src/poller.rs`.
      https://github.com/logos-blockchain/logos-blockchain
+120. Appendix: Logos API Surfaces, this repository, which inventories the LEZ
+     indexer FFI, indexer RPC, sequencer RPC, wallet FFI and `lez_core` module,
+     and the Logos L1 C bindings, HTTP routes, and module, each read from source
+     at the commits named there. ./logos-api-surfaces.md
