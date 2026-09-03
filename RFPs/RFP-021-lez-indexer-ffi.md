@@ -62,7 +62,7 @@ a surface that satisfies it satisfies the others, and it is the profile whose
 absence is most visible, since a chain no exchange will list is a chain most
 users cannot reach.
 
-### The six deliverables, and which one this is
+### Target architecture and SDK suite
 
 The six deliverables exist to make LEZ integrable by the parties that have to
 integrate a chain before it is usable in practice: wallets, centralised
