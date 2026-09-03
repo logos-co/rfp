@@ -44,11 +44,10 @@ privacy layer applied at the UX level is consistent with the universal industry
 pattern: pool state is public; privacy, where it exists, is enforced outside the
 pool contract.
 
-## 2. Immutable fee tiers with multiple pools per pair
+## 2. Fee tier configuration and multiple pools per pair
 
-**RFP-004 requirement:** The pool creator selects a fee tier at creation (e.g.
-0.01%, 0.05%, 0.3%, 1%); the tier is immutable. Multiple pools for the same pair
-with different tiers can coexist (requirement F.6).
+**RFP-004 requirement:** The trading fee is set by the namespace admin authority
+and applies uniformly to all pools in that namespace (requirement F.6).
 
 **Ecosystem practice:**
 
@@ -61,15 +60,18 @@ with different tiers can coexist (requirement F.6).
 | Raydium CLMM       | 8 fee tiers (0.01% to 2%)                                           | Yes                                           | Yes                     |
 | Orca Whirlpools    | 9 tick spacings mapping to fee tiers (0.01% to 2%)                  | Yes (adaptive pools add a variable component) | Yes                     |
 
-Immutable base fee tiers are the norm. Every protocol launched after Uniswap V2
-supports multiple pools per pair with different fee tiers. The RFP-004 fee model
-(0.01%, 0.05%, 0.3%, 1%) mirrors the standard Uniswap V3/V4 tier set, which is
-also the set used by Raydium and Orca (with additional tiers at 0.02% and 2%).
+Immutable base fee tiers are the norm, and every protocol launched after Uniswap
+V2 supports multiple pools per pair with different fee tiers. RFP-004 differs:
+the fee is a namespace-level parameter set by the admin authority rather than a
+per-pool choice made at creation. The common tier values across the ecosystem
+(0.01%, 0.05%, 0.3%, 1%, extended by Raydium and Orca with 0.02% and 2%) remain
+a useful reference for what a namespace admin would set.
 
 ## 3. Trading fees paid by trader, distributed to LPs
 
-**RFP-004 requirement:** Trading fees are paid by the trader and distributed to
-LPs (requirement F.6).
+**RFP-004 requirement:** Trading fees are paid by the trader and split between
+LPs and the protocol treasury, the protocol fee being a subpart of the trading
+fee rather than an additional charge (requirements F.6, F.11).
 
 **Ecosystem practice:**
 
