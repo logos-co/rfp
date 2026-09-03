@@ -7,13 +7,13 @@ It makes no recommendation about what should change.
 
 Everything below was read from source at these commits:
 
-| Repository                                     | Commit    | Role                               |
-| ---------------------------------------------- | --------- | ---------------------------------- |
-| `logos-blockchain/logos-blockchain`            | `ecb2cc6` | Logos L1 node                      |
-| `logos-blockchain/logos-execution-zone`        | `47eba25` | LEZ sequencer, indexer, wallet     |
-| `logos-blockchain/logos-execution-zone-module` | `b220144` | LEZ core module (`lez_core` 0.4.0) |
-| `logos-blockchain/lez-indexer-module`          | `a1c10fe` | LEZ indexer module (1.1.1)         |
-| `logos-blockchain/logos-blockchain-module`     | `93c5b16` | L1 module (`blockchain_module`)    |
+| Repository                                                                                                        | Commit    | Role                               |
+| ----------------------------------------------------------------------------------------------------------------- | --------- | ---------------------------------- |
+| [`logos-blockchain/logos-blockchain`](https://github.com/logos-blockchain/logos-blockchain)                       | `ecb2cc6` | Logos L1 node                      |
+| [`logos-blockchain/logos-execution-zone`](https://github.com/logos-blockchain/logos-execution-zone)               | `47eba25` | LEZ sequencer, indexer, wallet     |
+| [`logos-blockchain/logos-execution-zone-module`](https://github.com/logos-blockchain/logos-execution-zone-module) | `b220144` | LEZ core module (`lez_core` 0.4.0) |
+| [`logos-blockchain/lez-indexer-module`](https://github.com/logos-blockchain/lez-indexer-module)                   | `a1c10fe` | LEZ indexer module (1.1.1)         |
+| [`logos-blockchain/logos-blockchain-module`](https://github.com/logos-blockchain/logos-blockchain-module)         | `93c5b16` | L1 module (`blockchain_module`)    |
 
 ## How the layers stack
 
