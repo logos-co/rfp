@@ -11,8 +11,6 @@ body:
       label: RFP ID
       description: Which RFP are you applying for? Pick the matching RFP — this drives the per-RFP label used for tracking.
       options:
-        - "RFP-015 — Token Launchpad: Bonding Curve"
-        - "RFP-016 — Token Launchpad: LBP"
         - "RFP-017 — Privacy-Preserving Token Vesting"
     validations:
       required: true

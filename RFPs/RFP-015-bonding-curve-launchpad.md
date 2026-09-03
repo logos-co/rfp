@@ -2,7 +2,7 @@
 id: RFP-015
 title: 'Privacy-Preserving Token Launchpad: Bonding Curve'
 tier: L
-status: open
+status: closed
 dependencies:
   - id: LP-0013
     reason: Token transfer-authority primitives are required to custody the token sale reserve and the real collateral reserve.
