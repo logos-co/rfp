@@ -968,14 +968,6 @@ than guessed at.
 
 ### Risks
 
-#### Snapshot semantics under concurrent ingestion
-
-RocksDB `multi_get_cf` snapshot behaviour under concurrent ingestion is not
-settled by reading the source alone. A torn paging read is unlikely but not
-excluded, and Reliability requirements #2 and #3 are the conditions a proposal
-must demonstrate it meets, by explicit snapshotting if necessary.
-
-TODO: unclear to me
 #### Storage growth
 
 The indexer never prunes and writes a full state snapshot every 100 blocks.
