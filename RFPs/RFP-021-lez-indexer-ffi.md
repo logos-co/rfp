@@ -813,16 +813,19 @@ Every function defined above is further bound by the following.
 
 #### Performance
 
-1. Document the latency of a pinned account read as a function of distance from
-   the nearest state snapshot. `getAccountAtBlock` replays up to 99 blocks from
-   the nearest breakpoint, each running the RISC0 executor, so the worst case
-   must be measured rather than estimated.
-2. A batch account read of N accounts costs materially less than N single reads,
+1. Document the latency of every exported function, measured rather than
+   estimated, against a stated chain size and transaction density.
+2. Where a function's cost varies with something the caller controls or
+   observes, document what it varies with and report the worst case as well as
+   the typical one. A read of a past block, a batch sized by the caller, and a
+   page bounded by a limit each cost more than a read at the tip, and a caller
+   choosing between them needs to know by how much.
+3. A batch account read of N accounts costs materially less than N single reads,
    and the improvement is measured and documented for representative N.
-3. Document the storage cost of persisting per-transaction effects: bytes per
+4. Document the storage cost of persisting per-transaction effects: bytes per
    transaction, and projected growth against a stated block rate and transaction
    density.
-4. Benchmarks are reproducible from the test suite and run against a LEZ
+5. Benchmarks are reproducible from the test suite and run against a LEZ
    devnet/testnet indexer.
 
 #### Supportability
@@ -965,17 +968,6 @@ than guessed at.
 
 ### Risks
 
-#### Pinned-read latency
-
-`getAccountAtBlock` replays up to 99 blocks from the nearest state snapshot,
-each running the RISC0 executor. The worst-case latency is not determinable from
-source and may be high enough that a pinned read is unsuitable for a hot path.
-Performance requirement #1 requires it to be measured; if the measurement is
-poor, the mitigation is a denser snapshot interval or a per-account index, and a
-proposal should state which it would pursue.
-
-TODO: unclear to me
-
 #### Snapshot semantics under concurrent ingestion
 
 RocksDB `multi_get_cf` snapshot behaviour under concurrent ingestion is not
@@ -987,7 +979,7 @@ TODO: unclear to me
 #### Storage growth
 
 The indexer never prunes and writes a full state snapshot every 100 blocks.
-Persisting per-transaction effects adds to that. Performance requirement #3
+Persisting per-transaction effects adds to that. Performance requirement #4
 requires the added cost to be quantified so an operator can size for it, and
 soft Functionality #5 offers retention configuration as the mitigation.
 
