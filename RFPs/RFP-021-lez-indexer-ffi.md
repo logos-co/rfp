@@ -134,10 +134,10 @@ providing the software they need.
 
 So the requirements below are set by what those integrators already rely on
 elsewhere. Nine established chains were surveyed for that purpose. LEZ does not
-currently meet several of the norms: there is no simulation, present on six of
-the nine; no per-transaction effects; no confirmation level; and no
-subscription reaches the FFI, which is the boundary an integrator can actually
-call. See
+currently meet several of the norms: there are no per-transaction effects; no
+confirmation level; and no subscription reaches the FFI, which is the boundary
+an integrator can actually call. Simulation is the one norm this RFP declines
+rather than fills, for the reason given in the Design Rationale. See
 [Appendix: Blockchain API and SDK Ecosystem, section 4](../appendix/blockchain-api-sdk-ecosystem.md#4-gap-summary).
 
 Most of the missing capability already exists one layer below the FFI, as the
@@ -155,17 +155,34 @@ that: cost is something to estimate, report, and budget against, and the
 readiness markers describe the starting point for the work rather than a
 constraint on what the surface may express.
 
-### Effects and simulation are one deliverable
+### Simulation belongs to the wallet, not to the indexer
 
-The effects query and the simulation query share the executor, the state, and
-the diff type
-(`StateDiff { signer_account_ids, public_diff, new_commitments, new_nullifiers, program }`).
-Reading the stored diff for a transaction already in a block is an effects API;
-running the same computation against a caller-supplied transaction, without
-applying it, is a simulation API. Specifying them together avoids two designs of
-the same thing. The caveat a proposal must carry: the indexer simulates against
-finalised state rather than a live tip, a property to document rather than a
-defect to fix.
+Simulation is the one capability an integrator expects from a node API that this
+RFP does not require. Six of the nine surveyed chains execute an unsubmitted
+transaction and return its outcome, and an RPC provider elsewhere is expected to
+offer it
+([Appendix: Blockchain API and SDK Ecosystem, section 1.15](../appendix/blockchain-api-sdk-ecosystem.md#115-simulate-transaction-execution)).
+On LEZ that shape does not fit.
+
+A privacy-preserving transaction is executed by the wallet, which runs the
+program locally over notes only it can decrypt and submits a proof that the
+execution was correct. The proof is an input to the transaction rather than a
+result of executing it, so a node holds neither the witness material nor the
+plaintext a simulation would need, and there is nothing for the indexer to
+simulate before the wallet has already done the work. Zcash reaches the same
+conclusion from the same premise, and exposes no simulation on either leg.
+
+Public execution could be simulated by the indexer, but siting it there would
+split one capability across two components and answer against finalised state
+rather than the state the caller is building on. The wallet already holds the
+executor for the private path and can read whatever state it needs through the
+queries below, so it can answer for both kinds of transaction, against a state
+it chose, at the moment it is constructing the transaction. That is also what
+simulation is for elsewhere: Stellar returns the transaction data and the
+minimum resource fee that the caller copies back into the transaction before
+submitting, which makes simulation a construction step rather than a read.
+Construction is out of scope here and belongs to the wallet FFI, the second of
+the six deliverables.
 
 ### A status API is not built on `bedrock_status`
 
@@ -267,78 +284,16 @@ Returns the program events matching the filter. A non-null `tx_hash` makes the
 call a point lookup and the block range is ignored; otherwise the range runs
 from `from_block` to `to_block`, defaulting to the indexed tip.
 
-6. The query returns each matching event record with its block identifier,
+5. The query returns each matching event record with its block identifier,
    transaction index, transaction hash, emitting program, selector, and data
    payload. **[Ready]**
-7. A range query spanning more than `MAX_EVENT_QUERY_BLOCK_SPAN` blocks, a bound
+6. A range query spanning more than `MAX_EVENT_QUERY_BLOCK_SPAN` blocks, a bound
    past the indexed tip, an inverted range, and a range outside the indexer's
    event-filter history each return `InvalidArgument` rather than an empty
    result. **[Ready]**
-8. Events are absent for privacy-preserving transactions, `ProgramOutput.events`
+7. Events are absent for privacy-preserving transactions, `ProgramOutput.events`
    being dropped for function privacy, so the query answers for the public leg
    only. **[Ready]**
-
-##### Simulation
-
-Executing an unsubmitted transaction against current state to see what it would
-do, without submitting it
-([Appendix: Blockchain API and SDK Ecosystem, section 1.15](../appendix/blockchain-api-sdk-ecosystem.md#115-simulate-transaction-execution)).
-
-- **Ethereum**: `eth_call` for effects, `eth_estimateGas` for cost, and
-  `eth_simulateV1` returning both together.
-- **Solana**: `simulateTransaction`, returning `unitsConsumed` alongside the
-  effects.
-- **Bitcoin**: `testmempoolaccept` tests acceptance only and returns no effects.
-- **Zcash**: no equivalent, on either leg. Shielded execution is a proof the
-  sender constructs over notes only the sender can decrypt, so a node holds
-  neither the inputs nor the witness material a simulation would need. The
-  transparent leg has no such obstacle and still exposes nothing: Zcash carries
-  no `testmempoolaccept`, so it does not inherit even the acceptance check
-  Bitcoin offers.
-
-Effects and cost come back from one call, as they do on Solana and Soroban and
-as Ethereum's own `eth_simulateV1` now does. Cost is a byproduct of execution,
-so splitting it across two calls means executing twice, against two states that
-may differ, and returning a cost that need not correspond to the effects.
-
-**`simulate_transaction(indexer, transaction) -> PointerResult<FfiSimulationResult, OperationStatus>`**
-
-TODO: review privacy implication, we dont' want someone to simulate a public
-transaction and then run it locally. There needs to be a clear path to local
-simulation of tx for tx that intend to be private **before** generating the
-proof.
-
-Executes a caller-supplied transaction against the indexer's finalised state and
-returns what it would do, without applying it.
-
-9. The FFI exposes a simulation query that takes an unsubmitted transaction,
-    executes it against the indexer's current finalised state without applying
-    it, and returns the same diff type the effects query returns, plus an
-    execution outcome: success, or typed failure. **[Computed, not persisted]**
-10. The simulation query returns the block identifier its result was computed
-    against, so a caller can tell what the answer is an answer about. **[New]**
-11. The simulation result reports what the transaction would cost to execute,
-    accumulated across the whole chained-call tree, together with the budget it
-    was measured against. **[Computed, not persisted]**
-12. The cost is reported in the unit a caller pays in, so it can be compared
-    against a balance and against a limit the caller sets, in the shape
-    `eth_estimateGas`, Solana's `unitsConsumed`, and Soroban's `minResourceFee`
-    each provide
-    ([Appendix: Blockchain API and SDK Ecosystem, section 1.16](../appendix/blockchain-api-sdk-ecosystem.md#116-estimate-execution-cost)).
-    **[New]** TODO: This RFP must assume LEZ gas fee is ready (testnet 0.3)
-13. A simulation that fails because it exhausted its budget is reported as a
-    distinct, typed outcome, separable by a caller from a program error, an
-    invalid signature, and a malformed transaction, and it reports the cost
-    incurred up to the fault. Every executor failure currently collapses into a
-    single stringly-typed `ProgramExecutionFailed(String)`
-    (`lee/state_machine/src/error.rs:44-45`), which a caller cannot classify.
-    **[New]**
-14. Simulation cost reporting covers public execution. Privacy-preserving
-    execution carries no cycle budget and reaches the prover directly, so no
-    equivalent count is available cheaply; the API states this rather than
-    returning a misleading figure. **[New]** TODO: "he API states this rather
-    than returning a misleading figure." not sure it makes sense. a
-    "transaction" in the signature should probably be assumed to be public...
 
 ##### Account reads
 
@@ -774,7 +729,7 @@ Every function defined above is further bound by the following.
    following the chain, and tracking deposits.
 2. Provide a CLI that covers core functionality: read an account at current and
    at a pinned block, read a batch of accounts, read a block, read a
-   transaction, read a transaction's effects, simulate a transaction, query a
+   transaction, read a transaction's effects, query a
    transaction's status, list an account's transactions with ordering and
    pagination, and follow the chain tip. The CLI may have fewer features than
    the FFI but must support all essential operations.
@@ -804,11 +759,9 @@ Every function defined above is further bound by the following.
 4. A subscription consumer that disconnects and reconnects with its last
    processed block identifier receives every block after that position, with no
    gap and no assumption that the consumer was connected.
-5. The simulation query never mutates indexer state, and a simulation failure
-   leaves the store unchanged.
-6. Every read reports the indexed tip it was served against, so a caller can
+5. Every read reports the indexed tip it was served against, so a caller can
    detect that it read from a stalled or lagging indexer.
-7. A stalled indexer is reported as stalled by the status surface rather than
+6. A stalled indexer is reported as stalled by the status surface rather than
    serving stale reads silently.
 
 #### Performance
@@ -822,9 +775,7 @@ Every function defined above is further bound by the following.
 3. Document the storage cost of persisting per-transaction effects: bytes per
    transaction, and projected growth against a stated block rate and transaction
    density.
-4. Document the latency of the simulation query for a representative
-   transaction, separated into executor time and state access time.
-5. Benchmarks are reproducible from the test suite and run against a LEZ
+4. Benchmarks are reproducible from the test suite and run against a LEZ
    devnet/testnet indexer.
 
 #### Supportability
@@ -843,12 +794,11 @@ the module that links it.
    has at least one corresponding test.
 5. Tests cover, at minimum: a never-seen account distinguished from a zero
    account; a pinned read at a block before and after a state change; a batch
-   read spanning present and absent accounts; effects for a public transaction,
-   for the public leg of a privacy-preserving transaction, and for a
-   privacy-preserving transaction whose private leg is unreadable; a simulation
-   that succeeds and one that fails; a transaction status at each documented
-   level; and a subscription resumed from a stored position across a
-   disconnection.
+   read spanning present and absent accounts; effects for a public transaction
+   and for the public leg of a privacy-preserving transaction; membership proofs
+   for a commitment the set holds and one it does not; a transaction status at
+   each documented level; and a subscription resumed from a stored position
+   across a disconnection.
 6. A README documents end-to-end usage: building the FFI and the module that
    links it, the configuration and storage directory `start_indexer` requires,
    and step-by-step instructions for every operation via the CLI.
@@ -914,6 +864,11 @@ The following are explicitly excluded from this RFP:
 - **Transaction construction and submission.** Building, signing, and submitting
   transactions run through the wallet path (`wallet_ffi` and `lez_core`). The
   indexer stack performs no writes and this RFP does not change that.
+- **Simulation, and the cost estimate that comes with it.** Executing an
+  unsubmitted transaction to see what it would do belongs to the wallet FFI, for
+  both public and privacy-preserving transactions, for the reason given in the
+  Design Rationale. Nothing in this RFP executes a transaction a caller
+  supplies.
 - **The JSON-RPC proxy and the language SDKs.**
   [logos-co/ecosystem#220](https://github.com/logos-co/ecosystem/issues/220)
   covers the transport, the wallet SDK, and the indexer SDK. Further transport
