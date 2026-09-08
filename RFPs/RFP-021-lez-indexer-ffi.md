@@ -133,9 +133,9 @@ project sees in integrating LEZ, we need to decrease the upfront cost by
 providing the software they need.
 
 So the requirements below are set by what those integrators already rely on
-elsewhere. Eight established chains were surveyed for that purpose. LEZ does not
+elsewhere. Nine established chains were surveyed for that purpose. LEZ does not
 currently meet several of the norms: there is no simulation, present on six of
-the eight; no per-transaction effects; no confirmation level; and no
+the nine; no per-transaction effects; no confirmation level; and no
 subscription reaches the FFI, which is the boundary an integrator can actually
 call. See
 [Appendix: Blockchain API and SDK Ecosystem, section 4](../appendix/blockchain-api-sdk-ecosystem.md#4-gap-summary).
@@ -225,9 +225,13 @@ The read that says what a transaction did to balances
   directly.
 - **Bitcoin**: no equivalent; the effect is the UTXO set delta itself.
 - **Zcash**: `z_viewtransaction` for the shielded leg, `getblockdeltas` and
-  `getspentinfo` for the transparent one. The shielded call is wallet-layer and
-  reads only what a held viewing key entitles it to, so a third party sees
-  transparent effects openly and shielded effects not at all.
+  `getspentinfo` for the transparent one, the latter two being insight-explorer
+  methods a node must be started and reindexed for. The shielded call is
+  wallet-layer, documented as returning "detailed shielded information about
+  in-wallet transaction", so it reads only what the node holds keys for. A third
+  party sees transparent effects openly and shielded effects not at all, and no
+  parameterisation of the call changes that, the entitlement being cryptographic
+  rather than an access-control setting.
 
 **`query_transaction(indexer, hash) -> PointerResult<FfiOption<FfiTransaction>, OperationStatus>`**
 
@@ -285,9 +289,12 @@ do, without submitting it
 - **Solana**: `simulateTransaction`, returning `unitsConsumed` alongside the
   effects.
 - **Bitcoin**: `testmempoolaccept` tests acceptance only and returns no effects.
-- **Zcash**: no equivalent. Shielded execution is a proof the sender constructs,
-  so there is nothing for a node to simulate on the sender's behalf. TODO: what
-  about non-shielded?
+- **Zcash**: no equivalent, on either leg. Shielded execution is a proof the
+  sender constructs over notes only the sender can decrypt, so a node holds
+  neither the inputs nor the witness material a simulation would need. The
+  transparent leg has no such obstacle and still exposes nothing: Zcash carries
+  no `testmempoolaccept`, so it does not inherit even the acceptance check
+  Bitcoin offers.
 
 Effects and cost come back from one call, as they do on Solana and Soroban and
 as Ethereum's own `eth_simulateV1` now does. Cost is a byproduct of execution,
@@ -343,10 +350,13 @@ Reading account state, at the tip and at a past block, singly and in batches
 - **Ethereum**: split across `eth_getCode` and `eth_getStorageAt`, with no
   single account object.
 - **Bitcoin**: `gettxout` reads a UTXO; the model has no account record.
-- **Zcash**: `getaddressbalance` for transparent addresses, open to anyone;
-  `z_getbalanceforviewingkey` for shielded ones, which takes a viewing key as an
-  argument and is documented as returning the balance "viewable by" that key.
-  There is no shielded read a party without a key can make.
+- **Zcash**: `getaddressbalance` for transparent addresses, readable by any
+  party, subject to the node running with the insight-explorer options;
+  `z_getbalanceforviewingkey` for shielded ones, documented as returning the
+  balance "viewable by a full viewing key known to the node's wallet". Two
+  conditions sit on the shielded read: the caller holds the key, and the key was
+  already imported into that node's wallet. There is no shielded read a party
+  without a key can make.
 
 **Today:
 `query_account(indexer, account_id) -> PointerResult<FfiAccount, OperationStatus>`**
@@ -519,9 +529,12 @@ Pushing new blocks to a consumer instead of making it poll
 - **Ethereum**: `eth_subscribe("newHeads")`.
 - **Solana**: `slotSubscribe` and `blockSubscribe`.
 - **Bitcoin**: the ZeroMQ publishers `-zmqpubhashblock` and `-zmqpubrawblock`.
-- **Zcash**: no JSON-RPC subscription. The light-client protocol streams
-  `GetBlockRange` over gRPC, taking an explicit height range, so a consumer
-  resumes by asking for the range it has not yet seen.
+- **Zcash**: no JSON-RPC subscription; the node's own push surface is ZeroMQ,
+  without the `-zmqpubsequence` publisher Bitcoin offers for loss detection. The
+  streaming interface an integrator uses sits on lightwalletd rather than the
+  node: `GetBlockRange` streams compact blocks over gRPC, taking an explicit
+  height range, so a consumer resumes by asking for the range it has not yet
+  seen.
 
 **`subscribe_to_finalized_blocks(indexer, from_block, callback, user_data) -> PointerResult<FfiSubscription, OperationStatus>`**
 
@@ -561,10 +574,13 @@ Walking an account's transaction history in bounded pages
 - **Bitcoin**: `listtransactions`, using count and skip.
 - **Ethereum**: no cursor scheme on the standard node API; `eth_getLogs` is
   bounded by block range instead.
-- **Zcash**: `getaddresstxids` for transparent addresses, bounded by a start and
-  end height rather than a cursor; `z_listreceivedbyaddress` for shielded ones,
-  again requiring a viewing key and taking an `asOfHeight` parameter that pins
-  the read to a past height.
+- **Zcash**: `getaddresstxids` for transparent addresses, insight-explorer gated
+  and bounded by an inclusive start and end height rather than a cursor;
+  `z_listreceivedbyaddress` for shielded ones, reachable only for keys the node
+  holds and taking an `asOfHeight` parameter that pins the read to a past
+  height. Height bounding rather than cursoring leaves a caller re-deriving its
+  position from heights it has already scanned, and no method returns a next
+  position.
 
 **`query_transactions_by_account(indexer, account_id, offset, limit, order) -> PointerResult<FfiVec<FfiTransaction>, OperationStatus>`**
 
@@ -624,9 +640,7 @@ chain ends, which network this is, and how far back the data goes
 - **Solana**: `getSlot` and `getGenesisHash`.
 - **Bitcoin**: `getblockcount` and `getblockchaininfo`.
 - **Zcash**: `getbestblockhash` and `getblockcount` for the tip,
-  `getblockchaininfo` for the network. `getblockchaininfo` also reports the
-  active consensus branch, which identifies the network upgrade in force rather
-  than only the chain.
+  `getblockchaininfo` for the network.
 
 **`query_block(indexer, block_id) -> PointerResult<FfiBlockOpt, OperationStatus>`**
 
@@ -972,7 +986,7 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   inventory of the LEZ indexer FFI and RPC, the sequencer RPC, the wallet FFI
   and `lez_core` module, and the L1 bindings, routes, and module
 - [Appendix: Blockchain API and SDK Ecosystem](../appendix/blockchain-api-sdk-ecosystem.md):
-  34 API functions across eight established chains, with transports, SDK
+  34 API functions across nine established chains, with transports, SDK
   languages, response shapes, and per-function gap notes for LEZ
 - [logos-execution-zone](https://github.com/logos-blockchain/logos-execution-zone):
   the LEZ sequencer, indexer, and wallet
