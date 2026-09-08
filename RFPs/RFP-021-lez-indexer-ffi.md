@@ -232,6 +232,11 @@ every hard requirement is required regardless of its marker. When not already
 implemented, the function signatures below should be seen as suggestion, the
 description of functionality underneath is the requirement.
 
+Every exported function takes the indexer handle returned by `start_indexer` as
+its first argument, and a null handle is signalled as
+`OperationStatus::NullPointer` rather than as a not-found result. The signatures
+below elide it.
+
 ##### Transaction effects
 
 The read that says what a transaction did to balances
@@ -250,7 +255,7 @@ The read that says what a transaction did to balances
   parameterisation of the call changes that, the entitlement being cryptographic
   rather than an access-control setting.
 
-**`query_transaction(indexer, hash) -> PointerResult<FfiOption<FfiTransaction>, OperationStatus>`**
+**`query_transaction(hash) -> PointerResult<FfiOption<FfiTransaction>, OperationStatus>`**
 
 Returns the transaction carrying the given hash, as stored in the block that
 holds it. Absence is signalled structurally, through `FfiOption`, and not
@@ -263,7 +268,7 @@ through the status channel.
    program-deployment bodies, exposing for each the fields the wire type carries
    (`lez/indexer/service/protocol/src/lib.rs:193-260`). **[Ready]**
 
-**`query_transaction_effects(indexer, hash) -> PointerResult<FfiOption<FfiStateDiff>, OperationStatus>`**
+**`query_transaction_effects(hash) -> PointerResult<FfiOption<FfiStateDiff>, OperationStatus>`**
 
 Returns the state diff a transaction produced, read from storage rather than
 recomputed on the caller's behalf.
@@ -278,7 +283,7 @@ recomputed on the caller's behalf.
 4. The effects query returns a balance delta per affected account, expressed as
    pre-state and post-state values, for public transactions and for the public
    leg of privacy-preserving transactions. **[Computed, not persisted]**
-**`query_events(indexer, from_block, to_block, tx_hash, program_id, selector) -> PointerResult<FfiVec<FfiEventRecord>, OperationStatus>`**
+**`query_events(from_block, to_block, tx_hash, program_id, selector) -> PointerResult<FfiVec<FfiEventRecord>, OperationStatus>`**
 
 Returns the program events matching the filter. A non-null `tx_hash` makes the
 call a point lookup and the block range is ignored; otherwise the range runs
@@ -314,10 +319,10 @@ Reading account state, at the tip and at a past block, singly and in batches
   without a key can make.
 
 **Today:
-`query_account(indexer, account_id) -> PointerResult<FfiAccount, OperationStatus>`**
+`query_account(account_id) -> PointerResult<FfiAccount, OperationStatus>`**
 
 **Target:
-`query_account(indexer, account_id) -> PointerResult<FfiOption<FfiAccount>, OperationStatus>`**
+`query_account(account_id) -> PointerResult<FfiOption<FfiAccount>, OperationStatus>`**
 
 Returns the account record as it stands at the indexer's current state: its
 owning program, balance, nonce, and program data blob. Requirement 16 changes
@@ -333,7 +338,7 @@ the return type, so this is the one existing export whose shape changes.
     (`lee/state_machine/src/state/mod.rs:273-278`). **[New]** TODO: to check
     this is actually feasible
 
-**`query_account_at_block(indexer, account_id, block_id) -> PointerResult<FfiOption<FfiAccount>, OperationStatus>`**
+**`query_account_at_block(account_id, block_id) -> PointerResult<FfiOption<FfiAccount>, OperationStatus>`**
 
 Returns the account record as it stood at a given block, rather than at the tip.
 
@@ -345,7 +350,7 @@ Returns the account record as it stood at a given block, rather than at the tip.
 18. The pinned read distinguishes a never-seen account from a zero account on
     the same terms as the read at the tip. **[New]**
 
-**`query_accounts(indexer, account_ids, block_id) -> PointerResult<FfiVec<FfiOption<FfiAccount>>, OperationStatus>`**
+**`query_accounts(account_ids, block_id) -> PointerResult<FfiVec<FfiOption<FfiAccount>>, OperationStatus>`**
 
 Returns one result per requested account identifier, optionally pinned to a
 block.
@@ -366,7 +371,7 @@ Reading the inclusion proofs a caller needs to spend a private note, and the
 root they are proven against. This read has no counterpart among the surveyed
 chains, the commitment set being a structure only a shielded chain carries.
 
-**`query_commitment_proofs(indexer, commitments) -> PointerResult<FfiCommitmentProofs, OperationStatus>`**
+**`query_commitment_proofs(commitments) -> PointerResult<FfiCommitmentProofs, OperationStatus>`**
 
 Returns a membership proof per requested commitment, together with the
 commitment set root they are proven against.
@@ -395,7 +400,7 @@ Answering how far a transaction has progressed and whether it succeeded
   ZIP 315 specifies the confirmation policy, three confirmations for trusted
   funds and ten for untrusted, as wallet behaviour rather than as a node call.
 
-**`query_transaction_status(indexer, hash) -> PointerResult<FfiTransactionStatus, OperationStatus>`**
+**`query_transaction_status(hash) -> PointerResult<FfiTransactionStatus, OperationStatus>`**
 
 Returns how far a transaction has progressed, where it sits, and whether its
 execution succeeded.
@@ -414,7 +419,7 @@ execution succeeded.
     a typed reason on failure, for any transaction the indexer has executed.
     **[Computed, not persisted]**
 
-**`query_status(indexer) -> *mut c_char`**
+**`query_status() -> *mut c_char`**
 
 Returns the indexer's own ingestion state as a JSON document: `state`,
 `indexed_block_id`, `last_error`, `stall_reason`, `cross_zone_halt`, and
@@ -448,7 +453,7 @@ see the pending set aborts a proof it now knows will be rejected instead of
 finishing it. That is the difference between reading the pending set and
 diagnosing a failure afterwards.
 
-**`query_pending_digests(indexer, offset, limit) -> PointerResult<FfiVec<FfiPendingDigest>, OperationStatus>`**
+**`query_pending_digests(offset, limit) -> PointerResult<FfiVec<FfiPendingDigest>, OperationStatus>`**
 
 Lists the pending set as digests: per entry, its identifier and the account
 identifiers, nonces, and nullifiers it touches.
@@ -463,7 +468,7 @@ identifiers, nonces, and nullifiers it touches.
     generation, so a wallet re-checks for a conflict while proving and abandons
     the proof rather than completing one it knows will be rejected. **[New]**
 
-**`query_pending_entry(indexer, id) -> PointerResult<FfiOption<FfiTransaction>, OperationStatus>`**
+**`query_pending_entry(id) -> PointerResult<FfiOption<FfiTransaction>, OperationStatus>`**
 
 Returns one pending transaction in full, for an identifier taken from the digest
 listing.
@@ -491,7 +496,7 @@ Pushing new blocks to a consumer instead of making it poll
   height range, so a consumer resumes by asking for the range it has not yet
   seen.
 
-**`subscribe_to_finalized_blocks(indexer, from_block, callback, user_data) -> PointerResult<FfiSubscription, OperationStatus>`**
+**`subscribe_to_finalized_blocks(from_block, callback, user_data) -> PointerResult<FfiSubscription, OperationStatus>`**
 
 TODO: having `indexer` at the start of every function is redundant. we already
 specified this is an indexer API, remove it unless there is one function that is
@@ -513,7 +518,7 @@ optionally resuming from a position the consumer already processed.
     ([Appendix: Blockchain API and SDK Ecosystem, section 1.33](../appendix/blockchain-api-sdk-ecosystem.md#133-resume-a-stream-from-a-known-position)).
     **[New]**
 
-**`unsubscribe(indexer, subscription) -> OperationStatus`**
+**`unsubscribe(subscription) -> OperationStatus`**
 
 Cancels a registered subscription and releases the resources it holds.
 
@@ -537,7 +542,7 @@ Walking an account's transaction history in bounded pages
   position from heights it has already scanned, and no method returns a next
   position.
 
-**`query_transactions_by_account(indexer, account_id, offset, limit, order) -> PointerResult<FfiVec<FfiTransaction>, OperationStatus>`**
+**`query_transactions_by_account(account_id, offset, limit, order) -> PointerResult<FfiVec<FfiTransaction>, OperationStatus>`**
 
 Returns one page of the transactions touching an account, walked by offset into
 the account's transaction index.
@@ -549,7 +554,7 @@ the account's transaction index.
     both oldest-first and newest-first. Newest-first is the order a deposit
     tracker reads in. **[New]**
 
-**`query_account_transaction_count(indexer, account_id) -> PointerResult<u64, OperationStatus>`**
+**`query_account_transaction_count(account_id) -> PointerResult<u64, OperationStatus>`**
 
 Returns how many transactions the account's index holds.
 
@@ -559,7 +564,7 @@ Returns how many transactions the account's index holds.
 
     TODO: is transaction count commonly used? not really explain per ecosystem
 
-**`query_blocks(indexer, from, limit, order) -> PointerResult<FfiVec<FfiBlock>, OperationStatus>`**
+**`query_blocks(from, limit, order) -> PointerResult<FfiVec<FfiBlock>, OperationStatus>`**
 
 Returns a page of blocks starting at `from`, walked in the requested direction,
 or starting at the indexed tip when `from` is absent. Exported today as
@@ -597,7 +602,7 @@ chain ends, which network this is, and how far back the data goes
 - **Zcash**: `getbestblockhash` and `getblockcount` for the tip,
   `getblockchaininfo` for the network.
 
-**`query_block(indexer, block_id) -> PointerResult<FfiBlockOpt, OperationStatus>`**
+**`query_block(block_id) -> PointerResult<FfiBlockOpt, OperationStatus>`**
 
 Returns the block at a given identifier: its header, its full transaction body,
 and its bedrock status.
@@ -609,7 +614,7 @@ and its bedrock status.
     hash, timestamp, and signature, and the body carries every transaction in
     the block. **[Ready]**
 
-**`query_block_by_hash(indexer, hash) -> PointerResult<FfiBlockOpt, OperationStatus>`**
+**`query_block_by_hash(hash) -> PointerResult<FfiBlockOpt, OperationStatus>`**
 
 Returns the same block record, resolved by block hash rather than by identifier.
 
@@ -620,7 +625,7 @@ Returns the same block record, resolved by block hash rather than by identifier.
 TODO: do we have a clear definition of block_id vs block has in teh current
 codebase?
 
-**`query_last_block(indexer) -> LastBlockIdResult`**
+**`query_last_block() -> LastBlockIdResult`**
 
 Returns the identifier of the indexer's last finalised block, inline, with no
 allocation to free.
@@ -628,7 +633,7 @@ allocation to free.
 44. The query returns the last finalised block identifier, and reports an empty
     chain as an outcome distinct from an error. **[Ready]**
 
-**`query_chain_tip(indexer) -> PointerResult<FfiChainTip, OperationStatus>`**
+**`query_chain_tip() -> PointerResult<FfiChainTip, OperationStatus>`**
 
 Returns the tip as one record rather than as an identifier the caller must then
 resolve.
@@ -639,7 +644,7 @@ resolve.
     below the FFI: `getLastFinalizedBlockId` returns an identifier alone, and
     the header fields come from a second read. **[New]**
 
-**`query_zone_id(indexer) -> PointerResult<FfiBytes32, OperationStatus>`**
+**`query_zone_id() -> PointerResult<FfiBytes32, OperationStatus>`**
 
 Returns the identifier of the zone whose chain the indexer is reading.
 
@@ -655,7 +660,7 @@ Returns the identifier of the zone whose chain the indexer is reading.
 TODO: we should want both a zone id, but also a chain id of the underlying Logos
 Blockchain chain. I'd assume it should be a combined method.
 
-**`query_program_ids(indexer) -> PointerResult<FfiVec<FfiProgramEntry>, OperationStatus>`**
+**`query_program_ids() -> PointerResult<FfiVec<FfiProgramEntry>, OperationStatus>`**
 
 Returns the programs the indexer has observed deployed, each with its name and
 program identifier.
@@ -666,7 +671,7 @@ program identifier.
     `getProgramIds`. An integrator decoding account data needs to know which
     program owns an account. **[New]**
 
-**`query_retention_floor(indexer) -> PointerResult<FfiRetentionFloor, OperationStatus>`**
+**`query_retention_floor() -> PointerResult<FfiRetentionFloor, OperationStatus>`**
 
 Returns the earliest block the indexer can still answer for, per read kind.
 
@@ -691,7 +696,7 @@ These bind every function above rather than adding one
 The module parity requirement has no ecosystem analogue, because no surveyed
 chain interposes a plugin layer between its API and its consumers.
 
-**`query_schema(indexer) -> *mut c_char`**
+**`query_schema() -> *mut c_char`**
 
 Returns a machine-readable description of the exported surface.
 
