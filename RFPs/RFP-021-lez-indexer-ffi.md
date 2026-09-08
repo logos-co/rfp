@@ -856,11 +856,19 @@ the module that links it.
 8. Submit a
    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
    for the CLI, covering the core operator journey.
-
-TODO: integrate this in teh above: 7. Provide a get started documentation to
-build a core module that consumes the FFI API of the indexer. 8. Provided a full
-API reference of the indexer API per version, as currently done for Logos
-storage module (accessible from http://docs.logos.co).
+9. Provide a get started guide that takes a developer from an empty repository
+   to a working Logos Core module consuming the indexer FFI, covering linking
+   `libindexer_ffi`, including the generated header, reading LEZ state through
+   it, and running the result against a devnet. The README required above
+   documents building and operating what this RFP delivers; this documents
+   building something else on top of it.
+10. Provide a full API reference for the indexer API, published per version in
+    the shape the Logos Storage module's reference takes at
+    [docs.logos.co](https://docs.logos.co), covering every exported function,
+    its parameters, its return type, and its error codes. The reference is
+    generated from the machine-readable description required by Functionality
+    #50 rather than maintained by hand, so it cannot drift from the header it
+    describes.
 
 #### + Privacy
 
