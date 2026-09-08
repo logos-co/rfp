@@ -35,7 +35,7 @@ dependencies: []
 > does so as principal, in their own name, and is solely responsible for
 > assessing its regulatory treatment, including any licensing, registration,
 > sanctions or anti-money laundering obligations that may apply to them. Logos
-> does not make any representation, provides any advice or assumes any
+> does not make any representation, provide any advice or assume any
 > responsibility in respect of any such determination or compliance.
 
 ## 🧭 Overview
