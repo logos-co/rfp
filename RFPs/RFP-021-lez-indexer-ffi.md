@@ -395,6 +395,29 @@ block.
 21. The batch read distinguishes a never-seen account from a zero account per
     entry, so one absent identifier does not fail the call. **[New]**
 
+##### Commitment membership proofs
+
+Reading the inclusion proofs a caller needs to spend a private note, and the
+root they are proven against. This read has no counterpart among the surveyed
+chains, the commitment set being a structure only a shielded chain carries.
+
+**`query_commitment_proofs(indexer, commitments) -> PointerResult<FfiCommitmentProofs, OperationStatus>`**
+
+Returns a membership proof per requested commitment, together with the
+commitment set root they are proven against.
+
+22. The FFI returns, for a list of commitments, a membership proof per
+    commitment in request order and the commitment set root those proofs are
+    proven against, both read from indexer data. A commitment the set does not
+    hold is reported as absent per entry rather than failing the call. This is
+    the data the sequencer's `getProofsAndRoot` returns today
+    (`lez/sequencer/service/rpc/src/lib.rs:80-84`), which the wallet reaches the
+    sequencer for (`lez/wallet/src/lib.rs:660-667`). A consumer that holds a
+    viewing key needs it to spend a note, and under the rationale above it is
+    required of the indexer regardless of which component holds it. **[New]**
+23. The proofs and the root returned by one call are consistent with one
+    another: every proof verifies against the returned root. **[New]**
+
 ##### Transaction status
 
 Answering how far a transaction has progressed and whether it succeeded
@@ -565,18 +588,25 @@ Returns how many transactions the account's index holds.
 
     TODO: is transaction count commonly used? not really explain per ecosystem
 
-**`query_block_vec(indexer, before, limit) -> PointerResult<FfiVec<FfiBlock>, OperationStatus>`**
+**`query_blocks(indexer, from, limit, order) -> PointerResult<FfiVec<FfiBlock>, OperationStatus>`**
 
-Returns a descending page of blocks ending below `before`, or ending at the
-indexed tip when `before` is absent.
+Returns a page of blocks starting at `from`, walked in the requested direction,
+or starting at the indexed tip when `from` is absent. Exported today as
+`query_block_vec`, which descends only.
 
-38. The query returns at most `limit` blocks, descending from the block below
-    `before`, or from the indexed tip when `before` is absent. **[Ready]**
-39. The `before` parameter on `query_block_vec` is documented as exclusive. The
-    store already implements it so, descending from
-    `before_id.saturating_sub(1)`
+38. The query returns at most `limit` blocks, walked from `from`, or from the
+    indexed tip when `from` is absent. **[Ready]**
+39. The bound is documented as exclusive. The store already implements it so
+    when descending, from `before_id.saturating_sub(1)`
     (`lez/storage/src/indexer/read_multiple.rs:11`), leaving the documentation
     obligation only. **[Ready]**
+39. `query_blocks` accepts an ordering parameter supporting both oldest-first
+    and newest-first, on the same terms as
+    `query_transactions_by_account`. Oldest-first is the order a consumer
+    scanning forward reads in: a wallet syncing private accounts walks
+    ascending from the last block it processed to the tip, decrypting each
+    privacy-preserving transaction body against its own viewing key. Descending
+    from the tip cannot serve that walk. **[New]**
 40. Every paginated response reports whether more results remain, so a caller
     distinguishes the end of a result set from a page that happens to be short.
     No paginated return type carries such a signal today. **[New]**
@@ -876,14 +906,11 @@ The following are explicitly excluded from this RFP:
   bindings such as gRPC and GraphQL are
   [logos-co/ecosystem#222](https://github.com/logos-co/ecosystem/issues/222).
   This RFP defines what those consume, not how it is transported or wrapped.
-- **Reaching the sequencer directly.** The FFI defined in this RFP is to be solely
-  provided by the indexer module. The consumer should never have to reach
-  directly to the sequencer. Where a sequencer method answers something an
-  integrator needs, the equivalent is required above and required to be served
-  from indexer data: `getAccountBalance` and `getAccountsNonces` by
-  Functionality #15, `getAccount` by #15 and #17, `getBlock` and
-  `getLastBlockId` by #41 and #43, `getTransaction` by #1, and `getChannelId` by
-  #41.
+- **Reaching the sequencer directly.** The FFI defined in this RFP is to be
+  solely provided by the indexer module. A consumer never reaches the sequencer,
+  whose interface is internal to LEZ and is not an API this RFP or any other in
+  this set defines. Every read an integrator needs is required of the indexer
+  above, whichever component holds the data today.
 - **Transaction submission.** The indexer is a read-only follower and this RFP
   defines a read API. Submission stays on the sequencer's `sendTransaction`.
 - **The program event system.** Events already exist end to end, from
