@@ -1205,7 +1205,7 @@ type.
 | NEAR     | [NOT FOUND] as an events method [[13]](#ref-13)                            |
 | Sui      | `suix_queryEvents`, `sui_getEvents` [[17]](#ref-17)                        |
 | Logos L1 | `GET /cryptarchia/blocks/:id/events` [[19]](#ref-19)                       |
-| LEZ      | [NOT FOUND] [[21]](#ref-21)                                                |
+| LEZ      | `getEvents`, `subscribeToEvents` [[121]](#ref-121)                         |
 
 **Why it exists.** EIP-234 documents why a log query needs to name its own
 position. A subscription-based consumer cannot reliably track removals: "A
@@ -1230,9 +1230,15 @@ query can therefore succeed against one client and fail against another.
 - **Logos L1**: Events are retrievable one block at a time with no filter by
   address, type, or range [[119]](#ref-119), so following an account means
   fetching and scanning every block.
-- **LEZ**: Program execution emits no events or logs at all: program output
-  carries state and chained calls only [[119]](#ref-119), so there is nothing to
-  query and no way for a program to signal what it did.
+- **LEZ**: No gap at the pinned commit's successor. At `47eba25` program output
+  carried state and chained calls only [[119]](#ref-119), but an event system
+  has since merged to the default branch: `ProgramOutput` gained an `events`
+  field, and events are queryable by `getEvents`, by a `subscribeToEvents`
+  subscription, and over the FFI as `query_events`, filtered by block range,
+  transaction hash, program, and selector [[121]](#ref-121). Two limits remain:
+  events are dropped for privacy-preserving transactions, and an indexer
+  captures only what its configured event filter matches, so availability is a
+  deployment property rather than a protocol guarantee.
 
 ### 1.29 Read historical state at a past version
 
@@ -1372,7 +1378,7 @@ occur.
 | NEAR     | [NOT FOUND] [[13]](#ref-13)                                | [NOT FOUND] [[13]](#ref-13)                                             |
 | Sui      | `SubscriptionService.SubscribeCheckpoints` [[15]](#ref-15) | `SubscribeEvents`, `SubscribeTransactions` [[15]](#ref-15)              |
 | Logos L1 | `GET /cryptarchia/events/blocks/stream` [[19]](#ref-19)    | [NOT FOUND] as a filtered event stream [[19]](#ref-19)                  |
-| LEZ      | indexer `subscribeToFinalizedBlocks` [[22]](#ref-22)       | [NOT FOUND] [[22]](#ref-22)                                             |
+| LEZ      | indexer `subscribeToFinalizedBlocks` [[22]](#ref-22)       | indexer `subscribeToEvents` [[121]](#ref-121)                           |
 
 **Why it exists.** No specific or relevant context has been found.
 
@@ -1381,10 +1387,11 @@ occur.
 - **Logos L1**: The live block stream takes no parameters [[119]](#ref-119), so
   there is no filtered event or account subscription and every consumer receives
   every block in full.
-- **LEZ**: No FFI exposes a subscription. `subscribeToFinalizedBlocks` exists on
-  the indexer RPC without an FFI export, the indexer FFI is request-response
-  only, and the indexer module declares no signals [[120]](#ref-120), so an
-  application follows the chain by polling.
+- **LEZ**: No FFI exposes a subscription. `subscribeToFinalizedBlocks` and
+  `subscribeToEvents` both exist on the indexer RPC without an FFI export
+  [[121]](#ref-121), the indexer FFI is request-response only, and the indexer
+  module declares no signals [[120]](#ref-120), so an application follows the
+  chain by polling.
 
 ### 1.33 Resume a stream from a known position
 
@@ -2052,3 +2059,12 @@ and carries no resume anchor [[81]](#ref-81).
      inventories the LEZ indexer FFI, indexer RPC, sequencer RPC, wallet FFI and
      `lez_core` module, and the Logos L1 C bindings, HTTP routes, and module,
      each read from source at the commits named there. ./logos-api-surfaces.md
+121. <a id="ref-121"></a>logos-execution-zone, LEZ program events, read on the
+     `dev` default branch at commit `b0cc48d`, after the pinned `47eba25`.
+     `ProgramEvent` and `ProgramOutput.events` at
+     `lee/state_machine/core/src/program/mod.rs`; `getEvents` and
+     `subscribeToEvents` at `lez/indexer/service/rpc/src/lib.rs`; `query_events`
+     at `lez/indexer/ffi/src/api/query.rs`; `EventRecord` and `GetEventsFilter`
+     at `lez/indexer/service/protocol/src/lib.rs`; the capture filter at
+     `lez/indexer/core/src/event_filter.rs`.
+     https://github.com/logos-blockchain/logos-execution-zone

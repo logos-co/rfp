@@ -53,12 +53,13 @@ Logos L1 has a single stack:
 ## 1. LEZ Indexer FFI
 
 `lez/indexer/ffi/src/api/`. Ten exported functions: eight queries plus two
-lifecycle. This is the read surface an application reaches through
-`lez_indexer_module`, whose eleven public methods wrap all eight queries and
-both lifecycle functions, plus one method the FFI does not have: `reset_storage`
-calls the module's own stop and then deletes the store directory from C++. The
-module also flattens the FFI's error signalling, returning an empty string for
-both not-found and failure.
+lifecycle. A ninth query, `query_events`, has since been added on the default
+branch and is not counted in this section or its table. This is the read surface
+an application reaches through `lez_indexer_module`, whose eleven public methods
+wrap all eight queries and both lifecycle functions, plus one method the FFI
+does not have: `reset_storage` calls the module's own stop and then deletes the
+store directory from C++. The module also flattens the FFI's error signalling,
+returning an empty string for both not-found and failure.
 
 | Function                        | Parameters                               | Returns                                             |
 | ------------------------------- | ---------------------------------------- | --------------------------------------------------- |
