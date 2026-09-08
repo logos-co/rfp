@@ -89,6 +89,12 @@ Click an RFP to view details. Use the Submit Proposal button to apply.
 | RFP-017 | [Privacy-Preserving Token Vesting](RFPs/RFP-017-token-vesting.md)                    | L    | open   | 09/09/26            | Applications & Integrations        | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
 | RFP-019 | [On-Chain TWAP Oracle](RFPs/RFP-019-twap-oracle.md)                                  | L    | closed | -                   | Developer Tooling & Infrastructure | Closed                                                                              |
 | RFP-020 | [RedStone Off-Chain Oracle Adaptor for LEZ](RFPs/RFP-020-redstone-oracle-adaptor.md) | M    | closed | -                   | Developer Tooling & Infrastructure | Closed                                                                              |
+| RFP-027 | [LEZ Indexer FFI](RFPs/RFP-027-lez-indexer-ffi.md)                                   | L    | open   | -                   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
+| RFP-028 | LEZ Wallet FFI                                                                       | -    | draft  | -                   | Developer Tooling & Infrastructure | Draft                                                                               |
+| RFP-029 | LEZ JSON-RPC Proxy Module                                                            | -    | draft  | -                   | Applications & Integrations        | Draft                                                                               |
+| RFP-030 | LEZ Wallet SDK                                                                       | -    | draft  | -                   | Applications & Integrations        | Draft                                                                               |
+| RFP-031 | LEZ Indexer SDK                                                                      | -    | draft  | -                   | Applications & Integrations        | Draft                                                                               |
+| RFP-032 | LEZ Transport Proxy Modules                                                          | -    | draft  | -                   | Applications & Integrations        | Draft                                                                               |
 
 <!-- RFP_TABLE_END -->
 

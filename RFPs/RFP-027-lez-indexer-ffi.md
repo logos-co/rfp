@@ -1,5 +1,5 @@
 ---
-id: RFP-021
+id: RFP-027
 title: LEZ Indexer FFI
 tier: L
 status: open
@@ -7,7 +7,7 @@ category: Developer Tooling & Infrastructure
 dependencies: []
 ---
 
-# RFP-021 — LEZ Indexer FFI
+# RFP-027 — LEZ Indexer FFI
 
 > **Note.** This specification describes an outcome that may benefit the Logos
 > ecosystem. It is a proposal rather than an instruction. Its requirements
