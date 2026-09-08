@@ -500,10 +500,6 @@ Pushing new blocks to a consumer instead of making it poll
 
 **`subscribe_to_finalized_blocks(from_block, callback, user_data) -> PointerResult<FfiSubscription, OperationStatus>`**
 
-TODO: having `indexer` at the start of every function is redundant. we already
-specified this is an indexer API, remove it unless there is one function that is
-not on the indexer in this RFP
-
 Registers a consumer that is called with each newly indexed block identifier,
 optionally resuming from a position the consumer already processed.
 
