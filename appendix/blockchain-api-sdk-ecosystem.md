@@ -1,7 +1,7 @@
 # Appendix: Blockchain API and SDK Ecosystem
 
 This appendix surveys what blockchain node APIs and client SDKs expose across
-eight established ecosystems: which functions they offer, which transports they
+nine established ecosystems: which functions they offer, which transports they
 serve them over, and which SDK languages they publish. It provides context for
 the blockchain API and SDK RFPs, covering the API surface itself, the JSON-RPC
 proxy and TypeScript SDK that consume it, and the further interface modules and
@@ -44,21 +44,35 @@ custodian, or payment provider must integrate them, and this order is maintained
 throughout the document. The set spans account and UTXO models and every major
 RPC style.
 
-| Chain    | State model | Primary node transport                                        | Machine-readable contract                               |
-| -------- | ----------- | ------------------------------------------------------------- | ------------------------------------------------------- |
-| Ethereum | Account     | JSON-RPC over HTTP and WebSocket [[1]](#ref-1)                | OpenRPC [[2]](#ref-2)                                   |
-| Bitcoin  | UTXO        | JSON-RPC over HTTP, plus REST [[3]](#ref-3)[[4]](#ref-4)      | none found                                              |
-| Solana   | Account     | JSON-RPC over HTTP and WebSocket [[5]](#ref-5)                | none found                                              |
-| XRPL     | Account     | JSON-RPC over HTTP and WebSocket [[6]](#ref-6)                | protobuf, internal only [[7]](#ref-7)                   |
-| Cosmos   | Account     | gRPC, REST, and JSON-RPC [[8]](#ref-8)[[9]](#ref-9)           | protobuf and OpenAPI [[10]](#ref-10)[[9]](#ref-9)       |
-| Stellar  | Account     | JSON-RPC over HTTP [[11]](#ref-11)                            | OpenRPC [[12]](#ref-12)                                 |
-| NEAR     | Account     | JSON-RPC over HTTP [[13]](#ref-13)                            | OpenAPI [[14]](#ref-14)                                 |
-| Sui      | Object      | gRPC, with JSON-RPC deprecated [[15]](#ref-15)[[16]](#ref-16) | protobuf and GraphQL SDL [[17]](#ref-17)[[18]](#ref-18) |
-| Logos L1 | Note based  | REST over HTTP [[19]](#ref-19)                                | OpenAPI [[20]](#ref-20)                                 |
-| LEZ      | Account     | JSON-RPC over HTTP and WebSocket [[21]](#ref-21)              | runtime `getSchema` only [[22]](#ref-22)                |
+| Chain    | State model              | Primary node transport                                                        | Machine-readable contract                               |
+| -------- | ------------------------ | ----------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Ethereum | Account                  | JSON-RPC over HTTP and WebSocket [[1]](#ref-1)                                | OpenRPC [[2]](#ref-2)                                   |
+| Bitcoin  | UTXO                     | JSON-RPC over HTTP, plus REST [[3]](#ref-3)[[4]](#ref-4)                      | none found                                              |
+| Zcash    | UTXO plus shielded notes | JSON-RPC over HTTP, plus lightwalletd gRPC [[122]](#ref-122)[[123]](#ref-123) | protobuf, light client only [[123]](#ref-123)           |
+| Solana   | Account                  | JSON-RPC over HTTP and WebSocket [[5]](#ref-5)                                | none found                                              |
+| XRPL     | Account                  | JSON-RPC over HTTP and WebSocket [[6]](#ref-6)                                | protobuf, internal only [[7]](#ref-7)                   |
+| Cosmos   | Account                  | gRPC, REST, and JSON-RPC [[8]](#ref-8)[[9]](#ref-9)                           | protobuf and OpenAPI [[10]](#ref-10)[[9]](#ref-9)       |
+| Stellar  | Account                  | JSON-RPC over HTTP [[11]](#ref-11)                                            | OpenRPC [[12]](#ref-12)                                 |
+| NEAR     | Account                  | JSON-RPC over HTTP [[13]](#ref-13)                                            | OpenAPI [[14]](#ref-14)                                 |
+| Sui      | Object                   | gRPC, with JSON-RPC deprecated [[15]](#ref-15)[[16]](#ref-16)                 | protobuf and GraphQL SDL [[17]](#ref-17)[[18]](#ref-18) |
+| Logos L1 | Note based               | REST over HTTP [[19]](#ref-19)                                                | OpenAPI [[20]](#ref-20)                                 |
+| LEZ      | Account                  | JSON-RPC over HTTP and WebSocket [[21]](#ref-21)                              | runtime `getSchema` only [[22]](#ref-22)                |
 
-All eight external chains expose the same broad capability families, so the
+All nine external chains expose the same broad capability families, so the
 interesting differences are in how each is shaped rather than whether it exists.
+
+Zcash is the one surveyed chain where a single ledger carries two read models. A
+transparent leg inherited from Bitcoin is readable by anyone, and a shielded leg
+is readable only by a party holding the relevant viewing key. Several of its
+rows below therefore split rather than resolve to one method, and several
+capabilities that look absent are absent only for the shielded side. A second
+split runs through the transparent leg itself: the address-indexed reads are
+part of the insight-explorer patch set, off by default and enabled with
+`txindex=1`, `experimentalfeatures=1`, and `insightexplorer=1`, after which the
+database must be reindexed [[124]](#ref-124). Where a Zcash cell names one of
+those methods it is marked as insight-explorer gated, because the capability is
+a deployment choice rather than something a client can assume of an arbitrary
+node.
 
 ## 1. API Functions
 
@@ -85,6 +99,7 @@ what the node actually runs.
 | -------- | -------------------------------------------------- |
 | Ethereum | `web3_clientVersion` [[23]](#ref-23)               |
 | Bitcoin  | `getnetworkinfo` [[24]](#ref-24)                   |
+| Zcash    | `getnetworkinfo`, `getinfo` [[122]](#ref-122)      |
 | Solana   | `getVersion` [[25]](#ref-25)                       |
 | XRPL     | `server_info` [[26]](#ref-26)                      |
 | Cosmos   | `GetNodeInfo` [[10]](#ref-10)                      |
@@ -138,6 +153,7 @@ can avoid reading stale state.
 | -------- | ------------------------------------------------------------------------------------- |
 | Ethereum | `eth_syncing` [[28]](#ref-28)                                                         |
 | Bitcoin  | `getblockchaininfo` [[24]](#ref-24)                                                   |
+| Zcash    | `getblockchaininfo` [[122]](#ref-122)                                                 |
 | Solana   | `getHealth` [[25]](#ref-25)                                                           |
 | XRPL     | `server_state` [[26]](#ref-26)                                                        |
 | Cosmos   | `/health`, `/status`, `GetSyncing` [[9]](#ref-9)[[10]](#ref-10)                       |
@@ -219,6 +235,7 @@ accidentally sign for or read from the wrong network.
 | -------- | -------------------------------------------------- |
 | Ethereum | `eth_chainId` [[28]](#ref-28)                      |
 | Bitcoin  | `getblockchaininfo` [[24]](#ref-24)                |
+| Zcash    | `getblockchaininfo` [[122]](#ref-122)              |
 | Solana   | `getGenesisHash` [[25]](#ref-25)                   |
 | XRPL     | `server_info` [[26]](#ref-26)                      |
 | Cosmos   | `/genesis`, `/genesis_chunked` [[9]](#ref-9)       |
@@ -264,6 +281,7 @@ validated against the live node.
 | -------- | ------------------------------------------------------------------------------------------------ |
 | Ethereum | [NOT FOUND] as a runtime method; spec is a committed OpenRPC corpus [[2]](#ref-2)[[28]](#ref-28) |
 | Bitcoin  | [NOT FOUND] [[24]](#ref-24)                                                                      |
+| Zcash    | [NOT FOUND] [[122]](#ref-122)                                                                    |
 | Solana   | [NOT FOUND] [[25]](#ref-25)                                                                      |
 | XRPL     | `server_definitions` [[26]](#ref-26)                                                             |
 | Cosmos   | [NOT FOUND] as an RPC; contract is committed `.proto` files [[29]](#ref-29)                      |
@@ -282,12 +300,12 @@ schema is not static: the response was itself extended in xrpld 3.2.0 to add
 transaction and ledger-entry format sections [[102]](#ref-102), which is the
 drift an SDK shipping a copied schema has to track.
 
-L1 serves an OpenAPI document at runtime, which Bitcoin and Solana do not,
-though it is incomplete: five wired routes including both signing endpoints are
-absent from it, most successful responses declare no body, and three component
-schemas are registered [[119]](#ref-119). The LEZ `getSchema` method returns a
-JSON Schema for the block type rather than an interface description, so a client
-cannot be generated from it [[22]](#ref-22).
+L1 serves an OpenAPI document at runtime, which Bitcoin, Zcash, and Solana do
+not, though it is incomplete: five wired routes including both signing endpoints
+are absent from it, most successful responses declare no body, and three
+component schemas are registered [[119]](#ref-119). The LEZ `getSchema` method
+returns a JSON Schema for the block type rather than an interface description,
+so a client cannot be generated from it [[22]](#ref-22).
 
 **Potential gaps.**
 
@@ -308,6 +326,7 @@ Fetches one block, ledger, or checkpoint and its contents by identifier.
 | -------- | -------------------------------------------------------------------------------------- |
 | Ethereum | `eth_getBlockByNumber`, `eth_getBlockByHash` [[23]](#ref-23)                           |
 | Bitcoin  | `getblock`, `getblockhash`, `getblockheader` [[24]](#ref-24)                           |
+| Zcash    | `getblock`, `getblockhash`, `getblockheader` [[122]](#ref-122)                         |
 | Solana   | `getBlock` [[25]](#ref-25)                                                             |
 | XRPL     | `ledger` [[26]](#ref-26)                                                               |
 | Cosmos   | `GetBlockByHeight`, `/block`, `/block_by_hash` [[10]](#ref-10)[[9]](#ref-9)            |
@@ -335,6 +354,7 @@ most subsequent reads.
 | -------- | ---------------------------------------------------------------------------------- |
 | Ethereum | `eth_blockNumber` [[28]](#ref-28)                                                  |
 | Bitcoin  | `getbestblockhash`, `getblockcount` [[24]](#ref-24)                                |
+| Zcash    | `getbestblockhash`, `getblockcount` [[122]](#ref-122)                              |
 | Solana   | `getSlot`, `getBlockHeight` [[25]](#ref-25)                                        |
 | XRPL     | `ledger_current`, `ledger_closed` [[26]](#ref-26)                                  |
 | Cosmos   | `GetLatestBlock` [[10]](#ref-10)                                                   |
@@ -358,20 +378,34 @@ most subsequent reads.
 
 Reads the ledger record for one address, account, or object.
 
-| Chain    | Method                                                                                    |
-| -------- | ----------------------------------------------------------------------------------------- |
-| Ethereum | `eth_getCode`, `eth_getStorageAt`; no single account object [[30]](#ref-30)               |
-| Bitcoin  | `gettxout`; UTXO model has no account record [[24]](#ref-24)                              |
-| Solana   | `getAccountInfo`, `getMultipleAccounts` [[25]](#ref-25)                                   |
-| XRPL     | `account_info`, `account_objects` [[26]](#ref-26)                                         |
-| Cosmos   | `auth Query.Account` [[31]](#ref-31)                                                      |
-| Stellar  | `getLedgerEntries` [[27]](#ref-27)                                                        |
-| NEAR     | `query` with an account request type [[13]](#ref-13)                                      |
-| Sui      | `sui_getObject`, `sui_multiGetObjects` [[17]](#ref-17)                                    |
-| Logos L1 | [NOT FOUND]; nearest is the custodial wallet balance route [[19]](#ref-19)                |
-| LEZ      | `getAccount`, indexer `getAccount` and `getAccountAtBlock` [[21]](#ref-21)[[22]](#ref-22) |
+| Chain    | Method                                                                                            |
+| -------- | ------------------------------------------------------------------------------------------------- |
+| Ethereum | `eth_getCode`, `eth_getStorageAt`; no single account object [[30]](#ref-30)                       |
+| Bitcoin  | `gettxout`; UTXO model has no account record [[24]](#ref-24)                                      |
+| Zcash    | `getaddressbalance`, insight-explorer gated; no account record [[122]](#ref-122)[[124]](#ref-124) |
+| Solana   | `getAccountInfo`, `getMultipleAccounts` [[25]](#ref-25)                                           |
+| XRPL     | `account_info`, `account_objects` [[26]](#ref-26)                                                 |
+| Cosmos   | `auth Query.Account` [[31]](#ref-31)                                                              |
+| Stellar  | `getLedgerEntries` [[27]](#ref-27)                                                                |
+| NEAR     | `query` with an account request type [[13]](#ref-13)                                              |
+| Sui      | `sui_getObject`, `sui_multiGetObjects` [[17]](#ref-17)                                            |
+| Logos L1 | [NOT FOUND]; nearest is the custodial wallet balance route [[19]](#ref-19)                        |
+| LEZ      | `getAccount`, indexer `getAccount` and `getAccountAtBlock` [[21]](#ref-21)[[22]](#ref-22)         |
 
 **Why it exists.** No specific or relevant context has been found.
+
+Zcash shows what an account read looks like when readability is a key rather
+than a permission. For transparent addresses `getaddressbalance` "Returns the
+balance for addresses" and takes the addresses themselves, so any party can read
+any transparent address, subject only to the node running with the
+insight-explorer options [[122]](#ref-122)[[124]](#ref-124). For shielded ones
+`z_getbalanceforviewingkey` takes a full viewing key as its argument and
+"Returns the balance viewable by a full viewing key known to the node's wallet
+for each value pool" [[122]](#ref-122). Two conditions therefore sit on the
+shielded read: the caller must hold the key, and the key must already have been
+imported into the node's wallet, so it is not a query a caller can make against
+an arbitrary node by presenting a key inline. There is no shielded balance read
+available to a party holding no key at all.
 
 **Potential gaps.**
 
@@ -388,18 +422,19 @@ Reads the ledger record for one address, account, or object.
 
 Returns the balance held by an address, for the native asset or a named token.
 
-| Chain    | Method                                                                          |
-| -------- | ------------------------------------------------------------------------------- |
-| Ethereum | `eth_getBalance` [[30]](#ref-30)                                                |
-| Bitcoin  | `getbalances`, `listunspent`, wallet scoped [[24]](#ref-24)                     |
-| Solana   | `getBalance`, `getTokenAccountBalance` [[25]](#ref-25)                          |
-| XRPL     | `account_info`, `gateway_balances`, `account_lines` [[26]](#ref-26)             |
-| Cosmos   | `bank Query.Balance`, `Query.AllBalances` [[32]](#ref-32)                       |
-| Stellar  | [NOT FOUND] on Stellar RPC; served by ledger entries or Horizon [[27]](#ref-27) |
-| NEAR     | `query` with `view_account` [[13]](#ref-13)                                     |
-| Sui      | `suix_getBalance`, `suix_getAllBalances` [[17]](#ref-17)                        |
-| Logos L1 | `GET /wallet/:public_key/balance`, custodial keys only [[19]](#ref-19)          |
-| LEZ      | `getAccountBalance` [[21]](#ref-21)                                             |
+| Chain    | Method                                                                                  |
+| -------- | --------------------------------------------------------------------------------------- |
+| Ethereum | `eth_getBalance` [[30]](#ref-30)                                                        |
+| Bitcoin  | `getbalances`, `listunspent`, wallet scoped [[24]](#ref-24)                             |
+| Zcash    | `getaddressbalance` transparent, `z_getbalanceforviewingkey` shielded [[122]](#ref-122) |
+| Solana   | `getBalance`, `getTokenAccountBalance` [[25]](#ref-25)                                  |
+| XRPL     | `account_info`, `gateway_balances`, `account_lines` [[26]](#ref-26)                     |
+| Cosmos   | `bank Query.Balance`, `Query.AllBalances` [[32]](#ref-32)                               |
+| Stellar  | [NOT FOUND] on Stellar RPC; served by ledger entries or Horizon [[27]](#ref-27)         |
+| NEAR     | `query` with `view_account` [[13]](#ref-13)                                             |
+| Sui      | `suix_getBalance`, `suix_getAllBalances` [[17]](#ref-17)                                |
+| Logos L1 | `GET /wallet/:public_key/balance`, custodial keys only [[19]](#ref-19)                  |
+| LEZ      | `getAccountBalance` [[21]](#ref-21)                                                     |
 
 **Why it exists.** No specific or relevant context has been found.
 
@@ -426,6 +461,7 @@ Retrieves a single transaction, and normally its result, by identifier.
 | -------- | ------------------------------------------------------------------------- |
 | Ethereum | `eth_getTransactionByHash` [[33]](#ref-33)                                |
 | Bitcoin  | `getrawtransaction` [[24]](#ref-24)                                       |
+| Zcash    | `getrawtransaction` [[122]](#ref-122)                                     |
 | Solana   | `getTransaction` [[25]](#ref-25)                                          |
 | XRPL     | `tx`, `transaction_entry` [[26]](#ref-26)                                 |
 | Cosmos   | `GetTx`, `/tx` [[29]](#ref-29)[[9]](#ref-9)                               |
@@ -470,6 +506,7 @@ without producing a transaction.
 | -------- | -------------------------------------------------------------- |
 | Ethereum | `eth_call` [[35]](#ref-35)                                     |
 | Bitcoin  | no equivalent; no contract layer [[24]](#ref-24)               |
+| Zcash    | no equivalent; no contract layer [[122]](#ref-122)             |
 | Solana   | `simulateTransaction`; no separate call method [[25]](#ref-25) |
 | XRPL     | no equivalent among public methods [[26]](#ref-26)             |
 | Cosmos   | `ABCIQuery` [[10]](#ref-10)                                    |
@@ -508,6 +545,7 @@ light-client verification.
 | -------- | ------------------------------------------------------------------------------ |
 | Ethereum | [NOT FOUND] on the execution API; consensus layer not surveyed [[28]](#ref-28) |
 | Bitcoin  | no equivalent; proof of work [[24]](#ref-24)                                   |
+| Zcash    | no equivalent; proof of work [[122]](#ref-122)                                 |
 | Solana   | `getVoteAccounts`, `getClusterNodes` [[25]](#ref-25)                           |
 | XRPL     | `manifest`, `feature` [[26]](#ref-26)                                          |
 | Cosmos   | `GetLatestValidatorSet`, `GetValidatorSetByHeight` [[10]](#ref-10)             |
@@ -537,6 +575,7 @@ carry to be valid.
 | -------- | ---------------------------------------------------------------------------- |
 | Ethereum | `eth_getTransactionCount` [[30]](#ref-30)                                    |
 | Bitcoin  | `listunspent`; UTXO selection, no nonce [[24]](#ref-24)                      |
+| Zcash    | `listunspent`, `z_listunspent`; UTXO and note selection [[122]](#ref-122)    |
 | Solana   | `getLatestBlockhash`, `isBlockhashValid` [[25]](#ref-25)                     |
 | XRPL     | `account_info` for the account sequence [[26]](#ref-26)                      |
 | Cosmos   | `auth Query.Account` for account number and sequence [[31]](#ref-31)         |
@@ -587,6 +626,7 @@ to a signer.
 | -------- | ------------------------------------------------------------------------------ |
 | Ethereum | [NOT FOUND] as a node method; construction is client side [[36]](#ref-36)      |
 | Bitcoin  | `createrawtransaction`, `createpsbt`, `walletcreatefundedpsbt` [[24]](#ref-24) |
+| Zcash    | `createrawtransaction`, `fundrawtransaction`; no PSBT [[122]](#ref-122)        |
 | Solana   | [NOT FOUND] as a node method [[25]](#ref-25)                                   |
 | XRPL     | [NOT FOUND] as a build-only method [[26]](#ref-26)                             |
 | Cosmos   | `TxEncode`, `TxEncodeAmino` [[29]](#ref-29)                                    |
@@ -603,6 +643,19 @@ people who use different wallet software from being able to easily do so." The
 goal was "a standard and extensible format that can be used between clients to
 allow people to pass around the same transaction to sign and combine their
 signatures" [[37]](#ref-37).
+
+Zcash is the counter-example to the assumption that a Bitcoin fork inherits
+Bitcoin's construction surface. It has `createrawtransaction` and
+`fundrawtransaction` but no PSBT method of any kind, so the multi-signer format
+BIP-174 introduced is absent from the node RPC [[122]](#ref-122). The equivalent
+was rebuilt in a library rather than on the node: the `pczt` crate in
+`librustzcash` "implements the Partially Created Zcash Transaction (PCZT)
+format", whose purpose is that it "enables splitting up the logical steps of
+creating a Zcash transaction across distinct entities", with roles that "roughly
+match those specified in BIP 174 ... and BIP 370 ... with additional
+Zcash-specific roles" [[133]](#ref-133). The same problem BIP-174 names is
+solved one layer up, which means an integrator reaches it through the Rust crate
+rather than through any node method.
 
 The reason construction stays client-side is a trust boundary. Aptos is the
 instructive case because it ships a server-side encoder anyway, as an escape
@@ -632,6 +685,7 @@ directions.
 | -------- | --------------------------------------------------------------------------------- |
 | Ethereum | [NOT FOUND] as a node method [[23]](#ref-23)                                      |
 | Bitcoin  | `decoderawtransaction`, `decodepsbt`, `converttopsbt` [[24]](#ref-24)             |
+| Zcash    | `decoderawtransaction`, `decodescript`; no PSBT codec [[122]](#ref-122)           |
 | Solana   | [NOT FOUND] as a node method [[25]](#ref-25)                                      |
 | XRPL     | [NOT FOUND]; `server_definitions` serves the codec schema instead [[26]](#ref-26) |
 | Cosmos   | `TxEncode`, `TxDecode`, `TxEncodeAmino`, `TxDecodeAmino` [[29]](#ref-29)          |
@@ -662,6 +716,7 @@ the outcome it would have had.
 | -------- | ---------------------------------------------------------------------- |
 | Ethereum | `eth_simulateV1`, `eth_call` [[35]](#ref-35)                           |
 | Bitcoin  | [NOT FOUND]; `testmempoolaccept` tests acceptance only [[24]](#ref-24) |
+| Zcash    | [NOT FOUND] [[122]](#ref-122)                                          |
 | Solana   | `simulateTransaction` [[25]](#ref-25)                                  |
 | XRPL     | `simulate` [[38]](#ref-38)                                             |
 | Cosmos   | `Simulate` [[29]](#ref-29)                                             |
@@ -698,9 +753,17 @@ copies both back into the transaction before submitting. `restorePreamble`
 signals that archived ledger entries must be restored first, so simulation can
 return a prerequisite rather than a simple pass or fail.
 
-Neither Logos target exposes simulation. Six of the eight surveyed chains
-execute the transaction and return its outcome; Bitcoin checks acceptance
-without executing, and NEAR exposes no equivalent.
+Neither Logos target exposes simulation. Six of the nine surveyed chains execute
+the transaction and return its outcome; Bitcoin checks acceptance without
+executing, and NEAR and Zcash expose no equivalent.
+
+Zcash is the one case where the absence follows from the state model rather than
+from an unfilled gap. A shielded transfer is authorised by a proof the sender
+constructs over notes only the sender can decrypt, so a node holds neither the
+inputs nor the witness material a simulation would need. The transparent leg has
+no such obstacle and still exposes nothing: Zcash carries no `testmempoolaccept`
+[[122]](#ref-122), so it does not inherit even the acceptance check Bitcoin
+offers, and a Zcash sender learns a transaction's fate only from submission.
 
 **Potential gaps.**
 
@@ -719,6 +782,7 @@ can set a sufficient limit.
 | -------- | ------------------------------------------------------------------------- |
 | Ethereum | `eth_estimateGas` [[35]](#ref-35)                                         |
 | Bitcoin  | no equivalent; cost is a function of size [[24]](#ref-24)                 |
+| Zcash    | no equivalent; the fee is a formula over actions [[125]](#ref-125)        |
 | Solana   | `simulateTransaction` returns compute units consumed [[25]](#ref-25)      |
 | XRPL     | no equivalent; fixed and scaling fee model [[26]](#ref-26)                |
 | Cosmos   | `Simulate`, "for estimating gas usage" [[29]](#ref-29)                    |
@@ -745,18 +809,19 @@ can set a sufficient limit.
 Returns the current market price of inclusion so a client can choose a fee that
 confirms without overpaying.
 
-| Chain    | Method                                                                       |
-| -------- | ---------------------------------------------------------------------------- |
-| Ethereum | `eth_feeHistory`, `eth_gasPrice`, `eth_maxPriorityFeePerGas` [[40]](#ref-40) |
-| Bitcoin  | `estimatesmartfee` [[24]](#ref-24)                                           |
-| Solana   | `getFeeForMessage`, `getRecentPrioritizationFees` [[25]](#ref-25)            |
-| XRPL     | `fee` [[26]](#ref-26)                                                        |
-| Cosmos   | [NOT FOUND] as a dedicated method; gas via `Simulate` [[29]](#ref-29)        |
-| Stellar  | `getFeeStats` [[27]](#ref-27)                                                |
-| NEAR     | `gas_price` [[13]](#ref-13)                                                  |
-| Sui      | `suix_getReferenceGasPrice` [[17]](#ref-17)                                  |
-| Logos L1 | `GET /mantle/gas-prices` [[19]](#ref-19)                                     |
-| LEZ      | [NOT FOUND] as a fee-estimation method [[21]](#ref-21)                       |
+| Chain    | Method                                                                           |
+| -------- | -------------------------------------------------------------------------------- |
+| Ethereum | `eth_feeHistory`, `eth_gasPrice`, `eth_maxPriorityFeePerGas` [[40]](#ref-40)     |
+| Bitcoin  | `estimatesmartfee` [[24]](#ref-24)                                               |
+| Zcash    | [NOT FOUND]; ZIP 317 fixes a conventional fee [[122]](#ref-122)[[125]](#ref-125) |
+| Solana   | `getFeeForMessage`, `getRecentPrioritizationFees` [[25]](#ref-25)                |
+| XRPL     | `fee` [[26]](#ref-26)                                                            |
+| Cosmos   | [NOT FOUND] as a dedicated method; gas via `Simulate` [[29]](#ref-29)            |
+| Stellar  | `getFeeStats` [[27]](#ref-27)                                                    |
+| NEAR     | `gas_price` [[13]](#ref-13)                                                      |
+| Sui      | `suix_getReferenceGasPrice` [[17]](#ref-17)                                      |
+| Logos L1 | `GET /mantle/gas-prices` [[19]](#ref-19)                                         |
+| LEZ      | [NOT FOUND] as a fee-estimation method [[21]](#ref-21)                           |
 
 **Why it exists.** EIP-1559 states the problem it set out to solve: first-price
 auctions require "complex fee estimation algorithms" that "often end up not
@@ -780,6 +845,7 @@ Produces the signature that authorises a constructed transaction.
 | -------- | -------------------------------------------------------------------------------- |
 | Ethereum | `eth_signTransaction` [[23]](#ref-23)                                            |
 | Bitcoin  | `signrawtransactionwithkey`, `walletprocesspsbt`, `finalizepsbt` [[24]](#ref-24) |
+| Zcash    | `signrawtransaction`, wallet scoped [[122]](#ref-122)                            |
 | Solana   | [NOT FOUND] as a node method; signing is client side [[25]](#ref-25)             |
 | XRPL     | `sign`, `sign_for` [[26]](#ref-26)                                               |
 | Cosmos   | [NOT FOUND] as a node method; signing is client side [[29]](#ref-29)             |
@@ -794,9 +860,9 @@ allow offline signers such as air-gapped wallets and hardware wallets to be able
 to sign transactions without needing direct access to the UTXO set and without
 risk of being defrauded" [[37]](#ref-37).
 
-Node-hosted signing is the historical pattern; five of the eight surveyed chains
+Node-hosted signing is the historical pattern; five of the nine surveyed chains
 have no node signing method at all. Logos L1 holds key material and signs on the
-node.
+node, as do Bitcoin, Zcash, XRPL, and Ethereum.
 
 Two projects have documented moving away from it. Go Ethereum removed the
 `personal` namespace after deprecating it for roughly twenty months behind an
@@ -812,7 +878,7 @@ security risks due to the tight integration of components" [[110]](#ref-110).
 **Potential gaps.**
 
 - **Logos L1**: The node holds key material and signs on request
-  [[119]](#ref-119), the pattern five of eight surveyed chains omit and two have
+  [[119]](#ref-119), the pattern five of nine surveyed chains omit and two have
   documented retreating from; the router applies no authentication and defaults
   CORS to any origin [[119]](#ref-119), and neither signing route appears in the
   served OpenAPI document.
@@ -829,6 +895,7 @@ key control.
 | -------- | --------------------------------------------------------------- |
 | Ethereum | `eth_sign` [[23]](#ref-23)                                      |
 | Bitcoin  | `signmessage`, `signmessagewithprivkey` [[24]](#ref-24)         |
+| Zcash    | `signmessage`, transparent keys only [[122]](#ref-122)          |
 | Solana   | [NOT FOUND] as a node method [[25]](#ref-25)                    |
 | XRPL     | [NOT FOUND] as a message-signing method [[26]](#ref-26)         |
 | Cosmos   | [NOT FOUND] as a node method [[29]](#ref-29)                    |
@@ -873,6 +940,7 @@ Checks a signature against a message and key without touching chain state.
 | -------- | -------------------------------------------------------------- |
 | Ethereum | [NOT FOUND] as a node method [[23]](#ref-23)                   |
 | Bitcoin  | `verifymessage` [[24]](#ref-24)                                |
+| Zcash    | `verifymessage` [[122]](#ref-122)                              |
 | Solana   | [NOT FOUND] as a node method [[25]](#ref-25)                   |
 | XRPL     | `channel_verify`, scoped to channel claims [[26]](#ref-26)     |
 | Cosmos   | [NOT FOUND] as a node method [[29]](#ref-29)                   |
@@ -901,6 +969,7 @@ identifier to track it by.
 | -------- | ---------------------------------------------------------------------------------------- |
 | Ethereum | `eth_sendRawTransaction` [[36]](#ref-36)                                                 |
 | Bitcoin  | `sendrawtransaction` [[24]](#ref-24)                                                     |
+| Zcash    | `sendrawtransaction` [[122]](#ref-122)                                                   |
 | Solana   | `sendTransaction` [[42]](#ref-42)                                                        |
 | XRPL     | `submit`, `submit_multisigned` [[26]](#ref-26)                                           |
 | Cosmos   | `BroadcastTx` [[29]](#ref-29), `/broadcast_tx_sync`, `/broadcast_tx_async` [[9]](#ref-9) |
@@ -952,6 +1021,7 @@ broadcasting, so a doomed transaction fails locally and cheaply.
 | -------- | ------------------------------------------------------------------------------ |
 | Ethereum | [NOT FOUND] as a distinct method [[36]](#ref-36)                               |
 | Bitcoin  | `testmempoolaccept` [[24]](#ref-24)                                            |
+| Zcash    | [NOT FOUND]; no `testmempoolaccept` [[122]](#ref-122)                          |
 | Solana   | preflight inside `sendTransaction`, `skipPreflight` to disable [[42]](#ref-42) |
 | XRPL     | `simulate` [[38]](#ref-38)                                                     |
 | Cosmos   | `/check_tx` [[9]](#ref-9)                                                      |
@@ -981,6 +1051,7 @@ unit.
 | -------- | ------------------------------------------------------------------------------------ |
 | Ethereum | JSON-RPC batch only, no atomic chain semantics [[43]](#ref-43)                       |
 | Bitcoin  | [NOT FOUND] on the fetched RPC reference [[24]](#ref-24)                             |
+| Zcash    | [NOT FOUND] [[122]](#ref-122)                                                        |
 | Solana   | [NOT FOUND]; batching is within one transaction [[25]](#ref-25)                      |
 | XRPL     | [NOT FOUND] [[26]](#ref-26)                                                          |
 | Cosmos   | [NOT FOUND]; batching is within a transaction's messages [[29]](#ref-29)             |
@@ -1023,6 +1094,7 @@ executed, or final, and whether it succeeded.
 | -------- | -------------------------------------------------------------------- |
 | Ethereum | `eth_getTransactionReceipt` [[33]](#ref-33)                          |
 | Bitcoin  | `gettransaction`, wallet scoped [[24]](#ref-24)                      |
+| Zcash    | `gettransaction`, wallet scoped [[122]](#ref-122)                    |
 | Solana   | `getSignatureStatuses` [[44]](#ref-44)                               |
 | XRPL     | `tx` [[26]](#ref-26)                                                 |
 | Cosmos   | `GetTx`, `/tx` [[29]](#ref-29)[[9]](#ref-9)                          |
@@ -1036,6 +1108,19 @@ executed, or final, and whether it succeeded.
 
 Solana's `getSignatureStatuses` returns a `confirmationStatus` of processed,
 confirmed, or finalized [[44]](#ref-44).
+
+Zcash is the clearest case in the survey of a confirmation policy that lives
+outside the API. `gettransaction` returns a `confirmations` count, but it is
+wallet scoped, documented as returning "detailed information about in-wallet
+transaction" and as excluding the shielded components, which are reached through
+`z_viewtransaction` instead [[122]](#ref-122). What counts as settled is then
+specified for wallets rather than served by the node: ZIP 315 sets the threshold
+at "3 confirmations, for trusted TXOs" and "10 confirmations, for untrusted
+TXOs", and states that wallets "SHOULD NOT permit the spending of TXOs with
+fewer than 3 confirmations" apart from named shielding exceptions
+[[132]](#ref-132). The node reports depth and the standard assigns it meaning,
+so two wallets reading the same response can disagree about whether a payment
+has settled unless both implement the same ZIP.
 
 **Potential gaps.**
 
@@ -1058,6 +1143,7 @@ rather than making the caller poll.
 | -------- | ------------------------------------------------------------------- |
 | Ethereum | [NOT FOUND]; SDKs poll receipts [[36]](#ref-36)                     |
 | Bitcoin  | [NOT FOUND] as a wait method [[24]](#ref-24)                        |
+| Zcash    | [NOT FOUND] as a wait method [[122]](#ref-122)                      |
 | Solana   | `signatureSubscribe`, push rather than blocking [[45]](#ref-45)     |
 | XRPL     | [NOT FOUND]; poll `tx` or use `subscribe` [[26]](#ref-26)           |
 | Cosmos   | `/broadcast_tx_commit` [[9]](#ref-9)                                |
@@ -1076,7 +1162,9 @@ This is one of the sharpest divergences in the survey. NEAR parameterises the
 milestone on one method, offering `NONE`, `INCLUDED`, `EXECUTED_OPTIMISTIC`,
 `INCLUDED_FINAL`, `EXECUTED`, and `FINAL` [[34]](#ref-34). Cosmos splits it
 across three broadcast endpoints. Solana turns it into a subscription. Ethereum,
-Bitcoin, XRPL, and Stellar leave it to client-side polling.
+Bitcoin, Zcash, XRPL, and Stellar leave it to client-side polling, and on Zcash
+what the client polls for is set by ZIP 315 rather than by the node
+[[132]](#ref-132).
 
 NEAR's six levels replaced a binary choice. The originating issue states the
 problem as "Currently there is only option to either broadcast tx or broadcast
@@ -1113,6 +1201,7 @@ Lists transactions the node holds but has not yet included in a block.
 | -------- | ------------------------------------------------------------------------ |
 | Ethereum | `eth_newPendingTransactionFilter`; no direct dump [[46]](#ref-46)        |
 | Bitcoin  | `getrawmempool`, `getmempoolentry`, `getmempoolinfo` [[24]](#ref-24)     |
+| Zcash    | `getrawmempool`, `getmempoolinfo`, `getaddressmempool` [[122]](#ref-122) |
 | Solana   | [NOT FOUND]; no mempool, transactions forward to leaders [[25]](#ref-25) |
 | XRPL     | [NOT FOUND] [[26]](#ref-26)                                              |
 | Cosmos   | `/unconfirmed_txs`, `/num_unconfirmed_txs` [[9]](#ref-9)                 |
@@ -1138,23 +1227,42 @@ Lists transactions the node holds but has not yet included in a block.
 Returns the concrete state deltas a transaction produced, rather than just a
 success flag.
 
-| Chain    | Method                                                                    |
-| -------- | ------------------------------------------------------------------------- |
-| Ethereum | `eth_getTransactionReceipt`; effects inferred from logs [[33]](#ref-33)   |
-| Bitcoin  | [NOT FOUND]; effects implicit in the UTXO set delta [[24]](#ref-24)       |
-| Solana   | `getTransaction`, with pre and post balances [[25]](#ref-25)              |
-| XRPL     | `tx` metadata describing how the ledger changed [[47]](#ref-47)           |
-| Cosmos   | `GetBlockResults`, `GetLatestBlockResults` [[10]](#ref-10)                |
-| Stellar  | `GET /effects` on Horizon, a first-class effects resource [[48]](#ref-48) |
-| NEAR     | `changes`, `block_effects` [[13]](#ref-13)                                |
-| Sui      | `sui_getTransactionBlock` effects [[17]](#ref-17)                         |
-| Logos L1 | `GET /cryptarchia/blocks/:id/events`, block scoped [[19]](#ref-19)        |
-| LEZ      | [NOT FOUND] as a queryable per-transaction effects view [[21]](#ref-21)   |
+| Chain    | Method                                                                       |
+| -------- | ---------------------------------------------------------------------------- |
+| Ethereum | `eth_getTransactionReceipt`; effects inferred from logs [[33]](#ref-33)      |
+| Bitcoin  | [NOT FOUND]; effects implicit in the UTXO set delta [[24]](#ref-24)          |
+| Zcash    | `z_viewtransaction` shielded, `getblockdeltas` transparent [[122]](#ref-122) |
+| Solana   | `getTransaction`, with pre and post balances [[25]](#ref-25)                 |
+| XRPL     | `tx` metadata describing how the ledger changed [[47]](#ref-47)              |
+| Cosmos   | `GetBlockResults`, `GetLatestBlockResults` [[10]](#ref-10)                   |
+| Stellar  | `GET /effects` on Horizon, a first-class effects resource [[48]](#ref-48)    |
+| NEAR     | `changes`, `block_effects` [[13]](#ref-13)                                   |
+| Sui      | `sui_getTransactionBlock` effects [[17]](#ref-17)                            |
+| Logos L1 | `GET /cryptarchia/blocks/:id/events`, block scoped [[19]](#ref-19)           |
+| LEZ      | [NOT FOUND] as a queryable per-transaction effects view [[21]](#ref-21)      |
 
 **Why it exists.** No specific or relevant context has been found.
 
 Stellar is the only surveyed chain with a dedicated effects resource rather than
 effects inferred from logs or receipts.
+
+Zcash is the only surveyed chain where the answer depends on who is asking. The
+transparent leg has an effects view of the kind Bitcoin lacks: `getblockdeltas`
+"Returns information about the given block and its transactions" and
+`getspentinfo` "Returns the txid and index where an output is spent"
+[[122]](#ref-122), so the input and output movements of a block are readable
+rather than reconstructed. Both are insight-explorer methods, off unless the
+node was started with `txindex=1`, `experimentalfeatures=1`, and
+`insightexplorer=1` and then reindexed [[124]](#ref-124), so they are a property
+of the deployment rather than of the chain.
+
+The shielded leg has no public counterpart at all. `z_viewtransaction` returns
+the spends and outputs with their pools, addresses, values, and memos, but is
+documented as returning "detailed shielded information about in-wallet
+transaction" [[122]](#ref-122): it reads what the node's own wallet holds keys
+for. A third party therefore sees transparent effects openly and shielded
+effects not at all, and no parameterisation of the node call changes that,
+because the entitlement is cryptographic rather than an access-control setting.
 
 **What comes back, and how it grew.** Ethereum's receipt is a record of several
 upgrades accumulating in one response type, with fields conditionally present by
@@ -1198,6 +1306,7 @@ type.
 | -------- | -------------------------------------------------------------------------- |
 | Ethereum | `eth_getLogs` [[46]](#ref-46)                                              |
 | Bitcoin  | no equivalent; no contract layer [[24]](#ref-24)                           |
+| Zcash    | no equivalent; no contract layer [[122]](#ref-122)                         |
 | Solana   | `logsSubscribe` for push; `getTransaction` per transaction [[45]](#ref-45) |
 | XRPL     | no equivalent; transaction metadata serves the purpose [[26]](#ref-26)     |
 | Cosmos   | `GetTxsEvent`, `/tx_search` [[29]](#ref-29)                                |
@@ -1244,18 +1353,19 @@ query can therefore succeed against one client and fail against another.
 
 Reads a ledger record as it stood at an earlier block, ledger, or version.
 
-| Chain    | Method                                                               |
-| -------- | -------------------------------------------------------------------- |
-| Ethereum | block-tag parameter on state methods [[30]](#ref-30)                 |
-| Bitcoin  | `gettxoutproof`, `verifytxoutproof` [[24]](#ref-24)                  |
-| Solana   | `getBlock`, `getTransaction` bounded by retention [[25]](#ref-25)    |
-| XRPL     | `ledger_entry`, `ledger_data` with `ledger_index` [[26]](#ref-26)    |
-| Cosmos   | height-parameterised queries [[10]](#ref-10)                         |
-| Stellar  | `getLedgerEntries` [[27]](#ref-27)                                   |
-| NEAR     | `query` and `changes` with `block_id` [[13]](#ref-13)                |
-| Sui      | `sui_tryGetPastObject`, `sui_tryMultiGetPastObjects` [[17]](#ref-17) |
-| Logos L1 | `?tip=` parameter on the wallet balance route [[19]](#ref-19)        |
-| LEZ      | indexer `getAccountAtBlock` [[22]](#ref-22)                          |
+| Chain    | Method                                                                            |
+| -------- | --------------------------------------------------------------------------------- |
+| Ethereum | block-tag parameter on state methods [[30]](#ref-30)                              |
+| Bitcoin  | `gettxoutproof`, `verifytxoutproof` [[24]](#ref-24)                               |
+| Zcash    | `z_gettreestate`, `gettxoutproof`, `asOfHeight` on wallet reads [[122]](#ref-122) |
+| Solana   | `getBlock`, `getTransaction` bounded by retention [[25]](#ref-25)                 |
+| XRPL     | `ledger_entry`, `ledger_data` with `ledger_index` [[26]](#ref-26)                 |
+| Cosmos   | height-parameterised queries [[10]](#ref-10)                                      |
+| Stellar  | `getLedgerEntries` [[27]](#ref-27)                                                |
+| NEAR     | `query` and `changes` with `block_id` [[13]](#ref-13)                             |
+| Sui      | `sui_tryGetPastObject`, `sui_tryMultiGetPastObjects` [[17]](#ref-17)              |
+| Logos L1 | `?tip=` parameter on the wallet balance route [[19]](#ref-19)                     |
+| LEZ      | indexer `getAccountAtBlock` [[22]](#ref-22)                                       |
 
 **Why it exists.** EIP-1898 gives the clearest statement, and it is about read
 coherence rather than archival curiosity. Without a way to pin the block, "a
@@ -1293,18 +1403,19 @@ guarantee/SLA that objects with past versions can be retrieved by this API"
 
 Walks a long result set in bounded pages.
 
-| Chain    | Method                                                                               |
-| -------- | ------------------------------------------------------------------------------------ |
-| Ethereum | [NOT FOUND] as a cursor scheme; `eth_getLogs` bounds by block range [[46]](#ref-46)  |
-| Bitcoin  | `listtransactions` with count and skip, offset style [[24]](#ref-24)                 |
-| Solana   | `getSignaturesForAddress` with before, until, and limit [[25]](#ref-25)              |
-| XRPL     | `account_tx` with a stable `marker` [[47]](#ref-47)                                  |
-| Cosmos   | shared `PageRequest` and `PageResponse` messages [[49]](#ref-49)                     |
-| Stellar  | `cursor`, `limit`, `order`, and `_links.next` [[50]](#ref-50)                        |
-| NEAR     | [NOT FOUND] as a general cursor [[13]](#ref-13)                                      |
-| Sui      | cursor paging on `suix_queryTransactionBlocks` and siblings [[17]](#ref-17)          |
-| Logos L1 | [NOT FOUND] as a cursor scheme [[19]](#ref-19)                                       |
-| LEZ      | `getBlocks` uses a cursor; `getTransactionsByAccount` uses an offset [[22]](#ref-22) |
+| Chain    | Method                                                                                |
+| -------- | ------------------------------------------------------------------------------------- |
+| Ethereum | [NOT FOUND] as a cursor scheme; `eth_getLogs` bounds by block range [[46]](#ref-46)   |
+| Bitcoin  | `listtransactions` with count and skip, offset style [[24]](#ref-24)                  |
+| Zcash    | `listtransactions` count and skip; `getaddresstxids` height bounded [[122]](#ref-122) |
+| Solana   | `getSignaturesForAddress` with before, until, and limit [[25]](#ref-25)               |
+| XRPL     | `account_tx` with a stable `marker` [[47]](#ref-47)                                   |
+| Cosmos   | shared `PageRequest` and `PageResponse` messages [[49]](#ref-49)                      |
+| Stellar  | `cursor`, `limit`, `order`, and `_links.next` [[50]](#ref-50)                         |
+| NEAR     | [NOT FOUND] as a general cursor [[13]](#ref-13)                                       |
+| Sui      | cursor paging on `suix_queryTransactionBlocks` and siblings [[17]](#ref-17)           |
+| Logos L1 | [NOT FOUND] as a cursor scheme [[19]](#ref-19)                                        |
+| LEZ      | `getBlocks` uses a cursor; `getTransactionsByAccount` uses an offset [[22]](#ref-22)  |
 
 **Why it exists.** No specific or relevant context has been found.
 
@@ -1336,23 +1447,38 @@ uses both a cursor and an offset idiom in one interface.
 
 Returns the transaction history touching a given account.
 
-| Chain    | Method                                                              |
-| -------- | ------------------------------------------------------------------- |
-| Ethereum | [NOT FOUND] on the standard node API [[46]](#ref-46)                |
-| Bitcoin  | `listtransactions`, `listsinceblock`, wallet scoped [[24]](#ref-24) |
-| Solana   | `getSignaturesForAddress` [[25]](#ref-25)                           |
-| XRPL     | `account_tx` [[47]](#ref-47)                                        |
-| Cosmos   | `GetTxsEvent`, `/tx_search` [[29]](#ref-29)                         |
-| Stellar  | `getTransactions`, plus Horizon collections [[27]](#ref-27)         |
-| NEAR     | [NOT FOUND] on the RPC [[13]](#ref-13)                              |
-| Sui      | `suix_queryTransactionBlocks` [[17]](#ref-17)                       |
-| Logos L1 | [NOT FOUND] [[19]](#ref-19)                                         |
-| LEZ      | indexer `getTransactionsByAccount` [[22]](#ref-22)                  |
+| Chain    | Method                                                                              |
+| -------- | ----------------------------------------------------------------------------------- |
+| Ethereum | [NOT FOUND] on the standard node API [[46]](#ref-46)                                |
+| Bitcoin  | `listtransactions`, `listsinceblock`, wallet scoped [[24]](#ref-24)                 |
+| Zcash    | `getaddresstxids` transparent, `z_listreceivedbyaddress` shielded [[122]](#ref-122) |
+| Solana   | `getSignaturesForAddress` [[25]](#ref-25)                                           |
+| XRPL     | `account_tx` [[47]](#ref-47)                                                        |
+| Cosmos   | `GetTxsEvent`, `/tx_search` [[29]](#ref-29)                                         |
+| Stellar  | `getTransactions`, plus Horizon collections [[27]](#ref-27)                         |
+| NEAR     | [NOT FOUND] on the RPC [[13]](#ref-13)                                              |
+| Sui      | `suix_queryTransactionBlocks` [[17]](#ref-17)                                       |
+| Logos L1 | [NOT FOUND] [[19]](#ref-19)                                                         |
+| LEZ      | indexer `getTransactionsByAccount` [[22]](#ref-22)                                  |
 
 **Why it exists.** No specific or relevant context has been found.
 
 Ethereum has no address-history method on the standard node API, which is why
 third-party indexers occupy that role.
+
+Zcash again splits by pool, and the two halves paginate differently.
+`getaddresstxids` "Returns the txids for given transparent addresses within the
+given (inclusive) block height range, default is the full blockchain", bounding
+a page by `start` and `end` heights rather than by a cursor, and is
+insight-explorer gated [[122]](#ref-122)[[124]](#ref-124). The shielded
+equivalent, `z_listreceivedbyaddress`, returns "a list of amounts received by a
+zaddr belonging to the node's wallet", so it is again reachable only for keys
+the node holds. It carries an `asOfHeight` parameter that executes the query as
+though the chain stood at a chosen height [[122]](#ref-122), which pins a read
+against a moving chain in the way EIP-1898 argues for, and is the same parameter
+`z_getbalanceforviewingkey`, `gettransaction`, and `listtransactions` accept.
+Height bounding rather than cursoring means a caller re-deriving its position
+from heights it has already scanned, and no method returns a next position.
 
 **Potential gaps.**
 
@@ -1367,20 +1493,39 @@ third-party indexers occupy that role.
 Pushes new blocks, or matching events and account changes, to the client as they
 occur.
 
-| Chain    | Blocks                                                     | Events or accounts                                                      |
-| -------- | ---------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Ethereum | `eth_subscribe("newHeads")` [[51]](#ref-51)                | `eth_subscribe("logs")` [[51]](#ref-51)                                 |
-| Bitcoin  | `-zmqpubhashblock`, `-zmqpubrawblock` [[52]](#ref-52)      | `-zmqpubrawtx`, `-zmqpubsequence` [[52]](#ref-52)                       |
-| Solana   | `slotSubscribe`, `blockSubscribe` [[45]](#ref-45)          | `accountSubscribe`, `programSubscribe`, `logsSubscribe` [[45]](#ref-45) |
-| XRPL     | `subscribe` ledger stream [[26]](#ref-26)                  | `subscribe` transaction and account streams [[26]](#ref-26)             |
-| Cosmos   | `/subscribe` [[9]](#ref-9)                                 | `/subscribe` with an event query [[9]](#ref-9)                          |
-| Stellar  | Horizon streaming mode [[48]](#ref-48)                     | Horizon streaming mode [[48]](#ref-48)                                  |
-| NEAR     | [NOT FOUND] [[13]](#ref-13)                                | [NOT FOUND] [[13]](#ref-13)                                             |
-| Sui      | `SubscriptionService.SubscribeCheckpoints` [[15]](#ref-15) | `SubscribeEvents`, `SubscribeTransactions` [[15]](#ref-15)              |
-| Logos L1 | `GET /cryptarchia/events/blocks/stream` [[19]](#ref-19)    | [NOT FOUND] as a filtered event stream [[19]](#ref-19)                  |
-| LEZ      | indexer `subscribeToFinalizedBlocks` [[22]](#ref-22)       | indexer `subscribeToEvents` [[121]](#ref-121)                           |
+| Chain    | Blocks                                                                     | Events or accounts                                                                     |
+| -------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Ethereum | `eth_subscribe("newHeads")` [[51]](#ref-51)                                | `eth_subscribe("logs")` [[51]](#ref-51)                                                |
+| Bitcoin  | `-zmqpubhashblock`, `-zmqpubrawblock` [[52]](#ref-52)                      | `-zmqpubrawtx`, `-zmqpubsequence` [[52]](#ref-52)                                      |
+| Zcash    | ZeroMQ, or lightwalletd `GetBlockRange` [[126]](#ref-126)[[123]](#ref-123) | `-zmqpubrawtx`, `-zmqpubhashtx`; `GetMempoolStream` [[126]](#ref-126)[[123]](#ref-123) |
+| Solana   | `slotSubscribe`, `blockSubscribe` [[45]](#ref-45)                          | `accountSubscribe`, `programSubscribe`, `logsSubscribe` [[45]](#ref-45)                |
+| XRPL     | `subscribe` ledger stream [[26]](#ref-26)                                  | `subscribe` transaction and account streams [[26]](#ref-26)                            |
+| Cosmos   | `/subscribe` [[9]](#ref-9)                                                 | `/subscribe` with an event query [[9]](#ref-9)                                         |
+| Stellar  | Horizon streaming mode [[48]](#ref-48)                                     | Horizon streaming mode [[48]](#ref-48)                                                 |
+| NEAR     | [NOT FOUND] [[13]](#ref-13)                                                | [NOT FOUND] [[13]](#ref-13)                                                            |
+| Sui      | `SubscriptionService.SubscribeCheckpoints` [[15]](#ref-15)                 | `SubscribeEvents`, `SubscribeTransactions` [[15]](#ref-15)                             |
+| Logos L1 | `GET /cryptarchia/events/blocks/stream` [[19]](#ref-19)                    | [NOT FOUND] as a filtered event stream [[19]](#ref-19)                                 |
+| LEZ      | indexer `subscribeToFinalizedBlocks` [[22]](#ref-22)                       | indexer `subscribeToEvents` [[121]](#ref-121)                                          |
 
 **Why it exists.** No specific or relevant context has been found.
+
+Zcash reaches this capability from a different layer than the rest of the
+survey. There is no JSON-RPC subscription on `zcashd`; the node's own push
+surface is ZeroMQ, publishing under `-zmqpubhashblock`, `-zmqpubrawblock`,
+`-zmqpubhashtx`, and `-zmqpubrawtx` [[126]](#ref-126). Note that unlike Bitcoin
+it has no `-zmqpubsequence` publisher, so the loss-detection channel Bitcoin
+offers is absent.
+
+The streaming interface an integrator actually uses sits on lightwalletd, the
+light-client server, as gRPC rather than on the node. Its
+`GetBlockRange(BlockRange) returns (stream CompactBlock)` returns "a list of
+consecutive compact blocks in the specified range, which is inclusive of
+`range.end`", where `BlockRange` carries a `start` and an `end` `BlockID` and
+"Both BlockIDs must be heights; specification by hash is not yet supported"
+[[123]](#ref-123). The same proto notes that the stream runs in decreasing
+height order when `start` exceeds `end` [[123]](#ref-123). This is a bounded
+range query served as a stream rather than an open-ended subscription, which is
+why it appears again under stream resumption below.
 
 **Potential gaps.**
 
@@ -1402,6 +1547,7 @@ without gaps.
 | -------- | ---------------------------------------------------------------------------- |
 | Ethereum | [NOT FOUND] [[51]](#ref-51)                                                  |
 | Bitcoin  | `-zmqpubsequence` allows loss detection, not replay [[52]](#ref-52)          |
+| Zcash    | lightwalletd `GetBlockRange` takes a height range [[123]](#ref-123)          |
 | Solana   | [NOT FOUND] [[45]](#ref-45)                                                  |
 | XRPL     | [NOT FOUND] for streams; `marker` covers historical paging [[26]](#ref-26)   |
 | Cosmos   | [NOT FOUND] [[9]](#ref-9)                                                    |
@@ -1417,8 +1563,12 @@ This is the weakest-supported capability in the survey, and that is itself the
 finding. Among the surveyed chains only Stellar documents cursor-based
 resumption on a live stream: "Horizon will start at the earliest known effect
 unless a cursor is set, in which case it will start from that cursor"
-[[48]](#ref-48). Bitcoin offers loss detection without replay. The other six
-document no resume mechanism.
+[[48]](#ref-48). Zcash reaches the same outcome by a different route, since
+lightwalletd's `GetBlockRange` takes an explicit start and end height rather
+than opening an unbounded stream [[123]](#ref-123), so a consumer resumes by
+asking for the range it has not yet seen. That is resumption as a consequence of
+never having an unresumable stream in the first place. Bitcoin offers loss
+detection without replay. The other six document no resume mechanism.
 
 There is a mechanical reason the majority lack it. Server-sent events carry
 resumption in the transport: the `Last-Event-ID` header "reports an EventSource
@@ -1454,6 +1604,7 @@ clients can branch on failure type rather than parsing strings.
 | -------- | ------------------------------------------------------- | --------------------------------------------------------- |
 | Ethereum | JSON-RPC 2.0 error object [[43]](#ref-43)               | JSON-RPC codes [[43]](#ref-43)                            |
 | Bitcoin  | JSON-RPC error object [[3]](#ref-3)                     | JSON-RPC codes [[43]](#ref-43)                            |
+| Zcash    | JSON-RPC error object [[122]](#ref-122)                 | Bitcoin-inherited numeric codes [[127]](#ref-127)         |
 | Solana   | JSON-RPC 2.0 error object [[43]](#ref-43)               | JSON-RPC codes [[43]](#ref-43)                            |
 | XRPL     | dedicated error format [[53]](#ref-53)                  | named string codes [[53]](#ref-53)                        |
 | Cosmos   | gRPC status [[54]](#ref-54)                             | gRPC canonical codes [[54]](#ref-54)                      |
@@ -1467,6 +1618,17 @@ clients can branch on failure type rather than parsing strings.
 defining provider codes on top of JSON-RPC: 4001 User Rejected Request, 4100
 Unauthorized, 4200 Unsupported Method, 4900 Disconnected, and 4901 Chain
 Disconnected [[56]](#ref-56).
+
+Zcash inherits its taxonomy wholesale. The enum in `src/rpc/protocol.h` is
+labelled "Bitcoin RPC error codes" in the Zcash tree itself, and carries
+Bitcoin's values unchanged: `RPC_MISC_ERROR` at -1, `RPC_TYPE_ERROR` at -3,
+`RPC_INVALID_ADDRESS_OR_KEY` at -5, `RPC_VERIFY_REJECTED` at -26, and the wallet
+block from -4 to -18 [[127]](#ref-127). The one Zcash addition is
+`RPC_WALLET_BACKUP_REQUIRED` at -18, commented "User must acknowledge backup of
+the mnemonic seed" [[127]](#ref-127), which is a wallet-policy condition rather
+than a shielded-execution one. No code distinguishes a shielded failure from a
+transparent one, and no published Zcash error taxonomy was found, so a client
+branching on failure type on Zcash is branching on Bitcoin's code set.
 
 Except for XRPL, which publishes a dedicated error-format page, the envelope
 rows follow from each chain's transport choice rather than from a per-chain
@@ -1499,18 +1661,29 @@ signal [[55]](#ref-55).
 
 ### 2.1 What each chain serves
 
-| Chain    | JSON-RPC HTTP              | JSON-RPC WS                | REST                         | gRPC                        | GraphQL             | Push                              |
-| -------- | -------------------------- | -------------------------- | ---------------------------- | --------------------------- | ------------------- | --------------------------------- |
-| Ethereum | yes [[1]](#ref-1)          | yes [[1]](#ref-1)          | no [[1]](#ref-1)             | [NOT FOUND]                 | yes [[57]](#ref-57) | WebSocket and IPC [[51]](#ref-51) |
-| Bitcoin  | yes [[3]](#ref-3)          | no [[3]](#ref-3)           | yes, read only [[4]](#ref-4) | [NOT FOUND]                 | [NOT FOUND]         | ZeroMQ [[52]](#ref-52)            |
-| Solana   | yes [[5]](#ref-5)          | yes [[5]](#ref-5)          | [NOT FOUND]                  | [NOT FOUND]                 | [NOT FOUND]         | WebSocket [[45]](#ref-45)         |
-| XRPL     | yes [[6]](#ref-6)          | yes [[6]](#ref-6)          | no [[58]](#ref-58)           | internal only [[7]](#ref-7) | [NOT FOUND]         | WebSocket only [[26]](#ref-26)    |
-| Cosmos   | yes [[9]](#ref-9)          | yes [[9]](#ref-9)          | yes [[8]](#ref-8)            | yes [[8]](#ref-8)           | [NOT FOUND]         | WebSocket [[9]](#ref-9)           |
-| Stellar  | yes [[11]](#ref-11)        | [NOT FOUND]                | Horizon [[48]](#ref-48)      | [NOT FOUND]                 | [NOT FOUND]         | SSE on Horizon [[59]](#ref-59)    |
-| NEAR     | yes [[13]](#ref-13)        | [NOT FOUND]                | [NOT FOUND]                  | [NOT FOUND]                 | [NOT FOUND]         | [NOT FOUND]                       |
-| Sui      | deprecated [[16]](#ref-16) | deprecated [[16]](#ref-16) | [NOT FOUND]                  | yes [[60]](#ref-60)         | yes [[18]](#ref-18) | gRPC streaming [[15]](#ref-15)    |
-| Logos L1 | no [[19]](#ref-19)         | no [[19]](#ref-19)         | yes [[19]](#ref-19)          | no [[19]](#ref-19)          | no [[19]](#ref-19)  | chunked HTTP [[19]](#ref-19)      |
-| LEZ      | yes [[21]](#ref-21)        | yes [[21]](#ref-21)        | no [[21]](#ref-21)           | no [[21]](#ref-21)          | no [[21]](#ref-21)  | WebSocket [[22]](#ref-22)         |
+| Chain    | JSON-RPC HTTP              | JSON-RPC WS                | REST                         | gRPC                           | GraphQL             | Push                              |
+| -------- | -------------------------- | -------------------------- | ---------------------------- | ------------------------------ | ------------------- | --------------------------------- |
+| Ethereum | yes [[1]](#ref-1)          | yes [[1]](#ref-1)          | no [[1]](#ref-1)             | [NOT FOUND]                    | yes [[57]](#ref-57) | WebSocket and IPC [[51]](#ref-51) |
+| Bitcoin  | yes [[3]](#ref-3)          | no [[3]](#ref-3)           | yes, read only [[4]](#ref-4) | [NOT FOUND]                    | [NOT FOUND]         | ZeroMQ [[52]](#ref-52)            |
+| Zcash    | yes [[122]](#ref-122)      | no [[122]](#ref-122)       | no [[122]](#ref-122)         | lightwalletd [[123]](#ref-123) | [NOT FOUND]         | ZeroMQ [[126]](#ref-126)          |
+| Solana   | yes [[5]](#ref-5)          | yes [[5]](#ref-5)          | [NOT FOUND]                  | [NOT FOUND]                    | [NOT FOUND]         | WebSocket [[45]](#ref-45)         |
+| XRPL     | yes [[6]](#ref-6)          | yes [[6]](#ref-6)          | no [[58]](#ref-58)           | internal only [[7]](#ref-7)    | [NOT FOUND]         | WebSocket only [[26]](#ref-26)    |
+| Cosmos   | yes [[9]](#ref-9)          | yes [[9]](#ref-9)          | yes [[8]](#ref-8)            | yes [[8]](#ref-8)              | [NOT FOUND]         | WebSocket [[9]](#ref-9)           |
+| Stellar  | yes [[11]](#ref-11)        | [NOT FOUND]                | Horizon [[48]](#ref-48)      | [NOT FOUND]                    | [NOT FOUND]         | SSE on Horizon [[59]](#ref-59)    |
+| NEAR     | yes [[13]](#ref-13)        | [NOT FOUND]                | [NOT FOUND]                  | [NOT FOUND]                    | [NOT FOUND]         | [NOT FOUND]                       |
+| Sui      | deprecated [[16]](#ref-16) | deprecated [[16]](#ref-16) | [NOT FOUND]                  | yes [[60]](#ref-60)            | yes [[18]](#ref-18) | gRPC streaming [[15]](#ref-15)    |
+| Logos L1 | no [[19]](#ref-19)         | no [[19]](#ref-19)         | yes [[19]](#ref-19)          | no [[19]](#ref-19)             | no [[19]](#ref-19)  | chunked HTTP [[19]](#ref-19)      |
+| LEZ      | yes [[21]](#ref-21)        | yes [[21]](#ref-21)        | no [[21]](#ref-21)           | no [[21]](#ref-21)             | no [[21]](#ref-21)  | WebSocket [[22]](#ref-22)         |
+
+Zcash's gRPC row is the only one in the survey served by a component that is not
+the node. `lightwalletd` is a separate light-client server that indexes the
+chain and serves the `CompactTxStreamer` service, whose thirty-odd methods
+include block, transaction, mempool, tree-state, and address-UTXO reads plus
+`SendTransaction` [[123]](#ref-123). An integrator wanting streaming or a
+compact-block feed therefore runs a second process alongside `zcashd`, which is
+the same node-and-indexer split Stellar and Sui make explicit, arrived at for a
+different reason: light clients need blocks pruned to the shielded data they can
+trial-decrypt, not the full blocks the node stores.
 
 REST on Bitcoin is a separate unauthenticated read-only interface enabled with
 `-rest`, carrying an explicit warning about browser access on the same host
@@ -1625,24 +1798,43 @@ First party means the repository sits under the project's own GitHub
 organisation, or the official documentation labels it official. Where the two
 tests disagree, the row says so.
 
-| Chain    | TS/JS                       | Rust                                | Go                          | Python                      | Java/Kotlin                 | Swift                     | C/C++                       | .NET                      |
-| -------- | --------------------------- | ----------------------------------- | --------------------------- | --------------------------- | --------------------------- | ------------------------- | --------------------------- | ------------------------- |
-| Ethereum | community [[67]](#ref-67)   | community [[68]](#ref-68)           | first party [[69]](#ref-69) | first party [[70]](#ref-70) | community [[67]](#ref-67)   | [NOT FOUND]               | [NOT FOUND]                 | community [[67]](#ref-67) |
-| Bitcoin  | community [[71]](#ref-71)   | community [[71]](#ref-71)           | community [[71]](#ref-71)   | community [[71]](#ref-71)   | community [[71]](#ref-71)   | community [[72]](#ref-72) | community [[71]](#ref-71)   | community [[71]](#ref-71) |
-| Solana   | first party [[73]](#ref-73) | first party [[74]](#ref-74)         | community [[73]](#ref-73)   | community [[73]](#ref-73)   | community [[73]](#ref-73)   | [NOT FOUND]               | [NOT FOUND]                 | [NOT FOUND]               |
-| XRPL     | first party [[75]](#ref-75) | first party [[85]](#ref-85)         | community [[75]](#ref-75)   | first party [[75]](#ref-75) | first party [[75]](#ref-75) | [NOT FOUND]               | first party [[75]](#ref-75) | [NOT FOUND]               |
-| Cosmos   | first party [[76]](#ref-76) | [NOT FOUND]                         | first party [[77]](#ref-77) | [NOT FOUND]                 | [NOT FOUND]                 | [NOT FOUND]               | [NOT FOUND]                 | [NOT FOUND]               |
-| Stellar  | first party [[78]](#ref-78) | first party [[78]](#ref-78)         | first party [[78]](#ref-78) | community [[78]](#ref-78)   | community [[78]](#ref-78)   | community [[78]](#ref-78) | [NOT FOUND]                 | community [[78]](#ref-78) |
-| NEAR     | first party [[79]](#ref-79) | first party [[79]](#ref-79)         | [NOT FOUND]                 | community [[79]](#ref-79)   | [NOT FOUND]                 | [NOT FOUND]               | [NOT FOUND]                 | [NOT FOUND]               |
-| Sui      | first party [[80]](#ref-80) | first party [[80]](#ref-80)         | community [[80]](#ref-80)   | community [[80]](#ref-80)   | community [[80]](#ref-80)   | community [[80]](#ref-80) | [NOT FOUND]                 | [NOT FOUND]               |
-| Logos L1 | [NOT FOUND]                 | in-repo Rust client [[19]](#ref-19) | [NOT FOUND]                 | [NOT FOUND]                 | [NOT FOUND]                 | [NOT FOUND]               | C ABI [[81]](#ref-81)       | [NOT FOUND]               |
-| LEZ      | [NOT FOUND]                 | in-repo Rust client [[21]](#ref-21) | [NOT FOUND]                 | [NOT FOUND]                 | [NOT FOUND]                 | [NOT FOUND]               | wallet FFI [[21]](#ref-21)  | [NOT FOUND]               |
+| Chain    | TS/JS                       | Rust                                | Go                          | Python                      | Java/Kotlin                   | Swift                         | C/C++                       | .NET                      |
+| -------- | --------------------------- | ----------------------------------- | --------------------------- | --------------------------- | ----------------------------- | ----------------------------- | --------------------------- | ------------------------- |
+| Ethereum | community [[67]](#ref-67)   | community [[68]](#ref-68)           | first party [[69]](#ref-69) | first party [[70]](#ref-70) | community [[67]](#ref-67)     | [NOT FOUND]                   | [NOT FOUND]                 | community [[67]](#ref-67) |
+| Bitcoin  | community [[71]](#ref-71)   | community [[71]](#ref-71)           | community [[71]](#ref-71)   | community [[71]](#ref-71)   | community [[71]](#ref-71)     | community [[72]](#ref-72)     | community [[71]](#ref-71)   | community [[71]](#ref-71) |
+| Zcash    | [NOT FOUND]                 | first party [[129]](#ref-129)       | [NOT FOUND]                 | [NOT FOUND]                 | first party [[130]](#ref-130) | first party [[131]](#ref-131) | [NOT FOUND]                 | [NOT FOUND]               |
+| Solana   | first party [[73]](#ref-73) | first party [[74]](#ref-74)         | community [[73]](#ref-73)   | community [[73]](#ref-73)   | community [[73]](#ref-73)     | [NOT FOUND]                   | [NOT FOUND]                 | [NOT FOUND]               |
+| XRPL     | first party [[75]](#ref-75) | first party [[85]](#ref-85)         | community [[75]](#ref-75)   | first party [[75]](#ref-75) | first party [[75]](#ref-75)   | [NOT FOUND]                   | first party [[75]](#ref-75) | [NOT FOUND]               |
+| Cosmos   | first party [[76]](#ref-76) | [NOT FOUND]                         | first party [[77]](#ref-77) | [NOT FOUND]                 | [NOT FOUND]                   | [NOT FOUND]                   | [NOT FOUND]                 | [NOT FOUND]               |
+| Stellar  | first party [[78]](#ref-78) | first party [[78]](#ref-78)         | first party [[78]](#ref-78) | community [[78]](#ref-78)   | community [[78]](#ref-78)     | community [[78]](#ref-78)     | [NOT FOUND]                 | community [[78]](#ref-78) |
+| NEAR     | first party [[79]](#ref-79) | first party [[79]](#ref-79)         | [NOT FOUND]                 | community [[79]](#ref-79)   | [NOT FOUND]                   | [NOT FOUND]                   | [NOT FOUND]                 | [NOT FOUND]               |
+| Sui      | first party [[80]](#ref-80) | first party [[80]](#ref-80)         | community [[80]](#ref-80)   | community [[80]](#ref-80)   | community [[80]](#ref-80)     | community [[80]](#ref-80)     | [NOT FOUND]                 | [NOT FOUND]               |
+| Logos L1 | [NOT FOUND]                 | in-repo Rust client [[19]](#ref-19) | [NOT FOUND]                 | [NOT FOUND]                 | [NOT FOUND]                   | [NOT FOUND]                   | C ABI [[81]](#ref-81)       | [NOT FOUND]               |
+| LEZ      | [NOT FOUND]                 | in-repo Rust client [[21]](#ref-21) | [NOT FOUND]                 | [NOT FOUND]                 | [NOT FOUND]                   | [NOT FOUND]                   | wallet FFI [[21]](#ref-21)  | [NOT FOUND]               |
 
-TypeScript and Rust appear in every external ecosystem surveyed except Cosmos,
-where no Rust client SDK sits under the `cosmos` organisation. Go and Python
-appear in seven of eight. At the thin end, C and C++ appear as a first-party SDK
-only for XRPL, .NET is community maintained everywhere it appears, and no
-surveyed chain publishes a first-party Swift SDK.
+Rust appears in every external ecosystem surveyed except Cosmos, where no Rust
+client SDK sits under the `cosmos` organisation, and TypeScript in every one
+except Zcash. Go and Python each appear in seven of nine. At the thin end, C and
+C++ appear as a first-party SDK only for XRPL, and .NET is community maintained
+everywhere it appears.
+
+Zcash is the one surveyed chain publishing a first-party Swift SDK, and its SDK
+shape follows from its state model rather than from transport preference. Where
+most chains publish clients for calling an API, Zcash publishes wallet SDKs that
+carry a scanning and proving stack, because a client that cannot decrypt notes
+cannot see its own funds. `librustzcash` is the Rust core, "a (work-in-progress)
+set of Rust crates for working with Zcash" spanning protocol, keys, addresses,
+and the `zcash_client_backend` and `zcash_client_sqlite` wallet crates
+[[129]](#ref-129). The mobile SDKs wrap it: the Android SDK is Kotlin over a
+Rust backend and describes itself as a "lightweight SDK connects Android to
+Zcash, allowing third-party Android apps to send and receive shielded
+transactions easily, securely and privately" [[130]](#ref-130), and the iOS one
+is "A Zcash Lightweight Client SDK for iOS", both carrying alpha or
+work-in-progress warnings [[131]](#ref-131). Both sit under the `zcash`
+organisation, which is this section's first-party test, though the iOS README
+notes its code "has not been subjected to thorough review by engineers at the
+Electric Coin Company" [[131]](#ref-131). No TypeScript or Go client sits under
+that organisation [[128]](#ref-128).
 
 Bitcoin is the sharpest contrast: it has no foundation-published SDK at all. The
 `bitcoin` GitHub organisation contains the node and the BIPs, and every client
@@ -1728,21 +1920,21 @@ surfaces themselves are inventoried in
 
 | Function                                       | Chains with it |
 | ---------------------------------------------- | -------------- |
-| Simulate transaction execution                 | 6 of 8         |
-| Estimate execution cost                        | 5 of 8         |
-| Pre-submission acceptance check                | 6 of 8         |
-| Wait for a chosen confirmation level           | 4 of 8         |
-| Read-only contract call                        | 6 of 8         |
-| Verify a signature                             | 3 of 8         |
-| Build an unsigned transaction as a node method | 3 of 8         |
-| Encode and decode transaction bytes            | 2 of 8         |
-| Submit a batch or package                      | 1 of 8         |
+| Simulate transaction execution                 | 6 of 9         |
+| Estimate execution cost                        | 5 of 9         |
+| Pre-submission acceptance check                | 6 of 9         |
+| Wait for a chosen confirmation level           | 4 of 9         |
+| Read-only contract call                        | 6 of 9         |
+| Verify a signature                             | 4 of 9         |
+| Build an unsigned transaction as a node method | 4 of 9         |
+| Encode and decode transaction bytes            | 3 of 9         |
+| Submit a batch or package                      | 1 of 9         |
 
-Simulation is the widest gap: six of the eight surveyed chains execute a
+Simulation is the widest gap: six of the nine surveyed chains execute a
 transaction and return its outcome without committing it, and neither Logos
-target does. Pre-submission checking and read-only calls follow at six of eight.
+target does. Pre-submission checking and read-only calls follow at six of nine.
 
-Network identification is absent on Logos L1 alone: all eight surveyed chains
+Network identification is absent on Logos L1 alone: all nine surveyed chains
 expose it, and LEZ exposes `getChannelId` [[21]](#ref-21).
 
 ### 4.2 Present but narrower than the surveyed norm
@@ -1761,10 +1953,10 @@ expose it, and LEZ exposes `getChannelId` [[21]](#ref-21).
 ### 4.3 Present and comparable
 
 L1 and LEZ both serve block reads, chain tip, transaction reads, and submission.
-Both publish a machine-readable interface description at runtime, which Bitcoin
-and Solana do not: L1 serves OpenAPI at `/api-docs/openapi.json` [[20]](#ref-20)
-and LEZ serves `getSchema` [[22]](#ref-22). L1 exposes a mempool view
-[[19]](#ref-19), which five of the eight surveyed chains do not.
+Both publish a machine-readable interface description at runtime, which Bitcoin,
+Zcash, and Solana do not: L1 serves OpenAPI at `/api-docs/openapi.json`
+[[20]](#ref-20) and LEZ serves `getSchema` [[22]](#ref-22). L1 exposes a mempool
+view [[19]](#ref-19), which five of the nine surveyed chains do not.
 
 ### 4.4 Existing FFI surface
 
@@ -2068,3 +2260,32 @@ and carries no resume anchor [[81]](#ref-81).
      at `lez/indexer/service/protocol/src/lib.rs`; the capture filter at
      `lez/indexer/core/src/event_filter.rs`.
      https://github.com/logos-blockchain/logos-execution-zone
+122. <a id="ref-122"></a>Zcash, "Zcash RPC Docs", generated payment API
+     reference for zcashd 6.12.2. https://zcash.github.io/rpc/
+123. <a id="ref-123"></a>Zcash, "lightwallet-protocol: walletrpc/service.proto",
+     the `CompactTxStreamer` gRPC service definition vendored by lightwalletd.
+     https://raw.githubusercontent.com/zcash/lightwallet-protocol/main/walletrpc/service.proto
+124. <a id="ref-124"></a>Zcash, "Insight Explorer" documentation, listing the
+     `txindex=1`, `experimentalfeatures=1`, and `insightexplorer=1` options and
+     the RPC methods they enable.
+     https://zcash.readthedocs.io/en/latest/rtd_pages/insight_explorer.html
+125. <a id="ref-125"></a>Zcash, "ZIP 317: Proportional Transfer Fee Mechanism".
+     https://zips.z.cash/zip-0317
+126. <a id="ref-126"></a>Zcash, "doc/zmq.md", block and transaction broadcasting
+     with ZeroMQ.
+     https://raw.githubusercontent.com/zcash/zcash/master/doc/zmq.md
+127. <a id="ref-127"></a>Zcash, "src/rpc/protocol.h", the `RPCErrorCode` enum.
+     https://raw.githubusercontent.com/zcash/zcash/master/src/rpc/protocol.h
+128. <a id="ref-128"></a>Zcash, "zcash" GitHub organisation repository listing.
+     https://github.com/orgs/zcash/repositories
+129. <a id="ref-129"></a>Zcash, "librustzcash" repository.
+     https://github.com/zcash/librustzcash
+130. <a id="ref-130"></a>Zcash, "zcash-android-wallet-sdk" repository.
+     https://github.com/zcash/zcash-android-wallet-sdk
+131. <a id="ref-131"></a>Zcash, "zcash-swift-wallet-sdk" repository.
+     https://github.com/zcash/zcash-swift-wallet-sdk
+132. <a id="ref-132"></a>Zcash, "ZIP 315: Best Practices for Wallet
+     Implementations" (status: Draft). https://zips.z.cash/zip-0315
+133. <a id="ref-133"></a>Zcash, "librustzcash: pczt/README.md", the Partially
+     Created Zcash Transaction format.
+     https://raw.githubusercontent.com/zcash/librustzcash/main/pczt/README.md
