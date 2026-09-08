@@ -184,6 +184,29 @@ submitting, which makes simulation a construction step rather than a read.
 Construction is out of scope here and belongs to the wallet FFI, the second of
 the six deliverables.
 
+### A block identifier is a height, and a height is not a name
+
+`BlockId` is a `u64` counting from a genesis of 1
+(`lee/state_machine/core/src/lib.rs:36-38`), and the codebase treats it
+arithmetically throughout: pagination descends by subtracting one
+(`lez/storage/src/indexer/read_multiple.rs:11`), state snapshots are indexed by
+dividing it by the breakpoint interval (`lez/storage/src/indexer/mod.rs:293-298`),
+and the sequencer assigns a local named `new_block_height` straight into the
+field (`lez/sequencer/core/src/lib.rs:1198`). The block hash is the separate
+32-byte value the header also carries (`lez/common/src/block.rs:51-58`). Storage
+reflects the difference: the height is the primary key blocks are stored under,
+and the hash is a secondary index onto it
+(`lez/storage/src/indexer/read_once.rs:43-46`, `read_once.rs:68-71`).
+
+The distinction matters because a height names a position rather than a block.
+The sequencer's own reorg handling describes inscribing a second block at a
+height the channel already holds (`lez/sequencer/core/src/lib.rs:595-873`), so
+one identifier can resolve to different blocks at different times, while a hash
+resolves to one block or to none. The API therefore uses the two for different
+purposes: a height to say where in the chain a caller is reading, and a hash to
+say which block a caller read. Where a caller needs to know that the answer it
+holds still refers to the block it was given, both travel together.
+
 ### A status API is not built on `bedrock_status`
 
 A per-transaction status is derived from whether the transaction is present in
@@ -349,6 +372,10 @@ Returns the account record as it stood at a given block, rather than at the tip.
     the tip. This exports the existing `getAccountAtBlock` indexer RPC method
     ([Appendix: Logos API Surfaces, section 2](../appendix/logos-api-surfaces.md#2-lez-indexer-rpc)).
     **[Ready, not exposed]**
+19. The pinned read returns the hash of the block it answered against, and the
+    API documents that the read pins to a height rather than to a block: the
+    same identifier can resolve to a different block after a reorg, and the hash
+    is what tells a caller which one it read. **[New]**
 
 **`query_accounts(account_ids, block_id) -> PointerResult<FfiVec<FfiAccount>, OperationStatus>`**
 
@@ -499,13 +526,19 @@ Pushing new blocks to a consumer instead of making it poll
 
 **`subscribe_to_finalized_blocks(from_block, callback, user_data) -> PointerResult<FfiSubscription, OperationStatus>`**
 
-Registers a consumer that is called with each newly indexed block identifier,
-optionally resuming from a position the consumer already processed.
+Registers a consumer that is called with each newly indexed block, optionally
+resuming from a position the consumer already processed.
 
 32. The FFI exposes a subscription to finalised blocks that delivers each newly
-    indexed block identifier to a registered consumer, exporting the existing
+    indexed block to a registered consumer, exporting the existing
     `subscribeToFinalizedBlocks` indexer RPC method. The consumer is notified
     through a callback rather than by polling. **[Ready, not exposed]**
+33. Each delivery carries the block's height and its hash together, so a
+    consumer knows which block occupied the position it was told about without a
+    second read. The existing subscription yields a height alone
+    (`lez/indexer/service/rpc/src/lib.rs:44`), which does not identify a block
+    across a reorg; the pair already exists as `BlockMeta`
+    (`lez/common/src/block.rs:11-14`). **[New]**
 33. The block subscription accepts a start position: a block identifier the
     consumer last processed. Delivery resumes from the block after that
     position, so a consumer that reconnects observes no gap. Neither existing
@@ -611,14 +644,14 @@ and its bedrock status.
 
 **`query_block_by_hash(hash) -> PointerResult<FfiBlockOpt, OperationStatus>`**
 
-Returns the same block record, resolved by block hash rather than by identifier.
+Returns the same block record, resolved by block hash rather than by height. The
+store already holds the hash as a secondary index onto the height
+(`lez/storage/src/indexer/read_once.rs:68-71`).
 
 43. The query returns the same record `query_block` returns for the
-    corresponding identifier, and an absent `FfiBlockOpt` for a hash no indexed
-    block carries. **[Ready]**
-
-TODO: do we have a clear definition of block_id vs block has in teh current
-codebase?
+    corresponding height, and an absent `FfiBlockOpt` for a hash no indexed
+    block carries. A hash resolves to one block or to none, where a height
+    resolves to whichever block currently occupies it. **[Ready]**
 
 **`query_last_block() -> LastBlockIdResult`**
 
@@ -630,14 +663,14 @@ allocation to free.
 
 **`query_chain_tip() -> PointerResult<FfiChainTip, OperationStatus>`**
 
-Returns the tip as one record rather than as an identifier the caller must then
+Returns the tip as one record rather than as a height the caller must then
 resolve.
 
-45. The FFI exposes the chain tip as a single call returning the block
-    identifier together with the block's height, timestamp, and hash, so
-    learning about the tip does not cost a second call. No such record exists
-    below the FFI: `getLastFinalizedBlockId` returns an identifier alone, and
-    the header fields come from a second read. **[New]**
+45. The FFI exposes the chain tip as a single call returning the tip block's
+    height together with its hash and timestamp, so learning about the tip does
+    not cost a second call and a caller knows which block holds the position.
+    No such record exists below the FFI: `getLastFinalizedBlockId` returns a
+    height alone, and the header fields come from a second read. **[New]**
 
 **`query_zone_id() -> PointerResult<FfiBytes32, OperationStatus>`**
 
@@ -749,7 +782,9 @@ Every function defined above is further bound by the following.
 #### Reliability
 
 1. A pinned account read at a given block identifier returns the same value on
-   every call, however far ingestion has advanced. **[Ready, not exposed]**
+   every call, however far ingestion has advanced, and returns the hash of the
+   block it answered against so a caller can tell that a repeated read resolved
+   to the same block. **[Ready, not exposed]**
 2. A batch account read pinned to a block identifier returns a set of accounts
    consistent with one another as at that block, not a mixture of values read at
    different points during concurrent ingestion. **[New]**
