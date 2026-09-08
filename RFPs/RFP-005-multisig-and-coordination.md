@@ -42,13 +42,17 @@ category: Applications & Integrations
 
 ## 🧭 Overview
 
-Build a production-ready M-of-N multisig program on the Logos Execution Zone
-(LEZ), together with an in-band coordination channel so signers can propose,
+Build an audited M-of-N multisig program on the Logos Execution Zone (LEZ),
+together with an in-band coordination channel so signers can propose,
 deliberate, collect approvals, and reach quorum without leaving the application.
 A multisig is the execution layer for shared custody, treasuries, and DAOs. The
 program is designed and implemented from scratch for LEZ, taking as its baseline
 the properties LEZ makes uniquely possible: multisig state that is private by
 default, and a coordination channel that is encrypted and metadata-resistant.
+
+The deliverable is a codebase carried through an independent security audit
+(Supportability requirement #13) and deployed on devnet/testnet. Deploying or
+operating the software beyond that is outside the scope of this RFP.
 
 Multisig is the single most widely used custody primitive in the ecosystem, and
 the value in multisig custody today is immense. Safe (formerly Gnosis Safe), the
@@ -78,7 +82,8 @@ session, at the cost of hardware immaturity and, for MuSig2, an n-of-n-only
 limitation. Every implementation that keeps the quorum on-chain is transparent.
 On LEZ, the same multisig program can run over private accounts, so the chain
 records only a commitment to the post-state and a validity proof, without giving
-up k-of-n. This RFP is the vehicle for delivering that.
+up k-of-n. This RFP invites proposals for an implementation that explores this
+design space.
 
 ## ✅ Scope of Work
 
@@ -154,8 +159,9 @@ up k-of-n. This RFP is the vehicle for delivering that.
    This addresses the signing-layer attack surface behind the Bybit and WazirX
    losses, in which signers authorised what a compromised UI showed them rather
    than what was actually executed. It complements the primary mitigation, which
-   is the Logos module model itself: the UI is installed and verified once
-   rather than fetched from a remote server on every use.
+   is the Logos module model itself: the UI ships as a module package whose
+   developer signature is verified at install time, rather than being fetched
+   from a remote server on every use.
 7. Failed or rejected proposals and executions must return clear, actionable
    error messages.
 
@@ -216,8 +222,16 @@ up k-of-n. This RFP is the vehicle for delivering that.
     for the CLI, covering the core operator journey.
 11. Provide Figma designs or equivalent for the mini-app GUI, including the
     proposal list and the coordination room.
-12. Publish resulting modules in the
-    [Logos modules catalog](https://github.com/logos-co/logos-modules-release-base).
+12. Publish the resulting modules in a module catalog of the team's own, built
+    from the
+    [Logos module catalog template](https://github.com/logos-co/logos-modules-release-base),
+    so the modules are installable by Logos clients. Publication into any
+    Logos-maintained catalog is not part of this RFP.
+13. **Audit programme.** The proposal must include a planned audit programme
+    covering the multisig program and its approval-verification path. The
+    proposal must name at least one tier-1 audit firm the applicant intends to
+    engage, include the audit budget as a line item, and include the audit
+    timeline. Audit reports must be published with the codebase.
 
 ### Soft Requirements
 
@@ -320,7 +334,7 @@ Supportability requirements. Proposers should confirm the current state of each
 against the Resources section before relying on it.
 
 No end-to-end multi-party authorisation flow exists on LEZ today: the underlying
-primitives are available, but this RFP commissions the first such
+primitives are available, but this RFP invites proposals for the first such
 implementation. LEZ also provides group-owned shared private accounts, derived
 from a single Group Master Secret and documented in the Journey linked under
 Resources; proposers should study this feature and state how, and whether, they
@@ -373,9 +387,9 @@ platform should account for ramp-up separately and say so.
 has no precedent to size against, and its cost determines the largest workable
 M. Proposers may structure the work so that an initial phase establishes the
 approval-verification benchmark (P.2) and the resulting design constraints, with
-the scope and cost of the remainder fixed once those are known. A proposal that
-names this uncertainty and structures around it will be viewed more favourably
-than one that prices it silently.
+the scope and cost of the remainder fixed once those are known. Proposals should
+identify this uncertainty expressly and explain how it is reflected in the
+proposed phasing, scope and pricing.
 
 ## 🌍 Open Source Requirement
 
@@ -385,13 +399,13 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 
 - [Logos Documentation](https://github.com/logos-co/logos-docs)
 - [logos-co/lez-multisig](https://github.com/logos-co/lez-multisig): a public
-  multisig proof-of-concept sample app on LEZ; prior art only — this RFP
-  commissions a fresh design and implementation. Note that its architecture is
+  multisig proof-of-concept sample app on LEZ; prior art only — this RFP invites
+  proposals for a fresh design and implementation. Note that its architecture is
   incompatible with private accounts: it requires member accounts to be fresh
   zero-nonce keypairs claimed by the multisig program, which private accounts
   cannot satisfy because they are owned by the privacy protocol and increment
   the nonce on every use. Treat it as a reference for the public path only.
-- **LP-0002, Private M-of-N Multisig** (open λ prize): commissions a private
+- **LP-0002, Private M-of-N Multisig** (open λ prize): calls for a private
   M-of-N primitive for LEZ using anonymous threshold proofs, where the verifier
   confirms a threshold was met without recording which members approved. It
   overlaps this RFP's ground but is unclaimed, and its anonymity model differs
