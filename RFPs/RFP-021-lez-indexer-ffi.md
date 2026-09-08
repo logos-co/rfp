@@ -554,16 +554,6 @@ the account's transaction index.
     both oldest-first and newest-first. Newest-first is the order a deposit
     tracker reads in. **[New]**
 
-**`query_account_transaction_count(account_id) -> PointerResult<u64, OperationStatus>`**
-
-Returns how many transactions the account's index holds.
-
-37. The FFI exposes an account transaction count, so a caller paginating
-    `query_transactions_by_account` can tell how many entries exist and whether
-    it has reached the end. **[Ready, not exposed]**
-
-    TODO: is transaction count commonly used? not really explain per ecosystem
-
 **`query_blocks(from, limit, order) -> PointerResult<FfiVec<FfiBlock>, OperationStatus>`**
 
 Returns a page of blocks starting at `from`, walked in the requested direction,
