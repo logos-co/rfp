@@ -453,7 +453,7 @@ see the pending set aborts a proof it now knows will be rejected instead of
 finishing it. That is the difference between reading the pending set and
 diagnosing a failure afterwards.
 
-**`query_pending_digests(offset, limit) -> PointerResult<FfiVec<FfiPendingDigest>, OperationStatus>`**
+**`query_pending_digests(cursor, limit) -> PointerResult<FfiVec<FfiPendingDigest>, OperationStatus>`**
 
 Lists the pending set as digests: per entry, its identifier and the account
 identifiers, nonces, and nullifiers it touches.
@@ -462,8 +462,10 @@ identifiers, nonces, and nullifiers it touches.
     identifier together with the account identifiers, nonces, and nullifiers the
     transaction acts on, so a caller detects a conflict with a transaction it is
     about to build without fetching bodies. **[New]**
-28. The listing is bounded and paginated, and reports whether more entries
-    remain. **[New]**
+28. The listing is bounded and paginated by cursor, on the same terms as the
+    other paginated reads, and reports whether more entries remain. The pending
+    set turns over as entries are included or dropped, so an offset into it
+    names a different entry from one call to the next. **[New]**
 29. The digest listing is cheap enough to poll for the duration of a proof
     generation, so a wallet re-checks for a conflict while proving and abandons
     the proof rather than completing one it knows will be rejected. **[New]**
@@ -542,17 +544,27 @@ Walking an account's transaction history in bounded pages
   position from heights it has already scanned, and no method returns a next
   position.
 
-**`query_transactions_by_account(account_id, offset, limit, order) -> PointerResult<FfiVec<FfiTransaction>, OperationStatus>`**
+**`query_transactions_by_account(account_id, cursor, limit, order) -> PointerResult<FfiVec<FfiTransaction>, OperationStatus>`**
 
-Returns one page of the transactions touching an account, walked by offset into
-the account's transaction index.
+Returns one page of the transactions touching an account, resumed from a cursor
+the previous page returned. Exported today as a numeric offset into the
+per-account index.
 
-35. The query returns at most `limit` transactions starting at `offset` in the
-    per-account index, and stops early at the end of the account's history
-    rather than failing. **[Ready]**
+35. The query returns at most `limit` transactions from the position the cursor
+    names, or from the start of the walk when the cursor is absent, and stops
+    early at the end of the account's history rather than failing. The bounded
+    read exists; the cursor replaces the offset it takes today. **[New]**
 36. `query_transactions_by_account` accepts an ordering parameter supporting
     both oldest-first and newest-first. Newest-first is the order a deposit
     tracker reads in. **[New]**
+37. The page is walked by an opaque cursor rather than by a numeric offset, and
+    the cursor remains stable across ingestion: a caller resuming from one
+    neither skips nor repeats an entry that existed when the walk began, however
+    many transactions have landed since. An offset into a growing index cannot
+    hold that property, because entries arriving ahead of the offset shift every
+    later position, and a deposit tracker reading newest-first is the case that
+    breaks first. The cursor is opaque to the caller, which may not construct
+    one or infer a position from it. **[New]**
 
 **`query_blocks(from, limit, order) -> PointerResult<FfiVec<FfiBlock>, OperationStatus>`**
 
@@ -573,12 +585,10 @@ or starting at the indexed tip when `from` is absent. Exported today as
     ascending from the last block it processed to the tip, decrypting each
     privacy-preserving transaction body against its own viewing key. Descending
     from the tip cannot serve that walk. **[New]**
-40. Every paginated response reports whether more results remain, so a caller
-    distinguishes the end of a result set from a page that happens to be short.
-    No paginated return type carries such a signal today. **[New]**
-
-TODO: no pagination/cursor is provided in signature, is that expected? TODO:
-shouldn't query_block_vec be in the next section "Chain and node metadata"?
+40. Every paginated response reports whether more results remain, and carries the
+    cursor a caller resumes from, so a caller distinguishes the end of a result
+    set from a page that happens to be short and never constructs a position
+    itself. No paginated return type carries either signal today. **[New]**
 
 ##### Chain and node metadata
 
@@ -738,8 +748,8 @@ Every function defined above is further bound by the following.
 5. Return clear, actionable error messages for every failure mode, each mapped
    to the code space required by Functionality #53.
 6. Document the semantics of every pagination parameter, including the
-   exclusivity of `before`, the stability of both cursors, and the behaviour
-   when new data lands ahead of an offset.
+   exclusivity of the block bound, what a cursor guarantees across ingestion,
+   and the behaviour when new data lands during a walk.
 
 #### Reliability
 
@@ -748,9 +758,9 @@ Every function defined above is further bound by the following.
 2. A batch account read pinned to a block identifier returns a set of accounts
    consistent with one another as at that block, not a mixture of values read at
    different points during concurrent ingestion. **[New]**
-3. Pagination cursors remain valid across ingestion: a caller walking blocks by
-   cursor or an account's transactions by offset neither skips nor repeats an
-   entry that existed when the walk began.
+3. Pagination cursors remain valid across ingestion: a caller walking blocks or
+   an account's transactions by cursor neither skips nor repeats an entry that
+   existed when the walk began.
 4. A subscription consumer that disconnects and reconnects with its last
    processed block identifier receives every block after that position, with no
    gap and no assumption that the consumer was connected.
