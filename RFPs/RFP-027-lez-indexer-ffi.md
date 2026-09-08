@@ -256,10 +256,8 @@ every hard requirement is required regardless of its marker. When not already
 implemented, the function signatures below should be seen as suggestions; the
 description of functionality underneath is the requirement.
 
-Every exported function takes the indexer handle returned by `start_indexer` as
-its first argument, and a null handle is signalled as
-`OperationStatus::NullPointer` rather than as a not-found result. The signatures
-below elide it.
+Every signature below elides a first argument, the indexer handle returned by
+`start_indexer`. See Surface-wide obligations.
 
 ##### Transaction effects
 
@@ -748,7 +746,8 @@ program identifier.
 
 **`query_retention_floor() -> PointerResult<FfiRetentionFloor, OperationStatus>`**
 
-Returns the earliest block the indexer can still answer for, per read kind.
+Returns the earliest block the indexer can still answer for, separately for
+account state pinned to a block and for transaction retrieval.
 
 50. The FFI exposes the indexer's retention floor: the earliest block for which
     account state can be read at a pinned block identifier, and the earliest
@@ -785,23 +784,29 @@ Returns a machine-readable description of the exported surface.
 
 Every function defined above is further bound by the following.
 
-52. Every function above is exposed through `lez_indexer_module` with the same
+52. Every exported function takes the indexer handle returned by `start_indexer`
+    as its first argument, which the signatures above elide, and signals a null
+    handle as `OperationStatus::NullPointer` rather than as a not-found result.
+    **[Ready]**
+53. Every function above is exposed through `lez_indexer_module` with the same
     semantics, including the not-found and error distinction required by
-    Functionality #53. No capability reaching the FFI stops at the module
+    Functionality #54. No capability reaching the FFI stops at the module
     boundary. **[New]**
-53. The FFI and the module signal not-found, invalid-argument, and backend
+54. The FFI and the module signal not-found, invalid-argument, and backend
     failure as three distinguishable outcomes on every query. The module
     currently flattens not-found and failure into an empty string
     ([Appendix: Logos API Surfaces, section 1](../appendix/logos-api-surfaces.md#1-lez-indexer-ffi)).
     **[New]**
-54. Errors carry an application code from a documented, stable code space, a
+55. Errors carry an application code from a documented, stable code space, a
     category, and a retryability signal. Two failure causes that require
     different caller recovery do not share a code. The current implementation
     uses the stock JSON-RPC `InternalError` code with free text
     ([Appendix: Blockchain API and SDK Ecosystem, section 1.34](../appendix/blockchain-api-sdk-ecosystem.md#134-structured-errors-and-a-code-taxonomy)).
     **[New]**
-55. Every heap-allocating return has a documented matching free function, and
-    calling it releases every allocation the return holds. **[Ready]**
+56. Every heap-allocating return has a documented matching free function, and
+    calling it releases every allocation the return holds. The convention is
+    established for the returns exported today; the return types this RFP adds
+    need theirs. **[Ready, not exposed]**
 
 #### Usability
 
@@ -822,7 +827,7 @@ Every function defined above is further bound by the following.
    transactions, and state that deposits into private accounts are not trackable
    from indexer data without the viewing key.
 5. Return clear, actionable error messages for every failure mode, each mapped
-   to the code space required by Functionality #54.
+   to the code space required by Functionality #55.
 6. Document the semantics of every pagination parameter, including the
    exclusivity of the block bound, what a cursor guarantees across ingestion,
    and the behaviour when new data lands during a walk.
