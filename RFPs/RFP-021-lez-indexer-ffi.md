@@ -672,21 +672,33 @@ resolve.
     No such record exists below the FFI: `getLastFinalizedBlockId` returns a
     height alone, and the header fields come from a second read. **[New]**
 
-**`query_zone_id() -> PointerResult<FfiBytes32, OperationStatus>`**
+**`query_network_identity() -> PointerResult<FfiNetworkIdentity, OperationStatus>`**
 
-Returns the identifier of the zone whose chain the indexer is reading.
+Returns what the indexer is reading: which zone, and which Logos Blockchain
+chain that zone settles to.
 
-46. The FFI exposes the zone identifier the indexer is reading, so an
+46. The call returns the zone identifier the indexer is reading, so an
     application can confirm which zone it is connected to. It is read from the
     indexer's own channel configuration (`lez/indexer/core/src/config.rs:30`),
     not from the sequencer's `getChannelId`. **[Ready, not exposed]**
-47. The same call returns the identifier of the underlying Logos Blockchain
-    chain the zone settles to. A zone identifier alone does not distinguish the
-    same zone running against different L1 networks, which is the case an
-    integrator connecting to the wrong network hits first. **[New]**
-
-TODO: we should want both a zone id, but also a chain id of the underlying Logos
-Blockchain chain. I'd assume it should be a combined method.
+47. The same call returns the chain identifier of the Logos Blockchain the zone
+    settles to. A zone identifier alone does not distinguish the same zone
+    running against different L1 networks, which is the case an integrator
+    connecting to the wrong network hits first, and the two are answered
+    together so a caller cannot check one and assume the other. **[New]**
+48. The chain identifier is the one inscribed in the L1 genesis block as a
+    Cryptarchia parameter, a bounded UTF-8 string such as `logos-chain-1`, and
+    not a value the indexer is configured with independently: a configured
+    string would agree with whatever an operator typed rather than with the
+    chain the node is settling to. It is inscribed and read at ledger
+    initialisation but served by no L1 route
+    ([Appendix: Blockchain API and SDK Ecosystem, section 1.3](../appendix/blockchain-api-sdk-ecosystem.md#13-identify-the-network-or-chain)),
+    and the indexer holds only an endpoint for its Bedrock connection
+    (`lez/indexer/core/src/config.rs:19-29`), so obtaining it is work outside
+    the indexer. A proposal states how it reaches the value. **[New]**
+49. Where the chain identifier cannot be obtained, the call reports it as
+    unavailable rather than omitting it or returning a placeholder, so a caller
+    can tell an unidentified chain from an unasked question. **[New]**
 
 **`query_program_ids() -> PointerResult<FfiVec<FfiProgramEntry>, OperationStatus>`**
 
@@ -930,10 +942,18 @@ The following are explicitly excluded from this RFP:
 
 ## ⚠ Platform Dependencies
 
-This RFP has no hard blockers. Every capability required above is either already
-present on the indexer RPC and unexported, already computed by the indexer and
-discarded, or derivable from data the indexer store already holds. The
-frontmatter `dependencies` list is therefore empty.
+Every capability required above is either already present on the indexer RPC and
+unexported, already computed by the indexer and discarded, or derivable from
+data the indexer store already holds, with one exception.
+
+The exception is the L1 chain identifier required by Functionality #47 and #48.
+It exists, inscribed in the Logos Blockchain genesis block and read at ledger
+initialisation, but no L1 route serves it and the indexer's Bedrock
+configuration carries only an endpoint. Reaching it therefore depends on Logos
+Blockchain exposing it, or on the zone obtaining it at initialisation and
+retaining it. Functionality #49 keeps the rest of the surface deliverable while
+that is outstanding, by requiring the value to be reported as unavailable rather
+than guessed at.
 
 ### Risks
 
