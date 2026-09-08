@@ -318,39 +318,39 @@ Reading account state, at the tip and at a past block, singly and in batches
   already imported into that node's wallet. There is no shielded read a party
   without a key can make.
 
-**Today:
-`query_account(account_id) -> PointerResult<FfiAccount, OperationStatus>`**
-
-**Target:
-`query_account(account_id) -> PointerResult<FfiOption<FfiAccount>, OperationStatus>`**
+**`query_account(account_id) -> PointerResult<FfiAccount, OperationStatus>`**
 
 Returns the account record as it stands at the indexer's current state: its
-owning program, balance, nonce, and program data blob. Requirement 16 changes
-the return type, so this is the one existing export whose shape changes.
+owning program, balance, nonce, and program data blob.
 
 15. The query returns the account's `program_owner`, `balance`, `nonce`, and
     `data` blob, balance and nonce carried as little-endian 16-byte values.
     **[Ready]**
-16. The query distinguishes an account that has never been seen from an account
-    holding zero balance and zero nonce, by returning an `FfiOption`. The
-    current signature returns a bare `FfiAccount` and the store returns a
-    default record for an unknown identifier
-    (`lee/state_machine/src/state/mod.rs:273-278`). **[New]** TODO: to check
-    this is actually feasible
+16. An identifier the state holds no record for reads as the default account,
+    every field at its zero value, which is also what an uninitialised account
+    holds. The API documents that the read answers what the account holds
+    rather than whether it exists, and that a default `program_owner` marks an
+    account as unclaimed, the same test the state machine applies before
+    allowing one to be modified
+    (`lee/state_machine/src/validated_state_diff/mod.rs:351-365`). **[Ready]**
+17. The account reads answer for public state alone, and the API says so. A
+    private balance has no account record to return: private state is a
+    commitment set and a nullifier set carrying no account identifier
+    (`lee/state_machine/src/state/mod.rs:115-116`), so a default record means
+    the state holds no public balance for that identifier and is not evidence
+    that the party holds nothing. **[New]**
 
-**`query_account_at_block(account_id, block_id) -> PointerResult<FfiOption<FfiAccount>, OperationStatus>`**
+**`query_account_at_block(account_id, block_id) -> PointerResult<FfiAccount, OperationStatus>`**
 
 Returns the account record as it stood at a given block, rather than at the tip.
 
-17. The FFI exposes an account read pinned to a block identifier, returning the
-    account record as it stood at that block. This exports the existing
-    `getAccountAtBlock` indexer RPC method
+18. The FFI exposes an account read pinned to a block identifier, returning the
+    account record as it stood at that block, on the same terms as the read at
+    the tip. This exports the existing `getAccountAtBlock` indexer RPC method
     ([Appendix: Logos API Surfaces, section 2](../appendix/logos-api-surfaces.md#2-lez-indexer-rpc)).
     **[Ready, not exposed]**
-18. The pinned read distinguishes a never-seen account from a zero account on
-    the same terms as the read at the tip. **[New]**
 
-**`query_accounts(account_ids, block_id) -> PointerResult<FfiVec<FfiOption<FfiAccount>>, OperationStatus>`**
+**`query_accounts(account_ids, block_id) -> PointerResult<FfiVec<FfiAccount>, OperationStatus>`**
 
 Returns one result per requested account identifier, optionally pinned to a
 block.
@@ -358,12 +358,11 @@ block.
 19. The FFI exposes a batch account read taking a list of account identifiers
     and returning a result per identifier in request order, backed by
     `multi_get_cf` as the block and transaction reads in the same store already
-    are. **[New]**
+    are. An identifier the state holds no record for reads as the default
+    account rather than failing the call. **[New]**
 20. The batch account read accepts an optional block identifier that pins every
     account in the batch to the same block, so a multi-account read is
     internally consistent under concurrent ingestion. **[New]**
-21. The batch read distinguishes a never-seen account from a zero account per
-    entry, so one absent identifier does not fail the call. **[New]**
 
 ##### Commitment membership proofs
 
@@ -793,9 +792,9 @@ the module that links it.
 3. CI must be green on the default branch.
 4. Every hard requirement in Functionality, Usability, Reliability, and Performance
    has at least one corresponding test.
-5. Tests cover, at minimum: a never-seen account distinguished from a zero
-   account; a pinned read at a block before and after a state change; a batch
-   read spanning present and absent accounts; effects for a public transaction
+5. Tests cover, at minimum: a read of an identifier the state holds no record
+   for; a pinned read at a block before and after a state change; a batch
+   read spanning recorded and unrecorded accounts; effects for a public transaction
    and for the public leg of a privacy-preserving transaction; membership proofs
    for a commitment the set holds and one it does not; a transaction status at
    each documented level; and a subscription resumed from a stored position
