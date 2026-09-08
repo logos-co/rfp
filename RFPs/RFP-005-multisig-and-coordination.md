@@ -228,10 +228,14 @@ design space.
     so the modules are installable by Logos clients. Publication into any
     Logos-maintained catalog is not part of this RFP.
 13. **Audit programme.** The proposal must include a planned audit programme
-    covering the multisig program and its approval-verification path. The
+    covering the multisig program, its approval-verification path, the
+    configuration-change and time-lock logic, and the spending-limit policy. The
     proposal must name at least one tier-1 audit firm the applicant intends to
-    engage, include the audit budget as a line item, and include the audit
-    timeline. Audit reports must be published with the codebase.
+    engage (for example: OpenZeppelin, Trail of Bits, Spearbit, Cantina,
+    ChainSecurity, Certora, Halborn), include the audit budget as a line item in
+    the proposal, and include the audit timeline ahead of any mainnet
+    recommendation. Audit reports must be published with the codebase before
+    mainnet deployment is recommended.
 
 ### Soft Requirements
 
