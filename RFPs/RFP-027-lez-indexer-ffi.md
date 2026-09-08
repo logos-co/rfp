@@ -717,9 +717,10 @@ Returns the earliest block the indexer can still answer for, per read kind.
 
 49. The FFI exposes the indexer's retention floor: the earliest block for which
     account state can be read at a pinned block identifier, and the earliest
-    block for which a transaction can be retrieved. The current implementation
-    never prunes, so this may be genesis; the requirement is that the value is
-    reported rather than assumed. **[New]**
+    block for which a transaction can be retrieved. A deployment that retains
+    everything reports genesis and one bounded by Reliability #7 reports a
+    moving value, and a caller learns which by asking rather than by
+    discovering it through a failed read. **[New]**
 
 ##### Surface-wide obligations
 
@@ -810,6 +811,13 @@ Every function defined above is further bound by the following.
    detect that it read from a stalled or lagging indexer.
 6. A stalled indexer is reported as stalled by the status surface rather than
    serving stale reads silently.
+7. Storage growth is bounded by something the deployment controls rather than by
+   the length of the chain. The indexer runs both as infrastructure an operator
+   provisions and inside Basecamp on an end user's machine, where no one is
+   watching a disk and no one can add one, so growth that a server operator
+   would size for is a defect on a desktop. A deployment can put a ceiling on
+   what the indexer retains, and reaching that ceiling degrades what the
+   retention floor reports rather than failing reads or exhausting the disk.
 
 #### Performance
 
@@ -908,9 +916,10 @@ If possible.
    unpublished schema. `getAccount` returns program data as an opaque base64
    blob of up to 100 KiB, with the token balance inside `Account.data` rather
    than `Account.balance`.
-5. A retention configuration for the indexer, so an operator can bound storage
-   growth. The retention floor reported per Functionality #47 then becomes a
-   moving value rather than genesis.
+5. Retention policies beyond a single ceiling, such as keeping transaction
+   history for accounts a deployment cares about while discarding the rest, so
+   a desktop deployment holds what its user needs rather than the most recent
+   window of everything.
 
 ### Out of Scope
 
@@ -957,26 +966,14 @@ Every capability required above is either already present on the indexer RPC and
 unexported, already computed by the indexer and discarded, or derivable from
 data the indexer store already holds, with one exception.
 
-The exception is the L1 chain identifier required by Functionality #47 and #48.
-It exists, inscribed in the Logos Blockchain genesis block and read at ledger
+The exception is the L1 chain identifier `query_network_identity` returns. It
+exists, inscribed in the Logos Blockchain genesis block and read at ledger
 initialisation, but no L1 route serves it and the indexer's Bedrock
 configuration carries only an endpoint. Reaching it therefore depends on Logos
 Blockchain exposing it, or on the zone obtaining it at initialisation and
-retaining it. Functionality #49 keeps the rest of the surface deliverable while
-that is outstanding, by requiring the value to be reported as unavailable rather
-than guessed at.
-
-### Risks
-
-#### Storage growth
-
-The indexer never prunes and writes a full state snapshot every 100 blocks.
-Persisting per-transaction effects adds to that. Performance requirement #4
-requires the added cost to be quantified so an operator can size for it, and
-soft Functionality #5 offers retention configuration as the mitigation.
-
-TODO: end-user using basecamp desktop app should also be considered
-
+retaining it. The requirement that an unobtainable value be reported as
+unavailable keeps the rest of the surface deliverable while that is
+outstanding.
 
 ## 🌍 Open Source Requirement
 
