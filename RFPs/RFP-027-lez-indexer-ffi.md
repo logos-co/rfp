@@ -78,24 +78,35 @@ and are written in different languages, which is why this RFP suite takes a
 composable approach. The first two deliverables define surfaces; the rest
 consume them.
 
-1. **The FFI API for the LEZ indexer.** *This RFP*. The equivalent of a node
-   API, in the sense that the `eth` namespace is on Ethereum's JSON-RPC. The indexer
-   is expected to run as a node, in the shape an RPC provider runs one.
-2. **The FFI API for the LEZ wallet**: key handling, derivation, and signing.
-   Inside Basecamp it runs as a binary, the `lez_core` module
+1. **The FFI API for the LEZ indexer.** *This RFP*
+   ([logos-co/ecosystem#235](https://github.com/logos-co/ecosystem/issues/235)).
+   The equivalent of a node API, in the sense that the `eth` namespace is on
+   Ethereum's JSON-RPC. The indexer is expected to run as a node, in the shape
+   an RPC provider runs one.
+2. **The FFI API for the LEZ wallet**
+   ([logos-co/ecosystem#236](https://github.com/logos-co/ecosystem/issues/236)):
+   key handling, derivation, and signing. Inside Basecamp it runs as a binary,
+   the `lez_core` module
    ([`logos-execution-zone-module`](https://github.com/logos-blockchain/logos-execution-zone-module));
    outside it, the intent is to ship a library per language from one Rust core,
    as [`bdk-ffi`](https://github.com/bitcoindevkit/bdk-ffi) does (item 4).
-3. **The JSON-RPC proxy module**: a module that exposes the FFI API over
-   JSON-RPC. It covers both the wallet and the indexer, the indexer being the
-   more critical half.
-4. **The wallet SDK**: a library per language over the wallet FFI, BDK-shaped
-   rather than a client for a wire protocol.
-5. **The indexer SDK**: a library for reaching the indexer's JSON-RPC surface.
-   The wallet SDK may use it to reach a running indexer over JSON-RPC, so Rust
-   is required; other languages follow demand.
-6. **Further transport proxy modules** beyond JSON-RPC, such as gRPC, GraphQL,
-   and a Mesh or Rosetta adapter.
+3. **The JSON-RPC proxy module**
+   ([logos-co/ecosystem#237](https://github.com/logos-co/ecosystem/issues/237)):
+   a module that exposes the FFI API over JSON-RPC. It covers both the wallet
+   and the indexer, the indexer being the more critical half.
+4. **The wallet SDK**
+   ([logos-co/ecosystem#238](https://github.com/logos-co/ecosystem/issues/238)):
+   a library per language over the wallet FFI, BDK-shaped rather than a client
+   for a wire protocol.
+5. **The indexer client library**
+   ([logos-co/ecosystem#239](https://github.com/logos-co/ecosystem/issues/239)):
+   a client for the JSON-RPC surface item 3 exposes, rather than a library with
+   logic of its own, which is what separates it from the wallet SDK. The wallet
+   SDK may use it to reach a running indexer, so Rust is required; other
+   languages follow demand.
+6. **Further transport proxy modules**
+   ([logos-co/ecosystem#222](https://github.com/logos-co/ecosystem/issues/222))
+   beyond JSON-RPC, such as gRPC, GraphQL, and a Mesh or Rosetta adapter.
 
 This RFP defines the indexer surface only (1). Wallet and key management,
 transaction construction and signing, the JSON-RPC transport, the further
@@ -104,7 +115,7 @@ in separate RFPs.
 
 Two consequences of that arrangement bear on this RFP. The indexer FFI is
 consumed both directly, by anything linking it in process, and indirectly,
-through the JSON-RPC proxy and the indexer SDK, so its surface has to survive
+through the JSON-RPC proxy and the indexer client library, so its surface has to survive
 projection onto a wire protocol rather than assuming an in-process caller. And
 because the wallet SDK may reach the indexer through that same JSON-RPC path
 rather than through the FFI, the two surfaces must express the same semantics.
@@ -977,11 +988,8 @@ The following are explicitly excluded from this RFP:
   both public and privacy-preserving transactions, for the reason given in the
   Design Rationale. Nothing in this RFP executes a transaction a caller
   supplies.
-- **The JSON-RPC proxy and the language SDKs.**
-  [logos-co/ecosystem#220](https://github.com/logos-co/ecosystem/issues/220)
-  covers the transport, the wallet SDK, and the indexer SDK. Further transport
-  bindings such as gRPC and GraphQL are
-  [logos-co/ecosystem#222](https://github.com/logos-co/ecosystem/issues/222).
+- **The JSON-RPC proxy, the wallet SDK, and the indexer client library.** These
+  are items 3, 4 and 5 of the six deliverables above, each with its own RFP.
   This RFP defines what those consume, not how it is transported or wrapped.
 - **Reaching the sequencer directly.** The FFI defined in this RFP is to be
   solely provided by the indexer module. A consumer never reaches the sequencer,
