@@ -37,7 +37,7 @@ category: Applications & Integrations
 > does so as principal, in their own name, and is solely responsible for
 > assessing its regulatory treatment, including any licensing, registration,
 > sanctions or anti-money laundering obligations that may apply to them. Logos
-> does not make any representation, provides any advice or assumes any
+> does not make any representation, provide any advice or assume any
 > responsibility in respect of any such determination or compliance.
 
 ## 🧭 Overview
@@ -72,8 +72,8 @@ applied cryptography.
 ## 🔥 Why This Matters
 
 Shared custody is a precondition for organisations to operate on Logos. Without
-a production multisig, there is no treasury, no DAO execution layer, and no
-shared control of protocol admin authorities.
+a production multisig, there is no treasury, no DAO execution layer, and no way
+for those who deploy programs to share control of protocol admin authorities.
 
 LEZ also makes it possible to close a gap no sovereign multisig has closed.
 Every existing implementation that keeps multisig structure private (FROST,
@@ -253,8 +253,7 @@ If possible.
    requires a second, purpose-built zero-knowledge circuit that does not exist
    and whose verifying key would need to be established and trusted. A proposer
    may scope this as a research deliverable with its own budget, or document a
-   design for later implementation. A proposal that omits it entirely is not
-   penalised.
+   design for later implementation. Proposals may omit this soft requirement.
 
 ### Coordination Architecture
 
