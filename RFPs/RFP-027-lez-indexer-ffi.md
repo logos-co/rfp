@@ -824,6 +824,12 @@ account state pinned to a block and for transaction retrieval.
     everything reports genesis and one bounded by Reliability #7 reports a
     moving value, and a caller learns which by asking rather than by
     discovering it through a failed read. **[New]**
+58. A read for data below the retention floor is answered as such, distinctly
+    from a read for data that never existed. Asking for a block the indexer
+    discarded and asking for one the chain never held are different questions
+    with different answers: the first is retried against an archival source and
+    the second is not. A caller learns which without a second call to the
+    retention floor, which may itself have moved between the two. **[New]**
 
 ##### Surface-wide obligations
 
@@ -844,7 +850,7 @@ chain interposes a plugin layer between its API and its consumers.
 
 Returns a machine-readable description of the exported surface.
 
-58. The FFI exposes a machine-readable description of its own surface, covering
+59. The FFI exposes a machine-readable description of its own surface, covering
     every exported function, its parameters, its return type, and its error
     codes. The existing `getSchema` describes the block type only and is not
     exported
@@ -853,26 +859,35 @@ Returns a machine-readable description of the exported surface.
 
 Every function defined above is further bound by the following.
 
-59. Every exported function takes the indexer handle returned by `start_indexer`
+60. Every exported function takes the indexer handle returned by `start_indexer`
     as its first argument, which the signatures above elide, and signals a null
     handle as `OperationStatus::NullPointer` rather than as a not-found result.
     **[Ready]**
-60. Every function above is exposed through `lez_indexer_module` with the same
+61. Every function above is exposed through `lez_indexer_module` with the same
     semantics, including the not-found and error distinction required by
-    Functionality #61. No capability reaching the FFI stops at the module
+    Functionality #62. No capability reaching the FFI stops at the module
     boundary. **[New]**
-61. The FFI and the module signal not-found, invalid-argument, and backend
+62. The FFI and the module signal not-found, invalid-argument, and backend
     failure as three distinguishable outcomes on every query. The module
     currently flattens not-found and failure into an empty string
     ([Appendix: Logos API Surfaces, section 1](../appendix/logos-api-surfaces.md#1-lez-indexer-ffi)).
     **[New]**
-62. Errors carry an application code from a documented, stable code space, a
-    category, and a retryability signal. Two failure causes that require
-    different caller recovery do not share a code. The current implementation
-    uses the stock JSON-RPC `InternalError` code with free text
+63. Errors are machine-readable and stable: a caller branches on a value rather
+    than on message text, and that value does not change meaning between
+    releases. Which values exist is for the implementation to decide; what this
+    RFP requires is that two failures a caller would recover from differently
+    never arrive as the same value. The current implementation returns the
+    stock JSON-RPC `InternalError` code with free text, so every failure looks
+    alike
     ([Appendix: Blockchain API and SDK Ecosystem, section 1.34](../appendix/blockchain-api-sdk-ecosystem.md#134-structured-errors-and-a-code-taxonomy)).
     **[New]**
-63. Every heap-allocating return has a documented matching free function, and
+64. The distinctions a caller acts on are, at minimum: a request that was
+    malformed, which the caller fixes; a request for data below the retention
+    floor, which the caller sends elsewhere; a request the indexer could not
+    serve because it is stalled or lagging, which the caller retries; and a
+    backend failure, which the caller retries with backoff. A transient failure
+    is distinguishable from a permanent one without parsing text. **[New]**
+65. Every heap-allocating return has a documented matching free function, and
     calling it releases every allocation the return holds. The convention is
     established for the returns exported today; the return types this RFP adds
     need theirs. **[Ready, not exposed]**
@@ -895,8 +910,9 @@ Every function defined above is further bound by the following.
 4. Document which state is readable and which is not for privacy-preserving
    transactions, and state that deposits into private accounts are not trackable
    from indexer data without the viewing key.
-5. Return clear, actionable error messages for every failure mode, each mapped
-   to the code space required by Functionality #62.
+5. Return clear, actionable error messages for every failure mode, each
+   carrying the machine-readable value required by Functionality #63 alongside
+   the text.
 6. Document the semantics of every pagination parameter, including the
    exclusivity of the block bound, what a cursor guarantees across ingestion,
    and the behaviour when new data lands during a walk.
