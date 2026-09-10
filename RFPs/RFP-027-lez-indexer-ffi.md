@@ -63,9 +63,9 @@ a surface that satisfies it satisfies the others, and it is the profile whose
 absence is most visible, since a chain no exchange will list is a chain most
 users cannot reach.
 
-### Target architecture and SDK suite
+### Target architecture and the LEZ-DK
 
-The six deliverables exist to make LEZ integrable by the parties that have to
+The five deliverables exist to make LEZ integrable by the parties that have to
 integrate a chain before it is usable in practice: wallets, centralised
 exchanges, custodians, payment gateways, data and price aggregators, node and
 RPC providers, fiat on and off ramps, bridges, and tax and accounting providers.
@@ -78,47 +78,167 @@ and are written in different languages, which is why this RFP suite takes a
 composable approach. The first two deliverables define surfaces; the rest
 consume them.
 
-1. **The FFI API for the LEZ indexer.** *This RFP*
+1. **The LEZ node API.** *This RFP*
    ([logos-co/ecosystem#235](https://github.com/logos-co/ecosystem/issues/235)).
-   The equivalent of a node API, in the sense that the `eth` namespace is on
-   Ethereum's JSON-RPC. The indexer is expected to run as a node, in the shape
-   an RPC provider runs one.
-2. **The FFI API for the LEZ wallet**
+   Define the LEZ node API: the global, non-wallet functions. An integrator may
+   run a LEZ node and access it through this API by way of a transport proxy, which is
+   what an RPC provider does. Whether indexer or sequencer features answer a
+   given call is internal to it, and it is a black box in that regard. This is
+   the only component used to read blockchain state and to push signed
+   transactions and new commitments to the chain. It is packaged in the
+   `lez_core` Logos Core module. The API needs to be exposed in Rust, to be
+   consumed by the wallet features within `lez_core`, and over the Logos Core
+   FFI, to be consumed by Basecamp apps and transport proxy modules (see 3
+   and 5).
+2. **The LEZ wallet API**
    ([logos-co/ecosystem#236](https://github.com/logos-co/ecosystem/issues/236)):
-   key handling, derivation, and signing. Inside Basecamp it runs as a binary,
-   the `lez_core` module
-   ([`logos-execution-zone-module`](https://github.com/logos-blockchain/logos-execution-zone-module));
-   outside it, the intent is to ship a library per language from one Rust core,
-   as [`bdk-ffi`](https://github.com/bitcoindevkit/bdk-ffi) does (item 4).
-3. **The JSON-RPC proxy module**
-   ([logos-co/ecosystem#237](https://github.com/logos-co/ecosystem/issues/237)):
-   a module that exposes the FFI API over JSON-RPC. It covers both the wallet
-   and the indexer, the indexer being the more critical half.
-4. **The wallet SDK**
+   key handling, derivation, proving, and signing. It covers the local and
+   wallet operations only. The LEZ wallet library that exposes this API is
+   packaged in the `lez_core` module, and an integrator can run that module with
+   every wallet API function disabled. The API needs to be exposed over the
+   Logos Core FFI on the `lez_core` module, and through the `lez_wallet_ffi`
+   crate so it can be wrapped in libraries for other languages (see 4).
+3. **The JSON-RPC proxy module and its client library**
+   ([logos-co/ecosystem#237](https://github.com/logos-co/ecosystem/issues/237),
+   [logos-co/ecosystem#239](https://github.com/logos-co/ecosystem/issues/239)):
+   The module is a Logos Core module that
+   exposes the Logos Core FFI API of `lez_core` module over JSON-RPC, carrying both the LEZ node API and the LEZ
+   wallet API, the former being the one an integrator running a LEZ node as an
+   RPC provider uses most. The client is a Rust library for that same surface,
+   so a consumer reaches a remote node without writing the transport itself.
+4. **LEZ-DK: The LEZ Development Kit**
    ([logos-co/ecosystem#238](https://github.com/logos-co/ecosystem/issues/238)):
-   a library per language over the wallet FFI, BDK-shaped rather than a client
-   for a wire protocol.
-5. **The indexer client library**
-   ([logos-co/ecosystem#239](https://github.com/logos-co/ecosystem/issues/239)):
-   a client for the JSON-RPC surface item 3 exposes, rather than a library with
-   logic of its own, which is what separates it from the wallet SDK. The wallet
-   SDK may use it to reach a running indexer, so Rust is required; other
-   languages follow demand.
-6. **Further transport proxy modules**
+   Modelled on the Bitcoin Development Kit (BDK), for the reasons set out in
+   [Design Rationale: Inspiration from BDK](#inspiration-from-bdk-bitcoin-development-kit).
+   The LEZ-DK carries the FFI crates that expose the Rust LEZ node API and LEZ
+   wallet API. It covers both direct access to an in-process LEZ node (see the
+   desktop example below) and the JSON-RPC client library for a remote one (see
+   the Android example below). It ships as a unified library per language,
+   Kotlin, Swift and Go among them, so an application integrates LEZ the same
+   way whether the node runs in process or remotely.
+5. **Further transport proxy modules and their client libraries**
    ([logos-co/ecosystem#222](https://github.com/logos-co/ecosystem/issues/222))
-   beyond JSON-RPC, such as gRPC, GraphQL, and a Mesh or Rosetta adapter.
+   beyond JSON-RPC, such as gRPC, GraphQL, and a Mesh or Rosetta adapter. Each
+   adds a Logos Core module exposing the wallet and node APIs over the new
+   transport, and a Rust client library with its FFI crate, consumed through the
+   LEZ-DK.
 
-This RFP defines the indexer surface only (1). Wallet and key management,
+The three diagrams below show the architecture these deliverables build
+towards. They differ in what the application is built on and where the node
+runs. A Basecamp app is a Logos UI module paired with a Logos Core module, and
+its core module reaches the `lez_core` module over the Logos Core FFI. An
+application outside Basecamp uses the LEZ-DK for its language instead, and from
+there either embeds a node of its own or reaches a remote one over a
+transport.
+
+The `lez_core` module exposes both surfaces through one Logos Core FFI, and the
+app's core module consumes both, the wallet for keys and signing and the node
+for chain state:
+
+```mermaid
+flowchart TB
+  subgraph app["Any Basecamp Wallet App"]
+    direction TB
+    appUi["UI module"] --> appCore["Core module"]
+  end
+
+  subgraph lezmod["lez_core module"]
+    direction TB
+    ffi["lez_core Logos Core FFI"]
+    walletApi["LEZ wallet API"]
+    nodeApi["LEZ node API"]
+    wallet["LEZ wallet (Rust)<br/>includes sync"]
+    node["LEZ node (Rust)"]
+
+    ffi --> walletApi
+    ffi --> nodeApi
+    walletApi --> wallet
+    nodeApi --> node
+    wallet -- "LEZ node Rust API" --> node
+  end
+
+  appCore --> ffi
+
+  style ffi fill:#ffffff,stroke:#999999,stroke-dasharray:3 3
+  style walletApi fill:#ffffff,stroke:#999999,stroke-dasharray:3 3
+  style nodeApi fill:#ffffff,stroke:#999999,stroke-dasharray:3 3
+```
+
+An Android app is not built from Logos modules, so it adds one dependency, the
+LEZ-DK for Kotlin, which carries the wallet and the transport clients, each its
+own FFI crate over its own Rust crate. The application holds the wallet and a
+client and wires them together, choosing the transport it reaches the node
+through, and neither component reaches the other. Every client in the kit is
+linked whether or not it is used, which is the cost of shipping one artifact.
+The client runs inside the application rather than beside it, so only the node
+call leaves the device:
+
+```mermaid
+flowchart TB
+  subgraph android["Android Wallet Integration"]
+    direction TB
+    androidApp["Application (Kotlin)"]
+
+    subgraph devkit["LEZ-DK for Kotlin"]
+      direction TB
+      walletFfi["lez_wallet_ffi"] --> walletLib["LEZ wallet"]
+      jsonFfi["lez_json_client_ffi"] --> jsonClient["json_rpc_lez_client"]
+      grpcFfi["lez_grpc_client_ffi"] --> grpcClient["grpc_lez_client"]
+    end
+
+    androidApp -- "LEZ wallet Kotlin API" --> walletFfi
+    androidApp -- "LEZ node Kotlin API" --> jsonFfi
+  end
+
+  subgraph remote["Remote LEZ node (headless Logos Core)"]
+    direction TB
+    proxy["JSON-RPC proxy module"] -- "LEZ node API (Logos Core FFI)" --> rnode["LEZ node module"]
+  end
+
+  jsonClient -- "LEZ node API (JSON-RPC)" --> proxy
+
+  style grpcFfi fill:#eeeeee,stroke:#bbbbbb,color:#999999
+  style grpcClient fill:#eeeeee,stroke:#bbbbbb,color:#999999
+```
+
+A desktop app can link the node itself rather than reach one over a transport,
+which is the same LEZ-DK with a different component selected. A Dart and Flutter
+wallet in the shape of [Cake Wallet](https://github.com/cake-tech/cake_wallet)
+adds the node FFI beside the wallet FFI and runs both in process, so the client
+stays linked but unused and no node call leaves the device:
+
+```mermaid
+flowchart TB
+  subgraph desktop["Desktop Wallet Integration"]
+    direction TB
+    desktopApp["Application (Dart / Flutter)"]
+
+    subgraph devkit["LEZ-DK for Dart"]
+      direction TB
+      walletFfi["lez_wallet_ffi"] --> walletLib["LEZ wallet"]
+      nodeFfi["lez_node_ffi"] --> nodeLib["LEZ node"]
+      jsonFfi["lez_json_client_ffi"] --> jsonClient["json_rpc_lez_client"]
+    end
+
+    desktopApp -- "LEZ wallet Dart API" --> walletFfi
+    desktopApp -- "LEZ node Dart API" --> nodeFfi
+  end
+
+  style jsonFfi fill:#eeeeee,stroke:#bbbbbb,color:#999999
+  style jsonClient fill:#eeeeee,stroke:#bbbbbb,color:#999999
+```
+
+This RFP defines the LEZ node API only (1). Wallet and key management,
 transaction construction and signing, the JSON-RPC transport, the further
-transport bindings, and the language SDKs are out of scope and will be defined
-in separate RFPs.
+transport bindings, and the LEZ-DK are out of scope and will be defined in
+separate RFPs.
 
-Two consequences of that arrangement bear on this RFP. The indexer FFI is
-consumed both directly, by anything linking it in process, and indirectly,
-through the JSON-RPC proxy and the indexer client library, so its surface has to survive
-projection onto a wire protocol rather than assuming an in-process caller. And
-because the wallet SDK may reach the indexer through that same JSON-RPC path
-rather than through the FFI, the two surfaces must express the same semantics.
+Two consequences of that arrangement bear on this RFP. The node API is consumed
+both directly, by a caller holding it across an FFI boundary, and indirectly,
+through the JSON-RPC proxy and the client library, so its surface has to survive
+projection onto a wire protocol rather than assuming a local caller. And
+because a consumer may reach the node through either path, the two must express
+the same semantics.
 
 ### The indexer is the only consumer API
 
@@ -193,8 +313,98 @@ it chose, at the moment it is constructing the transaction. That is also what
 simulation is for elsewhere: Stellar returns the transaction data and the
 minimum resource fee that the caller copies back into the transaction before
 submitting, which makes simulation a construction step rather than a read.
-Construction is out of scope here and belongs to the wallet FFI, the second of
-the six deliverables.
+Construction is out of scope here and belongs to the wallet API, the second of
+the five deliverables.
+
+### Inspiration from BDK: Bitcoin Development Kit
+
+The [Bitcoin Development Kit](https://bitcoindevkit.org) is the closest
+precedent for what this suite is building, and the LEZ-DK is named after it. It
+is worth describing before drawing conclusions from it. Everything below was
+read at `bdk-ffi` `3.1.0-alpha.0`.
+
+BDK is what a wallet developer uses instead of writing wallet logic against a
+node themselves. It is layered. At the bottom sits
+[`rust-bitcoin`](https://github.com/rust-bitcoin/rust-bitcoin), which is types
+and consensus encoding only: it is `no_std` and contains no networking at all,
+so it cannot reach a node even in principle. Above it,
+[`bdk_wallet`](https://github.com/bitcoindevkit/bdk_wallet) holds the wallet
+proper, descriptors, key derivation, coin selection, transaction building and
+signing, and the wallet's own view of the chain. Beside it, and this is the part
+that matters here, sit several interchangeable chain clients as separate crates:
+`bdk_esplora` for HTTP, `bdk_electrum` for Electrum servers, `bdk_bitcoind_rpc`
+for Bitcoin Core's JSON-RPC, and `bdk_kyoto` for P2P compact block filters.
+
+[`bdk-ffi`](https://github.com/bitcoindevkit/bdk-ffi) then wraps the wallet and
+those clients for consumers that are not writing Rust. It is its own crate,
+depending on the wallet crate and re-exposing it across a UniFFI boundary rather
+than re-exporting it, and the Kotlin, Swift and Python packages are generated
+against it. A Kotlin consumer never sees Rust: it adds one dependency,
+`bdk-android`, whose entire Kotlin source tree is a build artifact regenerated
+from the FFI crate.
+
+That arrangement answers two questions this suite would otherwise have to guess
+at: how the pieces are packaged, and how the wallet and a client relate to each
+other at runtime.
+
+The first is packaging. Wallet and chain access ship as one crate, one UniFFI
+namespace, and one native library: `lib.rs` declares `mod wallet` beside `mod
+esplora`, `mod electrum`, and `mod kyoto`, then calls
+`uniffi::setup_scaffolding!("bdk")` once. Those modules organise the Rust source
+rather than the exposed surface, and they collapse at the FFI boundary: the
+Android test that exercises `Wallet` and `EsploraClient` together imports
+nothing from BDK at all, because both arrive in one flat package. What separates
+the wallet functions from each client's functions is the object they hang off,
+not a namespace. Every export is a method on a type and none is a free
+function, so `Wallet` carries the wallet operations and `EsploraClient` the
+chain reads, and a caller disambiguates by naming the object. The cost of the
+single artifact is that no Cargo feature gates those backends, so every consumer
+links all three whether it uses one or not.
+
+The second is control flow, and it is the one that matters, because it is what
+keeps those four interchangeable clients interchangeable. The wallet holds no
+client and performs no network I/O. It exposes no method returning a network
+error, and chain data reaches it through exactly one door: the consumer calls an
+`apply_*` method with data the consumer fetched. Sync is three steps the
+integrator writes, not one call the wallet makes:
+
+```
+wallet.start_full_scan()   -> FullScanRequest   (a value)
+client.full_scan(request)  -> Update            (a value)
+wallet.apply_update(update)
+```
+
+The seam is a pair of plain values rather than a trait the wallet defines and a
+client implements. The dependency direction never inverts: the chain modules
+import `Update` from the wallet's types, and the wallet imports nothing from
+them. That is what lets three transports as different as HTTP, Electrum, and
+P2P compact block filters sit behind one import without the wallet knowing which
+is in use, and it survives projection onto Kotlin and Swift, which a trait does
+not do cleanly.
+
+The Rust-native path is a different shape again, which is worth knowing before
+assuming one client interface serves every consumer. Where the HTTP and Electrum
+clients use the request and apply pair above, `bdk_bitcoind_rpc` talks to a node
+over JSON-RPC through a long-lived `Emitter` the consumer drives as a pull loop:
+the wallet's checkpoint and unconfirmed set are injected once at construction,
+`next_block()` is called until it returns nothing, and each block is applied
+individually with `apply_block_connected_to`. There is no request to build. The
+emitter holds the reorg state and the mempool snapshot, so that state sits in
+the client rather than the wallet. Two transports against the same wallet
+therefore present two different consumer flows, and the wallet accommodates both
+only because it exposes several `apply_*` entry points rather than one.
+
+Two consequences for this suite. The client library (deliverable 3) is a
+component the integrator links and constructs directly, choosing its transport
+at the call site rather than receiving it through the wallet, so it is not
+reachable only by way of the wallet FFI. And because the three-step sequence is
+verbose enough that integrators tend to wrap it themselves, a convenience that
+performs a sync against a supplied client is worth offering rather than leaving
+every consumer to write it: the `lez_core` module ships one, and the
+value-passing path stays available for a consumer that needs to control the
+transport. LEZ differs from BDK in having one transport today and further ones
+anticipated (deliverable 5), so whether those clients are feature-gated is a
+decision worth making before there are several rather than after.
 
 ### A status API is not built on `bedrock_status`
 
@@ -1028,8 +1238,8 @@ If possible.
 The following are explicitly excluded from this RFP:
 
 - **Wallet and key management.** Key handling, derivation, watch-only address
-  derivation, viewing keys, and signing belong to the LEZ wallet FFI, the second
-  of the six deliverables.
+  derivation, viewing keys, and signing belong to the LEZ wallet API, the second
+  of the five deliverables.
 - **Transaction construction and signing.** Building a transaction and signing
   it run through the wallet path (`wallet_ffi` and `lez_core`). This RFP
   requires the indexer to accept a signed transaction and relay it, and nothing
@@ -1039,9 +1249,9 @@ The following are explicitly excluded from this RFP:
   both public and privacy-preserving transactions, for the reason given in the
   Design Rationale. Nothing in this RFP executes a transaction a caller
   supplies.
-- **The JSON-RPC proxy, the wallet SDK, and the indexer client library.** These
-  are items 3, 4 and 5 of the six deliverables above, each with its own RFP.
-  This RFP defines what those consume, not how it is transported or wrapped.
+- **The JSON-RPC proxy and its client, and the LEZ-DK.** These are items 3 and
+  4 of the five deliverables above, each with its own RFP. This RFP defines what
+  those consume, not how it is transported or wrapped.
 - **Reaching the sequencer directly.** The FFI defined in this RFP is to be
   solely provided by the indexer module. A consumer never reaches the sequencer,
   whose interface is internal to LEZ and is not an API this RFP or any other in
@@ -1087,6 +1297,7 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   languages, response shapes, and per-function gap notes for LEZ
 - [logos-execution-zone](https://github.com/logos-blockchain/logos-execution-zone):
   the LEZ sequencer, indexer, and wallet
+- [`logos-execution-zone-module`](https://github.com/logos-blockchain/logos-execution-zone-module)): `lez_core` Logos Core module
 - [lez-indexer-module](https://github.com/logos-blockchain/lez-indexer-module):
   the Logos Core module wrapping the indexer FFI
 - [Logos glossary](https://docs.logos.co/get-started/glossary): zone, channel,
