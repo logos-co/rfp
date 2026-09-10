@@ -358,6 +358,21 @@ omitting those types keeps the artefact honest at the price of two shapes for
 one language binding, while exposing them and failing at run time keeps one
 shape at the price of a surprise. A proposal states which it chose.
 
+### Logos stack readiness
+
+Two items bear on the architecture proposed above.
+
+**Basecamp mobile readiness.** The first diagram is marked as applying to any
+Basecamp application, but mobile support is not planned for testnet 0.3, so at
+the time of writing that shape is reachable on desktop only.
+
+**The target topology for LEZ and Logos Blockchain on mobile.** It is not yet
+settled whether a mobile device is expected to run light versions of the chain
+nodes and join the peer-to-peer networks directly, to reach remote nodes over
+RPC alone, or to combine the two. That decision governs the unified development
+kit and what embedding a node means per platform, so the sizes and the
+per-platform artefact strategy above are provisional until it is made.
+
 ### The LEZ node API is the only API for LEZ chain state access
 
 The LEZ node API is the whole of the surface available to a consumer, in both
