@@ -411,15 +411,6 @@ transport. LEZ differs from BDK in having one transport today and further ones
 anticipated (deliverable 5), so whether those clients are feature-gated is a
 decision worth making before there are several rather than after.
 
-### A status API is not built on `bedrock_status`
-
-A per-transaction status is derived from whether the transaction is present in
-the store, which block holds it, and where that block sits relative to the
-indexed tip. It is not derived from `Block.bedrock_status`, which the indexer
-overwrites to `Finalized` unconditionally before persisting
-(`lez/indexer/core/src/block_store.rs:242-243`), making any status derived from
-that field a constant.
-
 ### Public and private transactions expose different things
 
 Private state exists on-chain only as commitments, so plaintext travels inside
@@ -648,20 +639,23 @@ Returns how far a transaction has progressed, where it sits, and whether its
 execution succeeded.
 
 19. The FFI exposes a per-transaction status query returning a level from a
-    documented set that distinguishes at minimum: not known to the indexer,
-    pending, present in an indexed block, and final. The level is derived from
-    the transaction's presence in the store, its presence in the pending set,
-    and its block's position relative to the indexed tip, and not from
-    `Block.bedrock_status`, which the indexer overwrites to `Finalized`
-    unconditionally (`lez/indexer/core/src/block_store.rs:242-243`). **[New]**
+    documented set that distinguishes at minimum: not known, pending, included
+    in a block, and final. Each level documents what a caller may conclude from
+    it, and that documented meaning is what the API guarantees. Final means the
+    transaction's block is final on the underlying L1, so a caller acting on it
+    is acting on a settled result; it is not a statement about how much of the
+    chain a node has processed. Where LEZ recognises a degree of certainty
+    between inclusion and finality, as `BedrockStatus` does with `Safe`, the
+    level set carries it rather than collapsing it into either neighbour.
+    **[New]**
 20. The per-transaction status query returns the identifier of the block
-    containing the transaction, and the indexed tip the level was assessed
-    against. **[Ready, not exposed]**
+    containing the transaction, and the L1 position the level was assessed
+    against, so a caller can tell how current the answer is. **[New]**
 21. The per-transaction status query reports execution success or failure, with
-    a typed reason on failure, for any transaction the indexer has executed.
+    a typed reason on failure, for any transaction the node has executed.
     **[Computed, not persisted]**
-22. A transaction the indexer does not hold and the pending set does not hold is
-    reported distinctly from one the indexer has simply not seen, once its
+22. A transaction the node does not hold and the pending set does not hold is
+    reported distinctly from one the node has simply not seen, once its
     validity window has passed. A privacy-preserving transaction carries a block
     and a timestamp validity window
     (`lez/indexer/service/protocol/src/lib.rs:253-260`), so a transaction absent
