@@ -372,9 +372,11 @@ LEZ is nonetheless positioned to offer that shape cheaply, because the
 component, the JSON-RPC proxy module of deliverable 3, would expose the wallet
 API over the same transport as the node API, which makes wallet integration
 reachable from a server or cloud environment, and potentially a desktop one,
-alongside the Logos Core and Basecamp path. Whether to offer it is a product
-decision rather than a requirement of this RFP, and this RFP defines only the
-node half of that surface.
+alongside the Logos Core and Basecamp path.
+
+This could be a quicker and cheaper way to provide wallet integration for both
+LEZ and Logos Blockchain. The demand for it would need to be validated first,
+however, given the move away from it the ecosystem has demonstrated.
 
 ### Logos stack readiness
 
