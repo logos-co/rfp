@@ -143,10 +143,10 @@ The three diagrams below show the architecture these deliverables build towards.
 They differ in what the application is built on, which is the division that
 matters, and then in where the node runs. A new app built on Basecamp is a Logos
 UI module paired with a Logos Core module, and its core module reaches the
-`lez_core` module over the Logos Core FFI, on any platform it runs on. An
-application not built from Logos modules uses the LEZ-DK for its language
-instead, and from there either reaches a remote node over a transport or embeds
-one of its own.
+`lez_core` module over the Logos Core FFI, on any platform it runs on. A
+pre-existing application not built from Logos modules uses the LEZ-DK for its
+language instead, and from there either reaches a remote node over a transport
+or embeds one of its own.
 
 The `lez_core` module exposes both surfaces through one Logos Core FFI, and the
 app's core module consumes both, the wallet for keys and signing and the node
