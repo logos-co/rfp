@@ -456,11 +456,13 @@ public account is reported, and a transfer between private accounts is not.
 Both already hold, and the work on them is to document the boundary rather than
 to build it.
 
-The wallet is the other consumer, and there the capability is missing. #16 and
-#17 require the membership proofs and the root they are proven against, which a
-wallet needs to reconstruct its own balance, and #42 requires the oldest-first
-ordering a wallet walking forward from its last processed block relies on to
-decrypt what it can. All three are new.
+The wallet is the other consumer, and there the work is on this surface rather
+than on the capability. #16 and #17 require the membership proofs and the root
+they are proven against, which a wallet needs to reconstruct its own balance.
+The sequencer answers that today and the wallet reaches it directly, so what is
+new is serving it from the node. #42 requires the oldest-first ordering a
+wallet walking forward from its last processed block relies on to decrypt what
+it can.
 
 ### Retention is reported, not configured
 
