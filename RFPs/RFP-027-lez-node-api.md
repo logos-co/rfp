@@ -150,9 +150,9 @@ will be defined in future RFPs, tracked as the FFI bindings
 the proxy module and its SDK
 ([logos-co/ecosystem#220](https://github.com/logos-co/ecosystem/issues/220)),
 both under
-[logos-co/ecosystem#214](https://github.com/logos-co/ecosystem/issues/214).
-Noting that we would aim for the JSON-RPC proxy module to also cover the Logos
-Blockchain API (and other module APIs for that matter).
+[logos-co/ecosystem#214](https://github.com/logos-co/ecosystem/issues/214). The
+intent is for the JSON-RPC proxy module to cover the Logos Blockchain API as
+well, and other module APIs alongside it.
 
 The three diagrams below show the architecture these deliverables build towards.
 They differ in what the application is built on, which is the division that
@@ -215,7 +215,7 @@ Kotlin, which carries the wallet and the transport clients, each its own FFI
 crate over its own Rust crate. The application holds the wallet and a client and
 wires them together, choosing the transport it reaches the node through, and
 neither component reaches the other. Every client in the kit is linked whether
-or not it is used, which is the cost of shipping one artifact. The client runs
+or not it is used, which is the cost of shipping one artefact. The client runs
 inside the application rather than beside it, so only the node call leaves the
 device:
 
@@ -239,7 +239,7 @@ flowchart TB
   subgraph remote["Remote host (logosctl)"]
     direction TB
     proxy["JSON-RPC proxy module"] -- "LEZ node API (Logos Core FFI)" --> rnode["LEZ node module"]
-    rnode -- "Blockchain node API (Logos Core FFI)" --> lbmod["blockchain_module"]
+    rnode -- "Blockchain node API (Logos Core FFI)" --> rlbmod["blockchain_module"]
   end
 
   jsonClient -- "LEZ node API (JSON-RPC)" --> proxy
@@ -257,9 +257,9 @@ and no node call leaves the device:
 
 ```mermaid
 flowchart TB
-  subgraph desktop["Integration in a pre-existing wallet app"]
+  subgraph embedded["Integration in a pre-existing wallet app"]
     direction TB
-    desktopApp["Application (Dart / Flutter)"]
+    embeddedApp["Application (Dart / Flutter)"]
 
     subgraph devkit["LEZ-DK for Dart"]
       direction TB
@@ -268,18 +268,18 @@ flowchart TB
       jsonFfi["lez_json_client_ffi"] --> jsonClient["json_rpc_lez_client"]
     end
 
-    desktopApp -- "LEZ wallet Dart API" --> walletFfi
-    desktopApp -- "LEZ node Dart API" --> nodeFfi
+    embeddedApp -- "LEZ wallet Dart API" --> walletFfi
+    embeddedApp -- "LEZ node Dart API" --> nodeFfi
   end
 
   style jsonFfi fill:#eeeeee,stroke:#bbbbbb,color:#999999
   style jsonClient fill:#eeeeee,stroke:#bbbbbb,color:#999999
 ```
 
-**Note**: the diagram above omits the Logos Blockchain node that the embedded
-LEZ node reads finalised on-chain state from. Whether an application embedding a
-LEZ node should embed the L1 node as well, or reach a remote one, is undecided:
-see
+**Note**: unlike the two above, this diagram omits the Logos Blockchain node
+that the embedded LEZ node reads finalised on-chain state from. Whether an
+application embedding a LEZ node should embed the L1 node as well, or reach a
+remote one, is undecided: see
 [Unified Logos Development Kit & artefact size](#unified-logos-development-kit--artefact-size)
 for the sizes that bear on the choice.
 
@@ -312,13 +312,14 @@ turn cost more to maintain than keeping the kits separate in the first place.
 
 The LEZ node alone already sets a high floor. Built from `lez/indexer/ffi` at
 `--release` for `x86_64-unknown-linux-gnu`, `libindexer_ffi.so` is 33.6 MiB
-unstripped and 28.0 MiB stripped. For comparison, the whole of `bdk-android`
-3.0.0 ships a 15.3 MiB `.so` carrying a wallet and four chain backends, so one
-Logos protocol is close to twice a complete Bitcoin kit. This is a verifier
-only: the risc0 `prove` feature is enabled by `lez/wallet-ffi` and a benchmark
-tool alone, and `indexer_ffi` resolves `risc0-zkvm` with `client` and `std`, so
-the figure excludes proving. What it does include is the risc0 verifier,
-RocksDB, libp2p, and the guest ELF the state machine embeds.
+unstripped and 28.0 MiB stripped. For comparison, `bdk-android` 3.0.0 ships a
+15.3 MiB `.so` for `arm64-v8a`, and that one artefact carries a wallet and four
+chain backends. So the LEZ node on its own, before any wallet or client joins
+it, already outweighs a complete Bitcoin kit. This is a verifier only: the risc0
+`prove` feature is enabled by `lez/wallet-ffi` and a benchmark tool alone, and
+`indexer_ffi` resolves `risc0-zkvm` with `client` and `std`, so the figure
+excludes proving. What it does include is the risc0 verifier, RocksDB, libp2p,
+and the guest ELF the state machine embeds.
 
 A LEZ node also needs a Logos Blockchain node, and that one is larger again.
 `logos-blockchain-c` builds `liblogos_blockchain.so` at 84.5 MiB, also for
@@ -332,7 +333,7 @@ of its own. That is also before the four remaining Logos protocols, and before
 any per-architecture packaging.
 
 Neither number above is for a mobile target, and neither can be today: the ZK
-circuit artifacts both libraries depend on are published for Linux, macOS and
+circuit artefacts both libraries depend on are published for Linux, macOS and
 Windows only, so an Android or iOS build fails before it produces a size.
 Building those circuits for mobile is a prerequisite to answering the question,
 and a proposal is expected to obtain the figures rather than assume them.
@@ -465,7 +466,7 @@ those clients for consumers that are not writing Rust. It is its own crate,
 depending on the wallet crate and re-exposing it across a UniFFI boundary rather
 than re-exporting it, and the Kotlin, Swift and Python packages are generated
 against it. A Kotlin consumer never sees Rust: it adds one dependency,
-`bdk-android`, whose entire Kotlin source tree is a build artifact regenerated
+`bdk-android`, whose entire Kotlin source tree is a build artefact regenerated
 from the FFI crate.
 
 That arrangement answers two questions this suite would otherwise have to guess
@@ -482,7 +483,7 @@ nothing from BDK at all, because both arrive in one flat package. What separates
 the wallet functions from each client's functions is the object they hang off,
 not a namespace. Every export is a method on a type and none is a free function,
 so `Wallet` carries the wallet operations and `EsploraClient` the chain reads,
-and a caller disambiguates by naming the object. The cost of the single artifact
+and a caller disambiguates by naming the object. The cost of the single artefact
 is that no Cargo feature gates those backends, so every consumer links all three
 whether it uses one or not.
 
@@ -1134,7 +1135,7 @@ chain that zone settles to.
     initialisation but served by no L1 route
     ([Appendix: Blockchain API and SDK Ecosystem, section 1.3](../appendix/blockchain-api-sdk-ecosystem.md#13-identify-the-network-or-chain)),
     and the indexer holds only an endpoint for its Bedrock connection
-    (`lez/indexer/core/src/config.rs:19-29`), so obtaining it is work outside
+    (`lez/indexer/core/src/config.rs:18-23`), so obtaining it is work outside
     the indexer. A proposal states how it reaches the value. **[New]**
 54. Where the chain identifier cannot be obtained, the call reports it as
     unavailable rather than omitting it or returning a placeholder, so a caller
@@ -1409,10 +1410,9 @@ The following are explicitly excluded from this RFP:
 - **The program event system.** Events already exist end to end, from
   `ProgramOutput.events` through indexer capture to `getEvents`,
   `subscribeToEvents`, and `query_events` on the FFI. Nothing here changes them.
-  The requirements below neither depend on events nor duplicate them, for the
-  two reasons given in the Design Rationale: events do not cover private
-  transactions, and their availability depends on how an operator configured the
-  indexer's event filter.
+  The requirements above neither depend on events nor duplicate them, for two
+  reasons: events do not cover private transactions, and their availability
+  depends on how an operator configured the event filter.
 - **Tracking deposits into private accounts.** Private post-states are encrypted
   and readable only by the viewing key holder, so this is foreclosed by the
   design of the chain rather than by the scope of this RFP.
