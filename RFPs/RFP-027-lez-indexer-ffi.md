@@ -196,29 +196,6 @@ submitting, which makes simulation a construction step rather than a read.
 Construction is out of scope here and belongs to the wallet FFI, the second of
 the six deliverables.
 
-### A block identifier is a height, and a height is not a name
-
-`BlockId` is a `u64` counting from a genesis of 1
-(`lee/state_machine/core/src/lib.rs:36-38`), and the codebase treats it
-arithmetically throughout: pagination descends by subtracting one
-(`lez/storage/src/indexer/read_multiple.rs:11`), state snapshots are indexed by
-dividing it by the breakpoint interval (`lez/storage/src/indexer/mod.rs:293-298`),
-and the sequencer assigns a local named `new_block_height` straight into the
-field (`lez/sequencer/core/src/lib.rs:1198`). The block hash is the separate
-32-byte value the header also carries (`lez/common/src/block.rs:51-58`). Storage
-reflects the difference: the height is the primary key blocks are stored under,
-and the hash is a secondary index onto it
-(`lez/storage/src/indexer/read_once.rs:43-46`, `read_once.rs:68-71`).
-
-The distinction matters because a height names a position rather than a block.
-The sequencer's own reorg handling describes inscribing a second block at a
-height the channel already holds (`lez/sequencer/core/src/lib.rs:595-873`), so
-one identifier can resolve to different blocks at different times, while a hash
-resolves to one block or to none. The API therefore uses the two for different
-purposes: a height to say where in the chain a caller is reading, and a hash to
-say which block a caller read. Where a caller needs to know that the answer it
-holds still refers to the block it was given, both travel together.
-
 ### A status API is not built on `bedrock_status`
 
 A per-transaction status is derived from whether the transaction is present in
