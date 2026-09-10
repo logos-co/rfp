@@ -139,13 +139,14 @@ consume them.
    transport, and a Rust client library with its FFI crate, consumed through the
    LEZ-DK.
 
-The four diagrams below show the architecture these deliverables build towards.
-They differ in what the application is built on and where the node runs, and the
-first of those is the division that matters: a Basecamp app is a Logos UI module
-paired with a Logos Core module, and its core module reaches the `lez_core`
-module over the Logos Core FFI, on any platform it runs on. An application not
-built from Logos modules uses the LEZ-DK for its language instead, and from
-there either embeds a node of its own or reaches a remote one over a transport.
+The three diagrams below show the architecture these deliverables build towards.
+They differ in what the application is built on, which is the division that
+matters, and then in where the node runs. A new app built on Basecamp is a Logos
+UI module paired with a Logos Core module, and its core module reaches the
+`lez_core` module over the Logos Core FFI, on any platform it runs on. An
+application not built from Logos modules uses the LEZ-DK for its language
+instead, and from there either reaches a remote node over a transport or embeds
+one of its own.
 
 The `lez_core` module exposes both surfaces through one Logos Core FFI, and the
 app's core module consumes both, the wallet for keys and signing and the node
@@ -218,15 +219,16 @@ flowchart TB
   style grpcClient fill:#eeeeee,stroke:#bbbbbb,color:#999999
 ```
 
-A desktop app can link the node itself rather than reach one over a transport,
-which is the same LEZ-DK with a different component selected. A Dart and Flutter
-wallet in the shape of [Cake Wallet](https://github.com/cake-tech/cake_wallet)
-adds the node FFI beside the wallet FFI and runs both in process, so the client
-stays linked but unused and no node call leaves the device:
+An application can also link the node itself rather than reach one over a
+transport, which is the same LEZ-DK with a different component selected. A Dart
+and Flutter wallet in the shape of
+[Cake Wallet](https://github.com/cake-tech/cake_wallet) adds the node FFI beside
+the wallet FFI and runs both in process, so the client stays linked but unused
+and no node call leaves the device:
 
 ```mermaid
 flowchart TB
-  subgraph desktop["Integration in a pre-existing desktop wallet app"]
+  subgraph desktop["Integration in a pre-existing wallet app"]
     direction TB
     desktopApp["Application (Dart / Flutter)"]
 
@@ -243,42 +245,6 @@ flowchart TB
 
   style jsonFfi fill:#eeeeee,stroke:#bbbbbb,color:#999999
   style jsonClient fill:#eeeeee,stroke:#bbbbbb,color:#999999
-```
-
-An Android app built on Basecamp is the first case again rather than the second.
-It is a Logos UI module paired with a Logos Core module, so it reaches
-`lez_core` over the Logos Core FFI and uses no LEZ-DK: the per-language FFI
-crates exist for applications that are not built from Logos modules, and a
-Basecamp app on Android is. The platform it runs on does not change which of the
-two shapes it has:
-
-```mermaid
-flowchart TB
-  subgraph android["New Android app: uses Basecamp and Logos Core"]
-    direction TB
-    appUi["UI module"] --> appCore["Core module"]
-
-    subgraph lezmod["lez_core module"]
-      direction TB
-      ffi["lez_core Logos Core FFI"]
-      walletApi["LEZ wallet API"]
-      nodeApi["LEZ node API"]
-      wallet["LEZ wallet (Rust)"]
-      node["LEZ node (Rust)"]
-
-      ffi --> walletApi
-      ffi --> nodeApi
-      walletApi --> wallet
-      nodeApi --> node
-      wallet -- "LEZ node Rust API" --> node
-    end
-
-    appCore --> ffi
-  end
-
-  style ffi fill:#ffffff,stroke:#999999,stroke-dasharray:3 3
-  style walletApi fill:#ffffff,stroke:#999999,stroke-dasharray:3 3
-  style nodeApi fill:#ffffff,stroke:#999999,stroke-dasharray:3 3
 ```
 
 This RFP defines the LEZ node API only (1). Wallet and key management,
