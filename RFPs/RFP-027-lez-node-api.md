@@ -292,6 +292,10 @@ that: cost is something to estimate, report, and budget against, and the
 readiness markers describe the starting point for the work rather than a
 constraint on what the surface may express.
 
+[Functionality](#functionality) #5 requires the fee to be reported separately
+from the balance changes, so a caller reads it rather than reconstructing it by
+arithmetic, and #6 requires the gas consumed alongside it.
+
 ### Simulation belongs to the wallet, not to the node
 
 Simulation is the one capability an integrator expects from a node API that this
@@ -319,7 +323,7 @@ simulation is for elsewhere: Stellar returns the transaction data and the
 minimum resource fee that the caller copies back into the transaction before
 submitting, which makes simulation a construction step rather than a read.
 Construction is out of scope here and belongs to the wallet API, the second of
-the five deliverables.
+the five deliverables. [Out of Scope](#out-of-scope) records the exclusion.
 
 ### Inspiration from BDK: Bitcoin Development Kit
 
@@ -445,14 +449,22 @@ are required of the node, since a wallet that cannot fetch them cannot
 reconstruct its own balance. Reads that span both kinds state which leg they
 answer for.
 
-**The gap.** The boundary is currently implied rather than stated. A consumer
+**The gap.** The boundary is currently implied rather than stated: a consumer
 reading a privacy-preserving transaction infers from the shape of the response
-that the private leg is opaque. The API should document it: a read returning a
-private action states that its plaintext is available only to the viewing key
-holder, and a balance or history answer states whether it covers the account's
-private activity. An integrator crediting deposits should learn from the
-documentation that a deposit into a private account is not visible to it, and
-that a deshield into a public account is.
+that the private leg is opaque. The requirements below close that by making
+each read say which side of the boundary it answers for.
+
+[Functionality](#functionality) #2 requires the returned transaction to
+discriminate public, privacy-preserving, and program-deployment bodies, so a
+consumer knows which it is holding. #4 scopes the balance deltas the effects
+query returns to public transactions and the public leg of privacy-preserving
+ones, which is what an integrator crediting deposits reads: a deshield into a
+public account is reported, and a transfer between private accounts is not.
+
+#16 and #17 serve the other consumer. A wallet reconstructing its own balance
+needs membership proofs and the root they are proven against, and #42 requires
+the oldest-first ordering a wallet walking forward from its last processed
+block relies on to decrypt what it can.
 
 ### Retention is reported, not configured
 
@@ -460,6 +472,10 @@ The requirements below ask for the retention floor to be reported rather than
 for pruning to be added: EIP-4444's design lesson is that retention should be
 declared rather than discovered through a failed request
 ([Appendix: Blockchain API and SDK Ecosystem, section 1.29](../appendix/blockchain-api-sdk-ecosystem.md#129-read-historical-state-at-a-past-version)).
+
+[Functionality](#functionality) #56 requires the floor to be exposed, and #57
+requires a read below it to be answered as such, distinctly from a read for
+data that never existed.
 
 ## ✅ Scope of Work
 
@@ -593,23 +609,17 @@ owning program, balance, nonce, and program data blob.
     account as unclaimed, the same test the state machine applies before
     allowing one to be modified
     (`lee/state_machine/src/validated_state_diff/mod.rs:351-365`). **[Ready]**
-12. The account reads answer for public state alone, and the API says so. A
-    private balance has no account record to return: private state is a
-    commitment set and a nullifier set carrying no account identifier
-    (`lee/state_machine/src/state/mod.rs:115-116`), so a default record means
-    the state holds no public balance for that identifier and is not evidence
-    that the party holds nothing. **[New]**
 
 **`query_account_at_block(account_id, block_id) -> PointerResult<FfiAccount, OperationStatus>`**
 
 Returns the account record as it stood at a given block, rather than at the tip.
 
-13. The FFI exposes an account read pinned to a block identifier, returning the
+12. The FFI exposes an account read pinned to a block identifier, returning the
     account record as it stood at that block, on the same terms as the read at
     the tip. This exports the existing `getAccountAtBlock` indexer RPC method
     ([Appendix: Logos API Surfaces, section 2](../appendix/logos-api-surfaces.md#2-lez-indexer-rpc)).
     **[Ready, not exposed]**
-14. The pinned read returns the hash of the block it answered against, and the
+13. The pinned read returns the hash of the block it answered against, and the
     API documents that the read pins to a height rather than to a block: the
     same identifier can resolve to a different block after a reorg, and the hash
     is what tells a caller which one it read. **[New]**
@@ -619,12 +629,12 @@ Returns the account record as it stood at a given block, rather than at the tip.
 Returns one result per requested account identifier, optionally pinned to a
 block.
 
-15. The FFI exposes a batch account read taking a list of account identifiers
+14. The FFI exposes a batch account read taking a list of account identifiers
     and returning a result per identifier in request order, backed by
     `multi_get_cf` as the block and transaction reads in the same store already
     are. An identifier the state holds no record for reads as the default
     account rather than failing the call. **[New]**
-16. The batch account read accepts an optional block identifier that pins every
+15. The batch account read accepts an optional block identifier that pins every
     account in the batch to the same block, so a multi-account read is
     internally consistent under concurrent ingestion. **[New]**
 
@@ -639,7 +649,7 @@ chains, the commitment set being a structure only a shielded chain carries.
 Returns a membership proof per requested commitment, together with the
 commitment set root they are proven against.
 
-17. The FFI returns, for a list of commitments, a membership proof per
+16. The FFI returns, for a list of commitments, a membership proof per
     commitment in request order and the commitment set root those proofs are
     proven against, both read from indexer data. A commitment the set does not
     hold is reported as absent per entry rather than failing the call. This is
@@ -648,7 +658,7 @@ commitment set root they are proven against.
     sequencer for (`lez/wallet/src/lib.rs:660-667`). A consumer that holds a
     viewing key needs it to spend a note, and under the rationale above it is
     required of the node regardless of which component holds it. **[New]**
-18. The proofs and the root returned by one call are consistent with one
+17. The proofs and the root returned by one call are consistent with one
     another: every proof verifies against the returned root. **[New]**
 ##### Transaction status
 
@@ -667,7 +677,7 @@ Answering how far a transaction has progressed and whether it succeeded
 Returns how far a transaction has progressed, where it sits, and whether its
 execution succeeded.
 
-19. The FFI exposes a per-transaction status query returning a level from a
+18. The FFI exposes a per-transaction status query returning a level from a
     documented set that distinguishes at minimum: not known, pending, included
     in a block, and final. Each level documents what a caller may conclude from
     it, and that documented meaning is what the API guarantees. Final means the
@@ -677,20 +687,20 @@ execution succeeded.
     between inclusion and finality, as `BedrockStatus` does with `Safe`, the
     level set carries it rather than collapsing it into either neighbour.
     **[New]**
-20. The per-transaction status query returns the identifier of the block
+19. The per-transaction status query returns the identifier of the block
     containing the transaction, and the L1 position the level was assessed
     against, so a caller can tell how current the answer is. **[New]**
-21. The per-transaction status query reports execution success or failure, with
+20. The per-transaction status query reports execution success or failure, with
     a typed reason on failure, for any transaction the node has executed.
     **[Computed, not persisted]**
-22. A transaction the node does not hold and the pending set does not hold is
+21. A transaction the node does not hold and the pending set does not hold is
     reported distinctly from one the node has simply not seen, once its
     validity window has passed. A privacy-preserving transaction carries a block
     and a timestamp validity window
     (`lez/indexer/service/protocol/src/lib.rs:253-260`), so a transaction absent
     from both surfaces past that window will not be included and the API says
     so rather than reporting it as unknown indefinitely. **[New]**
-23. The API documents that a transaction absent from the chain and from the
+22. The API documents that a transaction absent from the chain and from the
     pending set before its window has passed is not distinguishable from one
     never submitted, no record of a declined transaction being retained.
     **[New]**
@@ -701,12 +711,12 @@ Returns the node's own ingestion state as a JSON document: `state`,
 `indexed_block_id`, `last_error`, `stall_reason`, `cross_zone_halt`, and
 `cross_zone_peers`.
 
-24. The query reports the ingestion state as one of `Starting`, `Syncing`,
+23. The query reports the ingestion state as one of `Starting`, `Syncing`,
     `CaughtUp`, `Error`, `Stalled`, or `Halted`, together with the indexed block
     identifier, and carries the stall and cross-zone diagnostics when ingestion
     stopped. A state a client build does not recognise is treated as not known
     healthy rather than as a decode failure. **[Ready]**
-25. The status query signals a null handle and a serialisation failure as
+24. The status query signals a null handle and a serialisation failure as
     distinguishable outcomes rather than returning a bare null pointer for both
     ([Appendix: Logos API Surfaces, section 1](../appendix/logos-api-surfaces.md#1-lez-indexer-ffi)).
     **[New]**
@@ -735,15 +745,15 @@ constructs, signs, or executes a transaction.
 
 Accepts a signed transaction and returns the hash it will be known by.
 
-26. The FFI accepts a signed transaction, relays it to the component inside LEZ
+25. The FFI accepts a signed transaction, relays it to the component inside LEZ
     that accepts writes, and returns the transaction hash a caller then tracks
     through `query_transaction_status`. **[New]**
-27. A transaction the network declines to accept is reported as a typed failure
+26. A transaction the network declines to accept is reported as a typed failure
     distinguishing at least a malformed transaction, one that fails a stateless
     check, and one too large for a block, separately from a failure to reach the
     accepting component at all. A caller retries the last and does not retry the
     others. **[New]**
-28. Submission neither signs nor modifies the transaction it is given. The bytes
+27. Submission neither signs nor modifies the transaction it is given. The bytes
     accepted are the bytes relayed. **[New]**
 
 ##### Pending transactions
@@ -781,18 +791,18 @@ a submitted transaction unobservable until it appears in a block
 Lists the pending set as digests: per entry, its identifier and the account
 identifiers, nonces, and nullifiers it touches.
 
-29. The FFI lists pending transactions as digests carrying, per entry, its
+28. The FFI lists pending transactions as digests carrying, per entry, its
     identifier together with the account identifiers, nonces, and nullifiers the
     transaction acts on, so a caller detects a conflict with a transaction it is
     about to build without fetching bodies. **[New]**
-30. The listing is bounded and paginated by cursor, on the same terms as the
+29. The listing is bounded and paginated by cursor, on the same terms as the
     other paginated reads, and reports whether more entries remain. The pending
     set turns over as entries are included or dropped, so an offset into it
     names a different entry from one call to the next. **[New]**
-31. The digest listing is cheap enough to poll for the duration of a proof
+30. The digest listing is cheap enough to poll for the duration of a proof
     generation, so a wallet re-checks for a conflict while proving and abandons
     the proof rather than completing one it knows will be rejected. **[New]**
-32. The pending set is queryable by transaction hash, so a caller holding the
+31. The pending set is queryable by transaction hash, so a caller holding the
     hash `submit_transaction` returned asks whether that transaction is still
     pending without walking the listing. **[New]**
 
@@ -801,7 +811,7 @@ identifiers, nonces, and nullifiers it touches.
 Returns one pending transaction in full, for an identifier taken from the digest
 listing.
 
-33. The FFI returns a pending transaction's body for an identifier from the
+32. The FFI returns a pending transaction's body for an identifier from the
     digest listing, in the same shape `query_transaction` returns an included
     one, and reports absence distinctly from failure: an entry included or
     dropped between the two calls is gone rather than an error. **[New]**
@@ -826,17 +836,17 @@ Pushing new blocks to a consumer instead of making it poll
 Registers a consumer that is called with each newly indexed block, optionally
 resuming from a position the consumer already processed.
 
-34. The FFI exposes a subscription to finalised blocks that delivers each newly
+33. The FFI exposes a subscription to finalised blocks that delivers each newly
     indexed block to a registered consumer, exporting the existing
     `subscribeToFinalizedBlocks` indexer RPC method. The consumer is notified
     through a callback rather than by polling. **[Ready, not exposed]**
-35. Each delivery carries the block's height and its hash together, so a
+34. Each delivery carries the block's height and its hash together, so a
     consumer knows which block occupied the position it was told about without a
     second read. The existing subscription yields a height alone
     (`lez/indexer/service/rpc/src/lib.rs:44`), which does not identify a block
     across a reorg; the pair already exists as `BlockMeta`
     (`lez/common/src/block.rs:11-14`). **[New]**
-36. The block subscription accepts a start position: a block identifier the
+35. The block subscription accepts a start position: a block identifier the
     consumer last processed. Delivery resumes from the block after that
     position, so a consumer that reconnects observes no gap. Neither existing
     RPC subscription carries one: `subscribeToFinalizedBlocks` takes no
@@ -849,7 +859,7 @@ resuming from a position the consumer already processed.
 
 Cancels a registered subscription and releases the resources it holds.
 
-37. Cancelling a subscription stops delivery, and no callback fires after the
+36. Cancelling a subscription stops delivery, and no callback fires after the
     call returns. **[New]**
 
 ##### Pagination and account history
@@ -875,14 +885,14 @@ Returns one page of the transactions touching an account, resumed from a cursor
 the previous page returned. Exported today as a numeric offset into the
 per-account index.
 
-38. The query returns at most `limit` transactions from the position the cursor
+37. The query returns at most `limit` transactions from the position the cursor
     names, or from the start of the walk when the cursor is absent, and stops
     early at the end of the account's history rather than failing. The bounded
     read exists; the cursor replaces the offset it takes today. **[New]**
-39. `query_transactions_by_account` accepts an ordering parameter supporting
+38. `query_transactions_by_account` accepts an ordering parameter supporting
     both oldest-first and newest-first. Newest-first is the order a deposit
     tracker reads in. **[New]**
-40. The page is walked by an opaque cursor rather than by a numeric offset, and
+39. The page is walked by an opaque cursor rather than by a numeric offset, and
     the cursor remains stable across ingestion: a caller resuming from one
     neither skips nor repeats an entry that existed when the walk began, however
     many transactions have landed since. An offset into a growing index cannot
@@ -897,20 +907,20 @@ Returns a page of blocks starting at `from`, walked in the requested direction,
 or starting at the indexed tip when `from` is absent. Exported today as
 `query_block_vec`, which descends only.
 
-41. The query returns at most `limit` blocks, walked from `from`, or from the
+40. The query returns at most `limit` blocks, walked from `from`, or from the
     indexed tip when `from` is absent. **[Ready]**
-42. The bound is documented as exclusive. The store already implements it
+41. The bound is documented as exclusive. The store already implements it
     that way when descending, from `before_id.saturating_sub(1)`
     (`lez/storage/src/indexer/read_multiple.rs:11`), leaving the documentation
     obligation only. **[Ready]**
-43. `query_blocks` accepts an ordering parameter supporting both oldest-first
+42. `query_blocks` accepts an ordering parameter supporting both oldest-first
     and newest-first, on the same terms as
     `query_transactions_by_account`. Oldest-first is the order a consumer
     scanning forward reads in: a wallet syncing private accounts walks
     ascending from the last block it processed to the tip, decrypting each
     privacy-preserving transaction body against its own viewing key. Descending
     from the tip cannot serve that walk. **[New]**
-44. Every paginated response reports whether more results remain, and carries the
+43. Every paginated response reports whether more results remain, and carries the
     cursor a caller resumes from, so a caller distinguishes the end of a result
     set from a page that happens to be short and never constructs a position
     itself. No paginated return type carries either signal today. **[New]**
@@ -935,14 +945,14 @@ answered it
 Every surveyed chain reports this and LEZ reports none: `web3_clientVersion` on
 Ethereum, `getVersion` on Solana, `getnetworkinfo` on Bitcoin and Zcash.
 
-45. The FFI reports the version of the node serving the call, together with
+44. The FFI reports the version of the node serving the call, together with
     enough build identity to tell two builds of the same version apart. An
     integrator that hits a defect can then say which build produced it, and one
     that knows a build is bad can route around it. The reachable call today is
     `checkHealth`, which reports no version
     ([Appendix: Logos API Surfaces, section 2](../appendix/logos-api-surfaces.md#2-lez-indexer-rpc)).
     **[New]**
-46. The version changes only across restarts, so a caller may cache it for the
+45. The version changes only across restarts, so a caller may cache it for the
     life of a connection and use it to detect that the surface it holds a
     schema for has been replaced. **[New]**
 
@@ -951,10 +961,10 @@ Ethereum, `getVersion` on Solana, `getnetworkinfo` on Bitcoin and Zcash.
 Returns the block at a given identifier: its header, its full transaction body,
 and its bedrock status.
 
-47. The query returns the stored block for a known identifier and an absent
+46. The query returns the stored block for a known identifier and an absent
     `FfiBlockOpt` for one the indexer does not hold, keeping the two distinct
     from a backend failure. **[Ready]**
-48. The returned header carries the block identifier, previous block hash, own
+47. The returned header carries the block identifier, previous block hash, own
     hash, timestamp, and signature, and the body carries every transaction in
     the block. **[Ready]**
 
@@ -964,7 +974,7 @@ Returns the same block record, resolved by block hash rather than by height. The
 store already holds the hash as a secondary index onto the height
 (`lez/storage/src/indexer/read_once.rs:68-71`).
 
-49. The query returns the same record `query_block` returns for the
+48. The query returns the same record `query_block` returns for the
     corresponding height, and an absent `FfiBlockOpt` for a hash no indexed
     block carries. A hash resolves to one block or to none, where a height
     resolves to whichever block currently occupies it. **[Ready]**
@@ -974,7 +984,7 @@ store already holds the hash as a secondary index onto the height
 Returns the identifier of the node's last finalised block, inline, with no
 allocation to free.
 
-50. The query returns the last finalised block identifier, and reports an empty
+49. The query returns the last finalised block identifier, and reports an empty
     chain as an outcome distinct from an error. **[Ready]**
 
 **`query_chain_tip() -> PointerResult<FfiChainTip, OperationStatus>`**
@@ -982,7 +992,7 @@ allocation to free.
 Returns the tip as one record rather than as a height the caller must then
 resolve.
 
-51. The FFI exposes the chain tip as a single call returning the tip block's
+50. The FFI exposes the chain tip as a single call returning the tip block's
     height together with its hash and timestamp, so learning about the tip does
     not cost a second call and a caller knows which block holds the position.
     No such record exists below the FFI: `getLastFinalizedBlockId` returns a
@@ -993,16 +1003,16 @@ resolve.
 Returns what the indexer is reading: which zone, and which Logos Blockchain
 chain that zone settles to.
 
-52. The call returns the zone identifier the indexer is reading, so an
+51. The call returns the zone identifier the indexer is reading, so an
     application can confirm which zone it is connected to. It is read from the
     indexer's own channel configuration (`lez/indexer/core/src/config.rs:30`),
     not from the sequencer's `getChannelId`. **[Ready, not exposed]**
-53. The same call returns the chain identifier of the Logos Blockchain the zone
+52. The same call returns the chain identifier of the Logos Blockchain the zone
     settles to. A zone identifier alone does not distinguish the same zone
     running against different L1 networks, which is the case an integrator
     connecting to the wrong network hits first, and the two are answered
     together so a caller cannot check one and assume the other. **[New]**
-54. The chain identifier is the one inscribed in the L1 genesis block as a
+53. The chain identifier is the one inscribed in the L1 genesis block as a
     Cryptarchia parameter, a bounded UTF-8 string such as `logos-chain-1`, and
     not a value the indexer is configured with independently: a configured
     string would agree with whatever an operator typed rather than with the
@@ -1012,7 +1022,7 @@ chain that zone settles to.
     and the indexer holds only an endpoint for its Bedrock connection
     (`lez/indexer/core/src/config.rs:19-29`), so obtaining it is work outside
     the indexer. A proposal states how it reaches the value. **[New]**
-55. Where the chain identifier cannot be obtained, the call reports it as
+54. Where the chain identifier cannot be obtained, the call reports it as
     unavailable rather than omitting it or returning a placeholder, so a caller
     can tell an unidentified chain from an unasked question. **[New]**
 
@@ -1021,7 +1031,7 @@ chain that zone settles to.
 Returns the programs the indexer has observed deployed, each with its name and
 program identifier.
 
-56. The FFI exposes the deployed programs as name and identifier pairs, derived
+55. The FFI exposes the deployed programs as name and identifier pairs, derived
     from the `ProgramDeployment` transactions the indexer has ingested
     (`lez/indexer/service/protocol/src/lib.rs:283`), not from the sequencer's
     `getProgramIds`. An integrator decoding account data needs to know which
@@ -1032,13 +1042,13 @@ program identifier.
 Returns the earliest block the indexer can still answer for, separately for
 account state pinned to a block and for transaction retrieval.
 
-57. The FFI exposes the node's retention floor: the earliest block for which
+56. The FFI exposes the node's retention floor: the earliest block for which
     account state can be read at a pinned block identifier, and the earliest
     block for which a transaction can be retrieved. A deployment that retains
     everything reports genesis and one bounded by Reliability #7 reports a
     moving value, and a caller learns which by asking rather than by
     discovering it through a failed read. **[New]**
-58. A read for data below the retention floor is answered as such, distinctly
+57. A read for data below the retention floor is answered as such, distinctly
     from a read for data that never existed. Asking for a block the indexer
     discarded and asking for one the chain never held are different questions
     with different answers: the first is retried against an archival source and
@@ -1064,7 +1074,7 @@ chain interposes a plugin layer between its API and its consumers.
 
 Returns a machine-readable description of the exported surface.
 
-59. The FFI exposes a machine-readable description of its own surface, covering
+58. The FFI exposes a machine-readable description of its own surface, covering
     every exported function, its parameters, its return type, and its error
     codes. The existing `getSchema` describes the block type only and is not
     exported
@@ -1073,20 +1083,20 @@ Returns a machine-readable description of the exported surface.
 
 Every function defined above is further bound by the following.
 
-60. Every exported function takes the indexer handle returned by `start_indexer`
+59. Every exported function takes the indexer handle returned by `start_indexer`
     as its first argument, which the signatures above elide, and signals a null
     handle as `OperationStatus::NullPointer` rather than as a not-found result.
     **[Ready]**
-61. Every function above is exposed through `lez_indexer_module` with the same
+60. Every function above is exposed through `lez_indexer_module` with the same
     semantics, including the not-found and error distinction required by
-    Functionality #62. No capability reaching the FFI stops at the module
+    Functionality #61. No capability reaching the FFI stops at the module
     boundary. **[New]**
-62. The FFI and the module signal not-found, invalid-argument, and backend
+61. The FFI and the module signal not-found, invalid-argument, and backend
     failure as three distinguishable outcomes on every query. The module
     currently flattens not-found and failure into an empty string
     ([Appendix: Logos API Surfaces, section 1](../appendix/logos-api-surfaces.md#1-lez-indexer-ffi)).
     **[New]**
-63. Errors are machine-readable and stable: a caller branches on a value rather
+62. Errors are machine-readable and stable: a caller branches on a value rather
     than on message text, and that value does not change meaning between
     releases. Which values exist is for the implementation to decide; what this
     RFP requires is that two failures a caller would recover from differently
@@ -1095,13 +1105,13 @@ Every function defined above is further bound by the following.
     alike
     ([Appendix: Blockchain API and SDK Ecosystem, section 1.34](../appendix/blockchain-api-sdk-ecosystem.md#134-structured-errors-and-a-code-taxonomy)).
     **[New]**
-64. The distinctions a caller acts on are, at minimum: a request that was
+63. The distinctions a caller acts on are, at minimum: a request that was
     malformed, which the caller fixes; a request for data below the retention
     floor, which the caller sends elsewhere; a request the indexer could not
     serve because it is stalled or lagging, which the caller retries; and a
     backend failure, which the caller retries with backoff. A transient failure
     is distinguishable from a permanent one without parsing text. **[New]**
-65. Every heap-allocating return has a documented matching free function, and
+64. Every heap-allocating return has a documented matching free function, and
     calling it releases every allocation the return holds. The convention is
     established for the returns exported today; the return types this RFP adds
     need theirs. **[Ready, not exposed]**
@@ -1125,7 +1135,7 @@ Every function defined above is further bound by the following.
    transactions, and state that deposits into private accounts are not trackable
    from indexer data without the viewing key.
 5. Return clear, actionable error messages for every failure mode, each
-   carrying the machine-readable value required by Functionality #63 alongside
+   carrying the machine-readable value required by Functionality #62 alongside
    the text.
 6. Document the semantics of every pagination parameter, including the
    exclusivity of the block bound, what a cursor guarantees across ingestion,
