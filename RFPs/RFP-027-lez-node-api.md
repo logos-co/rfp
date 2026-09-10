@@ -90,6 +90,7 @@ consume them.
    consumed by the wallet features within `lez_core`, and over the Logos Core
    FFI, to be consumed by Basecamp apps and transport proxy modules (see 3 and
    5).
+
 2. **The LEZ wallet API**
    ([logos-co/ecosystem#236](https://github.com/logos-co/ecosystem/issues/236)):
    key handling, derivation, proving, and signing. It covers the local and
@@ -98,6 +99,7 @@ consume them.
    every wallet API function disabled. The API needs to be exposed over the
    Logos Core FFI on the `lez_core` module, and through the `lez_wallet_ffi`
    crate so it can be wrapped in libraries for other languages (see 4).
+
 3. **The JSON-RPC proxy module and its client library**
    ([logos-co/ecosystem#237](https://github.com/logos-co/ecosystem/issues/237)):
    The module is a Logos Core module that projects the APIs the `lez_core`
@@ -105,6 +107,7 @@ consume them.
    wallet API, the former being the one an integrator running a LEZ node as an
    RPC provider uses most. The client is a Rust library for that same surface,
    so a consumer reaches a remote node without writing the transport itself.
+
 4. **LEZ-DK: The LEZ Development Kit**
    ([logos-co/ecosystem#238](https://github.com/logos-co/ecosystem/issues/238)):
    Modelled on the Bitcoin Development Kit (BDK), for the reasons set out in
@@ -115,6 +118,14 @@ consume them.
    the Android example below). It ships as a unified library per language,
    Kotlin, Swift and Go among them, so an application integrates LEZ the same
    way whether the node runs in process or remotely.
+
+   The LEZ-DK exists to integrate LEZ into applications that already exist, and
+   to help LEZ reach the users those applications already have. It is not the
+   recommended starting point for something new. A developer building a new
+   application, whether or not LEZ is the whole of it, is strongly encouraged to
+   build on the Logos Core framework and Basecamp instead, which is the first of
+   the shapes below rather than the second.
+
 5. **Further transport proxy modules and their client libraries**
    ([logos-co/ecosystem#222](https://github.com/logos-co/ecosystem/issues/222))
    beyond JSON-RPC, such as gRPC, GraphQL, and a Mesh or Rosetta adapter. Each
@@ -122,12 +133,13 @@ consume them.
    transport, and a Rust client library with its FFI crate, consumed through the
    LEZ-DK.
 
-The three diagrams below show the architecture these deliverables build towards.
-They differ in what the application is built on and where the node runs. A
-Basecamp app is a Logos UI module paired with a Logos Core module, and its core
-module reaches the `lez_core` module over the Logos Core FFI. An application
-outside Basecamp uses the LEZ-DK for its language instead, and from there either
-embeds a node of its own or reaches a remote one over a transport.
+The four diagrams below show the architecture these deliverables build towards.
+They differ in what the application is built on and where the node runs, and the
+first of those is the division that matters: a Basecamp app is a Logos UI module
+paired with a Logos Core module, and its core module reaches the `lez_core`
+module over the Logos Core FFI, on any platform it runs on. An application not
+built from Logos modules uses the LEZ-DK for its language instead, and from
+there either embeds a node of its own or reaches a remote one over a transport.
 
 The `lez_core` module exposes both surfaces through one Logos Core FFI, and the
 app's core module consumes both, the wallet for keys and signing and the node
@@ -162,14 +174,15 @@ flowchart TB
   style nodeApi fill:#ffffff,stroke:#999999,stroke-dasharray:3 3
 ```
 
-An Android app is not built from Logos modules, so it adds one dependency, the
-LEZ-DK for Kotlin, which carries the wallet and the transport clients, each its
-own FFI crate over its own Rust crate. The application holds the wallet and a
-client and wires them together, choosing the transport it reaches the node
-through, and neither component reaches the other. Every client in the kit is
-linked whether or not it is used, which is the cost of shipping one artifact.
-The client runs inside the application rather than beside it, so only the node
-call leaves the device:
+An existing Android application, a wallet already shipping that is adding LEZ
+support, is not built from Logos modules. It adds one dependency, the LEZ-DK for
+Kotlin, which carries the wallet and the transport clients, each its own FFI
+crate over its own Rust crate. The application holds the wallet and a client and
+wires them together, choosing the transport it reaches the node through, and
+neither component reaches the other. Every client in the kit is linked whether
+or not it is used, which is the cost of shipping one artifact. The client runs
+inside the application rather than beside it, so only the node call leaves the
+device:
 
 ```mermaid
 flowchart TB
@@ -224,6 +237,42 @@ flowchart TB
 
   style jsonFfi fill:#eeeeee,stroke:#bbbbbb,color:#999999
   style jsonClient fill:#eeeeee,stroke:#bbbbbb,color:#999999
+```
+
+An Android app built on Basecamp is the first case again rather than the second.
+It is a Logos UI module paired with a Logos Core module, so it reaches
+`lez_core` over the Logos Core FFI and uses no LEZ-DK: the per-language FFI
+crates exist for applications that are not built from Logos modules, and a
+Basecamp app on Android is. The platform it runs on does not change which of the
+two shapes it has:
+
+```mermaid
+flowchart TB
+  subgraph android["Basecamp Android App"]
+    direction TB
+    appUi["UI module"] --> appCore["Core module"]
+
+    subgraph lezmod["lez_core module"]
+      direction TB
+      ffi["lez_core Logos Core FFI"]
+      walletApi["LEZ wallet API"]
+      nodeApi["LEZ node API"]
+      wallet["LEZ wallet (Rust)"]
+      node["LEZ node (Rust)"]
+
+      ffi --> walletApi
+      ffi --> nodeApi
+      walletApi --> wallet
+      nodeApi --> node
+      wallet -- "LEZ node Rust API" --> node
+    end
+
+    appCore --> ffi
+  end
+
+  style ffi fill:#ffffff,stroke:#999999,stroke-dasharray:3 3
+  style walletApi fill:#ffffff,stroke:#999999,stroke-dasharray:3 3
+  style nodeApi fill:#ffffff,stroke:#999999,stroke-dasharray:3 3
 ```
 
 This RFP defines the LEZ node API only (1). Wallet and key management,
