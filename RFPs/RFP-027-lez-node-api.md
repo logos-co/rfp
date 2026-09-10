@@ -1,13 +1,13 @@
 ---
 id: RFP-027
-title: LEZ Indexer FFI
+title: LEZ Node API
 tier: L
 status: open
 category: Developer Tooling & Infrastructure
 dependencies: []
 ---
 
-# RFP-027 — LEZ Indexer FFI
+# RFP-027 — LEZ Node API
 
 > **Note.** This specification describes an outcome that may benefit the Logos
 > ecosystem. It is a proposal rather than an instruction. Its requirements
@@ -42,14 +42,14 @@ dependencies: []
 
 Build the node API for LEZ: the set of functions an integrator needs to follow
 the chain, track deposits, confirm transactions, and submit a transaction it has
-already signed, delivered as exported functions on the LEZ indexer FFI and
+already signed, delivered as exported functions on the LEZ node FFI and
 surfaced through
 [`lez_indexer_module`](https://github.com/logos-blockchain/lez-indexer-module).
 This is the equivalent of the `eth` namespace on Ethereum's JSON-RPC: it answers
 what happened and what the current state is, and it accepts a signed transaction
 for the network, holding no keys and signing nothing.
 
-The FFI is where the LEZ read surface is bounded. A capability the indexer holds
+The FFI is where the LEZ read surface is bounded. A capability the node holds
 but the FFI does not export cannot reach an application, and adding it to the
 module alone achieves nothing. See
 [Appendix: Logos API Surfaces](../appendix/logos-api-surfaces.md) for the
@@ -99,8 +99,7 @@ consume them.
    Logos Core FFI on the `lez_core` module, and through the `lez_wallet_ffi`
    crate so it can be wrapped in libraries for other languages (see 4).
 3. **The JSON-RPC proxy module and its client library**
-   ([logos-co/ecosystem#237](https://github.com/logos-co/ecosystem/issues/237),
-   [logos-co/ecosystem#239](https://github.com/logos-co/ecosystem/issues/239)):
+   ([logos-co/ecosystem#237](https://github.com/logos-co/ecosystem/issues/237)):
    The module is a Logos Core module that
    exposes the Logos Core FFI API of `lez_core` module over JSON-RPC, carrying both the LEZ node API and the LEZ
    wallet API, the former being the one an integrator running a LEZ node as an
@@ -240,23 +239,30 @@ projection onto a wire protocol rather than assuming a local caller. And
 because a consumer may reach the node through either path, the two must express
 the same semantics.
 
-### The indexer is the only consumer API
+### The LEZ node API is the only API for chain state access
 
-The indexer is the whole of the surface available to a consumer. The sequencer
-is an internal component of LEZ, not an API target, and neither this RFP nor the
-others in this set address its interface.
+The LEZ node API is the whole of the surface available to a consumer, in both
+directions. The sequencer is an internal component of LEZ, not an API target,
+and neither this RFP nor the others in this set address its interface.
 
-The indexer serves every read, acting as a cache and a proxy for on-chain data.
+The node serves every read, acting as a cache and a proxy for on-chain data.
 Where it does not already hold what a consumer asks for, it obtains it from
 wherever inside LEZ that data lives, the sequencer included, rather than
 directing the consumer there. Which component answers a read internally is not a
-property the API exposes, and it is free to change: indexer to sequencer
+property the API exposes, and it is free to change: node to sequencer
 communication is expected to move from JSON-RPC to a libp2p mempool, and no
 consumer should be able to tell.
 
-A capability a consumer needs is therefore required of the indexer regardless of
+It is also the only way onto the chain. A signed transaction, and the new
+commitments that come with a privacy-preserving one, are produced by the LEZ
+wallet and reach the network through this API, which relays what it is handed
+without constructing or signing anything itself. A consumer that holds keys
+still writes through the node, so the wallet and the node divide the work rather
+than offering two routes to the chain.
+
+A capability a consumer needs is therefore required of the node regardless of
 which component holds the data today. The pending set is the clearest case, and
-the same reasoning governs every read below.
+the same reasoning governs every read and write below.
 
 ## 🔥 Why This Matters
 
@@ -287,7 +293,7 @@ that: cost is something to estimate, report, and budget against, and the
 readiness markers describe the starting point for the work rather than a
 constraint on what the surface may express.
 
-### Simulation belongs to the wallet, not to the indexer
+### Simulation belongs to the wallet, not to the node
 
 Simulation is the one capability an integrator expects from a node API that this
 RFP does not require. Six of the nine surveyed chains execute an unsubmitted
@@ -300,11 +306,11 @@ A privacy-preserving transaction is executed by the wallet, which runs the
 program locally over notes only it can decrypt and submits a proof that the
 execution was correct. The proof is an input to the transaction rather than a
 result of executing it, so a node holds neither the witness material nor the
-plaintext a simulation would need, and there is nothing for the indexer to
+plaintext a simulation would need, and there is nothing for the node to
 simulate before the wallet has already done the work. Zcash reaches the same
 conclusion from the same premise, and exposes no simulation on either leg.
 
-Public execution could be simulated by the indexer, but siting it there would
+Public execution could be simulated by the node, but siting it there would
 split one capability across two components and answer against finalised state
 rather than the state the caller is building on. The wallet already holds the
 executor for the private path and can read whatever state it needs through the
@@ -444,7 +450,7 @@ declared rather than discovered through a failed request
 
 Each requirement carries a readiness marker describing its starting point in the
 current LEZ codebase. **Ready** means the capability is already exported by the
-indexer FFI and only a specification, test, or documentation obligation remains.
+node FFI and only a specification, test, or documentation obligation remains.
 **Ready, not exposed** means it exists in the indexer service, RPC, or store but
 the FFI does not export it, so the work is exposure. **Computed, not persisted**
 means the indexer derives the data during ingestion but neither stores nor
@@ -622,7 +628,7 @@ commitment set root they are proven against.
     (`lez/sequencer/service/rpc/src/lib.rs:80-84`), which the wallet reaches the
     sequencer for (`lez/wallet/src/lib.rs:660-667`). A consumer that holds a
     viewing key needs it to spend a note, and under the rationale above it is
-    required of the indexer regardless of which component holds it. **[New]**
+    required of the node regardless of which component holds it. **[New]**
 18. The proofs and the root returned by one call are consistent with one
     another: every proof verifies against the returned root. **[New]**
 ##### Transaction status
@@ -695,11 +701,11 @@ Handing a signed transaction to the network
 
 Every surveyed chain accepts a signed transaction at the same endpoint a caller
 reads from. A wallet that builds and signs a transaction has to hand it
-somewhere, and under the rationale above that somewhere is the indexer: a caller
+somewhere, and under the rationale above that somewhere is the node: a caller
 that had to reach the sequencer to submit would be reaching into LEZ for the one
 operation the read surface does not cover.
 
-This does not make the indexer a writer of chain state. It accepts a transaction
+This does not make the node a writer of chain state. It accepts a transaction
 another party constructed and signed, and passes it to whichever component
 inside LEZ accepts writes. Nothing here constructs, signs, or executes a
 transaction.
