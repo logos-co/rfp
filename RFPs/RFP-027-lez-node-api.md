@@ -411,19 +411,51 @@ transport. LEZ differs from BDK in having one transport today and further ones
 anticipated (deliverable 5), so whether those clients are feature-gated is a
 decision worth making before there are several rather than after.
 
-### Public and private transactions expose different things
+### What a node can answer about a privacy-preserving transaction
 
-Private state exists on-chain only as commitments, so plaintext travels inside
-the transaction, whereas public state lives in the replicated state machine and
-can be queried. Private-transaction post-states are carried in
-`encrypted_post_state` and are readable only by the viewing key holder
-(`lez/indexer/service/protocol/src/lib.rs:193-260`).
+**The constraint.** A public account's state lives in the replicated state
+machine, so a node holds its plaintext and can answer for it. A private
+account's state exists on-chain only as a commitment, and its plaintext travels
+inside the transaction encrypted to the account's viewing key. A node holds no
+viewing keys, so what it can read of a privacy-preserving transaction is
+bounded by what that transaction carries in the clear.
 
-The consequence for the integrator profile is a hard boundary that the API must
-state rather than paper over: deposits into private accounts are not trackable
-from indexer data by a third party. The public leg of a shielded transaction is
-readable, so a deshield into a public account is trackable. An exchange
-integrating LEZ credits public accounts.
+That is not nothing. A `PrivacyPreservingMessage` carries `public_actions`
+alongside `private_actions`, and a public action carries the account identifier
+and its post-state in plaintext, so the public leg of a shielded transaction is
+as readable as any public transaction. Each private action carries a
+`nullifier`, a `commitment`, the commitment set `root` it was proven against,
+and `encrypted_post_state`
+(`lez/indexer/service/protocol/src/lib.rs:243-250`). Those are readable as
+opaque values: a node can report that a private action occurred, prove a
+commitment's membership, and serve the ciphertext, without learning which
+account, which amount, or which program state changed.
+
+Two limits follow. Decryption requires the viewing key, which is the wallet's
+and never the node's. And a node cannot link a private action's input to its
+output: the protocol states that a private action's commitment is not
+necessarily connected in content to its nullifier
+(`lez/indexer/service/protocol/src/lib.rs:245-248`), so even the association a
+node might infer structurally does not hold.
+
+**What this shapes in the API.** The surface has to serve the wallet the
+material it needs to interpret private state itself, and serve every other
+consumer the public leg without pretending the private one is readable. So the
+node exposes commitments, nullifiers, roots, and ciphertext as first-class
+returns rather than eliding them; the wallet's private account sync and its
+commitment membership proofs are required of the node, since a wallet that
+cannot fetch them cannot reconstruct its own balance; and every read that spans
+both kinds says which leg it is answering for.
+
+**The gap.** What must improve is that the boundary is stated rather than
+implied. A consumer reading a privacy-preserving transaction today has to infer
+from the shape of what comes back that the private leg is opaque and why. The
+API should say so: a read that returns a private action documents that its
+plaintext is available only to the viewing key holder, and a balance or history
+answer covering an account documents whether it covers that account's private
+activity. An integrator crediting deposits needs to know, from the
+documentation rather than from experiment, that a deposit into a private
+account is not visible to it, and that a deshield into a public account is.
 
 ### Retention is reported, not configured
 
