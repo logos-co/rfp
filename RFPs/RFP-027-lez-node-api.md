@@ -358,6 +358,24 @@ omitting those types keeps the artefact honest at the price of two shapes for
 one language binding, while exposing them and failing at run time keeps one
 shape at the price of a surprise. A proposal states which it chose.
 
+### The bitcoind-style JSON-RPC node wallet
+
+Historically geth, and still today bitcoind, carry wallet features and a wallet
+API inside the node. The ecosystem has moved away from that arrangement
+([Appendix: Wallet Libraries Ecosystem, section 1](../appendix/wallet-libraries-ecosystem.md#1-where-wallet-functionality-lives)):
+geth removed the `personal` namespace, Bitcoin Core is separating its wallet
+into its own process, and chains newer than those two ship wallet libraries
+without ever putting a wallet in the node.
+
+LEZ is nonetheless positioned to offer that shape cheaply, because the
+`lez_core` module already carries the wallet beside the node. One further
+component, the JSON-RPC proxy module of deliverable 3, would expose the wallet
+API over the same transport as the node API, which makes wallet integration
+reachable from a server or cloud environment, and potentially a desktop one,
+alongside the Logos Core and Basecamp path. Whether to offer it is a product
+decision rather than a requirement of this RFP, and this RFP defines only the
+node half of that surface.
+
 ### Logos stack readiness
 
 Two items bear on the architecture proposed above.
