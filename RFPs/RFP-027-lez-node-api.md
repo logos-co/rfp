@@ -324,21 +324,19 @@ the five deliverables.
 ### Inspiration from BDK: Bitcoin Development Kit
 
 The [Bitcoin Development Kit](https://bitcoindevkit.org) is the closest
-precedent for what this suite is building, and the LEZ-DK is named after it. It
-is worth describing before drawing conclusions from it. Everything below was
-read at `bdk-ffi` `3.1.0-alpha.0`.
+precedent for what this suite is building, and the LEZ-DK is named after it.
+Everything below was read at `bdk-ffi` `3.1.0-alpha.0`.
 
 BDK is what a wallet developer uses instead of writing wallet logic against a
-node themselves. It is layered. At the bottom sits
-[`rust-bitcoin`](https://github.com/rust-bitcoin/rust-bitcoin), which is types
-and consensus encoding only: it is `no_std` and contains no networking at all,
-so it cannot reach a node even in principle. Above it,
+node. It is layered. At the bottom sits
+[`rust-bitcoin`](https://github.com/rust-bitcoin/rust-bitcoin), types and
+consensus encoding only: it is `no_std` and contains no networking. Above it,
 [`bdk_wallet`](https://github.com/bitcoindevkit/bdk_wallet) holds the wallet
 proper, descriptors, key derivation, coin selection, transaction building and
-signing, and the wallet's own view of the chain. Beside it, and this is the part
-that matters here, sit several interchangeable chain clients as separate crates:
-`bdk_esplora` for HTTP, `bdk_electrum` for Electrum servers, `bdk_bitcoind_rpc`
-for Bitcoin Core's JSON-RPC, and `bdk_kyoto` for P2P compact block filters.
+signing, and the wallet's own view of the chain. Beside it sit four
+interchangeable chain clients, each a separate crate: `bdk_esplora` for HTTP,
+`bdk_electrum` for Electrum servers, `bdk_bitcoind_rpc` for Bitcoin Core's
+JSON-RPC, and `bdk_kyoto` for P2P compact block filters.
 
 [`bdk-ffi`](https://github.com/bitcoindevkit/bdk-ffi) then wraps the wallet and
 those clients for consumers that are not writing Rust. It is its own crate,
@@ -366,12 +364,12 @@ chain reads, and a caller disambiguates by naming the object. The cost of the
 single artifact is that no Cargo feature gates those backends, so every consumer
 links all three whether it uses one or not.
 
-The second is control flow, and it is the one that matters, because it is what
-keeps those four interchangeable clients interchangeable. The wallet holds no
-client and performs no network I/O. It exposes no method returning a network
-error, and chain data reaches it through exactly one door: the consumer calls an
-`apply_*` method with data the consumer fetched. Sync is three steps the
-integrator writes, not one call the wallet makes:
+The second is control flow, which is what keeps those four clients
+interchangeable. The wallet holds no client and performs no network I/O. It
+exposes no method returning a network error, and chain data reaches it through
+one door: the consumer calls an `apply_*` method with data the consumer
+fetched. Sync is three steps the integrator writes, not one call the wallet
+makes:
 
 ```
 wallet.start_full_scan()   -> FullScanRequest   (a value)
@@ -387,10 +385,10 @@ P2P compact block filters sit behind one import without the wallet knowing which
 is in use, and it survives projection onto Kotlin and Swift, which a trait does
 not do cleanly.
 
-The Rust-native path is a different shape again, which is worth knowing before
-assuming one client interface serves every consumer. Where the HTTP and Electrum
-clients use the request and apply pair above, `bdk_bitcoind_rpc` talks to a node
-over JSON-RPC through a long-lived `Emitter` the consumer drives as a pull loop:
+The Rust-native path is a different shape again, so one client interface does
+not serve every consumer. Where the HTTP and Electrum clients use the request
+and apply pair above, `bdk_bitcoind_rpc` talks to a node over JSON-RPC through
+a long-lived `Emitter` the consumer drives as a pull loop:
 the wallet's checkpoint and unconfirmed set are injected once at construction,
 `next_block()` is called until it returns nothing, and each block is applied
 individually with `apply_block_connected_to`. There is no request to build. The
@@ -414,48 +412,47 @@ decision worth making before there are several rather than after.
 ### What a node can answer about a privacy-preserving transaction
 
 **The constraint.** A public account's state lives in the replicated state
-machine, so a node holds its plaintext and can answer for it. A private
-account's state exists on-chain only as a commitment, and its plaintext travels
-inside the transaction encrypted to the account's viewing key. A node holds no
-viewing keys, so what it can read of a privacy-preserving transaction is
-bounded by what that transaction carries in the clear.
+machine, so a node holds its plaintext. A private account's state exists
+on-chain only as a commitment, and its plaintext travels inside the transaction
+encrypted to the account's viewing key. A node holds no viewing keys.
 
-That is not nothing. A `PrivacyPreservingMessage` carries `public_actions`
-alongside `private_actions`, and a public action carries the account identifier
-and its post-state in plaintext, so the public leg of a shielded transaction is
-as readable as any public transaction. Each private action carries a
-`nullifier`, a `commitment`, the commitment set `root` it was proven against,
-and `encrypted_post_state`
-(`lez/indexer/service/protocol/src/lib.rs:243-250`). Those are readable as
-opaque values: a node can report that a private action occurred, prove a
-commitment's membership, and serve the ciphertext, without learning which
-account, which amount, or which program state changed.
+A privacy-preserving transaction is not opaque in full. A
+`PrivacyPreservingMessage` carries `public_actions` alongside
+`private_actions`, and a public action carries the account identifier and its
+post-state in plaintext, so the public leg is as readable as a public
+transaction. Each private action carries a `nullifier`, a `commitment`, the
+commitment set `root` it was proven against, and `encrypted_post_state`
+(`lez/indexer/service/protocol/src/lib.rs:243-250`). A node can report that a
+private action occurred, prove a commitment's membership, and serve the
+ciphertext. What it cannot read is the plaintext that ciphertext holds: which
+private account the action touched, and the account state it now carries, its
+`balance`, `data`, and `nonce`
+(`lez/indexer/service/protocol/src/lib.rs:140-145`). Amounts moved on the
+public leg are readable, since a public action carries its post-state in the
+clear; amounts moved between private accounts are not.
 
-Two limits follow. Decryption requires the viewing key, which is the wallet's
-and never the node's. And a node cannot link a private action's input to its
-output: the protocol states that a private action's commitment is not
-necessarily connected in content to its nullifier
-(`lez/indexer/service/protocol/src/lib.rs:245-248`), so even the association a
-node might infer structurally does not hold.
+Two limits bound this. Decryption requires the viewing key, which belongs to
+the wallet. And a node cannot link a private action's input to its output: the
+protocol records that a private action's commitment is not necessarily
+connected in content to its nullifier
+(`lez/indexer/service/protocol/src/lib.rs:245-248`).
 
-**What this shapes in the API.** The surface has to serve the wallet the
-material it needs to interpret private state itself, and serve every other
-consumer the public leg without pretending the private one is readable. So the
-node exposes commitments, nullifiers, roots, and ciphertext as first-class
-returns rather than eliding them; the wallet's private account sync and its
-commitment membership proofs are required of the node, since a wallet that
-cannot fetch them cannot reconstruct its own balance; and every read that spans
-both kinds says which leg it is answering for.
+**What this shapes in the API.** The surface serves the wallet the material it
+needs to interpret private state itself, and serves other consumers the public
+leg. Commitments, nullifiers, roots, and ciphertext are returned rather than
+elided. The wallet's private account sync and its commitment membership proofs
+are required of the node, since a wallet that cannot fetch them cannot
+reconstruct its own balance. Reads that span both kinds state which leg they
+answer for.
 
-**The gap.** What must improve is that the boundary is stated rather than
-implied. A consumer reading a privacy-preserving transaction today has to infer
-from the shape of what comes back that the private leg is opaque and why. The
-API should say so: a read that returns a private action documents that its
-plaintext is available only to the viewing key holder, and a balance or history
-answer covering an account documents whether it covers that account's private
-activity. An integrator crediting deposits needs to know, from the
-documentation rather than from experiment, that a deposit into a private
-account is not visible to it, and that a deshield into a public account is.
+**The gap.** The boundary is currently implied rather than stated. A consumer
+reading a privacy-preserving transaction infers from the shape of the response
+that the private leg is opaque. The API should document it: a read returning a
+private action states that its plaintext is available only to the viewing key
+holder, and a balance or history answer states whether it covers the account's
+private activity. An integrator crediting deposits should learn from the
+documentation that a deposit into a private account is not visible to it, and
+that a deshield into a public account is.
 
 ### Retention is reported, not configured
 
