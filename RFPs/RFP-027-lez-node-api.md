@@ -49,7 +49,7 @@ This is the equivalent of the `eth` namespace on Ethereum's JSON-RPC: it answers
 what happened and what the current state is, and it accepts a signed transaction
 for the network, holding no keys and signing nothing.
 
-The FFI is where the LEZ read surface is bounded. A capability the node holds
+The FFI is where the LEZ node surface is bounded. A capability the node holds
 but the FFI does not export cannot reach an application, and adding it to the
 module alone achieves nothing. See
 [Appendix: Logos API Surfaces](../appendix/logos-api-surfaces.md) for the
@@ -100,8 +100,8 @@ consume them.
    crate so it can be wrapped in libraries for other languages (see 4).
 3. **The JSON-RPC proxy module and its client library**
    ([logos-co/ecosystem#237](https://github.com/logos-co/ecosystem/issues/237)):
-   The module is a Logos Core module that
-   exposes the Logos Core FFI API of `lez_core` module over JSON-RPC, carrying both the LEZ node API and the LEZ
+   The module is a Logos Core module that projects the APIs the `lez_core`
+   module exposes over JSON-RPC, carrying both the LEZ node API and the LEZ
    wallet API, the former being the one an integrator running a LEZ node as an
    RPC provider uses most. The client is a Rust library for that same surface,
    so a consumer reaches a remote node without writing the transport itself.
@@ -242,16 +242,15 @@ the same semantics.
 ### The LEZ node API is the only API for chain state access
 
 The LEZ node API is the whole of the surface available to a consumer, in both
-directions. The sequencer is an internal component of LEZ, not an API target,
-and neither this RFP nor the others in this set address its interface.
+directions. A LEZ node is a black box to this RFP: what it is made of, which
+part of it answers a given call, and how those parts talk to each other are
+implementation, not API. This RFP specifies what a consumer may ask for and
+what comes back, and nothing about how a node arranges itself to answer.
 
-The node serves every read, acting as a cache and a proxy for on-chain data.
-Where it does not already hold what a consumer asks for, it obtains it from
-wherever inside LEZ that data lives, the sequencer included, rather than
-directing the consumer there. Which component answers a read internally is not a
-property the API exposes, and it is free to change: node to sequencer
-communication is expected to move from JSON-RPC to a libp2p mempool, and no
-consumer should be able to tell.
+The node serves every read. Where it does not already hold what a consumer asks
+for, it obtains it from wherever that data lives rather than directing the
+consumer elsewhere. That internal arrangement is free to change without a
+consumer being able to tell.
 
 It is also the only way onto the chain. A signed transaction, and the new
 commitments that come with a privacy-preserving one, are produced by the LEZ
@@ -261,8 +260,8 @@ still writes through the node, so the wallet and the node divide the work rather
 than offering two routes to the chain.
 
 A capability a consumer needs is therefore required of the node regardless of
-which component holds the data today. The pending set is the clearest case, and
-the same reasoning governs every read and write below.
+which part of it holds the data today. The pending set is the clearest case,
+and the same reasoning governs every read and write below.
 
 ## 🔥 Why This Matters
 
@@ -534,7 +533,7 @@ from `from_block` to `to_block`, defaulting to the indexed tip.
    transaction index, transaction hash, emitting program, selector, and data
    payload. **[Ready]**
 8. A range query spanning more than `MAX_EVENT_QUERY_BLOCK_SPAN` blocks, a bound
-   past the indexed tip, an inverted range, and a range outside the indexer's
+   past the indexed tip, an inverted range, and a range outside the node's
    event-filter history each return `InvalidArgument` rather than an empty
    result. **[Ready]**
 9. Events are absent for privacy-preserving transactions, `ProgramOutput.events`
@@ -561,7 +560,7 @@ Reading account state, at the tip and at a past block, singly and in batches
 
 **`query_account(account_id) -> PointerResult<FfiAccount, OperationStatus>`**
 
-Returns the account record as it stands at the indexer's current state: its
+Returns the account record as it stands at the node's current state: its
 owning program, balance, nonce, and program data blob.
 
 10. The query returns the account's `program_owner`, `balance`, `nonce`, and
@@ -675,7 +674,7 @@ execution succeeded.
 
 **`query_status() -> *mut c_char`**
 
-Returns the indexer's own ingestion state as a JSON document: `state`,
+Returns the node's own ingestion state as a JSON document: `state`,
 `indexed_block_id`, `last_error`, `stall_reason`, `cross_zone_halt`, and
 `cross_zone_peers`.
 
@@ -702,13 +701,12 @@ Handing a signed transaction to the network
 Every surveyed chain accepts a signed transaction at the same endpoint a caller
 reads from. A wallet that builds and signs a transaction has to hand it
 somewhere, and under the rationale above that somewhere is the node: a caller
-that had to reach the sequencer to submit would be reaching into LEZ for the one
+that had to reach past it to submit would be reaching into LEZ for the one
 operation the read surface does not cover.
 
 This does not make the node a writer of chain state. It accepts a transaction
-another party constructed and signed, and passes it to whichever component
-inside LEZ accepts writes. Nothing here constructs, signs, or executes a
-transaction.
+another party constructed and signed, and takes it from there. Nothing here
+constructs, signs, or executes a transaction.
 
 **`submit_transaction(transaction) -> PointerResult<FfiBytes32, OperationStatus>`**
 
@@ -914,7 +912,7 @@ answered it
 Every surveyed chain reports this and LEZ reports none: `web3_clientVersion` on
 Ethereum, `getVersion` on Solana, `getnetworkinfo` on Bitcoin and Zcash.
 
-45. The FFI reports the version of the indexer serving the call, together with
+45. The FFI reports the version of the node serving the call, together with
     enough build identity to tell two builds of the same version apart. An
     integrator that hits a defect can then say which build produced it, and one
     that knows a build is bad can route around it. The reachable call today is
@@ -950,7 +948,7 @@ store already holds the hash as a secondary index onto the height
 
 **`query_last_block() -> LastBlockIdResult`**
 
-Returns the identifier of the indexer's last finalised block, inline, with no
+Returns the identifier of the node's last finalised block, inline, with no
 allocation to free.
 
 50. The query returns the last finalised block identifier, and reports an empty
@@ -1011,7 +1009,7 @@ program identifier.
 Returns the earliest block the indexer can still answer for, separately for
 account state pinned to a block and for transaction retrieval.
 
-57. The FFI exposes the indexer's retention floor: the earliest block for which
+57. The FFI exposes the node's retention floor: the earliest block for which
     account state can be read at a pinned block identifier, and the earliest
     block for which a transaction can be retrieved. A deployment that retains
     everything reports genesis and one bounded by Reliability #7 reports a
@@ -1251,18 +1249,18 @@ The following are explicitly excluded from this RFP:
   requires the indexer to accept a signed transaction and relay it, and nothing
   more: it does not construct, sign, or execute one.
 - **Simulation, and the cost estimate that comes with it.** Executing an
-  unsubmitted transaction to see what it would do belongs to the wallet FFI, for
+  unsubmitted transaction to see what it would do belongs to the wallet API, for
   both public and privacy-preserving transactions, for the reason given in the
   Design Rationale. Nothing in this RFP executes a transaction a caller
   supplies.
 - **The JSON-RPC proxy and its client, and the LEZ-DK.** These are items 3 and
   4 of the five deliverables above, each with its own RFP. This RFP defines what
   those consume, not how it is transported or wrapped.
-- **Reaching the sequencer directly.** The FFI defined in this RFP is to be
-  solely provided by the indexer module. A consumer never reaches the sequencer,
-  whose interface is internal to LEZ and is not an API this RFP or any other in
-  this set defines. Every read an integrator needs is required of the indexer
-  above, whichever component holds the data today.
+- **Reaching inside a node.** A consumer reaches a LEZ node only through the
+  API defined here. Whatever a node is made of internally, those interfaces are
+  not an API this RFP or any other in this set defines. Every read an
+  integrator needs is required of the node above, whichever part of it holds
+  the data today.
 - **The program event system.** Events already exist end to end, from
   `ProgramOutput.events` through indexer capture to `getEvents`,
   `subscribeToEvents`, and `query_events` on the FFI. Nothing here changes them.
