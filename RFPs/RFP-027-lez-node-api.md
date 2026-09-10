@@ -441,18 +441,11 @@ protocol records that a private action's commitment is not necessarily
 connected in content to its nullifier
 (`lez/indexer/service/protocol/src/lib.rs:245-248`).
 
-**What this shapes in the API.** The surface serves the wallet the material it
+**Consequences for the API.** The surface serves the wallet the material it
 needs to interpret private state itself, and serves other consumers the public
 leg. Commitments, nullifiers, roots, and ciphertext are returned rather than
-elided. The wallet's private account sync and its commitment membership proofs
-are required of the node, since a wallet that cannot fetch them cannot
-reconstruct its own balance. Reads that span both kinds state which leg they
-answer for.
-
-**The gap.** The boundary is currently implied rather than stated: a consumer
-reading a privacy-preserving transaction infers from the shape of the response
-that the private leg is opaque. The requirements below close that by making
-each read say which side of the boundary it answers for.
+elided, and each read says which side of the boundary it answers for, so a
+consumer is not left to infer the boundary from the shape of a response.
 
 [Functionality](#functionality) #2 requires the returned transaction to
 discriminate public, privacy-preserving, and program-deployment bodies, so a
@@ -460,11 +453,14 @@ consumer knows which it is holding. #4 scopes the balance deltas the effects
 query returns to public transactions and the public leg of privacy-preserving
 ones, which is what an integrator crediting deposits reads: a deshield into a
 public account is reported, and a transfer between private accounts is not.
+Both already hold, and the work on them is to document the boundary rather than
+to build it.
 
-#16 and #17 serve the other consumer. A wallet reconstructing its own balance
-needs membership proofs and the root they are proven against, and #42 requires
-the oldest-first ordering a wallet walking forward from its last processed
-block relies on to decrypt what it can.
+The wallet is the other consumer, and there the capability is missing. #16 and
+#17 require the membership proofs and the root they are proven against, which a
+wallet needs to reconstruct its own balance, and #42 requires the oldest-first
+ordering a wallet walking forward from its last processed block relies on to
+decrypt what it can. All three are new.
 
 ### Retention is reported, not configured
 
