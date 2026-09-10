@@ -42,8 +42,8 @@ dependencies: []
 
 Build the node API for LEZ: the set of functions an integrator needs to follow
 the chain, track deposits, confirm transactions, and submit a transaction it has
-already signed, delivered as exported functions on the LEZ node FFI and
-surfaced through
+already signed, delivered as exported functions on the LEZ node FFI and surfaced
+through
 [`lez_indexer_module`](https://github.com/logos-blockchain/lez-indexer-module).
 This is the equivalent of the `eth` namespace on Ethereum's JSON-RPC: it answers
 what happened and what the current state is, and it accepts a signed transaction
@@ -81,15 +81,15 @@ consume them.
 1. **The LEZ node API.** *This RFP*
    ([logos-co/ecosystem#235](https://github.com/logos-co/ecosystem/issues/235)).
    Define the LEZ node API: the global, non-wallet functions. An integrator may
-   run a LEZ node and access it through this API by way of a transport proxy, which is
-   what an RPC provider does. Whether indexer or sequencer features answer a
-   given call is internal to it, and it is a black box in that regard. This is
-   the only component used to read blockchain state and to push signed
+   run a LEZ node and access it through this API by way of a transport proxy,
+   which is what an RPC provider does. Whether indexer or sequencer features
+   answer a given call is internal to it, and it is a black box in that regard.
+   This is the only component used to read blockchain state and to push signed
    transactions and new commitments to the chain. It is packaged in the
    `lez_core` Logos Core module. The API needs to be exposed in Rust, to be
    consumed by the wallet features within `lez_core`, and over the Logos Core
-   FFI, to be consumed by Basecamp apps and transport proxy modules (see 3
-   and 5).
+   FFI, to be consumed by Basecamp apps and transport proxy modules (see 3 and
+   5).
 2. **The LEZ wallet API**
    ([logos-co/ecosystem#236](https://github.com/logos-co/ecosystem/issues/236)):
    key handling, derivation, proving, and signing. It covers the local and
@@ -122,13 +122,12 @@ consume them.
    transport, and a Rust client library with its FFI crate, consumed through the
    LEZ-DK.
 
-The three diagrams below show the architecture these deliverables build
-towards. They differ in what the application is built on and where the node
-runs. A Basecamp app is a Logos UI module paired with a Logos Core module, and
-its core module reaches the `lez_core` module over the Logos Core FFI. An
-application outside Basecamp uses the LEZ-DK for its language instead, and from
-there either embeds a node of its own or reaches a remote one over a
-transport.
+The three diagrams below show the architecture these deliverables build towards.
+They differ in what the application is built on and where the node runs. A
+Basecamp app is a Logos UI module paired with a Logos Core module, and its core
+module reaches the `lez_core` module over the Logos Core FFI. An application
+outside Basecamp uses the LEZ-DK for its language instead, and from there either
+embeds a node of its own or reaches a remote one over a transport.
 
 The `lez_core` module exposes both surfaces through one Logos Core FFI, and the
 app's core module consumes both, the wallet for keys and signing and the node
@@ -235,17 +234,17 @@ separate RFPs.
 Two consequences of that arrangement bear on this RFP. The node API is consumed
 both directly, by a caller holding it across an FFI boundary, and indirectly,
 through the JSON-RPC proxy and the client library, so its surface has to survive
-projection onto a wire protocol rather than assuming a local caller. And
-because a consumer may reach the node through either path, the two must express
-the same semantics.
+projection onto a wire protocol rather than assuming a local caller. And because
+a consumer may reach the node through either path, the two must express the same
+semantics.
 
 ### The LEZ node API is the only API for chain state access
 
 The LEZ node API is the whole of the surface available to a consumer, in both
 directions. A LEZ node is a black box to this RFP: what it is made of, which
 part of it answers a given call, and how those parts talk to each other are
-implementation, not API. This RFP specifies what a consumer may ask for and
-what comes back, and nothing about how a node arranges itself to answer.
+implementation, not API. This RFP specifies what a consumer may ask for and what
+comes back, and nothing about how a node arranges itself to answer.
 
 The node serves every read. Where it does not already hold what a consumer asks
 for, it obtains it from wherever that data lives rather than directing the
@@ -260,8 +259,8 @@ still writes through the node, so the wallet and the node divide the work rather
 than offering two routes to the chain.
 
 A capability a consumer needs is therefore required of the node regardless of
-which part of it holds the data today. The pending set is the clearest case,
-and the same reasoning governs every read and write below.
+which part of it holds the data today. The pending set is the clearest case, and
+the same reasoning governs every read and write below.
 
 ## 🔥 Why This Matters
 
@@ -309,21 +308,21 @@ A privacy-preserving transaction is executed by the wallet, which runs the
 program locally over notes only it can decrypt and submits a proof that the
 execution was correct. The proof is an input to the transaction rather than a
 result of executing it, so a node holds neither the witness material nor the
-plaintext a simulation would need, and there is nothing for the node to
-simulate before the wallet has already done the work. Zcash reaches the same
-conclusion from the same premise, and exposes no simulation on either leg.
+plaintext a simulation would need, and there is nothing for the node to simulate
+before the wallet has already done the work. Zcash reaches the same conclusion
+from the same premise, and exposes no simulation on either leg.
 
-Public execution could be simulated by the node, but siting it there would
-split one capability across two components and answer against finalised state
-rather than the state the caller is building on. The wallet already holds the
-executor for the private path and can read whatever state it needs through the
-queries below, so it can answer for both kinds of transaction, against a state
-it chose, at the moment it is constructing the transaction. That is also what
-simulation is for elsewhere: Stellar returns the transaction data and the
-minimum resource fee that the caller copies back into the transaction before
-submitting, which makes simulation a construction step rather than a read.
-Construction is out of scope here and belongs to the wallet API, the second of
-the five deliverables. [Out of Scope](#out-of-scope) records the exclusion.
+Public execution could be simulated by the node, but siting it there would split
+one capability across two components and answer against finalised state rather
+than the state the caller is building on. The wallet already holds the executor
+for the private path and can read whatever state it needs through the queries
+below, so it can answer for both kinds of transaction, against a state it chose,
+at the moment it is constructing the transaction. That is also what simulation
+is for elsewhere: Stellar returns the transaction data and the minimum resource
+fee that the caller copies back into the transaction before submitting, which
+makes simulation a construction step rather than a read. Construction is out of
+scope here and belongs to the wallet API, the second of the five deliverables.
+[Out of Scope](#out-of-scope) records the exclusion.
 
 ### Inspiration from BDK: Bitcoin Development Kit
 
@@ -355,25 +354,24 @@ at: how the pieces are packaged, and how the wallet and a client relate to each
 other at runtime.
 
 The first is packaging. Wallet and chain access ship as one crate, one UniFFI
-namespace, and one native library: `lib.rs` declares `mod wallet` beside `mod
-esplora`, `mod electrum`, and `mod kyoto`, then calls
+namespace, and one native library: `lib.rs` declares `mod wallet` beside
+`mod esplora`, `mod electrum`, and `mod kyoto`, then calls
 `uniffi::setup_scaffolding!("bdk")` once. Those modules organise the Rust source
 rather than the exposed surface, and they collapse at the FFI boundary: the
 Android test that exercises `Wallet` and `EsploraClient` together imports
 nothing from BDK at all, because both arrive in one flat package. What separates
 the wallet functions from each client's functions is the object they hang off,
-not a namespace. Every export is a method on a type and none is a free
-function, so `Wallet` carries the wallet operations and `EsploraClient` the
-chain reads, and a caller disambiguates by naming the object. The cost of the
-single artifact is that no Cargo feature gates those backends, so every consumer
-links all three whether it uses one or not.
+not a namespace. Every export is a method on a type and none is a free function,
+so `Wallet` carries the wallet operations and `EsploraClient` the chain reads,
+and a caller disambiguates by naming the object. The cost of the single artifact
+is that no Cargo feature gates those backends, so every consumer links all three
+whether it uses one or not.
 
 The second is control flow, which is what keeps those four clients
 interchangeable. The wallet holds no client and performs no network I/O. It
 exposes no method returning a network error, and chain data reaches it through
-one door: the consumer calls an `apply_*` method with data the consumer
-fetched. Sync is three steps the integrator writes, not one call the wallet
-makes:
+one door: the consumer calls an `apply_*` method with data the consumer fetched.
+Sync is three steps the integrator writes, not one call the wallet makes:
 
 ```
 wallet.start_full_scan()   -> FullScanRequest   (a value)
@@ -384,22 +382,22 @@ wallet.apply_update(update)
 The seam is a pair of plain values rather than a trait the wallet defines and a
 client implements. The dependency direction never inverts: the chain modules
 import `Update` from the wallet's types, and the wallet imports nothing from
-them. That is what lets three transports as different as HTTP, Electrum, and
-P2P compact block filters sit behind one import without the wallet knowing which
-is in use, and it survives projection onto Kotlin and Swift, which a trait does
-not do cleanly.
+them. That is what lets three transports as different as HTTP, Electrum, and P2P
+compact block filters sit behind one import without the wallet knowing which is
+in use, and it survives projection onto Kotlin and Swift, which a trait does not
+do cleanly.
 
 The Rust-native path is a different shape again, so one client interface does
 not serve every consumer. Where the HTTP and Electrum clients use the request
-and apply pair above, `bdk_bitcoind_rpc` talks to a node over JSON-RPC through
-a long-lived `Emitter` the consumer drives as a pull loop:
-the wallet's checkpoint and unconfirmed set are injected once at construction,
-`next_block()` is called until it returns nothing, and each block is applied
-individually with `apply_block_connected_to`. There is no request to build. The
-emitter holds the reorg state and the mempool snapshot, so that state sits in
-the client rather than the wallet. Two transports against the same wallet
-therefore present two different consumer flows, and the wallet accommodates both
-only because it exposes several `apply_*` entry points rather than one.
+and apply pair above, `bdk_bitcoind_rpc` talks to a node over JSON-RPC through a
+long-lived `Emitter` the consumer drives as a pull loop: the wallet's checkpoint
+and unconfirmed set are injected once at construction, `next_block()` is called
+until it returns nothing, and each block is applied individually with
+`apply_block_connected_to`. There is no request to build. The emitter holds the
+reorg state and the mempool snapshot, so that state sits in the client rather
+than the wallet. Two transports against the same wallet therefore present two
+different consumer flows, and the wallet accommodates both only because it
+exposes several `apply_*` entry points rather than one.
 
 Two consequences for this suite. The client library (deliverable 3) is a
 component the integrator links and constructs directly, choosing its transport
@@ -421,25 +419,24 @@ on-chain only as a commitment, and its plaintext travels inside the transaction
 encrypted to the account's viewing key. A node holds no viewing keys.
 
 A privacy-preserving transaction is not opaque in full. A
-`PrivacyPreservingMessage` carries `public_actions` alongside
-`private_actions`, and a public action carries the account identifier and its
-post-state in plaintext, so the public leg is as readable as a public
-transaction. Each private action carries a `nullifier`, a `commitment`, the
-commitment set `root` it was proven against, and `encrypted_post_state`
+`PrivacyPreservingMessage` carries `public_actions` alongside `private_actions`,
+and a public action carries the account identifier and its post-state in
+plaintext, so the public leg is as readable as a public transaction. Each
+private action carries a `nullifier`, a `commitment`, the commitment set `root`
+it was proven against, and `encrypted_post_state`
 (`lez/indexer/service/protocol/src/lib.rs:243-250`). A node can report that a
 private action occurred, prove a commitment's membership, and serve the
 ciphertext. What it cannot read is the plaintext that ciphertext holds: which
 private account the action touched, and the account state it now carries, its
 `balance`, `data`, and `nonce`
-(`lez/indexer/service/protocol/src/lib.rs:140-145`). Amounts moved on the
-public leg are readable, since a public action carries its post-state in the
-clear; amounts moved between private accounts are not.
+(`lez/indexer/service/protocol/src/lib.rs:140-145`). Amounts moved on the public
+leg are readable, since a public action carries its post-state in the clear;
+amounts moved between private accounts are not.
 
-Two limits bound this. Decryption requires the viewing key, which belongs to
-the wallet. And a node cannot link a private action's input to its output: the
-protocol records that a private action's commitment is not necessarily
-connected in content to its nullifier
-(`lez/indexer/service/protocol/src/lib.rs:245-248`).
+Two limits bound this. Decryption requires the viewing key, which belongs to the
+wallet. And a node cannot link a private action's input to its output: the
+protocol records that a private action's commitment is not necessarily connected
+in content to its nullifier (`lez/indexer/service/protocol/src/lib.rs:245-248`).
 
 **Consequences for the API.** The surface serves the wallet the material it
 needs to interpret private state itself, and serves other consumers the public
@@ -452,17 +449,16 @@ discriminate public, privacy-preserving, and program-deployment bodies, so a
 consumer knows which it is holding. #4 scopes the balance deltas the effects
 query returns to public transactions and the public leg of privacy-preserving
 ones, which is what an integrator crediting deposits reads: a deshield into a
-public account is reported, and a transfer between private accounts is not.
-Both already hold, and the work on them is to document the boundary rather than
-to build it.
+public account is reported, and a transfer between private accounts is not. Both
+already hold, and the work on them is to document the boundary rather than to
+build it.
 
 The wallet is the other consumer, and there the work is on this surface rather
 than on the capability. #16 and #17 require the membership proofs and the root
 they are proven against, which a wallet needs to reconstruct its own balance.
 The sequencer answers that today and the wallet reaches it directly, so what is
-new is serving it from the node. #42 requires the oldest-first ordering a
-wallet walking forward from its last processed block relies on to decrypt what
-it can.
+new is serving it from the node. #42 requires the oldest-first ordering a wallet
+walking forward from its last processed block relies on to decrypt what it can.
 
 ### Retention is reported, not configured
 
@@ -472,8 +468,8 @@ declared rather than discovered through a failed request
 ([Appendix: Blockchain API and SDK Ecosystem, section 1.29](../appendix/blockchain-api-sdk-ecosystem.md#129-read-historical-state-at-a-past-version)).
 
 [Functionality](#functionality) #56 requires the floor to be exposed, and #57
-requires a read below it to be answered as such, distinctly from a read for
-data that never existed.
+requires a read below it to be answered as such, distinctly from a read for data
+that never existed.
 
 ## ✅ Scope of Work
 
@@ -547,9 +543,9 @@ recomputed on the caller's behalf.
    reconciling a withdrawal has to tell what it sent from what it paid to send
    it, and a caller that has to reconstruct the fee by arithmetic on the
    remaining deltas is reimplementing the chain's fee rules. A transaction
-   carries a payer, a gas limit, a tip, and a signed cap on the fee reserve,
-   and the payer is designated explicitly rather than inferred from the witness
-   set, so the account charged is not always a signer. **[New]**
+   carries a payer, a gas limit, a tip, and a signed cap on the fee reserve, and
+   the payer is designated explicitly rather than inferred from the witness set,
+   so the account charged is not always a signer. **[New]**
 6. The gas a transaction consumed is reported alongside the fee, so a caller
    comparing what it budgeted against what it paid can tell a transaction that
    ran long from one that paid a high price per unit. Only public execution
@@ -594,19 +590,19 @@ Reading account state, at the tip and at a past block, singly and in batches
 
 **`query_account(account_id) -> PointerResult<FfiAccount, OperationStatus>`**
 
-Returns the account record as it stands at the node's current state: its
-owning program, balance, nonce, and program data blob.
+Returns the account record as it stands at the node's current state: its owning
+program, balance, nonce, and program data blob.
 
 10. The query returns the account's `program_owner`, `balance`, `nonce`, and
     `data` blob, balance and nonce carried as little-endian 16-byte values.
     **[Ready]**
 11. An identifier the state holds no record for reads as the default account,
     every field at its zero value, which is also what an uninitialised account
-    holds. The API documents that the read answers what the account holds
-    rather than whether it exists, and that a default `program_owner` marks an
-    account as unclaimed, the same test the state machine applies before
-    allowing one to be modified
-    (`lee/state_machine/src/validated_state_diff/mod.rs:351-365`). **[Ready]**
+    holds. The API documents that the read answers what the account holds rather
+    than whether it exists, and that a default `program_owner` marks an account
+    as unclaimed, the same test the state machine applies before allowing one to
+    be modified (`lee/state_machine/src/validated_state_diff/mod.rs:351-365`).
+    **[Ready]**
 
 **`query_account_at_block(account_id, block_id) -> PointerResult<FfiAccount, OperationStatus>`**
 
@@ -658,6 +654,7 @@ commitment set root they are proven against.
     required of the node regardless of which component holds it. **[New]**
 17. The proofs and the root returned by one call are consistent with one
     another: every proof verifies against the returned root. **[New]**
+
 ##### Transaction status
 
 Answering how far a transaction has progressed and whether it succeeded
@@ -692,12 +689,12 @@ execution succeeded.
     a typed reason on failure, for any transaction the node has executed.
     **[Computed, not persisted]**
 21. A transaction the node does not hold and the pending set does not hold is
-    reported distinctly from one the node has simply not seen, once its
-    validity window has passed. A privacy-preserving transaction carries a block
-    and a timestamp validity window
+    reported distinctly from one the node has simply not seen, once its validity
+    window has passed. A privacy-preserving transaction carries a block and a
+    timestamp validity window
     (`lez/indexer/service/protocol/src/lib.rs:253-260`), so a transaction absent
-    from both surfaces past that window will not be included and the API says
-    so rather than reporting it as unknown indefinitely. **[New]**
+    from both surfaces past that window will not be included and the API says so
+    rather than reporting it as unknown indefinitely. **[New]**
 22. The API documents that a transaction absent from the chain and from the
     pending set before its window has passed is not distinguishable from one
     never submitted, no record of a declined transaction being retained.
@@ -907,21 +904,21 @@ or starting at the indexed tip when `from` is absent. Exported today as
 
 40. The query returns at most `limit` blocks, walked from `from`, or from the
     indexed tip when `from` is absent. **[Ready]**
-41. The bound is documented as exclusive. The store already implements it
-    that way when descending, from `before_id.saturating_sub(1)`
+41. The bound is documented as exclusive. The store already implements it that
+    way when descending, from `before_id.saturating_sub(1)`
     (`lez/storage/src/indexer/read_multiple.rs:11`), leaving the documentation
     obligation only. **[Ready]**
 42. `query_blocks` accepts an ordering parameter supporting both oldest-first
-    and newest-first, on the same terms as
-    `query_transactions_by_account`. Oldest-first is the order a consumer
-    scanning forward reads in: a wallet syncing private accounts walks
-    ascending from the last block it processed to the tip, decrypting each
-    privacy-preserving transaction body against its own viewing key. Descending
-    from the tip cannot serve that walk. **[New]**
-43. Every paginated response reports whether more results remain, and carries the
-    cursor a caller resumes from, so a caller distinguishes the end of a result
-    set from a page that happens to be short and never constructs a position
-    itself. No paginated return type carries either signal today. **[New]**
+    and newest-first, on the same terms as `query_transactions_by_account`.
+    Oldest-first is the order a consumer scanning forward reads in: a wallet
+    syncing private accounts walks ascending from the last block it processed to
+    the tip, decrypting each privacy-preserving transaction body against its own
+    viewing key. Descending from the tip cannot serve that walk. **[New]**
+43. Every paginated response reports whether more results remain, and carries
+    the cursor a caller resumes from, so a caller distinguishes the end of a
+    result set from a page that happens to be short and never constructs a
+    position itself. No paginated return type carries either signal today.
+    **[New]**
 
 ##### Chain and node metadata
 
@@ -951,8 +948,8 @@ Ethereum, `getVersion` on Solana, `getnetworkinfo` on Bitcoin and Zcash.
     ([Appendix: Logos API Surfaces, section 2](../appendix/logos-api-surfaces.md#2-lez-indexer-rpc)).
     **[New]**
 45. The version changes only across restarts, so a caller may cache it for the
-    life of a connection and use it to detect that the surface it holds a
-    schema for has been replaced. **[New]**
+    life of a connection and use it to detect that the surface it holds a schema
+    for has been replaced. **[New]**
 
 **`query_block(block_id) -> PointerResult<FfiBlockOpt, OperationStatus>`**
 
@@ -992,9 +989,9 @@ resolve.
 
 50. The FFI exposes the chain tip as a single call returning the tip block's
     height together with its hash and timestamp, so learning about the tip does
-    not cost a second call and a caller knows which block holds the position.
-    No such record exists below the FFI: `getLastFinalizedBlockId` returns a
-    height alone, and the header fields come from a second read. **[New]**
+    not cost a second call and a caller knows which block holds the position. No
+    such record exists below the FFI: `getLastFinalizedBlockId` returns a height
+    alone, and the header fields come from a second read. **[New]**
 
 **`query_network_identity() -> PointerResult<FfiNetworkIdentity, OperationStatus>`**
 
@@ -1044,8 +1041,8 @@ account state pinned to a block and for transaction retrieval.
     account state can be read at a pinned block identifier, and the earliest
     block for which a transaction can be retrieved. A deployment that retains
     everything reports genesis and one bounded by Reliability #7 reports a
-    moving value, and a caller learns which by asking rather than by
-    discovering it through a failed read. **[New]**
+    moving value, and a caller learns which by asking rather than by discovering
+    it through a failed read. **[New]**
 57. A read for data below the retention floor is answered as such, distinctly
     from a read for data that never existed. Asking for a block the indexer
     discarded and asking for one the chain never held are different questions
@@ -1098,9 +1095,8 @@ Every function defined above is further bound by the following.
     than on message text, and that value does not change meaning between
     releases. Which values exist is for the implementation to decide; what this
     RFP requires is that two failures a caller would recover from differently
-    never arrive as the same value. The current implementation returns the
-    stock JSON-RPC `InternalError` code with free text, so every failure looks
-    alike
+    never arrive as the same value. The current implementation returns the stock
+    JSON-RPC `InternalError` code with free text, so every failure looks alike
     ([Appendix: Blockchain API and SDK Ecosystem, section 1.34](../appendix/blockchain-api-sdk-ecosystem.md#134-structured-errors-and-a-code-taxonomy)).
     **[New]**
 63. The distinctions a caller acts on are, at minimum: a request that was
@@ -1121,10 +1117,10 @@ Every function defined above is further bound by the following.
    following the chain, and tracking deposits.
 2. Provide a CLI that covers core functionality: read an account at current and
    at a pinned block, read a batch of accounts, read a block, read a
-   transaction, read a transaction's effects, query a
-   transaction's status, list an account's transactions with ordering and
-   pagination, and follow the chain tip. The CLI may have fewer features than
-   the FFI but must support all essential operations.
+   transaction, read a transaction's effects, query a transaction's status, list
+   an account's transactions with ordering and pagination, and follow the chain
+   tip. The CLI may have fewer features than the FFI but must support all
+   essential operations.
 3. Provide a worked deposit-tracking example, in the CLI or as a documented
    reference consumer, that follows the chain from a chosen start block, detects
    credits to a supplied set of public accounts, and reports each credit with
@@ -1132,9 +1128,8 @@ Every function defined above is further bound by the following.
 4. Document which state is readable and which is not for privacy-preserving
    transactions, and state that deposits into private accounts are not trackable
    from indexer data without the viewing key.
-5. Return clear, actionable error messages for every failure mode, each
-   carrying the machine-readable value required by Functionality #62 alongside
-   the text.
+5. Return clear, actionable error messages for every failure mode, each carrying
+   the machine-readable value required by Functionality #62 alongside the text.
 6. Document the semantics of every pagination parameter, including the
    exclusivity of the block bound, what a cursor guarantees across ingestion,
    and the behaviour when new data lands during a walk.
@@ -1191,35 +1186,35 @@ the two ship together and a function reaches an application only when both carry
 it. "The FFI and module" below means the Rust crate at `lez/indexer/ffi/` and
 the module that links it.
 
-1. Both are built and tested against a LEZ devnet and testnet sequencer.
-2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
-   with an indexer ingesting from it, and are included in CI.
-3. CI must be green on the default branch.
-4. Every hard requirement in Functionality, Usability, Reliability, and Performance
-   has at least one corresponding test.
-5. Tests cover, at minimum: a read of an identifier the state holds no record
-   for; a pinned read at a block before and after a state change; a batch
-   read spanning recorded and unrecorded accounts; effects for a public transaction
-   and for the public leg of a privacy-preserving transaction; membership proofs
-   for a commitment the set holds and one it does not; a transaction status at
-   each documented level; and a subscription resumed from a stored position
-   across a disconnection.
-6. A README documents end-to-end usage: building the FFI and the module that
-   links it, the configuration and storage directory `start_indexer` requires,
-   and step-by-step instructions for every operation via the CLI.
-7. Submit a
-   [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-   for the FFI and module, covering the developer integration journey for
-   reading state, tracking deposits, and confirming transactions.
-8. Submit a
-   [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-   for the CLI, covering the core operator journey.
-9. Provide a get started guide that takes a developer from an empty repository
-   to a working Logos Core module consuming the indexer FFI, covering linking
-   `libindexer_ffi`, including the generated header, reading LEZ state through
-   it, and running the result against a devnet. The README required above
-   documents building and operating what this RFP delivers; this documents
-   building something else on top of it.
+01. Both are built and tested against a LEZ devnet and testnet sequencer.
+02. End-to-end integration tests run against a LEZ sequencer (standalone mode)
+    with an indexer ingesting from it, and are included in CI.
+03. CI must be green on the default branch.
+04. Every hard requirement in Functionality, Usability, Reliability, and
+    Performance has at least one corresponding test.
+05. Tests cover, at minimum: a read of an identifier the state holds no record
+    for; a pinned read at a block before and after a state change; a batch read
+    spanning recorded and unrecorded accounts; effects for a public transaction
+    and for the public leg of a privacy-preserving transaction; membership
+    proofs for a commitment the set holds and one it does not; a transaction
+    status at each documented level; and a subscription resumed from a stored
+    position across a disconnection.
+06. A README documents end-to-end usage: building the FFI and the module that
+    links it, the configuration and storage directory `start_indexer` requires,
+    and step-by-step instructions for every operation via the CLI.
+07. Submit a
+    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+    for the FFI and module, covering the developer integration journey for
+    reading state, tracking deposits, and confirming transactions.
+08. Submit a
+    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
+    for the CLI, covering the core operator journey.
+09. Provide a get started guide that takes a developer from an empty repository
+    to a working Logos Core module consuming the indexer FFI, covering linking
+    `libindexer_ffi`, including the generated header, reading LEZ state through
+    it, and running the result against a devnet. The README required above
+    documents building and operating what this RFP delivers; this documents
+    building something else on top of it.
 10. Provide a full API reference for the indexer API, published per version in
     the shape the Logos Storage module's reference takes at
     [docs.logos.co](https://docs.logos.co), covering every exported function,
@@ -1264,8 +1259,8 @@ If possible.
    blob of up to 100 KiB, with the token balance inside `Account.data` rather
    than `Account.balance`.
 5. Retention policies beyond a single ceiling, such as keeping transaction
-   history for accounts a deployment cares about while discarding the rest, so
-   a desktop deployment holds what its user needs rather than the most recent
+   history for accounts a deployment cares about while discarding the rest, so a
+   desktop deployment holds what its user needs rather than the most recent
    window of everything.
 
 ### Out of Scope
@@ -1284,14 +1279,14 @@ The following are explicitly excluded from this RFP:
   both public and privacy-preserving transactions, for the reason given in the
   Design Rationale. Nothing in this RFP executes a transaction a caller
   supplies.
-- **The JSON-RPC proxy and its client, and the LEZ-DK.** These are items 3 and
-  4 of the five deliverables above, each with its own RFP. This RFP defines what
+- **The JSON-RPC proxy and its client, and the LEZ-DK.** These are items 3 and 4
+  of the five deliverables above, each with its own RFP. This RFP defines what
   those consume, not how it is transported or wrapped.
-- **Reaching inside a node.** A consumer reaches a LEZ node only through the
-  API defined here. Whatever a node is made of internally, those interfaces are
-  not an API this RFP or any other in this set defines. Every read an
-  integrator needs is required of the node above, whichever part of it holds
-  the data today.
+- **Reaching inside a node.** A consumer reaches a LEZ node only through the API
+  defined here. Whatever a node is made of internally, those interfaces are not
+  an API this RFP or any other in this set defines. Every read an integrator
+  needs is required of the node above, whichever part of it holds the data
+  today.
 - **The program event system.** Events already exist end to end, from
   `ProgramOutput.events` through indexer capture to `getEvents`,
   `subscribeToEvents`, and `query_events` on the FFI. Nothing here changes them.
@@ -1315,8 +1310,7 @@ initialisation, but no L1 route serves it and the indexer's Bedrock
 configuration carries only an endpoint. Reaching it therefore depends on Logos
 Blockchain exposing it, or on the zone obtaining it at initialisation and
 retaining it. The requirement that an unobtainable value be reported as
-unavailable keeps the rest of the surface deliverable while that is
-outstanding.
+unavailable keeps the rest of the surface deliverable while that is outstanding.
 
 ## 🌍 Open Source Requirement
 
@@ -1332,7 +1326,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   languages, response shapes, and per-function gap notes for LEZ
 - [logos-execution-zone](https://github.com/logos-blockchain/logos-execution-zone):
   the LEZ sequencer, indexer, and wallet
-- [`logos-execution-zone-module`](https://github.com/logos-blockchain/logos-execution-zone-module)): `lez_core` Logos Core module
+- [`logos-execution-zone-module`](https://github.com/logos-blockchain/logos-execution-zone-module)):
+  `lez_core` Logos Core module
 - [lez-indexer-module](https://github.com/logos-blockchain/lez-indexer-module):
   the Logos Core module wrapping the indexer FFI
 - [Logos glossary](https://docs.logos.co/get-started/glossary): zone, channel,
