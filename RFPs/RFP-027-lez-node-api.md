@@ -55,6 +55,12 @@ module alone achieves nothing. See
 [Appendix: Logos API Surfaces](../appendix/logos-api-surfaces.md) for the
 as-built inventory of every layer.
 
+The usage of Basecamp and Logos Core must remain the first recommended way to
+build on LEZ on all platforms (mobile, desktop, server). However, we acknowledge
+the need to provide a pathway for existing applications to add LEZ support
+without a full re-architecture of their project, securing further distribution
+channels for LEZ.
+
 Of the integrators listed below, the centralised exchange is used as the
 reference profile for the requirements: read chain state, track deposits
 credited to accounts it controls, and confirm that a transaction reached a level
@@ -147,7 +153,7 @@ for chain state:
 
 ```mermaid
 flowchart TB
-  subgraph app["Any Basecamp Wallet App"]
+  subgraph app["New app (wallet, DEX, etc): uses Basecamp and Logos Core"]
     direction TB
     appUi["UI module"] --> appCore["Core module"]
   end
@@ -186,7 +192,7 @@ device:
 
 ```mermaid
 flowchart TB
-  subgraph android["Android Wallet Integration"]
+  subgraph android["Integration in a pre-existing Android wallet"]
     direction TB
     androidApp["Application (Kotlin)"]
 
@@ -220,7 +226,7 @@ stays linked but unused and no node call leaves the device:
 
 ```mermaid
 flowchart TB
-  subgraph desktop["Desktop Wallet Integration"]
+  subgraph desktop["Integration in a pre-existing desktop wallet app"]
     direction TB
     desktopApp["Application (Dart / Flutter)"]
 
@@ -248,7 +254,7 @@ two shapes it has:
 
 ```mermaid
 flowchart TB
-  subgraph android["Basecamp Android App"]
+  subgraph android["New Android app: uses Basecamp and Logos Core"]
     direction TB
     appUi["UI module"] --> appCore["Core module"]
 
