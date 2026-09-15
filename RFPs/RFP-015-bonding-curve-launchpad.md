@@ -146,8 +146,11 @@ the swap.
 
 The fee rate and treasury address are configured by the program's admin
 authority and apply uniformly to all sales. The RFP does not mandate a specific
-rate; the admin authority sets the rate at deployment and may update it. Sale
-creation is free (no creation fee).
+rate; the admin authority sets the rate at deployment and may update it, and the
+rate may be zero. The rate applied to a swap is the one in effect when the swap
+executes: the pre-trade summary shows it, and the trader's slippage bound
+protects them if the rate changes between quote and execution. Sale creation is
+free (no creation fee).
 
 Per-swap collection is critical for bonding curves. The graduation rate across
 the ecosystem is approximately 0.7% to 1.4% (see the
@@ -202,23 +205,28 @@ instead.
 
 1. Implement a bonding curve program on LEZ with a deterministic, supply-driven
    pricing mechanism that maintains a well-defined invariant across all buy and
-   sell operations. The buy instruction accepts a collateral input `C_in` and
-   computes a deterministic token output based on the current curve state. The
-   SDK must also expose the inverse: the exact collateral cost for a buyer who
-   requests a specific token quantity `Q`. The sell instruction accepts a token
-   input `tokens_in` and computes a deterministic collateral output from the
-   real collateral reserve. Sell transactions must not withdraw more collateral
-   than the real reserve holds. After each buy, the real token reserve decreases
-   by `tokens_out` and the real collateral reserve increases by `C_in`. After
-   each sell, the real token reserve increases by `tokens_in` and the real
-   collateral reserve decreases by `C_out`. If the computed `tokens_out` on a
-   buy would exceed the remaining sale reserve, the transaction must revert. All
-   arithmetic must use integer-only operations and round against the trader: on
-   buy, `tokens_out` rounds down and `C_in` rounds up; on sell, `C_out` rounds
-   down. This ensures the pool remains solvent and the pricing invariant is
-   never violated by rounding. The pricing invariant must never change after
-   creation. See the Reference Implementation section for the recommended
-   formulas and the deviation standard for alternative mechanisms.
+   sell operations. The buy instruction accepts a collateral input `C_in`,
+   deducts the protocol fee of F.8 to obtain the effective input
+   `C_eff = C_in - fee`, and computes a deterministic token output from `C_eff`
+   and the current curve state. The SDK must also expose the inverse: the exact
+   gross collateral cost `C_in` (fee included) for a buyer who requests a
+   specific token quantity `Q`. The sell instruction accepts a token input
+   `tokens_in`, computes a deterministic raw collateral output `C_out_raw` from
+   the real collateral reserve, deducts the protocol fee, and pays the seller
+   `C_out = C_out_raw - fee`. Sell transactions must not withdraw more
+   collateral than the real reserve holds. After each buy, the real token
+   reserve decreases by `tokens_out` and the real collateral reserve increases
+   by `C_eff`; the fee never enters the reserve. After each sell, the real token
+   reserve increases by `tokens_in` and the real collateral reserve decreases by
+   `C_out_raw`. If the computed `tokens_out` on a buy would exceed the remaining
+   sale reserve, the transaction must revert. All arithmetic must use
+   integer-only operations and round against the trader: on buy, `tokens_out`
+   rounds down and `C_in` rounds up; on sell, `C_out_raw` rounds down; the fee
+   rounds up in both directions. This ensures the pool remains solvent and the
+   pricing invariant is never violated by rounding. The pricing invariant must
+   never change after creation. See the Reference Implementation section for
+   the recommended formulas and the deviation standard for alternative
+   mechanisms.
 
 2. A sale creator can configure a sale with the following parameters:
 
@@ -257,17 +265,30 @@ instead.
      per-swap during the sale; no additional deduction occurs at withdrawal.
    - The DEX seed reserve `R` tokens (if not used for auto-graduation).
 
-6. Slippage protection: on buy, buyers specify the collateral amount to spend
-   and a minimum token quantity they are willing to accept; the transaction
-   reverts if the computed `tokens_out` is below this minimum. On sell, sellers
-   specify the token quantity to sell and a minimum collateral amount they are
-   willing to accept; the transaction reverts if the computed `C_out` is below
-   this minimum.
+6. Slippage protection: on buy, buyers specify the gross collateral amount to
+   spend and a minimum token quantity they are willing to accept; the
+   transaction reverts if the computed `tokens_out` (after the fee has been
+   deducted from the input) is below this minimum. On sell, sellers specify the
+   token quantity to sell and a minimum collateral amount they are willing to
+   accept; the transaction reverts if the net `C_out` (after the fee has been
+   deducted) is below this minimum. Both bounds are therefore checked against
+   what the trader actually receives, so a fee-rate change between quote and
+   execution cannot push a trade past the trader's tolerance.
 
 7. Use Associated Token Accounts (ATAs) for all token interactions, consistent
    with
    [LP-0014](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0014.md)
    and [RFP-008](./RFP-008-lending-borrowing-protocol.md).
+
+8. Protocol fee: the program collects a per-swap protocol fee on every buy and
+   sell, denominated in the collateral token, and transfers it to the protocol
+   treasury account atomically in the same transaction as the swap. The fee
+   rate and the treasury address are set by the program's admin authority
+   (using the [RFP-001](./RFP-001-admin-authority-lib.md) library), apply
+   uniformly to all sales, and are updatable after deployment. The program does
+   not restrict the fee rate to a fixed range or a set of preset tiers, and the
+   rate may be zero. There is no sale creation fee and no additional fee at
+   close or withdrawal. Sale creators cannot set or override the fee.
 
 #### Usability
 
@@ -293,10 +314,12 @@ instead.
     operations for both participants (buy, query price, check sale status) and
     creators (create sale, close, withdraw).
 04. The mini-app must display a pre-buy confirmation summary before each
-    purchase: collateral to spend, exact tokens to be received (computed using
-    the pricing formula), current spot price (`Vc / Vt`), price impact
-    (percentage increase in spot price after the buy), and the per-swap protocol
-    fee deducted from collateral.
+    purchase: gross collateral to spend, the per-swap protocol fee deducted from
+    it, exact tokens to be received (computed using the pricing formula on the
+    net input), current spot price (`Vc / Vt`), and price impact (percentage
+    increase in spot price after the buy). The equivalent pre-sell summary must
+    show tokens to sell, the raw collateral output, the protocol fee deducted,
+    and the net collateral the seller receives.
 05. When using the private account path, the mini-app must display a privacy
     disclosure before each buy, identifying what will be visible on-chain (buy
     transaction, collateral amount, tokens received, curve address, ephemeral
@@ -311,7 +334,8 @@ instead.
     the gas fee within the single deshield action. A clear, actionable error
     must be shown if the balance is insufficient.
 08. Provide a sale analytics view showing, for each active or completed sale:
-    total collateral raised, current spot price, supply sold over time (progress
+    total collateral raised, protocol fee revenue collected (reported separately
+    from collateral raised), current spot price, supply sold over time (progress
     chart), price-vs-supply curve with current position marked, and number of
     buy transactions. Analytics must not expose individual participant
     identities or link buy transactions to specific accounts.
@@ -319,6 +343,12 @@ instead.
     [SPEL framework](https://github.com/logos-co/spel).
 10. Failed or rejected buys must return clear, actionable error messages (e.g.,
     insufficient balance, supply target already reached, slippage exceeded).
+11. The mini-app and CLI show the current protocol fee rate and treasury
+    address. The SDK, CLI, and mini-app expose the admin operations for the
+    program: setting the fee rate, setting the treasury address, and the admin
+    authority transfer and renunciation operations of
+    [RFP-001](./RFP-001-admin-authority-lib.md). An admin operation attempted
+    without the admin authority fails with a clear, actionable error.
 
 #### Reliability
 
@@ -331,15 +361,29 @@ instead.
    reserve is exhausted, the sale must close atomically in the same transaction.
    No additional close instruction should be required; no further buys must be
    accepted after close.
+4. Fee accounting must be exact: on every buy, the fee transferred to the
+   treasury plus the amount added to the real collateral reserve equals the
+   trader's gross input `C_in`; on every sell, the fee plus the amount paid to
+   the seller equals the amount removed from the real collateral reserve
+   (`C_out_raw`). Rounding is resolved against the trader. The fee is applied
+   outside the curve: it never changes `k`, `Vt`, or `Vc` except through the
+   net amount that enters or leaves the curve.
+5. A fee-rate or treasury update applies only to swaps executed after the
+   update; it never alters the accounting of swaps already executed or the
+   collateral already held by any sale. The rate applied to a swap is the one
+   in effect when the swap executes, and the swap respects the trader's
+   slippage bound of F.6 regardless.
 
 #### Performance
 
-1. A single buy transaction completes within one LEZ transaction.
+1. A single buy transaction completes within one LEZ transaction, including
+   the fee transfer to the treasury.
 2. A close transaction (manual or auto-triggered by final buy) completes within
    one LEZ transaction.
 3. Document the compute unit (CU) cost of each operation: create sale, buy,
-   close sale, withdraw. Note the LEZ testnet version against which measurements
-   were taken.
+   sell, close sale, withdraw, set fee rate, set treasury. Buy and sell figures
+   must include the fee transfer. Note the LEZ testnet version against which
+   measurements were taken.
 
 #### Supportability
 
@@ -352,10 +396,15 @@ mainnet deployment.
 3. Every hard requirement in Functionality, Usability, Reliability, and
    Performance has at least one corresponding test. Test coverage must include:
    invariant preservation across multiple buys, happy-path buy, slippage revert
-   (tokens_out below minimum), auto-close on supply target, manual close.
+   (tokens_out below minimum), auto-close on supply target, manual close, fee
+   deducted and routed to the treasury on both buy and sell, fee rounding at
+   small amounts, zero fee rate, fee-rate update applying only to subsequent
+   swaps, and a fee or treasury update attempted without the admin authority
+   being rejected.
 4. A README documents end-to-end usage: deployment steps, program addresses, and
    step-by-step instructions for both creators and participants via CLI and
-   mini-app.
+   mini-app. It must also document how the admin authority configures the fee
+   rate and treasury address.
 5. Provide a privacy and anonymisation properties document covering: what
    on-chain state and transaction data is visible to observers; what data is
    protected when the private account path is used; trust assumptions,
@@ -418,8 +467,11 @@ For every buy from a private account:
 - All curve state: token pair, virtual reserves (`Vt`, `Vc`), invariant `k`,
   sale reserve, DEX seed reserve, real collateral reserve, sale quantity `D`,
   current spot price, open/closed status.
-- All buy transactions: collateral spent, tokens received, and block height.
-  When using the private account path, the buyer's address is an ephemeral
+- Program-wide fee state: the admin authority, the current protocol fee rate,
+  and the treasury address.
+- All buy and sell transactions: collateral spent or received, tokens received
+  or sold, the protocol fee transferred to the treasury, and block height. When
+  using the private account path, the trader's address is an ephemeral
   intermediary account with no prior on-chain history.
 - Sale close and creator withdrawal transactions.
 
@@ -430,6 +482,10 @@ For every buy from a private account:
 - Any link between multiple buys by the same buyer (no on-chain linkability
   across ephemeral accounts).
 - Whether a specific private account participated in the sale at all.
+
+The fee transfer reveals nothing beyond what the swap itself already exposes:
+it is a deterministic function of the public swap amount and the public fee
+rate, and goes to a fixed public treasury.
 
 #### Trust assumptions
 
@@ -461,29 +517,39 @@ reserves**, as described in the Design Rationale. Proposals that use this
 formula require no additional justification beyond the hard requirements above.
 
 The constant product invariant is `Vt × Vc = k`, where `Vt` is the virtual token
-reserve and `Vc` is the virtual collateral reserve. The buy formula computes
-token output as:
+reserve and `Vc` is the virtual collateral reserve. The protocol fee (F.8) is
+applied outside the curve, on the collateral side of every swap.
+
+On buy, the fee is deducted from the gross input before pricing:
 
 ```
-tokens_out = Vt - k / (Vc + C_in)
+fee    = ceil(C_in × fee_rate)
+C_eff  = C_in - fee
+tokens_out = Vt - k / (Vc + C_eff)
 ```
 
-The inverse (exact collateral cost for a requested token quantity `Q`):
+The inverse (exact gross collateral cost, fee included, for a requested token
+quantity `Q`):
 
 ```
-C_in = k / (Vt - Q) - Vc
+C_eff = k / (Vt - Q) - Vc
+C_in  = C_eff / (1 - fee_rate)          (rounded up)
 ```
 
-The sell formula computes collateral output as:
+On sell, the fee is deducted from the raw curve output:
 
 ```
-C_out = Vc - k / (Vt + tokens_in)
+C_out_raw = Vc - k / (Vt + tokens_in)
+fee       = ceil(C_out_raw × fee_rate)
+C_out     = C_out_raw - fee
 ```
 
-After each buy, `Vt` decreases by `tokens_out` and `Vc` increases by `C_in`.
-After each sell, `Vt` increases by `tokens_in` and `Vc` decreases by `C_out`. In
-both cases, `k = Vt × Vc` is preserved. `k` is computed at creation and must
-never change.
+After each buy, `Vt` decreases by `tokens_out` and `Vc` increases by `C_eff`.
+After each sell, `Vt` increases by `tokens_in` and `Vc` decreases by
+`C_out_raw`. In both cases, `k = Vt × Vc` is preserved and the fee does not
+touch the virtual reserves. `k` is computed at creation and must never change.
+`fee_rate` is expressed in integer basis points (or a finer integer unit) so
+that all operations stay integer-only.
 
 **Deviation standard.** Teams may propose an alternative pricing mechanism (such
 as a polynomial integral, the Bancor power function, a piecewise constant
@@ -505,8 +571,10 @@ production deployments or audits.
   auto-closes, the program can automatically deploy the accumulated real
   collateral reserve and the DEX seed reserve `R` tokens as liquidity into a LEZ
   DEX pool (requires [RFP-004](./RFP-004-privacy-preserving-dex.md) and LP-0015
-  to be available). This eliminates manual post-sale liquidity seeding and
-  provides immediate post-graduation tradability.
+  to be available). Because protocol fees are collected per-swap, the full real
+  collateral reserve is deployable at graduation with no further deduction.
+  This eliminates manual post-sale liquidity seeding and provides immediate
+  post-graduation tradability.
 - **Optional end timestamp**: the sale creator can configure an end timestamp at
   creation time. The sale closes when the supply target is reached or the end
   timestamp passes, whichever comes first. This prevents zombie sales (curves

@@ -187,12 +187,24 @@ receives the remainder.
 Because the LBP is time-bounded (every sale reaches its end timestamp regardless
 of demand), the at-close fee is always collectible, unlike bonding curves where
 over 98% of sales never graduate. Fjord Foundry uses a 5% at-close fee on
-collateral raised, enforced onchain by its wrapper contract [11].
+collateral raised, enforced onchain by its wrapper contract (see the
+[At-close onchain fees](../appendix/token-launchpad-ecosystem.md#at-close-onchain-fees)
+section of the appendix).
 
 The fee rate and treasury address are configured by the program's admin
 authority and apply uniformly to all sales. The RFP does not mandate a specific
-rate; the admin authority sets it at deployment and may update it. Sale creation
-is free (no creation fee).
+rate; the admin authority sets it at deployment and may update it, and the rate
+may be zero. The rate is **snapshotted at sale creation**: the program stores
+the rate in effect when a sale is created and applies that stored rate at
+withdrawal. An admin update therefore affects only sales created afterwards,
+never a sale already in flight, so a creator knows the exact fee they will pay
+before committing tokens. Sale creation is free (no creation fee).
+
+Collection does not depend on the creator: after the end timestamp, any account
+may submit a permissionless fee-sweep transaction that transfers the fee to the
+treasury, in the same spirit as the permissionless weight poke. The creator's
+withdrawal pays out the net remainder. If no sweep has occurred when the creator
+withdraws, the withdrawal performs it atomically.
 
 See the
 [Fee Structures](../appendix/token-launchpad-ecosystem.md#fee-structures)
@@ -221,6 +233,11 @@ section of the appendix for a cross-platform comparison.
       the rate at which any participant (or set of participants) can accumulate
       supply, regardless of how many accounts they use.
    6. Optional: private allowlist gate (see item 7 below).
+
+   The sale additionally stores the protocol fee rate in effect at creation
+   (see item 10 below). This is recorded by the program, not chosen by the
+   creator, and cannot change for the life of the sale.
+
 3. Participants buy project tokens from the pool using either a public account
    directly, or via the deshield→buy→re-shield pattern for private account
    interaction (see [RFP-008](./RFP-008-lending-borrowing-protocol.md)). Both
@@ -232,9 +249,11 @@ section of the appendix for a cross-platform comparison.
    the last poke occurred.
 5. After the sale end timestamp passes, the creator can withdraw:
    - The collateral raised, net of the at-close protocol fee (see the Fee
-     structure subsection in Design Rationale). The program deducts the fee and
-     transfers it to the protocol treasury atomically in the withdrawal
-     transaction.
+     structure subsection in Design Rationale). The fee is
+     `ceil(collateral_balance × rate_at_creation)`, using the rate stored on the
+     sale at creation. If the fee has not already been swept (item 10), the
+     withdrawal deducts it and transfers it to the protocol treasury atomically
+     in the same transaction.
    - Any unsold project tokens remaining in the pool.
 6. The sale creator can pause buying at any time during the sale period
    (emergency stop). Pausing does not affect weight progression; the weight
@@ -254,6 +273,20 @@ section of the appendix for a cross-platform comparison.
    [LP-0014](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0014.md)
    and [RFP-008](./RFP-008-lending-borrowing-protocol.md).
 
+10. Protocol fee: the program collects an at-close protocol fee on the
+    collateral raised by every sale, denominated in the collateral token. The
+    fee rate and the treasury address are set by the program's admin authority
+    (using the [RFP-001](./RFP-001-admin-authority-lib.md) library), apply
+    uniformly to all sales, and are updatable after deployment. The program
+    does not restrict the fee rate to a fixed range or a set of preset tiers,
+    and the rate may be zero. Each sale snapshots the rate at creation (item
+    2); a later update never changes the fee of an existing sale. After the
+    sale end timestamp, any account may submit a fee-sweep transaction that
+    transfers the fee to the treasury; the sweep is idempotent and the creator's
+    withdrawal (item 5) performs it if it has not yet occurred. There is no
+    sale creation fee and no per-swap fee on buyers. Sale creators cannot set
+    or override the fee.
+
 #### Usability
 
 01. Provide an SDK for building Logos modules that interact with the launchpad
@@ -271,8 +304,10 @@ section of the appendix for a cross-platform comparison.
       token/collateral weight, time remaining, and total raised; execute a buy;
       view purchase history.
     - **Creator view**: create a new sale (all parameters including allowlist
-      configuration), monitor an active sale, pause/resume, close sale, and
-      withdraw proceeds.
+      configuration), with the protocol fee rate that will be locked to the
+      sale shown before the creator confirms; monitor an active sale, including
+      the sale's locked fee rate, the projected fee, and projected net
+      proceeds; pause/resume, close sale, and withdraw proceeds.
 03. Provide a CLI that covers core functionality of the program. The CLI may
     have fewer features than the GUI mini-app but must support all essential
     operations for both participants (buy, query price, check sale status) and
@@ -295,15 +330,23 @@ section of the appendix for a cross-platform comparison.
     must be shown if the balance is insufficient, preventing a partial deshield
     that could leave funds stranded.
 08. Provide a sale analytics view showing, for each active or completed sale:
-    total collateral raised, token price over time (price chart), number of buy
-    transactions, and current pool composition. Analytics must not expose
-    individual participant identities or link buy transactions to specific
-    accounts.
+    total collateral raised, protocol fee (projected while the sale is live,
+    collected once swept, reported separately from collateral raised), token
+    price over time (price chart), number of buy transactions, and current pool
+    composition. Analytics must not expose individual participant identities or
+    link buy transactions to specific accounts.
 09. Provide an IDL for the launchpad program using the
     [SPEL framework](https://github.com/logos-co/spel).
 10. Failed or rejected buys must return clear, actionable error messages (e.g.,
     insufficient balance, sale not yet started, sale ended, allowlist gate
     rejected, slippage exceeded).
+11. The mini-app and CLI show the current protocol fee rate and treasury
+    address. The SDK, CLI, and mini-app expose the admin operations for the
+    program: setting the fee rate, setting the treasury address, and the admin
+    authority transfer and renunciation operations of
+    [RFP-001](./RFP-001-admin-authority-lib.md). They also expose the
+    permissionless fee sweep. An admin operation attempted without the admin
+    authority fails with a clear, actionable error.
 
 #### Reliability
 
@@ -314,14 +357,23 @@ section of the appendix for a cross-platform comparison.
    and the pool state is unchanged.
 3. Weight updates (pokes) must be idempotent: submitting multiple pokes within
    the same block or timestamp window must not corrupt pool state.
+4. Fee accounting must be exact and isolated per sale: the fee transferred to
+   the treasury equals `ceil(collateral_balance × rate_at_creation)`, the
+   treasury payout plus the creator's collateral payout equals the collateral
+   balance at sale end, and a fee-rate or treasury update after a sale is
+   created never changes that sale's fee. The fee sweep is idempotent: a second
+   sweep, or a withdrawal after a sweep, transfers nothing further to the
+   treasury.
 
 #### Performance
 
 1. A single buy transaction completes within one LEZ transaction.
 2. A weight poke completes within one LEZ transaction.
 3. Document the compute unit (CU) cost of each operation: create sale, buy, poke
-   weights, pause/resume, close sale, withdraw. Note the LEZ testnet version
-   against which measurements were taken.
+   weights, pause/resume, close sale, fee sweep, withdraw, set fee rate, set
+   treasury. The withdraw figure must include the fee transfer when the sweep
+   has not already occurred. Note the LEZ testnet version against which
+   measurements were taken.
 
 #### Supportability
 
@@ -334,10 +386,16 @@ mainnet deployment.
 3. Every hard requirement in Functionality, Usability, Reliability, and
    Performance has at least one corresponding test. Test coverage must include:
    happy-path buy, slippage revert, allowlist gate accept and reject, sale close
-   before end time, weight poke at multiple points in the schedule.
+   before end time, weight poke at multiple points in the schedule, fee deducted
+   and routed to the treasury at withdrawal, fee rounding at small amounts, zero
+   fee rate, snapshot isolation (a fee-rate update after sale creation does not
+   change that sale's fee), permissionless fee sweep followed by a net creator
+   withdrawal, sweep idempotence, and a fee or treasury update attempted
+   without the admin authority being rejected.
 4. A README documents end-to-end usage: deployment steps, program addresses, and
    step-by-step instructions for both creators and participants via CLI and
-   mini-app.
+   mini-app. It must also document how the admin authority configures the fee
+   rate and treasury address, and how the fee snapshot and sweep work.
 5. Provide a privacy and anonymisation properties document covering: what
    on-chain state and transaction data is visible to observers; what data is
    protected when the private account path is used; trust assumptions,
@@ -399,13 +457,17 @@ For every buy from a private account:
 #### What is public (observable on-chain)
 
 - All pool state: token pair, current weights, price, total collateral raised,
-  total tokens sold, sale start/end timestamps.
+  total tokens sold, sale start/end timestamps, and the protocol fee rate
+  snapshotted for the sale.
+- Program-wide fee state: the admin authority, the current protocol fee rate,
+  and the treasury address.
 - All buy transactions: collateral spent, tokens received, and timestamp. When
   using the private account path, the buyer's address is an ephemeral
   intermediary account with no prior on-chain history.
 - Allowlist gate configuration and whether the gate is enabled, but not the list
   of eligible addresses.
-- Sale close and creator withdrawal transactions.
+- Sale close, fee sweep (amount transferred to the treasury), and creator
+  withdrawal transactions.
 
 #### What is private (when using the private account path)
 
