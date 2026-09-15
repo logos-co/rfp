@@ -7,7 +7,7 @@ dependencies:
   - id: LP-0013
     reason: Token transfer-authority primitives are required to custody the token sale reserve and the real collateral reserve.
   - id: RFP-001
-    reason: Provides the standardised admin authority library that configures the protocol fee rate and treasury address applied uniformly to all sales.
+    reason: Provides the standardised admin authority library that governs each launchpad namespace (admin authority, protocol fee rate, and treasury address applied uniformly to all sales in that namespace per F.8, F.9).
   - id: LP-0015
     reason: General cross-program calls via tail calls, used to complete a buy operation atomically (transfer collateral, compute output, transfer tokens, update curve state).
 category: Applications & Integrations
@@ -144,9 +144,10 @@ pricing formula; the effective input to the constant product calculation is
 transferred atomically to a protocol treasury account in the same transaction as
 the swap.
 
-The fee rate and treasury address are configured by the program's admin
-authority and apply uniformly to all sales. The RFP does not mandate a specific
-rate; the admin authority sets the rate at deployment and may update it, and the
+The fee rate and treasury address are configured by the admin authority of the
+namespace the sale belongs to (see Namespaces below) and apply uniformly to all
+sales in that namespace. The RFP does not mandate a specific rate; the namespace
+admin sets the rate when the namespace is created and may update it, and the
 rate may be zero. The rate applied to a swap is the one in effect when the swap
 executes: the pre-trade summary shows it, and the trader's slippage bound
 protects them if the rate changes between quote and execution. Sale creation is
@@ -162,6 +163,27 @@ buyer-side per-swap fee (dynamic, 0.05–0.95% since September 2025) and has
 generated over $818M in cumulative protocol fees (see the
 [Fee Structures](../appendix/token-launchpad-ecosystem.md#fee-structures)
 section of the appendix for a cross-platform comparison).
+
+### Namespaces
+
+A single deployment of the bonding curve program supports any number of
+independent **namespaces**. A namespace is a launchpad instance: it carries its
+own admin authority, protocol fee rate, and treasury address, and every sale
+belongs to exactly one namespace, chosen by the creator at sale creation. The
+program bytecode is deployed once; operators who want their own launchpad with
+their own fee create a namespace rather than a new deployment.
+
+Creating a namespace is permissionless: anyone can seed one with their own admin
+authority, fee rate, and treasury, regardless of who deployed the program and
+without permission from any existing namespace. Namespaces share no state, and
+the reach of an admin authority is limited to its own namespace. Fee ranges are
+left open for the same reason: a namespace admin setting an uncompetitive fee
+affects only the sales in that namespace, and creators can launch in another
+namespace or create one.
+
+This is the same model used by the DEX in
+[RFP-004](./RFP-004-privacy-preserving-dex.md); proposers may reuse that
+pattern for account layout and address derivation.
 
 ### Bonding curves and LBPs as complementary mechanisms
 
@@ -229,17 +251,20 @@ instead.
 
 2. A sale creator can configure a sale with the following parameters:
 
-   1. Token pair (project token + collateral token).
-   2. Sale quantity `D`: the number of tokens available for purchase. All `D`
+   1. Namespace the sale belongs to (see item 9). Chosen at creation and
+      immutable; it determines the fee rate and treasury that apply to the
+      sale.
+   2. Token pair (project token + collateral token).
+   3. Sale quantity `D`: the number of tokens available for purchase. All `D`
       tokens must be transferred from the creator at sale creation.
-   3. Optional: DEX seed quantity `R`: tokens reserved for post-graduation DEX
+   4. Optional: DEX seed quantity `R`: tokens reserved for post-graduation DEX
       seeding (may be zero). If set, `R` tokens must also be transferred from
       the creator at sale creation. Total real deposit is `D + R`.
-   4. Virtual token reserve `Vt`: a synthetic pricing parameter that determines
+   5. Virtual token reserve `Vt`: a synthetic pricing parameter that determines
       the shape of the bonding curve (`Vt > D`). This is not the deposit amount;
       it is typically larger than `D + R` to position the starting price on the
       curve.
-   5. Virtual collateral reserve `Vc`: a synthetic starting value; no real
+   6. Virtual collateral reserve `Vc`: a synthetic starting value; no real
       collateral is deposited by the creator. Together with `Vt`, determines
       `k = Vt × Vc` (computed and stored at creation) and the starting spot
       price `p₀ = Vc / Vt`.
@@ -280,24 +305,39 @@ instead.
    and [RFP-008](./RFP-008-lending-borrowing-protocol.md).
 
 8. Protocol fee: the program collects a per-swap protocol fee on every buy and
-   sell, denominated in the collateral token, and transfers it to the protocol
-   treasury account atomically in the same transaction as the swap. The fee rate
-   and the treasury address are set by the program's admin authority (using the
-   [RFP-001](./RFP-001-admin-authority-lib.md) library), apply uniformly to all
-   sales, and are updatable after deployment. The program does not restrict the
-   fee rate to a fixed range or a set of preset tiers, and the rate may be zero.
-   There is no sale creation fee and no additional fee at close or withdrawal.
-   Sale creators cannot set or override the fee.
+   sell, denominated in the collateral token, and transfers it to the treasury
+   of the sale's namespace atomically in the same transaction as the swap. The
+   fee rate and the treasury address are set by the namespace's admin authority
+   (using the [RFP-001](./RFP-001-admin-authority-lib.md) library), apply
+   uniformly to all sales in that namespace, and are updatable after the
+   namespace is created. The program does not restrict the fee rate to a fixed
+   range or a set of preset tiers, and the rate may be zero. There is no sale
+   creation fee and no additional fee at close or withdrawal. Sale creators
+   cannot set or override the fee.
+
+9. Namespaces: the program supports any number of independent launchpad
+   namespaces from a single deployment. Anyone can permissionlessly create a
+   namespace, seeding it with its own admin authority, protocol fee rate, and
+   treasury address, without permission from whoever deployed the program or
+   from any existing namespace. Every sale belongs to exactly one namespace.
+
+10. Namespace isolation: namespaces share no global or singleton state. Sale
+    and reserve addresses are derived such that sales of different namespaces
+    never collide. Every state-changing instruction resolves the sale, reserve,
+    treasury, and admin accounts against the namespace the sale belongs to, and
+    rejects accounts belonging to another namespace. An admin authority has no
+    power over any namespace other than its own.
 
 #### Usability
 
 01. Provide an SDK for building Logos modules that interact with the bonding
     curve program. The SDK must expose the full lifecycle for both participants
-    (discover active sales, compute price and impact, buy, query position) and
-    creators (create sale, close, withdraw). The SDK must support both direct
-    public account interaction and the deshield→buy→re-shield pattern for
-    private account interaction. When the private account path is used, the SDK
-    must handle the atomic deshield (both collateral and gas) as a single
+    (discover active sales, compute price and impact, buy, query position),
+    creators (create sale, close, withdraw), and namespace operators (create
+    namespace, admin operations). The SDK must support both direct public
+    account interaction and the deshield→buy→re-shield pattern for private
+    account interaction. When the private account path is used, the SDK must
+    handle the atomic deshield (both collateral and gas) as a single
     indivisible user action.
 02. Provide a Logos mini-app GUI with local build instructions, downloadable
     assets, and loadable in Logos app (Basecamp) via git repo. The mini-app must
@@ -334,20 +374,27 @@ instead.
     must be shown if the balance is insufficient.
 08. Provide a sale analytics view showing, for each active or completed sale:
     total collateral raised, protocol fee revenue collected (reported separately
-    from collateral raised), current spot price, supply sold over time (progress
-    chart), price-vs-supply curve with current position marked, and number of
-    buy transactions. Analytics must not expose individual participant
-    identities or link buy transactions to specific accounts.
+    from collateral raised, and also aggregated per namespace), current spot
+    price, supply sold over time (progress chart), price-vs-supply curve with
+    current position marked, and number of buy transactions. Analytics must not
+    expose individual participant identities or link buy transactions to
+    specific accounts.
 09. Provide an IDL for the bonding curve program using the
     [SPEL framework](https://github.com/logos-co/spel).
 10. Failed or rejected buys must return clear, actionable error messages (e.g.,
     insufficient balance, supply target already reached, slippage exceeded).
 11. The mini-app and CLI show the current protocol fee rate and treasury
-    address. The SDK, CLI, and mini-app expose the admin operations for the
-    program: setting the fee rate, setting the treasury address, and the admin
-    authority transfer and renunciation operations of
+    address of the namespace in use. The SDK, CLI, and mini-app expose
+    namespace creation and the admin operations for a namespace: setting the
+    fee rate, setting the treasury address, and the admin authority transfer
+    and renunciation operations of
     [RFP-001](./RFP-001-admin-authority-lib.md). An admin operation attempted
-    without the admin authority fails with a clear, actionable error.
+    without the namespace's admin authority fails with a clear, actionable
+    error.
+12. The SDK, CLI, and mini-app let the caller select which namespace to operate
+    against, and the mini-app shows the active namespace. Sales of different
+    namespaces are never mixed in sale listings, analytics, or purchase
+    history.
 
 #### Reliability
 
@@ -367,11 +414,15 @@ instead.
    (`C_out_raw`). Rounding is resolved against the trader. The fee is applied
    outside the curve: it never changes `k`, `Vt`, or `Vc` except through the net
    amount that enters or leaves the curve.
-5. A fee-rate or treasury update applies only to swaps executed after the
-   update; it never alters the accounting of swaps already executed or the
-   collateral already held by any sale. The rate applied to a swap is the one in
-   effect when the swap executes, and the swap respects the trader's slippage
-   bound of F.6 regardless.
+5. A fee-rate or treasury update in a namespace applies only to swaps executed
+   after the update; it never alters the accounting of swaps already executed
+   or the collateral already held by any sale. The rate applied to a swap is
+   the one in effect in the sale's namespace when the swap executes, and the
+   swap respects the trader's slippage bound of F.6 regardless.
+6. An operation on a sale of one namespace never reads or writes the state,
+   reserves, or treasury of another namespace, including when supplied with
+   deliberately mismatched accounts from a second namespace. A fee-rate or
+   treasury update in one namespace never affects the sales of another.
 
 #### Performance
 
@@ -379,10 +430,10 @@ instead.
    fee transfer to the treasury.
 2. A close transaction (manual or auto-triggered by final buy) completes within
    one LEZ transaction.
-3. Document the compute unit (CU) cost of each operation: create sale, buy,
-   sell, close sale, withdraw, set fee rate, set treasury. Buy and sell figures
-   must include the fee transfer. Note the LEZ testnet version against which
-   measurements were taken.
+3. Document the compute unit (CU) cost of each operation: create namespace,
+   create sale, buy, sell, close sale, withdraw, set fee rate, set treasury. Buy
+   and sell figures must include the fee transfer. Note the LEZ testnet version
+   against which measurements were taken.
 
 #### Supportability
 
@@ -398,12 +449,15 @@ mainnet deployment.
    (tokens_out below minimum), auto-close on supply target, manual close, fee
    deducted and routed to the treasury on both buy and sell, fee rounding at
    small amounts, zero fee rate, fee-rate update applying only to subsequent
-   swaps, and a fee or treasury update attempted without the admin authority
-   being rejected.
+   swaps, a fee or treasury update attempted without the admin authority being
+   rejected, namespace creation, a sale in one namespace rejecting reserve,
+   treasury, or admin accounts of another, and a fee update in one namespace
+   leaving the sales of another unchanged.
 4. A README documents end-to-end usage: deployment steps, program addresses, and
    step-by-step instructions for both creators and participants via CLI and
-   mini-app. It must also document how the admin authority configures the fee
-   rate and treasury address.
+   mini-app. It must also document how to create a namespace, how namespace and
+   sale addresses are derived, and how the namespace admin authority configures
+   the fee rate and treasury address.
 5. Provide a privacy and anonymisation properties document covering: what
    on-chain state and transaction data is visible to observers; what data is
    protected when the private account path is used; trust assumptions,
@@ -465,9 +519,10 @@ For every buy from a private account:
 
 - All curve state: token pair, virtual reserves (`Vt`, `Vc`), invariant `k`,
   sale reserve, DEX seed reserve, real collateral reserve, sale quantity `D`,
-  current spot price, open/closed status.
-- Program-wide fee state: the admin authority, the current protocol fee rate,
-  and the treasury address.
+  current spot price, open/closed status, and the namespace the sale belongs
+  to.
+- All namespace state: admin authority, protocol fee rate, treasury address,
+  and accrued protocol fee revenue.
 - All buy and sell transactions: collateral spent or received, tokens received
   or sold, the protocol fee transferred to the treasury, and block height. When
   using the private account path, the trader's address is an ephemeral
@@ -547,8 +602,9 @@ After each buy, `Vt` decreases by `tokens_out` and `Vc` increases by `C_eff`.
 After each sell, `Vt` increases by `tokens_in` and `Vc` decreases by
 `C_out_raw`. In both cases, `k = Vt × Vc` is preserved and the fee does not
 touch the virtual reserves. `k` is computed at creation and must never change.
-`fee_rate` is expressed in integer basis points (or a finer integer unit) so
-that all operations stay integer-only.
+`fee_rate` is the current rate of the sale's namespace, expressed in integer
+basis points (or a finer integer unit) so that all operations stay
+integer-only.
 
 **Deviation standard.** Teams may propose an alternative pricing mechanism (such
 as a polynomial integral, the Bancor power function, a piecewise constant
@@ -571,9 +627,10 @@ production deployments or audits.
   collateral reserve and the DEX seed reserve `R` tokens as liquidity into a LEZ
   DEX pool (requires [RFP-004](./RFP-004-privacy-preserving-dex.md) and LP-0015
   to be available). Because protocol fees are collected per-swap, the full real
-  collateral reserve is deployable at graduation with no further deduction. This
-  eliminates manual post-sale liquidity seeding and provides immediate
-  post-graduation tradability.
+  collateral reserve is deployable at graduation with no further deduction. DEX
+  pools are themselves namespaced (RFP-004), so the sale creator specifies the
+  target DEX namespace at sale creation. This eliminates manual post-sale
+  liquidity seeding and provides immediate post-graduation tradability.
 - **Optional end timestamp**: the sale creator can configure an end timestamp at
   creation time. The sale closes when the supply target is reached or the end
   timestamp passes, whichever comes first. This prevents zombie sales (curves
@@ -606,8 +663,9 @@ currently **open**.
 
 #### Admin authority (RFP-001)
 
-The protocol fee rate and treasury address are configured by the program's admin
-authority, using the standardised library from
+Each launchpad namespace is governed by its own admin authority (Functionality
+requirement F.9), which configures the protocol fee rate and treasury address
+(F.8) and can be transferred or renounced, using the standardised library from
 [RFP-001](./RFP-001-admin-authority-lib.md). The RFP is closed (candidate
 picked) and the library is in development.
 
