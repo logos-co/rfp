@@ -224,9 +224,8 @@ instead.
    rounds down and `C_in` rounds up; on sell, `C_out_raw` rounds down; the fee
    rounds up in both directions. This ensures the pool remains solvent and the
    pricing invariant is never violated by rounding. The pricing invariant must
-   never change after creation. See the Reference Implementation section for
-   the recommended formulas and the deviation standard for alternative
-   mechanisms.
+   never change after creation. See the Reference Implementation section for the
+   recommended formulas and the deviation standard for alternative mechanisms.
 
 2. A sale creator can configure a sale with the following parameters:
 
@@ -282,13 +281,13 @@ instead.
 
 8. Protocol fee: the program collects a per-swap protocol fee on every buy and
    sell, denominated in the collateral token, and transfers it to the protocol
-   treasury account atomically in the same transaction as the swap. The fee
-   rate and the treasury address are set by the program's admin authority
-   (using the [RFP-001](./RFP-001-admin-authority-lib.md) library), apply
-   uniformly to all sales, and are updatable after deployment. The program does
-   not restrict the fee rate to a fixed range or a set of preset tiers, and the
-   rate may be zero. There is no sale creation fee and no additional fee at
-   close or withdrawal. Sale creators cannot set or override the fee.
+   treasury account atomically in the same transaction as the swap. The fee rate
+   and the treasury address are set by the program's admin authority (using the
+   [RFP-001](./RFP-001-admin-authority-lib.md) library), apply uniformly to all
+   sales, and are updatable after deployment. The program does not restrict the
+   fee rate to a fixed range or a set of preset tiers, and the rate may be zero.
+   There is no sale creation fee and no additional fee at close or withdrawal.
+   Sale creators cannot set or override the fee.
 
 #### Usability
 
@@ -366,18 +365,18 @@ instead.
    trader's gross input `C_in`; on every sell, the fee plus the amount paid to
    the seller equals the amount removed from the real collateral reserve
    (`C_out_raw`). Rounding is resolved against the trader. The fee is applied
-   outside the curve: it never changes `k`, `Vt`, or `Vc` except through the
-   net amount that enters or leaves the curve.
+   outside the curve: it never changes `k`, `Vt`, or `Vc` except through the net
+   amount that enters or leaves the curve.
 5. A fee-rate or treasury update applies only to swaps executed after the
    update; it never alters the accounting of swaps already executed or the
-   collateral already held by any sale. The rate applied to a swap is the one
-   in effect when the swap executes, and the swap respects the trader's
-   slippage bound of F.6 regardless.
+   collateral already held by any sale. The rate applied to a swap is the one in
+   effect when the swap executes, and the swap respects the trader's slippage
+   bound of F.6 regardless.
 
 #### Performance
 
-1. A single buy transaction completes within one LEZ transaction, including
-   the fee transfer to the treasury.
+1. A single buy transaction completes within one LEZ transaction, including the
+   fee transfer to the treasury.
 2. A close transaction (manual or auto-triggered by final buy) completes within
    one LEZ transaction.
 3. Document the compute unit (CU) cost of each operation: create sale, buy,
@@ -483,9 +482,9 @@ For every buy from a private account:
   across ephemeral accounts).
 - Whether a specific private account participated in the sale at all.
 
-The fee transfer reveals nothing beyond what the swap itself already exposes:
-it is a deterministic function of the public swap amount and the public fee
-rate, and goes to a fixed public treasury.
+The fee transfer reveals nothing beyond what the swap itself already exposes: it
+is a deterministic function of the public swap amount and the public fee rate,
+and goes to a fixed public treasury.
 
 #### Trust assumptions
 
@@ -572,8 +571,8 @@ production deployments or audits.
   collateral reserve and the DEX seed reserve `R` tokens as liquidity into a LEZ
   DEX pool (requires [RFP-004](./RFP-004-privacy-preserving-dex.md) and LP-0015
   to be available). Because protocol fees are collected per-swap, the full real
-  collateral reserve is deployable at graduation with no further deduction.
-  This eliminates manual post-sale liquidity seeding and provides immediate
+  collateral reserve is deployable at graduation with no further deduction. This
+  eliminates manual post-sale liquidity seeding and provides immediate
   post-graduation tradability.
 - **Optional end timestamp**: the sale creator can configure an end timestamp at
   creation time. The sale closes when the supply target is reached or the end

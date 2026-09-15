@@ -216,76 +216,85 @@ section of the appendix for a cross-platform comparison.
 
 #### Functionality
 
-1. Implement an LBP program on LEZ. An LBP is a two-asset pool consisting of a
-   project token and a collateral token (e.g., stablecoin or native token), with
-   start and end weights configured by the sale creator. Pool weights shift
-   linearly from the start weight to the end weight over the sale duration,
-   causing the token price to decline over time unless buying pressure
-   counteracts it.
-2. A sale creator can configure a sale with the following parameters:
-   1. Token pair (project token + collateral token).
-   2. Start and end weights (e.g., 99/1 → 1/99 for the token/collateral ratio).
-   3. Sale start and end timestamps.
-   4. Initial token deposit amount.
-   5. Optional: per-block token allocation ceiling (maximum number of tokens
-      that can be sold across all buy transactions within a single block). When
-      set, any buy that would exceed the block ceiling is rejected. This limits
-      the rate at which any participant (or set of participants) can accumulate
-      supply, regardless of how many accounts they use.
-   6. Optional: private allowlist gate (see item 7 below).
+01. Implement an LBP program on LEZ. An LBP is a two-asset pool consisting of a
+    project token and a collateral token (e.g., stablecoin or native token),
+    with start and end weights configured by the sale creator. Pool weights
+    shift linearly from the start weight to the end weight over the sale
+    duration, causing the token price to decline over time unless buying
+    pressure counteracts it.
 
-   The sale additionally stores the protocol fee rate in effect at creation
-   (see item 10 below). This is recorded by the program, not chosen by the
-   creator, and cannot change for the life of the sale.
+02. A sale creator can configure a sale with the following parameters:
 
-3. Participants buy project tokens from the pool using either a public account
-   directly, or via the deshield→buy→re-shield pattern for private account
-   interaction (see [RFP-008](./RFP-008-lending-borrowing-protocol.md)). Both
-   paths must be supported by the program and SDK.
-4. Pool weights shift deterministically according to the configured schedule.
-   Any account can submit a weight-update ("poke") transaction to advance the
-   current weights to the value dictated by the elapsed time. The LBP program
-   must apply the correct weight at transaction time regardless of how recently
-   the last poke occurred.
-5. After the sale end timestamp passes, the creator can withdraw:
-   - The collateral raised, net of the at-close protocol fee (see the Fee
-     structure subsection in Design Rationale). The fee is
-     `ceil(collateral_balance × rate_at_creation)`, using the rate stored on the
-     sale at creation. If the fee has not already been swept (item 10), the
-     withdrawal deducts it and transfers it to the protocol treasury atomically
-     in the same transaction.
-   - Any unsold project tokens remaining in the pool.
-6. The sale creator can pause buying at any time during the sale period
-   (emergency stop). Pausing does not affect weight progression; the weight
-   schedule continues during a pause.
-7. The sale creator can enable an optional allowlist gate for the sale. When
-   enabled, only participants who can prove inclusion in the committed
-   eligibility set may buy from the pool. The proposing team must specify and
-   justify their allowlist mechanism in their application. When the allowlist
-   gate is used in conjunction with the private account path, the proposal must
-   document the resulting privacy properties, including any change in the
-   effective anonymity set relative to a non-gated sale.
-8. Slippage protection: buyers can specify a minimum token output amount. The
-   transaction reverts if the execution price would produce fewer tokens than
-   the specified minimum.
-9. Use Associated Token Accounts (ATAs) for all token interactions, consistent
-   with
-   [LP-0014](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0014.md)
-   and [RFP-008](./RFP-008-lending-borrowing-protocol.md).
+    1. Token pair (project token + collateral token).
+    2. Start and end weights (e.g., 99/1 → 1/99 for the token/collateral ratio).
+    3. Sale start and end timestamps.
+    4. Initial token deposit amount.
+    5. Optional: per-block token allocation ceiling (maximum number of tokens
+       that can be sold across all buy transactions within a single block). When
+       set, any buy that would exceed the block ceiling is rejected. This limits
+       the rate at which any participant (or set of participants) can accumulate
+       supply, regardless of how many accounts they use.
+    6. Optional: private allowlist gate (see item 7 below).
+
+    The sale additionally stores the protocol fee rate in effect at creation
+    (see item 10 below). This is recorded by the program, not chosen by the
+    creator, and cannot change for the life of the sale.
+
+03. Participants buy project tokens from the pool using either a public account
+    directly, or via the deshield→buy→re-shield pattern for private account
+    interaction (see [RFP-008](./RFP-008-lending-borrowing-protocol.md)). Both
+    paths must be supported by the program and SDK.
+
+04. Pool weights shift deterministically according to the configured schedule.
+    Any account can submit a weight-update ("poke") transaction to advance the
+    current weights to the value dictated by the elapsed time. The LBP program
+    must apply the correct weight at transaction time regardless of how recently
+    the last poke occurred.
+
+05. After the sale end timestamp passes, the creator can withdraw:
+
+    - The collateral raised, net of the at-close protocol fee (see the Fee
+      structure subsection in Design Rationale). The fee is
+      `ceil(collateral_balance × rate_at_creation)`, using the rate stored on
+      the sale at creation. If the fee has not already been swept (item 10), the
+      withdrawal deducts it and transfers it to the protocol treasury atomically
+      in the same transaction.
+    - Any unsold project tokens remaining in the pool.
+
+06. The sale creator can pause buying at any time during the sale period
+    (emergency stop). Pausing does not affect weight progression; the weight
+    schedule continues during a pause.
+
+07. The sale creator can enable an optional allowlist gate for the sale. When
+    enabled, only participants who can prove inclusion in the committed
+    eligibility set may buy from the pool. The proposing team must specify and
+    justify their allowlist mechanism in their application. When the allowlist
+    gate is used in conjunction with the private account path, the proposal must
+    document the resulting privacy properties, including any change in the
+    effective anonymity set relative to a non-gated sale.
+
+08. Slippage protection: buyers can specify a minimum token output amount. The
+    transaction reverts if the execution price would produce fewer tokens than
+    the specified minimum.
+
+09. Use Associated Token Accounts (ATAs) for all token interactions, consistent
+    with
+    [LP-0014](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0014.md)
+    and [RFP-008](./RFP-008-lending-borrowing-protocol.md).
 
 10. Protocol fee: the program collects an at-close protocol fee on the
     collateral raised by every sale, denominated in the collateral token. The
     fee rate and the treasury address are set by the program's admin authority
     (using the [RFP-001](./RFP-001-admin-authority-lib.md) library), apply
-    uniformly to all sales, and are updatable after deployment. The program
-    does not restrict the fee rate to a fixed range or a set of preset tiers,
-    and the rate may be zero. Each sale snapshots the rate at creation (item
-    2); a later update never changes the fee of an existing sale. After the
-    sale end timestamp, any account may submit a fee-sweep transaction that
-    transfers the fee to the treasury; the sweep is idempotent and the creator's
-    withdrawal (item 5) performs it if it has not yet occurred. There is no
-    sale creation fee and no per-swap fee on buyers. Sale creators cannot set
-    or override the fee.
+    uniformly to all sales, and are updatable after deployment. The program does
+    not restrict the fee rate to a fixed range or a set of preset tiers, and the
+    rate may be zero. Each sale snapshots the rate at creation (item 2); a later
+    update never changes the fee of an existing sale. After the sale end
+    timestamp, any account may submit a fee-sweep transaction that transfers the
+    fee to the treasury; the sweep is idempotent and the creator's withdrawal
+    (item 5) performs it if it has not yet occurred. There is no sale creation
+    fee and no per-swap fee on buyers. Sale creators cannot set or override the
+    fee.
 
 #### Usability
 
@@ -304,10 +313,10 @@ section of the appendix for a cross-platform comparison.
       token/collateral weight, time remaining, and total raised; execute a buy;
       view purchase history.
     - **Creator view**: create a new sale (all parameters including allowlist
-      configuration), with the protocol fee rate that will be locked to the
-      sale shown before the creator confirms; monitor an active sale, including
-      the sale's locked fee rate, the projected fee, and projected net
-      proceeds; pause/resume, close sale, and withdraw proceeds.
+      configuration), with the protocol fee rate that will be locked to the sale
+      shown before the creator confirms; monitor an active sale, including the
+      sale's locked fee rate, the projected fee, and projected net proceeds;
+      pause/resume, close sale, and withdraw proceeds.
 03. Provide a CLI that covers core functionality of the program. The CLI may
     have fewer features than the GUI mini-app but must support all essential
     operations for both participants (buy, query price, check sale status) and
@@ -390,8 +399,8 @@ mainnet deployment.
    and routed to the treasury at withdrawal, fee rounding at small amounts, zero
    fee rate, snapshot isolation (a fee-rate update after sale creation does not
    change that sale's fee), permissionless fee sweep followed by a net creator
-   withdrawal, sweep idempotence, and a fee or treasury update attempted
-   without the admin authority being rejected.
+   withdrawal, sweep idempotence, and a fee or treasury update attempted without
+   the admin authority being rejected.
 4. A README documents end-to-end usage: deployment steps, program addresses, and
    step-by-step instructions for both creators and participants via CLI and
    mini-app. It must also document how the admin authority configures the fee
