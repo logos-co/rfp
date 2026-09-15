@@ -217,8 +217,8 @@ A single deployment of the LBP program supports any number of independent
 **namespaces**. A namespace is a launchpad instance: it carries its own admin
 authority, protocol fee rate, and treasury address, and every sale belongs to
 exactly one namespace, chosen by the creator at sale creation. The program
-bytecode is deployed once; operators who want their own launchpad with their
-own fee create a namespace rather than a new deployment.
+bytecode is deployed once; operators who want their own launchpad with their own
+fee create a namespace rather than a new deployment.
 
 Creating a namespace is permissionless: anyone can seed one with their own admin
 authority, fee rate, and treasury, regardless of who deployed the program and
@@ -248,8 +248,8 @@ pattern for account layout and address derivation.
 
 02. A sale creator can configure a sale with the following parameters:
 
-    1. Namespace the sale belongs to (see item 11 below). Chosen at creation
-       and immutable; it determines the fee rate and treasury that apply to the
+    1. Namespace the sale belongs to (see item 11 below). Chosen at creation and
+       immutable; it determines the fee rate and treasury that apply to the
        sale.
     2. Token pair (project token + collateral token).
     3. Start and end weights (e.g., 99/1 → 1/99 for the token/collateral ratio).
@@ -311,17 +311,17 @@ pattern for account layout and address derivation.
 10. Protocol fee: the program collects an at-close protocol fee on the
     collateral raised by every sale, denominated in the collateral token. The
     fee rate and the treasury address are set by the admin authority of the
-    sale's namespace (using the
-    [RFP-001](./RFP-001-admin-authority-lib.md) library), apply uniformly to
-    all sales in that namespace, and are updatable after the namespace is
-    created. The program does not restrict the fee rate to a fixed range or a
-    set of preset tiers, and the rate may be zero. Each sale snapshots its
-    namespace's rate at creation (item 2); a later update never changes the fee
-    of an existing sale. After the sale end timestamp, any account may submit a
-    fee-sweep transaction that transfers the fee to the namespace's treasury;
-    the sweep is idempotent and the creator's withdrawal (item 5) performs it
-    if it has not yet occurred. There is no sale creation fee and no per-swap
-    fee on buyers. Sale creators cannot set or override the fee.
+    sale's namespace (using the [RFP-001](./RFP-001-admin-authority-lib.md)
+    library), apply uniformly to all sales in that namespace, and are updatable
+    after the namespace is created. The program does not restrict the fee rate
+    to a fixed range or a set of preset tiers, and the rate may be zero. Each
+    sale snapshots its namespace's rate at creation (item 2); a later update
+    never changes the fee of an existing sale. After the sale end timestamp, any
+    account may submit a fee-sweep transaction that transfers the fee to the
+    namespace's treasury; the sweep is idempotent and the creator's withdrawal
+    (item 5) performs it if it has not yet occurred. There is no sale creation
+    fee and no per-swap fee on buyers. Sale creators cannot set or override the
+    fee.
 
 11. Namespaces: the program supports any number of independent launchpad
     namespaces from a single deployment. Anyone can permissionlessly create a
@@ -329,12 +329,12 @@ pattern for account layout and address derivation.
     treasury address, without permission from whoever deployed the program or
     from any existing namespace. Every sale belongs to exactly one namespace.
 
-12. Namespace isolation: namespaces share no global or singleton state. Sale
-    and pool addresses are derived such that sales of different namespaces
-    never collide. Every state-changing instruction resolves the sale, pool,
-    treasury, and admin accounts against the namespace the sale belongs to, and
-    rejects accounts belonging to another namespace. An admin authority has no
-    power over any namespace other than its own.
+12. Namespace isolation: namespaces share no global or singleton state. Sale and
+    pool addresses are derived such that sales of different namespaces never
+    collide. Every state-changing instruction resolves the sale, pool, treasury,
+    and admin accounts against the namespace the sale belongs to, and rejects
+    accounts belonging to another namespace. An admin authority has no power
+    over any namespace other than its own.
 
 #### Usability
 
@@ -354,11 +354,11 @@ pattern for account layout and address derivation.
       token/collateral weight, time remaining, and total raised; execute a buy;
       view purchase history.
     - **Creator view**: create a new sale (all parameters including namespace
-      and allowlist configuration), with the namespace and the protocol fee
-      rate that will be locked to the sale shown before the creator confirms;
-      monitor an active sale, including the sale's namespace, locked fee rate,
-      projected fee, and projected net proceeds; pause/resume, close sale, and
-      withdraw proceeds.
+      and allowlist configuration), with the namespace and the protocol fee rate
+      that will be locked to the sale shown before the creator confirms; monitor
+      an active sale, including the sale's namespace, locked fee rate, projected
+      fee, and projected net proceeds; pause/resume, close sale, and withdraw
+      proceeds.
 03. Provide a CLI that covers core functionality of the program. The CLI may
     have fewer features than the GUI mini-app but must support all essential
     operations for both participants (buy, query price, check sale status) and
@@ -392,18 +392,17 @@ pattern for account layout and address derivation.
 10. Failed or rejected buys must return clear, actionable error messages (e.g.,
     insufficient balance, sale not yet started, sale ended, allowlist gate
     rejected, slippage exceeded).
-11. The mini-app and CLI show the current protocol fee rate and treasury
-    address of the namespace in use. The SDK, CLI, and mini-app expose
-    namespace creation and the admin operations for a namespace: setting the
-    fee rate, setting the treasury address, and the admin authority transfer
-    and renunciation operations of
-    [RFP-001](./RFP-001-admin-authority-lib.md). They also expose the
-    permissionless fee sweep. An admin operation attempted without the
-    namespace's admin authority fails with a clear, actionable error.
+11. The mini-app and CLI show the current protocol fee rate and treasury address
+    of the namespace in use. The SDK, CLI, and mini-app expose namespace
+    creation and the admin operations for a namespace: setting the fee rate,
+    setting the treasury address, and the admin authority transfer and
+    renunciation operations of [RFP-001](./RFP-001-admin-authority-lib.md). They
+    also expose the permissionless fee sweep. An admin operation attempted
+    without the namespace's admin authority fails with a clear, actionable
+    error.
 12. The SDK, CLI, and mini-app let the caller select which namespace to operate
     against, and the mini-app shows the active namespace. Sales of different
-    namespaces are never mixed in sale listings, analytics, or purchase
-    history.
+    namespaces are never mixed in sale listings, analytics, or purchase history.
 
 #### Reliability
 
@@ -421,9 +420,9 @@ pattern for account layout and address derivation.
    namespace after the sale is created never changes that sale's fee. The fee
    sweep is idempotent: a second sweep, or a withdrawal after a sweep, transfers
    nothing further to the treasury.
-5. An operation on a sale of one namespace never reads or writes the state,
-   pool balances, or treasury of another namespace, including when supplied
-   with deliberately mismatched accounts from a second namespace. A fee-rate or
+5. An operation on a sale of one namespace never reads or writes the state, pool
+   balances, or treasury of another namespace, including when supplied with
+   deliberately mismatched accounts from a second namespace. A fee-rate or
    treasury update in one namespace never affects the sales of another.
 
 #### Performance
@@ -451,10 +450,10 @@ mainnet deployment.
    and routed to the treasury at withdrawal, fee rounding at small amounts, zero
    fee rate, snapshot isolation (a fee-rate update after sale creation does not
    change that sale's fee), permissionless fee sweep followed by a net creator
-   withdrawal, sweep idempotence, a fee or treasury update attempted without
-   the admin authority being rejected, namespace creation, a sale in one
-   namespace rejecting pool, treasury, or admin accounts of another, and a fee
-   update in one namespace leaving the sales of another unchanged.
+   withdrawal, sweep idempotence, a fee or treasury update attempted without the
+   admin authority being rejected, namespace creation, a sale in one namespace
+   rejecting pool, treasury, or admin accounts of another, and a fee update in
+   one namespace leaving the sales of another unchanged.
 4. A README documents end-to-end usage: deployment steps, program addresses, and
    step-by-step instructions for both creators and participants via CLI and
    mini-app. It must also document how to create a namespace, how namespace and
@@ -523,8 +522,8 @@ For every buy from a private account:
 - All pool state: token pair, current weights, price, total collateral raised,
   total tokens sold, sale start/end timestamps, the namespace the sale belongs
   to, and the protocol fee rate snapshotted for the sale.
-- All namespace state: admin authority, protocol fee rate, treasury address,
-  and accrued protocol fee revenue.
+- All namespace state: admin authority, protocol fee rate, treasury address, and
+  accrued protocol fee revenue.
 - All buy transactions: collateral spent, tokens received, and timestamp. When
   using the private account path, the buyer's address is an ephemeral
   intermediary account with no prior on-chain history.
