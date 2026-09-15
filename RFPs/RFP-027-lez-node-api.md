@@ -61,13 +61,15 @@ path by which an existing application can add LEZ support without
 re-architecting itself, which secures distribution channels LEZ would not
 otherwise reach.
 
-Of the integrators listed below, the centralised exchange is used as the
-reference profile for the requirements: read chain state, track deposits
-credited to accounts it controls, and confirm that a transaction reached a level
-of certainty it is willing to act on. It is the strictest reader of the set, so
-a surface that satisfies it satisfies the others, and it is the profile whose
-absence is most visible, since a chain no exchange will list is a chain most
-users cannot reach.
+The parties that integrate a chain before it is usable in practice are wallets,
+centralised exchanges, custodians, payment gateways, data and price aggregators,
+node and RPC providers, fiat on and off ramps, bridges, and tax and accounting
+providers. Of those, the centralised exchange is used as the reference profile
+for the requirements: read chain state, track deposits credited to accounts it
+controls, and confirm that a transaction reached a level of certainty it is
+willing to act on. It is the strictest reader of the set, so a surface that
+satisfies it satisfies the others, and it is the profile whose absence is most
+visible, since a chain no exchange will list is a chain most users cannot reach.
 
 This RFP defines the LEZ node API. It is one of five components the Logos stack
 exposes for integration, alongside the LEZ wallet API, the JSON-RPC proxy module
@@ -468,8 +470,9 @@ commitment set root they are proven against.
     the data the sequencer's `getProofsAndRoot` returns today
     (`lez/sequencer/service/rpc/src/lib.rs:80-84`), which the wallet reaches the
     sequencer for (`lez/wallet/src/lib.rs:660-667`). A consumer that holds a
-    viewing key needs it to spend a note, and under the rationale above it is
-    required of the node regardless of which component holds it. **[New]**
+    viewing key needs it to spend a note, and because the node API is the only
+    surface a consumer reaches, it is required of the node regardless of which
+    component holds it. **[New]**
 17. The proofs and the root returned by one call are consistent with one
     another: every proof verifies against the returned root. **[New]**
 
@@ -546,9 +549,9 @@ Handing a signed transaction to the network
 
 Every surveyed chain accepts a signed transaction at the same endpoint a caller
 reads from. A wallet that builds and signs a transaction has to hand it
-somewhere, and under the rationale above that somewhere is the node: a caller
-that had to reach past it to submit would be reaching into LEZ for the one
-operation the read surface does not cover.
+somewhere, and since the node API is the only surface a consumer reaches, that
+somewhere is the node: a caller that had to reach past it to submit would be
+reaching into LEZ for the one operation the read surface does not cover.
 
 This does not make the node a writer of chain state. It accepts a transaction
 another party constructed and signed, and takes it from there. Nothing here
