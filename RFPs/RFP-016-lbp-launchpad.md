@@ -176,18 +176,34 @@ detect large buy orders.
 
 ### Fee structure
 
-The LBP program collects a protocol fee at sale close, matching the model used
-by Fjord Foundry on Balancer (see the
+The LBP program charges a protocol fee on the collateral raised, borne by the
+creator, matching the economics of Fjord Foundry on Balancer (see the
 [Onchain Fee Enforcement](../appendix/token-launchpad-ecosystem.md#onchain-fee-enforcement)
-section of the appendix). When the creator withdraws collateral after the sale
-end timestamp, the program deducts `fee = collateral_balance × fee_rate`
-(rounded up) and transfers it to a protocol treasury account. The creator
-receives the remainder.
+section of the appendix). On every buy the program records
+`ceil(C_in × rate_at_creation)` in the sale's accrued-fee counter
+`fees_accrued`. The full `C_in` still enters the pricing reserve, so buyers
+receive the full curve output and the price trajectory is unchanged; the accrued
+fee is a lien on the pool's collateral that is settled after the sale. Because
+an LBP has no sells, the accrued total equals `rate × collateral raised` up to
+per-buy rounding, which is exactly Fjord's at-close fee, computed incrementally.
+When the creator withdraws after the end timestamp, the program transfers
+`fees_accrued` to the namespace treasury and pays the creator the remainder.
+
+This accrue-then-collect design is the same primitive the DEX uses
+([RFP-004](./RFP-004-privacy-preserving-dex.md), Functionality requirement F.12)
+and the bonding curve launchpad uses
+([RFP-015](./RFP-015-bonding-curve-launchpad.md)). The two launchpads differ
+only in who bears the fee (the creator here, the trader in RFP-015) and in when
+it may be collected: because the lien here is still part of the pricing reserve,
+collection is only permitted after the end timestamp, whereas RFP-015 allows it
+at any time. Keeping the treasury out of the swap path means a buy cannot fail
+because a treasury token account for the collateral mint does not exist, and a
+treasury update never invalidates in-flight buys.
 
 Because the LBP is time-bounded (every sale reaches its end timestamp regardless
-of demand), the at-close fee is always collectible, unlike bonding curves where
-over 98% of sales never graduate. Fjord Foundry uses a 5% at-close fee on
-collateral raised, enforced onchain by its wrapper contract (see the
+of demand), the fee is always collectible, unlike bonding curves where over 98%
+of sales never graduate. Fjord Foundry uses a 5% at-close fee on collateral
+raised, enforced onchain by its wrapper contract (see the
 [At-close onchain fees](../appendix/token-launchpad-ecosystem.md#at-close-onchain-fees)
 section of the appendix).
 
@@ -196,16 +212,18 @@ namespace the sale belongs to (see Namespaces below) and apply uniformly to all
 sales in that namespace. The RFP does not mandate a specific rate; the namespace
 admin sets it when the namespace is created and may update it, and the rate may
 be zero. The rate is **snapshotted at sale creation**: the program stores the
-namespace's rate in effect when a sale is created and applies that stored rate
-at withdrawal. An admin update therefore affects only sales created afterwards,
-never a sale already in flight, so a creator knows the exact fee they will pay
-before committing tokens. Sale creation is free (no creation fee).
+namespace's rate in effect when a sale is created and accrues every buy's fee at
+that stored rate. An admin update therefore affects only sales created
+afterwards, never a sale already in flight, so a creator knows the exact fee
+they will pay before committing tokens. The treasury, by contrast, is resolved
+when fees are collected, so a treasury update applies to fees accrued earlier
+but not yet collected. Sale creation is free (no creation fee).
 
 Collection does not depend on the creator: after the end timestamp, any account
-may submit a permissionless fee-sweep transaction that transfers the fee to the
-namespace's treasury, in the same spirit as the permissionless weight poke. The
-creator's withdrawal pays out the net remainder. If no sweep has occurred when
-the creator withdraws, the withdrawal performs it atomically.
+may submit a permissionless `collect` transaction that transfers the accrued fee
+to the namespace's treasury, in the same spirit as the permissionless weight
+poke. The creator's withdrawal pays out the net remainder. If no collection has
+occurred when the creator withdraws, the withdrawal performs it atomically.
 
 See the
 [Fee Structures](../appendix/token-launchpad-ecosystem.md#fee-structures)
@@ -279,12 +297,11 @@ pattern for account layout and address derivation.
 
 05. After the sale end timestamp passes, the creator can withdraw:
 
-    - The collateral raised, net of the at-close protocol fee (see the Fee
-      structure subsection in Design Rationale). The fee is
-      `ceil(collateral_balance × rate_at_creation)`, using the rate stored on
-      the sale at creation. If the fee has not already been swept (item 10), the
-      withdrawal deducts it and transfers it to the treasury of the sale's
-      namespace atomically in the same transaction.
+    - The collateral raised, net of the accrued protocol fee (see the Fee
+      structure subsection in Design Rationale): the creator receives
+      `collateral_balance - fees_accrued`. If the accrued fee has not already
+      been collected (item 10), the withdrawal transfers it to the treasury of
+      the sale's namespace atomically in the same transaction.
     - Any unsold project tokens remaining in the pool.
 
 06. The sale creator can pause buying at any time during the sale period
@@ -308,20 +325,26 @@ pattern for account layout and address derivation.
     [LP-0014](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0014.md)
     and [RFP-008](./RFP-008-lending-borrowing-protocol.md).
 
-10. Protocol fee: the program collects an at-close protocol fee on the
-    collateral raised by every sale, denominated in the collateral token. The
-    fee rate and the treasury address are set by the admin authority of the
-    sale's namespace (using the [RFP-001](./RFP-001-admin-authority-lib.md)
-    library), apply uniformly to all sales in that namespace, and are updatable
-    after the namespace is created. The program does not restrict the fee rate
-    to a fixed range or a set of preset tiers, and the rate may be zero. Each
-    sale snapshots its namespace's rate at creation (item 2); a later update
-    never changes the fee of an existing sale. After the sale end timestamp, any
-    account may submit a fee-sweep transaction that transfers the fee to the
-    namespace's treasury; the sweep is idempotent and the creator's withdrawal
-    (item 5) performs it if it has not yet occurred. There is no sale creation
-    fee and no per-swap fee on buyers. Sale creators cannot set or override the
-    fee.
+10. Protocol fee: the program charges a protocol fee on the collateral raised by
+    every sale, denominated in the collateral token and borne by the creator. On
+    every buy the program adds `ceil(C_in × rate_at_creation)` to the sale's
+    accrued-fee counter `fees_accrued`, which is tracked in its own state rather
+    than inferred from balances; the full `C_in` enters the pricing reserve and
+    the buyer's token output is unaffected. A `collect` instruction, callable by
+    any account once the sale end timestamp has passed, transfers the accrued
+    amount to the treasury of the sale's namespace as configured at collection
+    time and resets the counter; it is idempotent, transfers nothing when the
+    counter is zero, and is rejected with a clear error before the end
+    timestamp. The creator's withdrawal (item 5) collects atomically if
+    collection has not yet occurred. The fee rate and the treasury address are
+    set by the admin authority of the sale's namespace (using the
+    [RFP-001](./RFP-001-admin-authority-lib.md) library), apply uniformly to all
+    sales in that namespace, and are updatable after the namespace is created.
+    The program does not restrict the fee rate to a fixed range or a set of
+    preset tiers, and the rate may be zero. Each sale snapshots its namespace's
+    rate at creation (item 2); a later rate update never changes the accrual of
+    an existing sale. There is no sale creation fee and no fee charged to
+    buyers. Sale creators cannot set or override the fee.
 
 11. Namespaces: the program supports any number of independent launchpad
     namespaces from a single deployment. Anyone can permissionlessly create a
@@ -356,9 +379,9 @@ pattern for account layout and address derivation.
     - **Creator view**: create a new sale (all parameters including namespace
       and allowlist configuration), with the namespace and the protocol fee rate
       that will be locked to the sale shown before the creator confirms; monitor
-      an active sale, including the sale's namespace, locked fee rate, projected
-      fee, and projected net proceeds; pause/resume, close sale, and withdraw
-      proceeds.
+      an active sale, including the sale's namespace, locked fee rate, fee
+      accrued to date, and net proceeds to date; pause/resume, close sale, and
+      withdraw proceeds.
 03. Provide a CLI that covers core functionality of the program. The CLI may
     have fewer features than the GUI mini-app but must support all essential
     operations for both participants (buy, query price, check sale status) and
@@ -381,12 +404,11 @@ pattern for account layout and address derivation.
     must be shown if the balance is insufficient, preventing a partial deshield
     that could leave funds stranded.
 08. Provide a sale analytics view showing, for each active or completed sale:
-    total collateral raised, protocol fee (projected while the sale is live,
-    collected once swept, reported separately from collateral raised, and also
-    aggregated per namespace), token price over time (price chart), number of
-    buy transactions, and current pool composition. Analytics must not expose
-    individual participant identities or link buy transactions to specific
-    accounts.
+    total collateral raised, protocol fee accrued to date and collected (each
+    reported separately from collateral raised, and also aggregated per
+    namespace), token price over time (price chart), number of buy transactions,
+    and current pool composition. Analytics must not expose individual
+    participant identities or link buy transactions to specific accounts.
 09. Provide an IDL for the launchpad program using the
     [SPEL framework](https://github.com/logos-co/spel).
 10. Failed or rejected buys must return clear, actionable error messages (e.g.,
@@ -397,9 +419,10 @@ pattern for account layout and address derivation.
     creation and the admin operations for a namespace: setting the fee rate,
     setting the treasury address, and the admin authority transfer and
     renunciation operations of [RFP-001](./RFP-001-admin-authority-lib.md). They
-    also expose the permissionless fee sweep. An admin operation attempted
-    without the namespace's admin authority fails with a clear, actionable
-    error.
+    also expose the permissionless fee collection of F.10, for a single sale and
+    batched across the ended sales of a namespace, and show each sale's accrued,
+    uncollected fees. An admin operation attempted without the namespace's admin
+    authority fails with a clear, actionable error.
 12. The SDK, CLI, and mini-app let the caller select which namespace to operate
     against, and the mini-app shows the active namespace. Sales of different
     namespaces are never mixed in sale listings, analytics, or purchase history.
@@ -413,13 +436,16 @@ pattern for account layout and address derivation.
    and the pool state is unchanged.
 3. Weight updates (pokes) must be idempotent: submitting multiple pokes within
    the same block or timestamp window must not corrupt pool state.
-4. Fee accounting must be exact and isolated per sale: the fee transferred to
-   the treasury equals `ceil(collateral_balance × rate_at_creation)`, the
-   treasury payout plus the creator's collateral payout equals the collateral
-   balance at sale end, and a fee-rate or treasury update in the sale's
-   namespace after the sale is created never changes that sale's fee. The fee
-   sweep is idempotent: a second sweep, or a withdrawal after a sweep, transfers
-   nothing further to the treasury.
+4. Fee accounting must be exact and isolated per sale: `fees_accrued` equals the
+   sum of `ceil(C_in × rate_at_creation)` over the sale's buys, the treasury
+   payout plus the creator's collateral payout equals the collateral balance at
+   sale end, and the pool's collateral vault holds at least `fees_accrued` at
+   all times. A fee-rate update in the sale's namespace after the sale is
+   created never changes that sale's accrual; a treasury update applies to every
+   collection executed after the update, including fees accrued before it.
+   Collection before the end timestamp is rejected. Collection is idempotent: a
+   second collection, or a withdrawal after a collection, transfers nothing
+   further to the treasury.
 5. An operation on a sale of one namespace never reads or writes the state, pool
    balances, or treasury of another namespace, including when supplied with
    deliberately mismatched accounts from a second namespace. A fee-rate or
@@ -430,9 +456,9 @@ pattern for account layout and address derivation.
 1. A single buy transaction completes within one LEZ transaction.
 2. A weight poke completes within one LEZ transaction.
 3. Document the compute unit (CU) cost of each operation: create namespace,
-   create sale, buy, poke weights, pause/resume, close sale, fee sweep,
+   create sale, buy, poke weights, pause/resume, close sale, collect fees,
    withdraw, set fee rate, set treasury. The withdraw figure must include the
-   fee transfer when the sweep has not already occurred. Note the LEZ testnet
+   fee transfer when collection has not already occurred. Note the LEZ testnet
    version against which measurements were taken.
 
 #### Supportability
@@ -446,19 +472,23 @@ mainnet deployment.
 3. Every hard requirement in Functionality, Usability, Reliability, and
    Performance has at least one corresponding test. Test coverage must include:
    happy-path buy, slippage revert, allowlist gate accept and reject, sale close
-   before end time, weight poke at multiple points in the schedule, fee deducted
-   and routed to the treasury at withdrawal, fee rounding at small amounts, zero
-   fee rate, snapshot isolation (a fee-rate update after sale creation does not
-   change that sale's fee), permissionless fee sweep followed by a net creator
-   withdrawal, sweep idempotence, a fee or treasury update attempted without the
-   admin authority being rejected, namespace creation, a sale in one namespace
-   rejecting pool, treasury, or admin accounts of another, and a fee update in
-   one namespace leaving the sales of another unchanged.
+   before end time, weight poke at multiple points in the schedule, fee accrued
+   on each buy and equal to the sum of per-buy fees, fee routed to the treasury
+   at withdrawal, fee rounding at small amounts, zero fee rate, snapshot
+   isolation (a fee-rate update after sale creation does not change that sale's
+   accrual), treasury update applying to fees accrued before it, collection
+   before the end timestamp rejected, permissionless collection by a non-admin
+   account followed by a net creator withdrawal, collection idempotence, a fee
+   or treasury update attempted without the admin authority being rejected,
+   namespace creation, a sale in one namespace rejecting pool, treasury, or
+   admin accounts of another, and a fee update in one namespace leaving the
+   sales of another unchanged.
 4. A README documents end-to-end usage: deployment steps, program addresses, and
    step-by-step instructions for both creators and participants via CLI and
    mini-app. It must also document how to create a namespace, how namespace and
    sale addresses are derived, how the namespace admin authority configures the
-   fee rate and treasury address, and how the fee snapshot and sweep work.
+   fee rate and treasury address, and how the fee snapshot, accrual, and
+   collection work.
 5. Provide a privacy and anonymisation properties document covering: what
    on-chain state and transaction data is visible to observers; what data is
    protected when the private account path is used; trust assumptions,
@@ -521,15 +551,15 @@ For every buy from a private account:
 
 - All pool state: token pair, current weights, price, total collateral raised,
   total tokens sold, sale start/end timestamps, the namespace the sale belongs
-  to, and the protocol fee rate snapshotted for the sale.
-- All namespace state: admin authority, protocol fee rate, treasury address, and
-  accrued protocol fee revenue.
+  to, the protocol fee rate snapshotted for the sale, and the fee accrued and
+  not yet collected.
+- All namespace state: admin authority, protocol fee rate, and treasury address.
 - All buy transactions: collateral spent, tokens received, and timestamp. When
   using the private account path, the buyer's address is an ephemeral
   intermediary account with no prior on-chain history.
 - Allowlist gate configuration and whether the gate is enabled, but not the list
   of eligible addresses.
-- Sale close, fee sweep (amount transferred to the treasury), and creator
+- Sale close, fee collection (amount transferred to the treasury), and creator
   withdrawal transactions.
 
 #### What is private (when using the private account path)
@@ -614,7 +644,16 @@ tokens_out = reserve_token × (1 - (reserve_collateral / (reserve_collateral + C
 
 All arithmetic must use integer-only operations and round against the trader:
 `tokens_out` rounds down. After each buy, `reserve_token` decreases by
-`tokens_out` and `reserve_collateral` increases by `C_in`.
+`tokens_out` and `reserve_collateral` increases by the full `C_in`. The protocol
+fee (F.10) is recorded alongside, without touching the pricing reserve:
+
+```
+fees_accrued += ceil(C_in × rate_at_creation)
+```
+
+`rate_at_creation` is the namespace's fee rate stored on the sale at creation,
+expressed in integer basis points (or a finer integer unit). The accrued fee is
+settled from the collateral vault after the end timestamp (F.5, F.10).
 
 #### Lazy weight computation
 
