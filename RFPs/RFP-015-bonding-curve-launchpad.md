@@ -7,7 +7,7 @@ dependencies:
   - id: LP-0013
     reason: Token transfer-authority primitives are required to custody the token sale reserve and the real collateral reserve.
   - id: RFP-001
-    reason: Provides the standardised admin authority library that configures the protocol fee rate and treasury address applied uniformly to all sales.
+    reason: Provides the standardised admin authority library that governs each launchpad namespace (admin authority, protocol fee rate, and treasury address applied uniformly to all sales in that namespace per F.8, F.9).
   - id: LP-0015
     reason: General cross-program calls via tail calls, used to complete a buy operation atomically (transfer collateral, compute output, transfer tokens, update curve state).
 category: Applications & Integrations
@@ -141,16 +141,42 @@ pricing formula; the effective input to the constant product calculation is
 `C_in - fee`. On sell, the program computes the raw collateral output
 `C_out_raw` from the pricing formula, then deducts `fee = C_out_raw × fee_rate`
 (rounded up); the seller receives `C_out_raw - fee`. In both cases the fee is
-transferred atomically to a protocol treasury account in the same transaction as
-the swap.
+not transferred in the swap: it is recorded in the sale's accrued-fee counter
+`fees_accrued`, tracked separately from the curve reserve, while the tokens
+remain in the sale's collateral vault. A separate, permissionless `collect`
+instruction transfers the accrued amount to the namespace treasury at any time,
+and the creator's withdrawal (and auto-graduation, if used) collects atomically
+so that a closed sale never leaves fees behind.
 
-The fee rate and treasury address are configured by the program's admin
-authority and apply uniformly to all sales. The RFP does not mandate a specific
-rate; the admin authority sets the rate at deployment and may update it. Sale
-creation is free (no creation fee).
+This accrue-then-collect design is the same primitive the DEX uses
+([RFP-004](./RFP-004-privacy-preserving-dex.md), Functionality requirement F.12)
+and the LBP launchpad uses ([RFP-016](./RFP-016-lbp-launchpad.md)); the two
+launchpads differ only in who bears the fee and when it may be collected. It
+keeps the treasury account out of the swap path entirely, so a buy costs one
+fewer token transfer and cannot fail because a treasury token account for the
+sale's collateral mint does not exist. Meteora's Dynamic Bonding Curve, the
+reference implementation for this RFP, accrues protocol and partner fees in the
+pool and exposes claim instructions in the same way. The cost is that the vault
+holds both the reserve and the accrued fees, so the program must maintain
+`vault_balance ≥ reserve + fees_accrued` on every path, including sells, which
+drain the reserve and must never be paid out of accrued fees. Curve StableSwapNG
+documents the failure mode of getting this wrong: fee state that is withdrawn
+ahead of principal leaves principal holders to absorb the shortfall (MixBytes
+audit, October 2023).
 
-Per-swap collection is critical for bonding curves. The graduation rate across
-the ecosystem is approximately 0.7% to 1.4% (see the
+The fee rate and treasury address are configured by the admin authority of the
+namespace the sale belongs to (see Namespaces below) and apply uniformly to all
+sales in that namespace. The RFP does not mandate a specific rate; the namespace
+admin sets the rate when the namespace is created and may update it, and the
+rate may be zero. The rate applied to a swap is the one in effect when the swap
+executes: the pre-trade summary shows it, and the trader's slippage bound
+protects them if the rate changes between quote and execution. The treasury is
+resolved when fees are collected, not when they accrue, so a treasury update
+applies to fees accrued earlier but not yet collected. Sale creation is free (no
+creation fee).
+
+Per-swap accrual is critical for bonding curves. The graduation rate across the
+ecosystem is approximately 0.7% to 1.4% (see the
 [Sale Lifecycle](../appendix/token-launchpad-ecosystem.md#sale-lifecycle-and-close-mechanics)
 section of the appendix): over 98% of bonding curves never reach their supply
 target. An at-close fee model would capture revenue on fewer than 2% of
@@ -159,6 +185,27 @@ buyer-side per-swap fee (dynamic, 0.05–0.95% since September 2025) and has
 generated over $818M in cumulative protocol fees (see the
 [Fee Structures](../appendix/token-launchpad-ecosystem.md#fee-structures)
 section of the appendix for a cross-platform comparison).
+
+### Namespaces
+
+A single deployment of the bonding curve program supports any number of
+independent **namespaces**. A namespace is a launchpad instance: it carries its
+own admin authority, protocol fee rate, and treasury address, and every sale
+belongs to exactly one namespace, chosen by the creator at sale creation. The
+program bytecode is deployed once; operators who want their own launchpad with
+their own fee create a namespace rather than a new deployment.
+
+Creating a namespace is permissionless: anyone can seed one with their own admin
+authority, fee rate, and treasury, regardless of who deployed the program and
+without permission from any existing namespace. Namespaces share no state, and
+the reach of an admin authority is limited to its own namespace. Fee ranges are
+left open for the same reason: a namespace admin setting an uncompetitive fee
+affects only the sales in that namespace, and creators can launch in another
+namespace or create one.
+
+This is the same model used by the DEX in
+[RFP-004](./RFP-004-privacy-preserving-dex.md); proposers may reuse that pattern
+for account layout and address derivation.
 
 ### Bonding curves and LBPs as complementary mechanisms
 
@@ -200,85 +247,131 @@ instead.
 
 #### Functionality
 
-1. Implement a bonding curve program on LEZ with a deterministic, supply-driven
-   pricing mechanism that maintains a well-defined invariant across all buy and
-   sell operations. The buy instruction accepts a collateral input `C_in` and
-   computes a deterministic token output based on the current curve state. The
-   SDK must also expose the inverse: the exact collateral cost for a buyer who
-   requests a specific token quantity `Q`. The sell instruction accepts a token
-   input `tokens_in` and computes a deterministic collateral output from the
-   real collateral reserve. Sell transactions must not withdraw more collateral
-   than the real reserve holds. After each buy, the real token reserve decreases
-   by `tokens_out` and the real collateral reserve increases by `C_in`. After
-   each sell, the real token reserve increases by `tokens_in` and the real
-   collateral reserve decreases by `C_out`. If the computed `tokens_out` on a
-   buy would exceed the remaining sale reserve, the transaction must revert. All
-   arithmetic must use integer-only operations and round against the trader: on
-   buy, `tokens_out` rounds down and `C_in` rounds up; on sell, `C_out` rounds
-   down. This ensures the pool remains solvent and the pricing invariant is
-   never violated by rounding. The pricing invariant must never change after
-   creation. See the Reference Implementation section for the recommended
-   formulas and the deviation standard for alternative mechanisms.
+01. Implement a bonding curve program on LEZ with a deterministic, supply-driven
+    pricing mechanism that maintains a well-defined invariant across all buy and
+    sell operations. The buy instruction accepts a collateral input `C_in`,
+    deducts the protocol fee of F.8 to obtain the effective input
+    `C_eff = C_in - fee`, and computes a deterministic token output from `C_eff`
+    and the current curve state. The SDK must also expose the inverse: the exact
+    gross collateral cost `C_in` (fee included) for a buyer who requests a
+    specific token quantity `Q`. The sell instruction accepts a token input
+    `tokens_in`, computes a deterministic raw collateral output `C_out_raw` from
+    the real collateral reserve, deducts the protocol fee, and pays the seller
+    `C_out = C_out_raw - fee`. Sell transactions must not withdraw more
+    collateral than the real reserve holds. After each buy, the real token
+    reserve decreases by `tokens_out`, the real collateral reserve increases by
+    `C_eff`, and `fee` is added to the sale's accrued-fee counter (F.8); the fee
+    never enters the reserve. After each sell, the real token reserve increases
+    by `tokens_in`, the real collateral reserve decreases by `C_out_raw`, and
+    `fee` is added to the accrued-fee counter. If the computed `tokens_out` on a
+    buy would exceed the remaining sale reserve, the transaction must revert.
+    All arithmetic must use integer-only operations and round against the
+    trader: on buy, `tokens_out` rounds down and `C_in` rounds up; on sell,
+    `C_out_raw` rounds down; the fee rounds up in both directions. This ensures
+    the pool remains solvent and the pricing invariant is never violated by
+    rounding. The pricing invariant must never change after creation. See the
+    Reference Implementation section for the recommended formulas and the
+    deviation standard for alternative mechanisms.
 
-2. A sale creator can configure a sale with the following parameters:
+02. A sale creator can configure a sale with the following parameters:
 
-   1. Token pair (project token + collateral token).
-   2. Sale quantity `D`: the number of tokens available for purchase. All `D`
-      tokens must be transferred from the creator at sale creation.
-   3. Optional: DEX seed quantity `R`: tokens reserved for post-graduation DEX
-      seeding (may be zero). If set, `R` tokens must also be transferred from
-      the creator at sale creation. Total real deposit is `D + R`.
-   4. Virtual token reserve `Vt`: a synthetic pricing parameter that determines
-      the shape of the bonding curve (`Vt > D`). This is not the deposit amount;
-      it is typically larger than `D + R` to position the starting price on the
-      curve.
-   5. Virtual collateral reserve `Vc`: a synthetic starting value; no real
-      collateral is deposited by the creator. Together with `Vt`, determines
-      `k = Vt × Vc` (computed and stored at creation) and the starting spot
-      price `p₀ = Vc / Vt`.
+    1. Namespace the sale belongs to (see item 9). Chosen at creation and
+       immutable; it determines the fee rate and treasury that apply to the
+       sale.
+    2. Token pair (project token + collateral token).
+    3. Sale quantity `D`: the number of tokens available for purchase. All `D`
+       tokens must be transferred from the creator at sale creation.
+    4. Optional: DEX seed quantity `R`: tokens reserved for post-graduation DEX
+       seeding (may be zero). If set, `R` tokens must also be transferred from
+       the creator at sale creation. Total real deposit is `D + R`.
+    5. Virtual token reserve `Vt`: a synthetic pricing parameter that determines
+       the shape of the bonding curve (`Vt > D`). This is not the deposit
+       amount; it is typically larger than `D + R` to position the starting
+       price on the curve.
+    6. Virtual collateral reserve `Vc`: a synthetic starting value; no real
+       collateral is deposited by the creator. Together with `Vt`, determines
+       `k = Vt × Vc` (computed and stored at creation) and the starting spot
+       price `p₀ = Vc / Vt`.
 
-   The program must maintain two distinct accounting buckets: a **sale reserve**
-   (starts at `D`, decreases with each purchase) and a **DEX seed reserve**
-   (starts at `R`, untouched until close). `D` is the supply target: the sale
-   auto-closes when the sale reserve is exhausted.
+    The program must maintain two distinct accounting buckets: a **sale
+    reserve** (starts at `D`, decreases with each purchase) and a **DEX seed
+    reserve** (starts at `R`, untouched until close). `D` is the supply target:
+    the sale auto-closes when the sale reserve is exhausted.
 
-3. Participants buy and sell project tokens on the curve using either a public
-   account directly, or via the deshield→trade→re-shield pattern for private
-   account interaction (see [RFP-008](./RFP-008-lending-borrowing-protocol.md),
-   which defines this interaction model for LEZ applications). Both paths must
-   be supported by the program and SDK.
+03. Participants buy and sell project tokens on the curve using either a public
+    account directly, or via the deshield→trade→re-shield pattern for private
+    account interaction (see [RFP-008](./RFP-008-lending-borrowing-protocol.md),
+    which defines this interaction model for LEZ applications). Both paths must
+    be supported by the program and SDK.
 
-4. The sale closes automatically when the sale reserve is exhausted (all `D`
-   tokens have been sold).
+04. The sale closes automatically when the sale reserve is exhausted (all `D`
+    tokens have been sold).
 
-5. After the sale closes, the creator can withdraw:
+05. After the sale closes, the creator can withdraw:
 
-   - The full real collateral reserve. Protocol fees have already been collected
-     per-swap during the sale; no additional deduction occurs at withdrawal.
-   - The DEX seed reserve `R` tokens (if not used for auto-graduation).
+    - The full real collateral reserve, which never included protocol fees; no
+      deduction occurs at withdrawal. Any accrued fees not yet collected are
+      transferred to the namespace treasury atomically in the same transaction
+      (F.8).
+    - The DEX seed reserve `R` tokens (if not used for auto-graduation).
 
-6. Slippage protection: on buy, buyers specify the collateral amount to spend
-   and a minimum token quantity they are willing to accept; the transaction
-   reverts if the computed `tokens_out` is below this minimum. On sell, sellers
-   specify the token quantity to sell and a minimum collateral amount they are
-   willing to accept; the transaction reverts if the computed `C_out` is below
-   this minimum.
+06. Slippage protection: on buy, buyers specify the gross collateral amount to
+    spend and a minimum token quantity they are willing to accept; the
+    transaction reverts if the computed `tokens_out` (after the fee has been
+    deducted from the input) is below this minimum. On sell, sellers specify the
+    token quantity to sell and a minimum collateral amount they are willing to
+    accept; the transaction reverts if the net `C_out` (after the fee has been
+    deducted) is below this minimum. Both bounds are therefore checked against
+    what the trader actually receives, so a fee-rate change between quote and
+    execution cannot push a trade past the trader's tolerance.
 
-7. Use Associated Token Accounts (ATAs) for all token interactions, consistent
-   with
-   [LP-0014](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0014.md)
-   and [RFP-008](./RFP-008-lending-borrowing-protocol.md).
+07. Use Associated Token Accounts (ATAs) for all token interactions, consistent
+    with
+    [LP-0014](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0014.md)
+    and [RFP-008](./RFP-008-lending-borrowing-protocol.md).
+
+08. Protocol fee: the program charges a per-swap protocol fee on every buy and
+    sell, denominated in the collateral token. The fee is not transferred in the
+    swap; it is added to the sale's accrued-fee counter `fees_accrued`, which is
+    tracked in its own state rather than inferred from the difference between
+    the vault balance and the reserve, so that fee accounting and reserve
+    accounting cannot corrupt each other. A `collect` instruction, callable by
+    any account at any time, transfers the accrued amount to the treasury of the
+    sale's namespace as configured at collection time and resets the counter; it
+    is idempotent and transfers nothing when the counter is zero. The creator's
+    withdrawal (item 5) and auto-graduation (Soft Requirements) collect
+    atomically. The fee rate and the treasury address are set by the namespace's
+    admin authority (using the [RFP-001](./RFP-001-admin-authority-lib.md)
+    library), apply uniformly to all sales in that namespace, and are updatable
+    after the namespace is created. The program does not restrict the fee rate
+    to a fixed range or a set of preset tiers, and the rate may be zero. There
+    is no sale creation fee and no additional fee at close or withdrawal. Sale
+    creators cannot set or override the fee.
+
+09. Namespaces: the program supports any number of independent launchpad
+    namespaces from a single deployment. Anyone can permissionlessly create a
+    namespace, seeding it with its own admin authority, protocol fee rate, and
+    treasury address, without permission from whoever deployed the program or
+    from any existing namespace. Every sale belongs to exactly one namespace.
+
+10. Namespace isolation: namespaces share no global or singleton state. Sale and
+    reserve addresses are derived such that sales of different namespaces never
+    collide. Every state-changing instruction resolves the sale, reserve,
+    treasury, and admin accounts against the namespace the sale belongs to, and
+    rejects accounts belonging to another namespace. An admin authority has no
+    power over any namespace other than its own.
 
 #### Usability
 
 01. Provide an SDK for building Logos modules that interact with the bonding
     curve program. The SDK must expose the full lifecycle for both participants
-    (discover active sales, compute price and impact, buy, query position) and
-    creators (create sale, close, withdraw). The SDK must support both direct
-    public account interaction and the deshield→buy→re-shield pattern for
-    private account interaction. When the private account path is used, the SDK
-    must handle the atomic deshield (both collateral and gas) as a single
-    indivisible user action.
+    (discover active sales, compute price and impact, buy, query position),
+    creators (create sale, close, withdraw), and namespace operators (create
+    namespace, admin operations). The SDK must support both direct public
+    account interaction and the deshield→buy→re-shield pattern for private
+    account interaction. When the private account path is used, the SDK must
+    handle the atomic deshield (both collateral and gas) as a single indivisible
+    user action.
 02. Provide a Logos mini-app GUI with local build instructions, downloadable
     assets, and loadable in Logos app (Basecamp) via git repo. The mini-app must
     cover:
@@ -293,10 +386,12 @@ instead.
     operations for both participants (buy, query price, check sale status) and
     creators (create sale, close, withdraw).
 04. The mini-app must display a pre-buy confirmation summary before each
-    purchase: collateral to spend, exact tokens to be received (computed using
-    the pricing formula), current spot price (`Vc / Vt`), price impact
-    (percentage increase in spot price after the buy), and the per-swap protocol
-    fee deducted from collateral.
+    purchase: gross collateral to spend, the per-swap protocol fee deducted from
+    it, exact tokens to be received (computed using the pricing formula on the
+    net input), current spot price (`Vc / Vt`), and price impact (percentage
+    increase in spot price after the buy). The equivalent pre-sell summary must
+    show tokens to sell, the raw collateral output, the protocol fee deducted,
+    and the net collateral the seller receives.
 05. When using the private account path, the mini-app must display a privacy
     disclosure before each buy, identifying what will be visible on-chain (buy
     transaction, collateral amount, tokens received, curve address, ephemeral
@@ -311,14 +406,28 @@ instead.
     the gas fee within the single deshield action. A clear, actionable error
     must be shown if the balance is insufficient.
 08. Provide a sale analytics view showing, for each active or completed sale:
-    total collateral raised, current spot price, supply sold over time (progress
-    chart), price-vs-supply curve with current position marked, and number of
-    buy transactions. Analytics must not expose individual participant
-    identities or link buy transactions to specific accounts.
+    total collateral raised, protocol fee revenue accrued and collected (each
+    reported separately from collateral raised, and also aggregated per
+    namespace), current spot price, supply sold over time (progress chart),
+    price-vs-supply curve with current position marked, and number of buy
+    transactions. Analytics must not expose individual participant identities or
+    link buy transactions to specific accounts.
 09. Provide an IDL for the bonding curve program using the
     [SPEL framework](https://github.com/logos-co/spel).
 10. Failed or rejected buys must return clear, actionable error messages (e.g.,
     insufficient balance, supply target already reached, slippage exceeded).
+11. The mini-app and CLI show the current protocol fee rate and treasury address
+    of the namespace in use. The SDK, CLI, and mini-app expose namespace
+    creation and the admin operations for a namespace: setting the fee rate,
+    setting the treasury address, and the admin authority transfer and
+    renunciation operations of [RFP-001](./RFP-001-admin-authority-lib.md). They
+    also expose the permissionless fee collection of F.8, for a single sale and
+    batched across the sales of a namespace, and show each sale's accrued,
+    uncollected fees. An admin operation attempted without the namespace's admin
+    authority fails with a clear, actionable error.
+12. The SDK, CLI, and mini-app let the caller select which namespace to operate
+    against, and the mini-app shows the active namespace. Sales of different
+    namespaces are never mixed in sale listings, analytics, or purchase history.
 
 #### Reliability
 
@@ -331,15 +440,36 @@ instead.
    reserve is exhausted, the sale must close atomically in the same transaction.
    No additional close instruction should be required; no further buys must be
    accepted after close.
+4. Fee accounting must be exact: on every buy, the fee added to `fees_accrued`
+   plus the amount added to the real collateral reserve equals the trader's
+   gross input `C_in`; on every sell, the fee added to `fees_accrued` plus the
+   amount paid to the seller equals the amount removed from the real collateral
+   reserve (`C_out_raw`). Rounding is resolved against the trader. The fee is
+   applied outside the curve: it never changes `k`, `Vt`, or `Vc` except through
+   the net amount that enters or leaves the curve. The collateral vault must
+   satisfy `vault_balance ≥ reserve + fees_accrued` after every instruction: a
+   sell or withdrawal never pays out of accrued fees, and a collection never
+   draws on the reserve.
+5. A fee-rate update in a namespace applies only to swaps executed after the
+   update; it never alters the accounting of swaps already executed or the
+   collateral already held by any sale. The rate applied to a swap is the one in
+   effect in the sale's namespace when the swap executes, and the swap respects
+   the trader's slippage bound of F.6 regardless. A treasury update applies to
+   every collection executed after the update, including fees accrued before it.
+6. An operation on a sale of one namespace never reads or writes the state,
+   reserves, or treasury of another namespace, including when supplied with
+   deliberately mismatched accounts from a second namespace. A fee-rate or
+   treasury update in one namespace never affects the sales of another.
 
 #### Performance
 
-1. A single buy transaction completes within one LEZ transaction.
+1. A single buy transaction completes within one LEZ transaction, including fee
+   accrual.
 2. A close transaction (manual or auto-triggered by final buy) completes within
    one LEZ transaction.
-3. Document the compute unit (CU) cost of each operation: create sale, buy,
-   close sale, withdraw. Note the LEZ testnet version against which measurements
-   were taken.
+3. Document the compute unit (CU) cost of each operation: create namespace,
+   create sale, buy, sell, close sale, collect fees, withdraw, set fee rate, set
+   treasury. Note the LEZ testnet version against which measurements were taken.
 
 #### Supportability
 
@@ -352,10 +482,21 @@ mainnet deployment.
 3. Every hard requirement in Functionality, Usability, Reliability, and
    Performance has at least one corresponding test. Test coverage must include:
    invariant preservation across multiple buys, happy-path buy, slippage revert
-   (tokens_out below minimum), auto-close on supply target, manual close.
+   (tokens_out below minimum), auto-close on supply target, manual close, fee
+   accrued on both buy and sell and collected to the treasury, collection by a
+   non-admin account, collection idempotence (a second collection transfers
+   nothing), a sell unable to draw on accrued fees, withdrawal and
+   auto-graduation collecting atomically, fee rounding at small amounts, zero
+   fee rate, fee-rate update applying only to subsequent swaps, treasury update
+   applying to fees accrued before it, a fee or treasury update attempted
+   without the admin authority being rejected, namespace creation, a sale in one
+   namespace rejecting reserve, treasury, or admin accounts of another, and a
+   fee update in one namespace leaving the sales of another unchanged.
 4. A README documents end-to-end usage: deployment steps, program addresses, and
    step-by-step instructions for both creators and participants via CLI and
-   mini-app.
+   mini-app. It must also document how to create a namespace, how namespace and
+   sale addresses are derived, how the namespace admin authority configures the
+   fee rate and treasury address, and how fee accrual and collection work.
 5. Provide a privacy and anonymisation properties document covering: what
    on-chain state and transaction data is visible to observers; what data is
    protected when the private account path is used; trust assumptions,
@@ -417,11 +558,15 @@ For every buy from a private account:
 
 - All curve state: token pair, virtual reserves (`Vt`, `Vc`), invariant `k`,
   sale reserve, DEX seed reserve, real collateral reserve, sale quantity `D`,
-  current spot price, open/closed status.
-- All buy transactions: collateral spent, tokens received, and block height.
-  When using the private account path, the buyer's address is an ephemeral
-  intermediary account with no prior on-chain history.
-- Sale close and creator withdrawal transactions.
+  current spot price, open/closed status, accrued and uncollected protocol fees,
+  and the namespace the sale belongs to.
+- All namespace state: admin authority, protocol fee rate, and treasury address.
+- All buy and sell transactions: collateral spent or received, tokens received
+  or sold, the protocol fee accrued, and block height. When using the private
+  account path, the trader's address is an ephemeral intermediary account with
+  no prior on-chain history.
+- Fee collection transactions (amount transferred to the treasury), sale close,
+  and creator withdrawal transactions.
 
 #### What is private (when using the private account path)
 
@@ -430,6 +575,11 @@ For every buy from a private account:
 - Any link between multiple buys by the same buyer (no on-chain linkability
   across ephemeral accounts).
 - Whether a specific private account participated in the sale at all.
+
+Fee accrual and collection reveal nothing beyond what the swaps themselves
+already expose: the accrued amount is a deterministic function of the public
+swap amounts and the public fee rate, and collection moves an aggregate to a
+public treasury without reference to any individual trade.
 
 #### Trust assumptions
 
@@ -461,29 +611,43 @@ reserves**, as described in the Design Rationale. Proposals that use this
 formula require no additional justification beyond the hard requirements above.
 
 The constant product invariant is `Vt × Vc = k`, where `Vt` is the virtual token
-reserve and `Vc` is the virtual collateral reserve. The buy formula computes
-token output as:
+reserve and `Vc` is the virtual collateral reserve. The protocol fee (F.8) is
+applied outside the curve, on the collateral side of every swap.
+
+On buy, the fee is deducted from the gross input before pricing:
 
 ```
-tokens_out = Vt - k / (Vc + C_in)
+fee    = ceil(C_in × fee_rate)
+C_eff  = C_in - fee
+tokens_out = Vt - k / (Vc + C_eff)
+fees_accrued += fee
 ```
 
-The inverse (exact collateral cost for a requested token quantity `Q`):
+The inverse (exact gross collateral cost, fee included, for a requested token
+quantity `Q`):
 
 ```
-C_in = k / (Vt - Q) - Vc
+C_eff = k / (Vt - Q) - Vc
+C_in  = C_eff / (1 - fee_rate)          (rounded up)
 ```
 
-The sell formula computes collateral output as:
+On sell, the fee is deducted from the raw curve output:
 
 ```
-C_out = Vc - k / (Vt + tokens_in)
+C_out_raw = Vc - k / (Vt + tokens_in)
+fee       = ceil(C_out_raw × fee_rate)
+C_out     = C_out_raw - fee
+fees_accrued += fee
 ```
 
-After each buy, `Vt` decreases by `tokens_out` and `Vc` increases by `C_in`.
-After each sell, `Vt` increases by `tokens_in` and `Vc` decreases by `C_out`. In
-both cases, `k = Vt × Vc` is preserved. `k` is computed at creation and must
-never change.
+After each buy, `Vt` decreases by `tokens_out` and `Vc` increases by `C_eff`.
+After each sell, `Vt` increases by `tokens_in` and `Vc` decreases by
+`C_out_raw`. In both cases, `k = Vt × Vc` is preserved and the fee does not
+touch the virtual reserves: it accumulates in `fees_accrued` until collected
+(F.8), and the vault always holds at least `reserve + fees_accrued`. `k` is
+computed at creation and must never change. `fee_rate` is the current rate of
+the sale's namespace, expressed in integer basis points (or a finer integer
+unit) so that all operations stay integer-only.
 
 **Deviation standard.** Teams may propose an alternative pricing mechanism (such
 as a polynomial integral, the Bancor power function, a piecewise constant
@@ -505,8 +669,13 @@ production deployments or audits.
   auto-closes, the program can automatically deploy the accumulated real
   collateral reserve and the DEX seed reserve `R` tokens as liquidity into a LEZ
   DEX pool (requires [RFP-004](./RFP-004-privacy-preserving-dex.md) and LP-0015
-  to be available). This eliminates manual post-sale liquidity seeding and
-  provides immediate post-graduation tradability.
+  to be available). Because protocol fees accrue outside the reserve, the full
+  real collateral reserve is deployable at graduation with no further deduction;
+  graduation collects any accrued fees to the namespace treasury atomically
+  (F.8). DEX pools are themselves namespaced (RFP-004), so the sale creator
+  specifies the target DEX namespace at sale creation. This eliminates manual
+  post-sale liquidity seeding and provides immediate post-graduation
+  tradability.
 - **Optional end timestamp**: the sale creator can configure an end timestamp at
   creation time. The sale closes when the supply target is reached or the end
   timestamp passes, whichever comes first. This prevents zombie sales (curves
@@ -539,8 +708,9 @@ currently **open**.
 
 #### Admin authority (RFP-001)
 
-The protocol fee rate and treasury address are configured by the program's admin
-authority, using the standardised library from
+Each launchpad namespace is governed by its own admin authority (Functionality
+requirement F.9), which configures the protocol fee rate and treasury address
+(F.8) and can be transferred or renounced, using the standardised library from
 [RFP-001](./RFP-001-admin-authority-lib.md). The RFP is closed (candidate
 picked) and the library is in development.
 

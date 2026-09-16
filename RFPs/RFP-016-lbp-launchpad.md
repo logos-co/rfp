@@ -8,7 +8,7 @@ dependencies:
   - id: LP-0013
     reason: Token transfer-authority primitives are required to custody pool token and collateral balances and to route protocol fees.
   - id: RFP-001
-    reason: Provides the standardised admin authority library that configures the protocol fee rate and treasury address applied uniformly to all sales.
+    reason: Provides the standardised admin authority library that governs each launchpad namespace (admin authority, protocol fee rate, and treasury address applied uniformly to all sales in that namespace per F.10, F.11).
   - id: RFP-002
     reason: Provides the standardised freeze authority underpinning the sale pause capability, the emergency stop for security incidents (F6).
   - id: LP-0015
@@ -176,27 +176,80 @@ detect large buy orders.
 
 ### Fee structure
 
-The LBP program collects a protocol fee at sale close, matching the model used
-by Fjord Foundry on Balancer (see the
+The LBP program charges a protocol fee on the collateral raised, borne by the
+creator, matching the economics of Fjord Foundry on Balancer (see the
 [Onchain Fee Enforcement](../appendix/token-launchpad-ecosystem.md#onchain-fee-enforcement)
-section of the appendix). When the creator withdraws collateral after the sale
-end timestamp, the program deducts `fee = collateral_balance × fee_rate`
-(rounded up) and transfers it to a protocol treasury account. The creator
-receives the remainder.
+section of the appendix). On every buy the program records
+`ceil(C_in × rate_at_creation)` in the sale's accrued-fee counter
+`fees_accrued`. The full `C_in` still enters the pricing reserve, so buyers
+receive the full curve output and the price trajectory is unchanged; the accrued
+fee is a lien on the pool's collateral that is settled after the sale. Because
+an LBP has no sells, the accrued total equals `rate × collateral raised` up to
+per-buy rounding, which is exactly Fjord's at-close fee, computed incrementally.
+When the creator withdraws after the end timestamp, the program transfers
+`fees_accrued` to the namespace treasury and pays the creator the remainder.
+
+This accrue-then-collect design is the same primitive the DEX uses
+([RFP-004](./RFP-004-privacy-preserving-dex.md), Functionality requirement F.12)
+and the bonding curve launchpad uses
+([RFP-015](./RFP-015-bonding-curve-launchpad.md)). The two launchpads differ
+only in who bears the fee (the creator here, the trader in RFP-015) and in when
+it may be collected: because the lien here is still part of the pricing reserve,
+collection is only permitted after the end timestamp, whereas RFP-015 allows it
+at any time. Keeping the treasury out of the swap path means a buy cannot fail
+because a treasury token account for the collateral mint does not exist, and a
+treasury update never invalidates in-flight buys.
 
 Because the LBP is time-bounded (every sale reaches its end timestamp regardless
-of demand), the at-close fee is always collectible, unlike bonding curves where
-over 98% of sales never graduate. Fjord Foundry uses a 5% at-close fee on
-collateral raised, enforced onchain by its wrapper contract [11].
+of demand), the fee is always collectible, unlike bonding curves where over 98%
+of sales never graduate. Fjord Foundry uses a 5% at-close fee on collateral
+raised, enforced onchain by its wrapper contract (see the
+[At-close onchain fees](../appendix/token-launchpad-ecosystem.md#at-close-onchain-fees)
+section of the appendix).
 
-The fee rate and treasury address are configured by the program's admin
-authority and apply uniformly to all sales. The RFP does not mandate a specific
-rate; the admin authority sets it at deployment and may update it. Sale creation
-is free (no creation fee).
+The fee rate and treasury address are configured by the admin authority of the
+namespace the sale belongs to (see Namespaces below) and apply uniformly to all
+sales in that namespace. The RFP does not mandate a specific rate; the namespace
+admin sets it when the namespace is created and may update it, and the rate may
+be zero. The rate is **snapshotted at sale creation**: the program stores the
+namespace's rate in effect when a sale is created and accrues every buy's fee at
+that stored rate. An admin update therefore affects only sales created
+afterwards, never a sale already in flight, so a creator knows the exact fee
+they will pay before committing tokens. The treasury, by contrast, is resolved
+when fees are collected, so a treasury update applies to fees accrued earlier
+but not yet collected. Sale creation is free (no creation fee).
+
+Collection does not depend on the creator: after the end timestamp, any account
+may submit a permissionless `collect` transaction that transfers the accrued fee
+to the namespace's treasury, in the same spirit as the permissionless weight
+poke. The creator's withdrawal pays out the net remainder. If no collection has
+occurred when the creator withdraws, the withdrawal performs it atomically.
 
 See the
 [Fee Structures](../appendix/token-launchpad-ecosystem.md#fee-structures)
 section of the appendix for a cross-platform comparison.
+
+### Namespaces
+
+A single deployment of the LBP program supports any number of independent
+**namespaces**. A namespace is a launchpad instance: it carries its own admin
+authority, protocol fee rate, and treasury address, and every sale belongs to
+exactly one namespace, chosen by the creator at sale creation. The program
+bytecode is deployed once; operators who want their own launchpad with their own
+fee create a namespace rather than a new deployment.
+
+Creating a namespace is permissionless: anyone can seed one with their own admin
+authority, fee rate, and treasury, regardless of who deployed the program and
+without permission from any existing namespace. Namespaces share no state, and
+the reach of an admin authority is limited to its own namespace. Fee ranges are
+left open for the same reason: a namespace admin setting an uncompetitive fee
+affects only the sales in that namespace, and creators can launch in another
+namespace or create one.
+
+This is the same model used by the DEX in
+[RFP-004](./RFP-004-privacy-preserving-dex.md) and the bonding curve launchpad
+in [RFP-015](./RFP-015-bonding-curve-launchpad.md); proposers may reuse that
+pattern for account layout and address derivation.
 
 ## ✅ Scope of Work
 
@@ -204,74 +257,130 @@ section of the appendix for a cross-platform comparison.
 
 #### Functionality
 
-1. Implement an LBP program on LEZ. An LBP is a two-asset pool consisting of a
-   project token and a collateral token (e.g., stablecoin or native token), with
-   start and end weights configured by the sale creator. Pool weights shift
-   linearly from the start weight to the end weight over the sale duration,
-   causing the token price to decline over time unless buying pressure
-   counteracts it.
-2. A sale creator can configure a sale with the following parameters:
-   1. Token pair (project token + collateral token).
-   2. Start and end weights (e.g., 99/1 → 1/99 for the token/collateral ratio).
-   3. Sale start and end timestamps.
-   4. Initial token deposit amount.
-   5. Optional: per-block token allocation ceiling (maximum number of tokens
-      that can be sold across all buy transactions within a single block). When
-      set, any buy that would exceed the block ceiling is rejected. This limits
-      the rate at which any participant (or set of participants) can accumulate
-      supply, regardless of how many accounts they use.
-   6. Optional: private allowlist gate (see item 7 below).
-3. Participants buy project tokens from the pool using either a public account
-   directly, or via the deshield→buy→re-shield pattern for private account
-   interaction (see [RFP-008](./RFP-008-lending-borrowing-protocol.md)). Both
-   paths must be supported by the program and SDK.
-4. Pool weights shift deterministically according to the configured schedule.
-   Any account can submit a weight-update ("poke") transaction to advance the
-   current weights to the value dictated by the elapsed time. The LBP program
-   must apply the correct weight at transaction time regardless of how recently
-   the last poke occurred.
-5. After the sale end timestamp passes, the creator can withdraw:
-   - The collateral raised, net of the at-close protocol fee (see the Fee
-     structure subsection in Design Rationale). The program deducts the fee and
-     transfers it to the protocol treasury atomically in the withdrawal
-     transaction.
-   - Any unsold project tokens remaining in the pool.
-6. The sale creator can pause buying at any time during the sale period
-   (emergency stop). Pausing does not affect weight progression; the weight
-   schedule continues during a pause.
-7. The sale creator can enable an optional allowlist gate for the sale. When
-   enabled, only participants who can prove inclusion in the committed
-   eligibility set may buy from the pool. The proposing team must specify and
-   justify their allowlist mechanism in their application. When the allowlist
-   gate is used in conjunction with the private account path, the proposal must
-   document the resulting privacy properties, including any change in the
-   effective anonymity set relative to a non-gated sale.
-8. Slippage protection: buyers can specify a minimum token output amount. The
-   transaction reverts if the execution price would produce fewer tokens than
-   the specified minimum.
-9. Use Associated Token Accounts (ATAs) for all token interactions, consistent
-   with
-   [LP-0014](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0014.md)
-   and [RFP-008](./RFP-008-lending-borrowing-protocol.md).
+01. Implement an LBP program on LEZ. An LBP is a two-asset pool consisting of a
+    project token and a collateral token (e.g., stablecoin or native token),
+    with start and end weights configured by the sale creator. Pool weights
+    shift linearly from the start weight to the end weight over the sale
+    duration, causing the token price to decline over time unless buying
+    pressure counteracts it.
+
+02. A sale creator can configure a sale with the following parameters:
+
+    1. Namespace the sale belongs to (see item 11 below). Chosen at creation and
+       immutable; it determines the fee rate and treasury that apply to the
+       sale.
+    2. Token pair (project token + collateral token).
+    3. Start and end weights (e.g., 99/1 → 1/99 for the token/collateral ratio).
+    4. Sale start and end timestamps.
+    5. Initial token deposit amount.
+    6. Optional: per-block token allocation ceiling (maximum number of tokens
+       that can be sold across all buy transactions within a single block). When
+       set, any buy that would exceed the block ceiling is rejected. This limits
+       the rate at which any participant (or set of participants) can accumulate
+       supply, regardless of how many accounts they use.
+    7. Optional: private allowlist gate (see item 7 below).
+
+    The sale additionally stores the protocol fee rate of its namespace in
+    effect at creation (see item 10 below). This is recorded by the program, not
+    chosen by the creator, and cannot change for the life of the sale.
+
+03. Participants buy project tokens from the pool using either a public account
+    directly, or via the deshield→buy→re-shield pattern for private account
+    interaction (see [RFP-008](./RFP-008-lending-borrowing-protocol.md)). Both
+    paths must be supported by the program and SDK.
+
+04. Pool weights shift deterministically according to the configured schedule.
+    Any account can submit a weight-update ("poke") transaction to advance the
+    current weights to the value dictated by the elapsed time. The LBP program
+    must apply the correct weight at transaction time regardless of how recently
+    the last poke occurred.
+
+05. After the sale end timestamp passes, the creator can withdraw:
+
+    - The collateral raised, net of the accrued protocol fee (see the Fee
+      structure subsection in Design Rationale): the creator receives
+      `collateral_balance - fees_accrued`. If the accrued fee has not already
+      been collected (item 10), the withdrawal transfers it to the treasury of
+      the sale's namespace atomically in the same transaction.
+    - Any unsold project tokens remaining in the pool.
+
+06. The sale creator can pause buying at any time during the sale period
+    (emergency stop). Pausing does not affect weight progression; the weight
+    schedule continues during a pause.
+
+07. The sale creator can enable an optional allowlist gate for the sale. When
+    enabled, only participants who can prove inclusion in the committed
+    eligibility set may buy from the pool. The proposing team must specify and
+    justify their allowlist mechanism in their application. When the allowlist
+    gate is used in conjunction with the private account path, the proposal must
+    document the resulting privacy properties, including any change in the
+    effective anonymity set relative to a non-gated sale.
+
+08. Slippage protection: buyers can specify a minimum token output amount. The
+    transaction reverts if the execution price would produce fewer tokens than
+    the specified minimum.
+
+09. Use Associated Token Accounts (ATAs) for all token interactions, consistent
+    with
+    [LP-0014](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0014.md)
+    and [RFP-008](./RFP-008-lending-borrowing-protocol.md).
+
+10. Protocol fee: the program charges a protocol fee on the collateral raised by
+    every sale, denominated in the collateral token and borne by the creator. On
+    every buy the program adds `ceil(C_in × rate_at_creation)` to the sale's
+    accrued-fee counter `fees_accrued`, which is tracked in its own state rather
+    than inferred from balances; the full `C_in` enters the pricing reserve and
+    the buyer's token output is unaffected. A `collect` instruction, callable by
+    any account once the sale end timestamp has passed, transfers the accrued
+    amount to the treasury of the sale's namespace as configured at collection
+    time and resets the counter; it is idempotent, transfers nothing when the
+    counter is zero, and is rejected with a clear error before the end
+    timestamp. The creator's withdrawal (item 5) collects atomically if
+    collection has not yet occurred. The fee rate and the treasury address are
+    set by the admin authority of the sale's namespace (using the
+    [RFP-001](./RFP-001-admin-authority-lib.md) library), apply uniformly to all
+    sales in that namespace, and are updatable after the namespace is created.
+    The program does not restrict the fee rate to a fixed range or a set of
+    preset tiers, and the rate may be zero. Each sale snapshots its namespace's
+    rate at creation (item 2); a later rate update never changes the accrual of
+    an existing sale. There is no sale creation fee and no fee charged to
+    buyers. Sale creators cannot set or override the fee.
+
+11. Namespaces: the program supports any number of independent launchpad
+    namespaces from a single deployment. Anyone can permissionlessly create a
+    namespace, seeding it with its own admin authority, protocol fee rate, and
+    treasury address, without permission from whoever deployed the program or
+    from any existing namespace. Every sale belongs to exactly one namespace.
+
+12. Namespace isolation: namespaces share no global or singleton state. Sale and
+    pool addresses are derived such that sales of different namespaces never
+    collide. Every state-changing instruction resolves the sale, pool, treasury,
+    and admin accounts against the namespace the sale belongs to, and rejects
+    accounts belonging to another namespace. An admin authority has no power
+    over any namespace other than its own.
 
 #### Usability
 
 01. Provide an SDK for building Logos modules that interact with the launchpad
     program. The SDK must expose the full lifecycle for both participants
-    (discover active sales, buy, query position) and creators (create sale,
-    pause/resume, close, withdraw). The SDK must support both direct public
-    account interaction and the deshield→buy→re-shield pattern for private
-    account interaction. When the private account path is used, the SDK must
-    handle the atomic deshield (both collateral and gas) as a single indivisible
-    user action.
+    (discover active sales, buy, query position), creators (create sale,
+    pause/resume, close, withdraw), and namespace operators (create namespace,
+    admin operations). The SDK must support both direct public account
+    interaction and the deshield→buy→re-shield pattern for private account
+    interaction. When the private account path is used, the SDK must handle the
+    atomic deshield (both collateral and gas) as a single indivisible user
+    action.
 02. Provide a Logos mini-app GUI with local build instructions, downloadable
     assets, and loadable in Logos app (Basecamp) via git repo. The mini-app must
     cover:
     - **Participant view**: browse active sales with live price, current
       token/collateral weight, time remaining, and total raised; execute a buy;
       view purchase history.
-    - **Creator view**: create a new sale (all parameters including allowlist
-      configuration), monitor an active sale, pause/resume, close sale, and
+    - **Creator view**: create a new sale (all parameters including namespace
+      and allowlist configuration), with the namespace and the protocol fee rate
+      that will be locked to the sale shown before the creator confirms; monitor
+      an active sale, including the sale's namespace, locked fee rate, fee
+      accrued to date, and net proceeds to date; pause/resume, close sale, and
       withdraw proceeds.
 03. Provide a CLI that covers core functionality of the program. The CLI may
     have fewer features than the GUI mini-app but must support all essential
@@ -295,15 +404,28 @@ section of the appendix for a cross-platform comparison.
     must be shown if the balance is insufficient, preventing a partial deshield
     that could leave funds stranded.
 08. Provide a sale analytics view showing, for each active or completed sale:
-    total collateral raised, token price over time (price chart), number of buy
-    transactions, and current pool composition. Analytics must not expose
-    individual participant identities or link buy transactions to specific
-    accounts.
+    total collateral raised, protocol fee accrued to date and collected (each
+    reported separately from collateral raised, and also aggregated per
+    namespace), token price over time (price chart), number of buy transactions,
+    and current pool composition. Analytics must not expose individual
+    participant identities or link buy transactions to specific accounts.
 09. Provide an IDL for the launchpad program using the
     [SPEL framework](https://github.com/logos-co/spel).
 10. Failed or rejected buys must return clear, actionable error messages (e.g.,
     insufficient balance, sale not yet started, sale ended, allowlist gate
     rejected, slippage exceeded).
+11. The mini-app and CLI show the current protocol fee rate and treasury address
+    of the namespace in use. The SDK, CLI, and mini-app expose namespace
+    creation and the admin operations for a namespace: setting the fee rate,
+    setting the treasury address, and the admin authority transfer and
+    renunciation operations of [RFP-001](./RFP-001-admin-authority-lib.md). They
+    also expose the permissionless fee collection of F.10, for a single sale and
+    batched across the ended sales of a namespace, and show each sale's accrued,
+    uncollected fees. An admin operation attempted without the namespace's admin
+    authority fails with a clear, actionable error.
+12. The SDK, CLI, and mini-app let the caller select which namespace to operate
+    against, and the mini-app shows the active namespace. Sales of different
+    namespaces are never mixed in sale listings, analytics, or purchase history.
 
 #### Reliability
 
@@ -314,14 +436,30 @@ section of the appendix for a cross-platform comparison.
    and the pool state is unchanged.
 3. Weight updates (pokes) must be idempotent: submitting multiple pokes within
    the same block or timestamp window must not corrupt pool state.
+4. Fee accounting must be exact and isolated per sale: `fees_accrued` equals the
+   sum of `ceil(C_in × rate_at_creation)` over the sale's buys, the treasury
+   payout plus the creator's collateral payout equals the collateral balance at
+   sale end, and the pool's collateral vault holds at least `fees_accrued` at
+   all times. A fee-rate update in the sale's namespace after the sale is
+   created never changes that sale's accrual; a treasury update applies to every
+   collection executed after the update, including fees accrued before it.
+   Collection before the end timestamp is rejected. Collection is idempotent: a
+   second collection, or a withdrawal after a collection, transfers nothing
+   further to the treasury.
+5. An operation on a sale of one namespace never reads or writes the state, pool
+   balances, or treasury of another namespace, including when supplied with
+   deliberately mismatched accounts from a second namespace. A fee-rate or
+   treasury update in one namespace never affects the sales of another.
 
 #### Performance
 
 1. A single buy transaction completes within one LEZ transaction.
 2. A weight poke completes within one LEZ transaction.
-3. Document the compute unit (CU) cost of each operation: create sale, buy, poke
-   weights, pause/resume, close sale, withdraw. Note the LEZ testnet version
-   against which measurements were taken.
+3. Document the compute unit (CU) cost of each operation: create namespace,
+   create sale, buy, poke weights, pause/resume, close sale, collect fees,
+   withdraw, set fee rate, set treasury. The withdraw figure must include the
+   fee transfer when collection has not already occurred. Note the LEZ testnet
+   version against which measurements were taken.
 
 #### Supportability
 
@@ -334,10 +472,23 @@ mainnet deployment.
 3. Every hard requirement in Functionality, Usability, Reliability, and
    Performance has at least one corresponding test. Test coverage must include:
    happy-path buy, slippage revert, allowlist gate accept and reject, sale close
-   before end time, weight poke at multiple points in the schedule.
+   before end time, weight poke at multiple points in the schedule, fee accrued
+   on each buy and equal to the sum of per-buy fees, fee routed to the treasury
+   at withdrawal, fee rounding at small amounts, zero fee rate, snapshot
+   isolation (a fee-rate update after sale creation does not change that sale's
+   accrual), treasury update applying to fees accrued before it, collection
+   before the end timestamp rejected, permissionless collection by a non-admin
+   account followed by a net creator withdrawal, collection idempotence, a fee
+   or treasury update attempted without the admin authority being rejected,
+   namespace creation, a sale in one namespace rejecting pool, treasury, or
+   admin accounts of another, and a fee update in one namespace leaving the
+   sales of another unchanged.
 4. A README documents end-to-end usage: deployment steps, program addresses, and
    step-by-step instructions for both creators and participants via CLI and
-   mini-app.
+   mini-app. It must also document how to create a namespace, how namespace and
+   sale addresses are derived, how the namespace admin authority configures the
+   fee rate and treasury address, and how the fee snapshot, accrual, and
+   collection work.
 5. Provide a privacy and anonymisation properties document covering: what
    on-chain state and transaction data is visible to observers; what data is
    protected when the private account path is used; trust assumptions,
@@ -399,13 +550,17 @@ For every buy from a private account:
 #### What is public (observable on-chain)
 
 - All pool state: token pair, current weights, price, total collateral raised,
-  total tokens sold, sale start/end timestamps.
+  total tokens sold, sale start/end timestamps, the namespace the sale belongs
+  to, the protocol fee rate snapshotted for the sale, and the fee accrued and
+  not yet collected.
+- All namespace state: admin authority, protocol fee rate, and treasury address.
 - All buy transactions: collateral spent, tokens received, and timestamp. When
   using the private account path, the buyer's address is an ephemeral
   intermediary account with no prior on-chain history.
 - Allowlist gate configuration and whether the gate is enabled, but not the list
   of eligible addresses.
-- Sale close and creator withdrawal transactions.
+- Sale close, fee collection (amount transferred to the treasury), and creator
+  withdrawal transactions.
 
 #### What is private (when using the private account path)
 
@@ -489,7 +644,16 @@ tokens_out = reserve_token × (1 - (reserve_collateral / (reserve_collateral + C
 
 All arithmetic must use integer-only operations and round against the trader:
 `tokens_out` rounds down. After each buy, `reserve_token` decreases by
-`tokens_out` and `reserve_collateral` increases by `C_in`.
+`tokens_out` and `reserve_collateral` increases by the full `C_in`. The protocol
+fee (F.10) is recorded alongside, without touching the pricing reserve:
+
+```
+fees_accrued += ceil(C_in × rate_at_creation)
+```
+
+`rate_at_creation` is the namespace's fee rate stored on the sale at creation,
+expressed in integer basis points (or a finer integer unit). The accrued fee is
+settled from the collateral vault after the end timestamp (F.5, F.10).
 
 #### Lazy weight computation
 
@@ -544,9 +708,10 @@ currently **open**.
 
 #### Authority libraries (RFP-001, RFP-002)
 
-The protocol fee rate and treasury address are configured by the program's admin
-authority, and the sale pause capability (F6) builds on a freeze authority.
-These come from the standardised libraries in
+Each launchpad namespace is governed by its own admin authority (Functionality
+requirement F.11), which configures the protocol fee rate and treasury address
+(F.10) and can be transferred or renounced; the sale pause capability (F.6)
+builds on a freeze authority. These come from the standardised libraries in
 [RFP-001](./RFP-001-admin-authority-lib.md) and
 [RFP-002](./RFP-002-freeze-authority-lib.md). Both RFPs are closed (candidate
 picked) and the libraries are in development.
