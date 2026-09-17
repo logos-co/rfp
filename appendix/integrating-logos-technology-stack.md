@@ -308,11 +308,11 @@ frontends today: `logos-basecamp`, the desktop GUI shell, and
 sense, and they are not module loaders either. They are what a module uses to
 implement its own contract and to call the other modules it depends on.
 
-Because the two are separate, "a Logos SDK for language X" denotes two FFI wraps
-rather than one: a wrap of the SDK surface to consume a module's API, and a wrap
-of `liblogos_core` to host modules in the first place. The distinction is easy to
-lose in the shorthand and it determines the scope of the work, so the appendix
-keeps the two named apart throughout.
+Because the two are separate, "a Logos SDK for language X" is a shorthand that
+hides more than one piece of work. What an integrator needs is better stated as a
+set of capabilities a library must offer in their language, set out under
+[What a development kit must provide](#what-a-development-kit-must-provide)
+below.
 
 The current SDKs are:
 
@@ -401,6 +401,50 @@ would let such an application distribute through conventional channels. Whether
 the Qt event loop the runtime requires can coexist with Electron's own is among
 the things the PoC has yet to settle.
 
+#### What a development kit must provide
+
+The useful way to scope this work is by the capabilities a library must offer in
+a given language, rather than by which artefact gets wrapped. The artefact
+question is unsettled, as the rest of this section describes, but the
+capabilities are stable regardless of how it resolves, and an integrator needs
+all of them before anything works end to end.
+
+**1. Consuming a module's API.** Calling a loaded module's methods and
+subscribing to its events. This is what `logos-rust-sdk` and `logos-cpp-sdk`
+provide for their own languages, though only from inside a module.
+
+**2. Managing modules.** Discovery, dependency resolution, loading and
+unloading, access policy, transports. This is the `liblogos_core` C API, and it
+is the best understood of the three.
+
+**3. Tokens and the capability handshake.** Obtaining a capability token and
+presenting it so that an invocation completes rather than hanging. Today the
+only route to this from a language other than C++ is driving `logosctl`, which
+holds the token manager that participates in the handshake.
+
+The Qt dependency bears on each of the three differently, and the distinction
+matters more than a general statement that the stack depends on Qt:
+
+- For capability 2 it is a build-time and packaging cost. A twenty-line C++ shim
+  is enough to satisfy it, as the Rust proof of concept shows.
+- For capability 1 it is the reason a Qt-free route reaches introspection but
+  not invocation.
+- For capability 3 it is the substance of the problem, since the handshake is
+  reachable through a client holding a real token manager, which today means a
+  C++ binary.
+
+Two things follow for anyone scoping this work. A delivery covering fewer than
+all three leaves an integrator with something that does not work end to end: a
+kit with 2 alone loads modules it cannot call, and a kit with 1 and 2 but not 3
+can express calls that never complete. And whether these stay three capabilities
+is itself open. If the capability surface becomes reachable over a plain
+transport, the third folds into the first and the kit wraps one C ABI for both.
+If the handshake is instead meant to stay behind a token manager, a kit for
+another language needs a different answer, and a route that drives a separate
+binary per call is a poor fit for mobile whatever its merits on a desktop or a
+server. Which of those is intended is a question for the protocol owners rather
+than one this appendix can settle.
+
 #### Gaps for `logos-liblogos`
 
 Taking Android as the worked example, because it is the hardest of the targets
@@ -414,9 +458,9 @@ modules and set the access policy.
 
 **2. An FFI wrap of the SDK surface, the consuming half.** The binding above only
 hosts; calling into a loaded module is a different surface, and a Kotlin
-equivalent of what `logos-cpp-sdk::logos_consumer` provides does not exist. These
-first two are the two wraps that "a Logos SDK for Kotlin" actually denotes, and
-neither delivers a usable integration without the other.
+equivalent of what `logos-cpp-sdk::logos_consumer` provides does not exist.
+Delivering this without also reaching the capability handshake leaves calls that
+never complete, so capability 3 above is part of the same piece of work.
 
 **3. A single-process framework for Android.** The default container runs one OS
 process per module, which Android's application model does not accommodate the
@@ -541,13 +585,12 @@ dedicated wallet or node native libraries altogether. An application would host
 modules through `liblogos_core` and call them through the consumer surface,
 which is the arrangement Basecamp and `logosctl` already use.
 
-This means two FFI wraps per language rather than one, for the reason set out
-under [Existing Logos SDKs](#existing-logos-sdks). Neither is sufficient alone:
-without the SDK wrap an application can load a module but cannot call it, and
-without the `liblogos_core` wrap it can express calls but has nothing to call,
-since no module has been loaded and nothing is running the module network. A
-delivery that produces one and defers the other leaves an integrator with
-nothing usable, so the two belong in the same piece of work.
+This means a library per language carrying the three capabilities set out under
+[What a development kit must provide](#what-a-development-kit-must-provide):
+consuming a module's API, managing modules, and the token and capability
+handshake. A delivery covering fewer than all three leaves an integrator with
+something that does not work end to end, so they belong in the same piece of
+work.
 
 This requires:
 
