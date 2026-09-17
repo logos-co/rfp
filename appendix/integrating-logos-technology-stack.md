@@ -409,18 +409,37 @@ question is unsettled, as the rest of this section describes, but the
 capabilities are stable regardless of how it resolves, and an integrator needs
 all of them before anything works end to end.
 
-**1. Consuming a module's API.** Calling a loaded module's methods and
-subscribing to its events. This is what `logos-rust-sdk` and `logos-cpp-sdk`
-provide for their own languages, though only from inside a module.
+They currently live in three different repositories, which is part of what makes
+the shape hard to see.
 
-**2. Managing modules.** Discovery, dependency resolution, loading and
-unloading, access policy, transports. This is the `liblogos_core` C API, and it
-is the best understood of the three.
+**1. Runtime lifecycle.** Discovery, dependency resolution, loading and
+unloading, access policy, transports. This is the `logos_core_*` C ABI from
+`logos-liblogos`, shipped as `liblogos_core`. It is solved: a plain C ABI that
+both proofs of concept wrapped without difficulty, and nothing about it is
+language specific.
 
-**3. Tokens and the capability handshake.** Obtaining a capability token and
-presenting it so that an invocation completes rather than hanging. Today the
-only route to this from a language other than C++ is driving `logosctl`, which
-holds the token manager that participates in the handshake.
+**2. Provider hosting.** Registering a provider so that calls can be served,
+through `LogosAPI` and `LogosAPIProvider`, from `logos-liblogos` and shipped as
+`liblogos_qt_host`. This is the barrier. `LogosAPI` is a `QObject` and
+registration goes through Qt, with no C ABI over it, so every language binding
+needs a C++ shim and a Qt one at that.
+
+**3. Invocation and authorisation.** Calling a module's methods, subscribing to
+its events, and the capability handshake that makes a call complete rather than
+hang. This is `LogosProviderObject`, `LogosAPIClient` and `TokenManager`, from
+`logos-protocol` and shipped as `liblogos_protocol`. It is half solved, which is
+the frustrating part: the provider interface already defines a universal
+interface alongside the Qt one, taking strings and JSON, which is exactly the
+shape an FFI binding wants. But the hosting side and the token handshake are
+still Qt C++, so that universal interface cannot be reached from outside without
+one.
+
+The `lp_*` C ABI that `logos-protocol` also exports is already bound in Rust and
+in JavaScript, and it carries invocation, token saving and subscription. Binding
+it again in another language is therefore not the missing piece: a binding that
+exists reaches introspection but not invocation, because the capability surface
+publishes nothing over a plain transport and the token lookup has nothing to
+reach.
 
 The third capability is the one where the shape of the answer matters most,
 because driving a separate binary per call is a poor fit for an embedded
@@ -446,27 +465,58 @@ assumption before any of the in-process work is committed to.
 The Qt dependency bears on each of the three differently, and the distinction
 matters more than a general statement that the stack depends on Qt:
 
-- For capability 2 it is a build-time and packaging cost. A twenty-line C++ shim
-  is enough to satisfy it, as the Rust proof of concept shows.
-- For capability 1 it is the reason a Qt-free route reaches introspection but
-  not invocation.
-- For capability 3 it is the substance of the problem, since the handshake is
-  reachable through a client holding a real token manager, which today means a
-  C++ binary.
+- For the runtime lifecycle it is a build-time and packaging cost. A twenty-line
+  C++ shim is enough to satisfy it, as the Rust proof of concept shows.
+- For provider hosting it is the barrier itself, since registration goes through
+  a `QObject` with no C ABI over it.
+- For invocation and authorisation it is what keeps an already universal
+  interface out of reach, since the handshake runs through a client holding a
+  token manager, which today means C++.
+
+Three changes upstream would between them turn this from a C++ undertaking into
+a binding exercise, and they are worth naming because they are smaller than the
+work they would displace.
+
+- **A C ABI for provider registration**, over the universal string and JSON
+  interface that already exists, would make provider hosting bindable from any
+  language with no Qt. Groundwork may already cover part of this: the `lp_*` C
+  ABI and the Qt-free provider interface were extracted from the C++ SDK into
+  `logos-protocol`
+  ([logos-protocol#2](https://github.com/logos-co/logos-protocol/pull/2),
+  [#3](https://github.com/logos-co/logos-protocol/pull/3),
+  [logos-cpp-sdk#67](https://github.com/logos-co/logos-cpp-sdk/pull/67)), to
+  verify against the residual registration gap.
+- **Publishing the capability surface over a plain transport** would make the
+  existing `lp_*` ABI sufficient for consuming modules. No planned work found.
+- **Shipping the gateway as a library**, rather than only inside the `logosctl`
+  binary, would make invocation reachable, since it is already written and
+  already Qt-free in its dispatch. The LogosCore roadmap carries a testnet 0.3
+  item to support talking to an existing core, which addresses the same need by
+  the opposite mechanism, a client reaching a running daemon rather than an
+  application hosting the gateway itself, so it may not substitute for this, to
+  verify.
+
+Reducing the Qt dependency is itself an active programme rather than a proposal.
+Work to remove Qt from the core stack has been under way across
+`logos-liblogos`, the C++ SDK and the CLI, including removal of the
+`QCoreApplication` requirement
+([logos-logoscore-cli#35](https://github.com/logos-co/logos-logoscore-cli/pull/35)),
+which is the constraint the proof of concept above had to shim around. The
+roadmap pages predate much of this work, so the absence of an item there is not
+evidence that a given piece is unplanned, and the repositories are the better
+place to check.
 
 Two things follow for anyone scoping this work. A delivery covering fewer than
-all three leaves an integrator with something that does not work end to end: a
-kit with 2 alone loads modules it cannot call, and a kit with 1 and 2 but not 3
-can express calls that never complete. And whether these stay three capabilities
-is itself open. If the capability surface becomes reachable over a plain
-transport, the third folds into the first and the kit wraps one C ABI for both.
-If the handshake is instead meant to stay behind a token manager, the kit hosts
-that gateway in process, as described above, rather than driving a separate
+all three leaves an integrator with something that does not work end to end: the
+runtime lifecycle alone loads modules it cannot call, and adding provider hosting
+without invocation and authorisation produces calls that never complete. And the
+split between the three is not fixed. If the capability surface becomes reachable
+over a plain transport, consuming a module needs no more than the `lp_*` ABI that
+is already bound. If the handshake instead stays behind a token manager, the kit
+hosts that gateway in process, as described above, rather than driving a separate
 binary per call. Either way the aim is the same, an application that carries the
 runtime rather than one that shells out to it, and the difference is how much
-C++ sits between the integrator's language and a working call. Which of the two
-holds is a question for the protocol owners rather than one this appendix can
-settle.
+C++ sits between the integrator's language and a working call.
 
 #### Gaps for `logos-liblogos`
 
@@ -483,13 +533,20 @@ modules and set the access policy.
 hosts; calling into a loaded module is a different surface, and a Kotlin
 equivalent of what `logos-cpp-sdk::logos_consumer` provides does not exist.
 Delivering this without also reaching the capability handshake leaves calls that
-never complete, so capability 3 above is part of the same piece of work.
+never complete, so invocation and authorisation above is part of the same piece
+of work. Of the languages an integrator is likely to want, only the JavaScript
+SDK has a tracked item to align it with the current runtime; Kotlin, Swift, Dart
+and Go do not appear on the roadmap at all.
 
 **3. A single-process framework for Android.** The default container runs one OS
 process per module, which Android's application model does not accommodate the
 way a desktop does. This is the Local mode question from the mobile side: modules
 would register in-process rather than being spawned, and the registration
-mechanism is what a mobile host needs.
+mechanism is what a mobile host needs. The roadmap carries iOS and Android
+support as testnet 0.3 items, though as bare entries without a milestone page,
+and the in-process module model does not appear in them; the recent direction of
+travel, towards stronger process isolation, runs the other way. Whether this is
+planned is worth confirming with the LogosCore team rather than inferring.
 
 **4. Addressing the Qt dependency.** This one raises the cost of the others
 rather than blocking them, because Qt leaks through the C boundary rather than
