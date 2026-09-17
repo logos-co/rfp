@@ -397,9 +397,9 @@ matters for the framework limitations noted under
 [Basecamp & Logos Core](#basecamp--logos-core): if an Electron application can
 host Logos modules directly, that is a different answer to the reach of
 web-stack developers than making Basecamp itself more Electron-like, and it
-would let such an application distribute through conventional channels. Whether
-the Qt event loop the runtime requires can coexist with Electron's own is among
-the things the PoC has yet to settle.
+would let such an application distribute through conventional channels. It has
+established the packaging and the module loading, and what it has not yet settled
+is the invocation path, which is the third capability below.
 
 #### What a development kit must provide
 
@@ -422,6 +422,27 @@ presenting it so that an invocation completes rather than hanging. Today the
 only route to this from a language other than C++ is driving `logosctl`, which
 holds the token manager that participates in the handshake.
 
+The third capability is the one where the shape of the answer matters most,
+because driving a separate binary per call is a poor fit for an embedded
+integration and an especially poor one for mobile. The preferable shape is for
+an application to host the same gateway in process rather than to spawn a
+daemon beside it: `logosctl`'s daemon registers `core_service` as an in-process
+module through the C++ SDK, and that gateway is what every client talks to. Its
+dispatch is deliberately Qt-free, and the two methods an integration needs from
+it, proxying a call to a module and watching a module's events, are a small
+surface over the module management an application already has. Taking that route
+would give a development kit a genuine `call(module, method, args)` without a
+second copy of the runtime in the artefact, and it has a reference
+implementation to follow rather than being a new design.
+
+What stands in the way is that the invocation path inside that gateway is a
+client method over Qt's remote objects, so it cannot simply be wrapped from
+another language: hosting the gateway is C++ work even when everything above it
+is not. Whether the approach holds is also unconfirmed at the time of writing.
+The proof of concept that is pursuing it has not yet driven a module through a
+running daemon's gateway, which is the cheaper check that would validate the
+assumption before any of the in-process work is committed to.
+
 The Qt dependency bears on each of the three differently, and the distinction
 matters more than a general statement that the stack depends on Qt:
 
@@ -439,11 +460,13 @@ kit with 2 alone loads modules it cannot call, and a kit with 1 and 2 but not 3
 can express calls that never complete. And whether these stay three capabilities
 is itself open. If the capability surface becomes reachable over a plain
 transport, the third folds into the first and the kit wraps one C ABI for both.
-If the handshake is instead meant to stay behind a token manager, a kit for
-another language needs a different answer, and a route that drives a separate
-binary per call is a poor fit for mobile whatever its merits on a desktop or a
-server. Which of those is intended is a question for the protocol owners rather
-than one this appendix can settle.
+If the handshake is instead meant to stay behind a token manager, the kit hosts
+that gateway in process, as described above, rather than driving a separate
+binary per call. Either way the aim is the same, an application that carries the
+runtime rather than one that shells out to it, and the difference is how much
+C++ sits between the integrator's language and a working call. Which of the two
+holds is a question for the protocol owners rather than one this appendix can
+settle.
 
 #### Gaps for `logos-liblogos`
 
