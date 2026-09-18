@@ -1,13 +1,13 @@
 # Appendix: Integrating the Logos Technology Stack
 
-This appendix describes how an application reaches the Logos technology stack,
-and what that costs. It covers the shapes an integration takes, the components
-the stack exposes to serve them, the measured size of the node libraries an
-embedded integration links, and the questions the stack has not yet settled.
+This appendix discusses the integration options for the Logos technology stack:
+how an application reaches it, what that costs, and which approach is
+recommended. It covers the shapes an integration takes, the components the stack
+exposes to serve them, the measured size of the node libraries an embedded
+integration links, and the questions the stack has not yet settled.
 
-It is written as shared background for the RFPs that define those components
-individually, rather than as a specification of any one of them. Where it names
-a deliverable, the RFP for that deliverable is the authority on its scope.
+The recommendation it reaches is a position to build on rather than a settled
+plan, and it may become an RFP in its own right.
 
 ## Scope and priority
 
