@@ -222,7 +222,8 @@ overlapping reasons.
 
 **LEZ** needs to execute private transactions locally in order to prove them.
 Execution is itself proven rather than merely performed: each program runs and
-is proven in the zkVM, and the composition is then proven recursively.
+is proven in the zkVM, and the composition is then proven recursively. Public
+transactions require neither, so the cost falls per transaction kind.
 
 **Logos Blockchain** transactions carry a zero-knowledge proof in place of a
 signature. This holds per operation rather than per transaction: value transfers
@@ -244,20 +245,7 @@ brings fork tracking, reorg handling and pending state with it. The external
 wallet implementation in the zone SDK is the reference for what that actually
 involves.
 
-#### Logos characteristics
-
-There are a few characteristics to note for a Logos wallet library that differs
-from other L1s, in addition to being non-EVM:
-
-- 2 chains to integrate: Logos Blockchain the L1, native tokens are native to
-  the L1, so is staking; LEZ is the programmable chain living in a zone; anyone
-  can create their own zone: Zone-as-a-Service.
-- The chains have different cryptographic schemes between LEZ and Logos
-  (Secp256k1, ed25519)
-- LEZ private transactions require client-side **execution and** proving. LEZ
-  public transactions require neither, so the cost is per transaction kind.
-- Logos Blockchain value transfers require client-side proving, since the proof
-  stands in for the signature.
+#### The cost of remote nodes for Logos
 
 **If the RPC node and the wallet are run by different entities, are private
 transactions still valuable?**
@@ -658,24 +646,20 @@ the opportunity for a subtle, consensus-relevant mistake. A native library in
 another language is not merely more code; it is more code of a kind that is hard
 to get right and hard to review.
 
-Both Logos chains carry that property:
-
-- **LEZ** requires client-side proving for private transactions, so a wallet
-  executes and proves locally rather than signing a payload.
-- **Logos Blockchain** replaces signatures with zero-knowledge proofs whose
-  circuits ship as C libraries. Any wallet that builds a transaction embeds
-  those libraries whatever language surrounds them, so "native" would mean a
-  language-specific shell over the same C dependency rather than an independent
-  implementation. Private UTXO increases that footprint. Alongside proving, UTXO
-  tracking brings fork handling, reorg and pending state, which is the part of
-  Bitcoin wallet software that is most often reimplemented and most often
-  reimplemented wrongly.
+Both Logos chains carry that property, for the reasons set out under
+[Ecosystem overview](#ecosystem-overview): each requires client-side proving,
+and the circuits that do it are embedded by any wallet that builds a transaction
+whatever language surrounds it. "Native" would therefore mean a
+language-specific shell over the same dependency rather than an independent
+implementation. Alongside proving, UTXO tracking brings fork handling, reorg and
+pending state, which is the part of Bitcoin wallet software most often
+reimplemented and most often reimplemented wrongly.
 
 The consequence is that a pure native wallet library in Kotlin, Swift, Dart or
 Go is discarded for both chains. It would duplicate cryptography that is
-difficult to write correctly, while still embedding the C circuit libraries it
-was meant to avoid, so it would carry the cost of a rewrite without the benefit
-of independence.
+difficult to write correctly, while still embedding the circuit libraries it was
+meant to avoid, so it would carry the cost of a rewrite without the benefit of
+independence.
 
 A specification is the one thing that would change this calculus, and it is
 worth keeping open rather than pursuing now. A written specification for UTXO
