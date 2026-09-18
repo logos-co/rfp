@@ -609,12 +609,15 @@ This requires:
    an independent AAR, so that an application resolves only the modules it needs
    and the rest never reach the artefact.
 
-4. **Enable dynamic configuration between remote JSON-RPC nodes and local
-   nodes.** With modular wallet and node components, an application could load a
-   wallet module locally, point it at a remote node module via JSON-RPC, or load
-   a local node module, switching at runtime based on platform, network
-   conditions, or user preference. This enables both modes for non-Basecamp apps
-   at low cost.
+4. **Deliver a client and server module pair, starting with JSON-RPC.** Reaching
+   a remote node needs both halves: a server module projecting the node's API
+   over JSON-RPC, and a client module answering that same API over the Logos
+   Core FFI by calling the remote endpoint. The client implements the same IPC
+   interface as the module it proxies, so it and a local node module are
+   interchangeable to a caller. An application then chooses local or remote by
+   which module it loads rather than by a code change, switching on platform,
+   network conditions or user preference. The same pair shape applies to further
+   transports; see [Deliverables](#deliverables) for the detail.
 
 This is the ideal end-state because it avoids maintaining parallel SDKs (Logos
 SDK plus a kit per protocol) and lets integrators compose only the components
