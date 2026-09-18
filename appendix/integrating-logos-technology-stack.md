@@ -925,15 +925,16 @@ and a proposal is expected to obtain the figures rather than assume them.
 
 ## Open questions
 
-**Mobile strategy for LEZ and Logos Blockchain nodes.** It is not settled
-whether a mobile device runs light versions of the chain nodes and joins the
-peer-to-peer networks directly, reaches remote nodes over RPC alone, or combines
-the two. None of the protocols has defined its mobile strategy, and the answer
-need not be the same for each. This is a protocol question rather than an
-integration one, and the architecture above keeps both options open: the node
-API is reached the same way whether a local node module or a client module
-answers it, so settling on either answer does not invalidate the surface built
-against it.
+### Mobile strategy for LEZ and Logos Blockchain nodes
+
+It is not settled whether a mobile device runs light versions of the chain nodes
+and joins the peer-to-peer networks directly, reaches remote nodes over RPC
+alone, or combines the two. None of the protocols has defined its mobile
+strategy, and the answer need not be the same for each. This is a protocol
+question rather than an integration one, and the architecture above keeps both
+options open: the node API is reached the same way whether a local node module
+or a client module answers it, so settling on either answer does not invalidate
+the surface built against it.
 
 ### Multizone integration
 
