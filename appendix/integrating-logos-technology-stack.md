@@ -1172,6 +1172,41 @@ to face more than one zone. Bridges, aggregators, explorers, exchanges listing
 assets from several zones, and wallets showing a user their holdings across
 zones all share this shape.
 
+**The architecture has to cater for multizone regardless of how many zones
+appear.** That is the position this appendix takes, and it does not depend on
+predicting the answer. If several LEE zones do emerge, the integrators most
+likely to handle them are exactly the ones named above: an exchange that can
+withdraw directly to a zone, an aggregator quoting across zones, a swap routing
+between them. These are capabilities that follow naturally once the integration
+surface carries a zone dimension, and are awkward to retrofit once it does not.
+
+Two distinctions matter for what that surface has to cover.
+
+**Several LEE zones.** Zones running the same execution environment, differing
+in their configuration and in who operates them. An integrator reaches them
+through one integration that is zone-aware, which is the case the sections below
+are written against.
+
+**Zones that are not LEE.** A zone is not obliged to run LEZ, and one that does
+not is a different chain for integration purposes: its own node, its own wallet,
+its own library. No amount of zone-awareness in the LEZ integration surface
+reaches it. This bounds what multizone support can promise, and it is worth
+stating plainly so that "we support multiple zones" is not read as covering
+every zone that exists.
+
+**Whether to facilitate many LEE zones is a commercial question, not only a
+technical one, and it should be settled before the target architecture
+hardens.** More zones fragment liquidity, which is a cost borne by the protocols
+that most need depth: a lending market or an automated market maker split across
+zones is thinner in each, worse to use, and easier to manipulate than the same
+activity in one place. Thin markets are a security consideration as much as a
+user experience one. Against that, zones give isolation, independent throughput
+and room for configurations that would not be acceptable on a shared chain.
+Where that balance falls determines how much of the integration surface should
+be spent making many zones easy to reach, so the two questions are worth
+answering together rather than letting the architecture settle the commercial
+one by default.
+
 The `lez_core` module serves one zone at a time. That makes multizone an
 unresolved question for the architecture above rather than a configuration
 detail, and it bears on every deliverable: the node API, the proxy module, and
