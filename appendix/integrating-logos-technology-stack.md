@@ -673,12 +673,12 @@ The only sound way to keep a library out is never to resolve it: the dependency
 graph is the tree-shaking.
 
 [`logos-android-wrap-poc`](https://github.com/fryorcraken/logos-android-wrap-poc)
-demonstrates this for Logos, publishing delivery and storage as separate Kotlin
-artefacts and asserting in CI that the storage `.so` is absent from a
-delivery-only APK. It anticipates the same for `lez-node`, `lez-wallet`,
-`l1-node` and `l1-wallet`. BDK is the counter-example: one monolithic
-`libbdkffi.so` per ABI, 42.6 MiB across three ABIs against 1.7 MiB of Kotlin.
-UniFFI generates bindings but offers nothing for size.
+aims to demonstrate this for Logos (still wip), publishing delivery and storage
+as separate Kotlin artefacts and asserting in CI that the storage `.so` is
+absent from a delivery-only APK. It anticipates the same for `lez-node`,
+`lez-wallet`, `l1-node` and `l1-wallet`. BDK is the counter-example: one
+monolithic `libbdkffi.so` per ABI, 42.6 MiB across three ABIs against 1.7 MiB of
+Kotlin. UniFFI generates bindings but offers nothing for size.
 
 The figures under [Artefact size](#artefact-size) are what this has to beat.
 
@@ -715,12 +715,11 @@ none of the independence that would justify it. Alongside proving, UTXO tracking
 brings fork handling, reorg and pending state, which is the part of Bitcoin
 wallet software most often reimplemented and most often reimplemented wrongly.
 
-A specification is the one thing that would change this calculus, and it is
-worth keeping open rather than pursuing now. A written specification for UTXO
-tracking and transaction construction, extracted from the existing Rust
-implementation, would let a native library be built against something reviewable
-rather than against a reference implementation's behaviour. Whether such a
-specification can be usefully extracted is unresolved.
+A specification would change this calculus, but only for Logos Blockchain. One
+covering UTXO tracking and transaction construction, extracted from the existing
+Rust implementation, would let a native library be built against something
+reviewable. LEZ stays out of reach either way, since local execution is too
+complex to specify usefully. Worth keeping open rather than pursuing now.
 
 ### Discarded: a single BDK-style FFI library
 
@@ -738,12 +737,6 @@ protocol pair (see [Artefact size](#artefact-size)), against a complete Bitcoin
 kit at 15.3 MiB. Nor can the waste be trimmed after the fact, since a `.so` is
 included by dependency resolution rather than reachability and no shrinker
 removes it.
-
-**So the binding approach is worth taking from BDK and the packaging is not.**
-Wrapping existing Rust over FFI rather than reimplementing it is right, and it
-is what both recommendations above do. Shipping the result as one artefact is
-wrong, and a set of per-component libraries is the alternative, for the reasons
-under the fallback above.
 
 ## Deliverables
 
