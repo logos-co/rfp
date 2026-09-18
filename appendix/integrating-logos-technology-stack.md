@@ -765,6 +765,14 @@ delivered.
    and over the Logos Core FFI for Basecamp apps and transport proxy modules
    (see 4 and 6).
 
+   **This is the only API for LEZ chain state access, in both directions.** A
+   node is a black box: which part of it answers a given call is implementation,
+   not API, so it serves every read rather than directing a consumer elsewhere,
+   and a capability a consumer needs is required of the node whichever part
+   holds the data today. It is also the only way onto the chain, relaying signed
+   transactions and new commitments produced by the wallet without constructing
+   or signing anything itself.
+
 2. **The LEZ wallet API**
    ([logos-co/ecosystem#236](https://github.com/logos-co/ecosystem/issues/236)):
    key handling, derivation, proving, and signing, covering local and wallet
@@ -867,24 +875,6 @@ holding it across an FFI boundary, and indirectly, through the JSON-RPC server
 and client modules, so its surface has to survive projection onto a wire
 protocol rather than assuming a local caller. And because a consumer may reach
 the node through either path, the two must express the same semantics.
-
-### The LEZ node API is the only API for LEZ chain state access
-
-The node API is the whole of the surface available to a consumer, in both
-directions, and a LEZ node is a black box: which part of it answers a given call
-is implementation, not API. The node serves every read, obtaining what it does
-not hold rather than directing the consumer elsewhere. It is also the only way
-onto the chain, relaying signed transactions and new commitments produced by the
-wallet without constructing or signing anything itself. A capability a consumer
-needs is therefore required of the node regardless of which part of it holds the
-data today.
-
-### Wallet and node separation
-
-Wallet and node functionality must be separable for both chains, so that a
-wallet can be loaded without the full node. This is what makes a wallet-only
-mobile integration possible, and it is a prerequisite for both recommendations
-above rather than a property of either one.
 
 ## Artefact size
 
