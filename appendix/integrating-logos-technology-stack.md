@@ -123,12 +123,14 @@ secure, private and censorship-resistant distribution of software to users.
 
 - **Distribution via Basecamp/Basecamp as a dependency**: The canonical
   distribution path involves the installation of Basecamp or `logosctl` first.
-  Distribution via Basecamp and not App Store for mobile (TODO: to be
-  specified). However, there is an available path to **build the application as
-  one standalone native app**, linking in all necessary modules. The clearest
-  reference is the module tutorial, where `mkLogosQmlModule` wires up
-  `apps.default` so that `nix run .` launches a UI module in a standalone window
-  with its backend modules bundled, Basecamp not involved, and
+  Distribution would be via Basecamp rather than the App Store on mobile, though
+  the mobile Basecamp architecture is still work in progress and not settled, so
+  this remains an open question. However, there is an available path to **build
+  the application as one standalone native app**, linking in all necessary
+  modules. The clearest reference is the module tutorial, where
+  `mkLogosQmlModule` wires up `apps.default` so that `nix run .` launches a UI
+  module in a standalone window with its backend modules bundled, Basecamp not
+  involved, and
   `nix run . --override-input calc_module path:../logos-calc-module` runs it
   against a local module
   ([logos-tutorial, `tutorial-qml-ui-app.md` at `tutorial-v1`](https://github.com/logos-co/logos-tutorial/blob/tutorial-v1/tutorial-qml-ui-app.md)).
@@ -626,12 +628,14 @@ This requires:
 
 This is the ideal end-state because it avoids maintaining parallel SDKs (Logos
 SDK + LEZ-DK + Logos Blockchain SDK) and lets integrators compose only the
-components they need. It also relies on the Logos core framework, having most
-components in common with the Basecamp path (TODO: verify/clarify). However, it
-depends on delivering mobile Local mode, modularising the node crates, and
-producing language SDKs for Kotlin, Swift, Dart, and Go split per component, so
-that an integrator resolves only what they ship. If those prerequisites are not
-met, this path is not yet viable.
+components they need. It also relies on the Logos core framework, sharing its
+components with the Basecamp path rather than duplicating them: the proofs of
+concept above host the same `liblogos_core` and load the same modules Basecamp
+does, which is what establishes that the two paths differ in the frontend rather
+than in the runtime beneath it. However, it depends on delivering mobile Local
+mode, modularising the node crates, and producing language SDKs for Kotlin,
+Swift, Dart, and Go split per component, so that an integrator resolves only
+what they ship. If those prerequisites are not met, this path is not yet viable.
 
 ### Discarded: native wallet libraries per language
 
