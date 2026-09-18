@@ -18,10 +18,14 @@ The Logos technology stack comprises four main components:
 - **Storage**: decentralised storage.
 - **Delivery**: messaging and delivery infrastructure.
 
-**Regarding integration, this appendix treats LEZ and Logos Blockchain integration as the primary focus.** An integrator may use either chain individually, or both together;
-the analysis and recommendations below are written with that in mind.
+**Regarding integration, this appendix treats LEZ and Logos Blockchain
+integration as the primary focus.** An integrator may use either chain
+individually, or both together; the analysis and recommendations below are
+written with that in mind.
 
-**Storage** is treated as medium priority, with potential integrators already identified; or as a potential extension to successful LEZ or Blockchain integration.
+**Storage** is treated as medium priority, with potential integrators already
+identified; or as a potential extension to successful LEZ or Blockchain
+integration.
 
 **Delivery** is treated as lowest priority at this point in time.
 
@@ -36,9 +40,9 @@ Two choices separate the paths from each other.
 **What the application is built from** is the division that matters most. An
 application built from Logos modules, a Logos UI module paired with a Logos Core
 module, reaches `lez_core` over the Logos Core FFI and needs no development kit
-at all. An application not built that way reaches LEZ through a language
-library instead. This is a property of the application, not of the platform it
-runs on: a Basecamp app is a Basecamp app on desktop, mobile or a server.
+at all. An application not built that way reaches LEZ through a language library
+instead. This is a property of the application, not of the platform it runs on:
+a Basecamp app is a Basecamp app on desktop, mobile or a server.
 
 **Where the node runs** is the second choice. The application embeds a node,
 linking it into its own process, or reaches a remote one over a transport.
@@ -65,8 +69,7 @@ The end goal may resemble the edge and relay distinction that delivery
 infrastructure conventionally draws, where a constrained device runs a light
 participant that leans on better-provisioned peers, and a capable one carries
 the full role. Whether the chain nodes adopt that shape is part of the mobile
-topology question under
-[Logos stack readiness](#logos-stack-readiness).
+topology question under [Logos stack readiness](#logos-stack-readiness).
 
 The three paths below follow from those two choices.
 
@@ -153,48 +156,127 @@ exception as of today.
 From superficial research, a variety of languages is used by potential
 integrators (Rust, Golang, Node.JS, C++, etc.; see appendix).
 
-From a recent L1 launch perspective, non-EVM chains tend to provide a full suite of native SDKs (Sui 8 languages, Aptos 4, Injective/Cosmos 4; see appendix). The SDKs are all native (non-FFI) implementations of their wallet features.
+From a recent L1 launch perspective, non-EVM chains tend to provide a full suite
+of native SDKs (Sui 8 languages, Aptos 4, Injective/Cosmos 4; see appendix). The
+SDKs are all native (non-FFI) implementations of their wallet features.
 
-Only Bitcoin uses a Rust-FFI strategy (Bitcoin Dev Kit) to minimize re-writing of software.
+Only Bitcoin uses a Rust-FFI strategy (Bitcoin Dev Kit) to minimize re-writing
+of software.
 
-The most obvious benefit of a Rust-FFI approach is limiting software rewrite by maintaining the core logic in one codebase. This has been seen as critical for Bitcoin due to the limited number of developers (including cryptographers) who understand Bitcoin protocols and are motivated to implement the libraries. BIPs are usually implemented in rust-bitcoin first, where Bitcoin maintainers primarily work. However, there are a number of drawbacks:
- 1. The cost of wrapping and making the FFI work on various platforms may not be as predictable as rewriting the library.
-2. The developer experience is less idiomatic, using less type-safety across all languages as the API needs to be flat and compatible for all languages;
-3. No tree-shaking is available, meaning all functionality is present in the pre-built artefact, unless several FFI libraries are provided; especially important for mobile platforms.
-4. Duplication between libraries: to avoid one big library with no tree-shaking, a solution can be to split them (e.g., LDK vs BDK). The resulting issue is that both dev kits may ship common code.
+The most obvious benefit of a Rust-FFI approach is limiting software rewrite by
+maintaining the core logic in one codebase. This has been seen as critical for
+Bitcoin due to the limited number of developers (including cryptographers) who
+understand Bitcoin protocols and are motivated to implement the libraries. BIPs
+are usually implemented in rust-bitcoin first, where Bitcoin maintainers
+primarily work. However, there are a number of drawbacks:
 
-The complexity of the wallet software seems to have a strong influence on the design choice between Sui and Bitcoin. In Sui, the clients mostly sign transactions, with the chain state being provided by the RPC node. More complex logic is needed for a Bitcoin wallet: UTXO tracking, building transactions satisfying complex descriptions (miniscript), and validating them locally. **LEZ is clearly closer to Bitcoin in this regard due to the need to execute private transactions locally to prove them.** However, **Logos Blockchain wallet logic is very light** (the `wallet` crate in `logos-blockchain` is ~2.5 kLOC and the wallet service runs node-side; see [Appendix: L1 SDK Strategies, section 5.2](./l1-sdk-strategies.md#52-logos-blockchain)). In terms of cost of re-implementation, **the LEZ wallet is the main risk, and re-implementation of Logos Blockchain wallet logic in another language may be a cost-effective solution.**
+1. The cost of wrapping and making the FFI work on various platforms may not be
+   as predictable as rewriting the library.
+2. The developer experience is less idiomatic, using less type-safety across all
+   languages as the API needs to be flat and compatible for all languages;
+3. No tree-shaking is available, meaning all functionality is present in the
+   pre-built artefact, unless several FFI libraries are provided; especially
+   important for mobile platforms.
+4. Duplication between libraries: to avoid one big library with no tree-shaking,
+   a solution can be to split them (e.g., LDK vs BDK). The resulting issue is
+   that both dev kits may ship common code.
+
+The complexity of the wallet software seems to have a strong influence on the
+design choice between Sui and Bitcoin. In Sui, the clients mostly sign
+transactions, with the chain state being provided by the RPC node. More complex
+logic is needed for a Bitcoin wallet: UTXO tracking, building transactions
+satisfying complex descriptions (miniscript), and validating them locally.
+**Both Logos chains are closer to Bitcoin than to Sui in this regard**, and for
+overlapping reasons.
+
+**LEZ** needs to execute private transactions locally in order to prove them.
+
+**Logos Blockchain** is not the light case it might appear to be. What a
+transaction carries in place of a signature is a zero-knowledge proof, and the
+circuits that produce it ship as C libraries, wrapped in Rust for the current
+wallet library. Those C libraries have to be embedded by any wallet that builds
+a transaction, whatever language it is otherwise written in, and private UTXO
+makes that heavier rather than lighter. Beyond proving, a wallet tracks UTXOs,
+which brings fork tracking, reorg handling and pending state with it. The
+external wallet implementation in the zone SDK is the reference for what that
+actually involves, and it is not a small piece of software.
 
 #### Logos characteristics
 
-There are a few characteristics to note for a Logos wallet library that differs from other L1s, in
-addition to being non-EVM:
-- 2 chains to integrate: Logos Blockchain the L1, native tokens are native to the L1, so is staking; LEZ is the programmable chain living in a zone; anyone can create their own zone: Zone-as-a-Service.
-- The chains have different cryptographic schemes between LEZ and Logos (Secp256k1, ed25519)
+There are a few characteristics to note for a Logos wallet library that differs
+from other L1s, in addition to being non-EVM:
+
+- 2 chains to integrate: Logos Blockchain the L1, native tokens are native to
+  the L1, so is staking; LEZ is the programmable chain living in a zone; anyone
+  can create their own zone: Zone-as-a-Service.
+- The chains have different cryptographic schemes between LEZ and Logos
+  (Secp256k1, ed25519)
 - LEZ private transactions require client-side proving
 
-**If the RPC node and the wallet are run by different entities, are private transactions still valuable?**
+**If the RPC node and the wallet are run by different entities, are private
+transactions still valuable?**
 
 The answer depends on which chain is being used.
 
-**LEZ private transactions.** Mostly yes, with caveats. Submitting a private transaction to an RPC endpoint does reveal network-level PII (IP address, API key) and the transaction payload that the RPC receives. That payload includes commitments and nullifiers, but the actual private account state is not in the payload: private values are encrypted to the recipient's viewing key and remain local to the account owner. A recipient with the viewing key can later decrypt the post-state, but the RPC provider cannot read it without that key. If a public account is involved in the transaction, the public portion is visible to the RPC provider as it would be to any node.
+**LEZ private transactions.** Mostly yes, with caveats. Submitting a private
+transaction to an RPC endpoint does reveal network-level PII (IP address, API
+key) and the transaction payload that the RPC receives. That payload includes
+commitments and nullifiers, but the actual private account state is not in the
+payload: private values are encrypted to the recipient's viewing key and remain
+local to the account owner. A recipient with the viewing key can later decrypt
+the post-state, but the RPC provider cannot read it without that key. If a
+public account is involved in the transaction, the public portion is visible to
+the RPC provider as it would be to any node.
 
-**Logos Blockchain transactions.** The value is reduced because the privacy mechanism is different. Transaction contents are public on the ledger, similar to Bitcoin. The Bedrock layer does not hide transaction data; instead, privacy is provided at the network level by the Blend Network, which hides the identity of block proposers and, with EmPoWering, blends transactions among core nodes and concurrent transactions to obscure their origin. Submitting through a third-party RPC bypasses the Blend Network entirely, because the RPC receives the transaction directly from the caller before relaying it. The RPC operator therefore sees the full transaction contents and can correlate them with the caller's IP address and API key. The only way to benefit from Blend privacy is to submit directly to the peer-to-peer network.
+**Logos Blockchain transactions.** The value is reduced because the privacy
+mechanism is different. Transaction contents are public on the ledger, similar
+to Bitcoin. The Bedrock layer does not hide transaction data; instead, privacy
+is provided at the network level by the Blend Network, which hides the identity
+of block proposers and, with EmPoWering, blends transactions among core nodes
+and concurrent transactions to obscure their origin. Submitting through a
+third-party RPC bypasses the Blend Network entirely, because the RPC receives
+the transaction directly from the caller before relaying it. The RPC operator
+therefore sees the full transaction contents and can correlate them with the
+caller's IP address and API key. The only way to benefit from Blend privacy is
+to submit directly to the peer-to-peer network.
 
-**Storage and delivery.** Privacy is not primarily provided by the RPC boundary. It comes from participating directly in the mix, gossipsub, or DHT networks. Routing reads or writes through a remote RPC provider therefore weakens the privacy properties those protocols are designed to provide.
+**Storage and delivery.** Privacy is not primarily provided by the RPC boundary.
+It comes from participating directly in the mix, gossipsub, or DHT networks.
+Routing reads or writes through a remote RPC provider therefore weakens the
+privacy properties those protocols are designed to provide.
 
-Thus, trust assumptions need to be considered when separating the node from the wallet. When both run inside the same infrastructure (for example, a CEX or custodian), the trust assumptions are similar to running them on the same device. However, when the RPC node is run by one entity (a project team or provider) and the wallet by another (an end-user wallet, DEX, or aggregator), the RPC provider can see transaction metadata and correlate it with the caller. That weakens the value of LEZ private transactions and removes the Logos Blockchain Blend privacy entirely relative to running the node locally.
+Thus, trust assumptions need to be considered when separating the node from the
+wallet. When both run inside the same infrastructure (for example, a CEX or
+custodian), the trust assumptions are similar to running them on the same
+device. However, when the RPC node is run by one entity (a project team or
+provider) and the wallet by another (an end-user wallet, DEX, or aggregator),
+the RPC provider can see transaction metadata and correlate it with the caller.
+That weakens the value of LEZ private transactions and removes the Logos
+Blockchain Blend privacy entirely relative to running the node locally.
 
 #### Potential demand
 
-The JSON-RPC provider + wallet library model is likely to be the highest-demand path for pre-existing applications that cannot adopt Basecamp. Likely consumers include:
+The JSON-RPC provider + wallet library model is likely to be the highest-demand
+path for pre-existing applications that cannot adopt Basecamp. Likely consumers
+include:
 
-- **Existing mobile wallets** adding LEZ or Logos Blockchain support. They need a wallet library in Kotlin, Swift, Dart, or React Native, plus a JSON-RPC client, but they cannot embed a node given mobile size limits and the CPU, network and battery a running node consumes.
-- **Centralised exchanges and custodians** that already run their own node infrastructure. They need wallet operations (key handling, signing, proving) exposed through a language SDK while their backend runs the node.
-- **Server-side integrators** in Go, Rust, Node.js, or Python that prefer a library to a Basecamp module workflow.
-- **RPC providers** that want to expose Logos nodes through a standard transport without requiring consumers to use Basecamp.
+- **Existing mobile wallets** adding LEZ or Logos Blockchain support. They need
+  a wallet library in Kotlin, Swift, Dart, or React Native, plus a JSON-RPC
+  client, but they cannot embed a node given mobile size limits and the CPU,
+  network and battery a running node consumes.
+- **Centralised exchanges and custodians** that already run their own node
+  infrastructure. They need wallet operations (key handling, signing, proving)
+  exposed through a language SDK while their backend runs the node.
+- **Server-side integrators** in Go, Rust, Node.js, or Python that prefer a
+  library to a Basecamp module workflow.
+- **RPC providers** that want to expose Logos nodes through a standard transport
+  without requiring consumers to use Basecamp.
 
-This model intentionally leaves the node out of the mobile artefact. Mobile libraries ship with JSON-RPC clients only; nodes run on desktop, server, or in Basecamp. The dynamic loading of modules via `logos-liblogos` is the mechanism Basecamp and standalone module hosts use, but it is not required for a JSON-RPC client library.
+This model intentionally leaves the node out of the mobile artefact. Mobile
+libraries ship with JSON-RPC clients only; nodes run on desktop, server, or in
+Basecamp. The dynamic loading of modules via `logos-liblogos` is the mechanism
+Basecamp and standalone module hosts use, but it is not required for a JSON-RPC
+client library.
 
 ### Node and Wallet as a Library
 
@@ -226,8 +308,8 @@ than over a transport.
 - **No network dependency for reads or writes**: once synced, the application
   can query chain state and submit transactions without reaching a third-party
   RPC endpoint.
-- **Stronger privacy**: the user does not reveal which addresses or
-  transactions they care about to a remote RPC provider.
+- **Stronger privacy**: the user does not reveal which addresses or transactions
+  they care about to a remote RPC provider.
 - **Censorship resistance**: the application talks directly to the peer-to-peer
   network.
 - **Unified control**: the integrator owns the full stack and can tune sync,
@@ -239,8 +321,8 @@ than over a transport.
   alone is ~28 MiB stripped; the Logos Blockchain node library is ~84.5 MiB
   stripped (see
   [Unified Logos Development Kit & artefact size](#unified-logos-development-kit--artefact-size)
-  for provenance). Together they exceed typical mobile size budgets before application
-  code or assets are added.
+  for provenance). Together they exceed typical mobile size budgets before
+  application code or assets are added.
 - **Build complexity**: integrators must link Rust crates or prebuilt native
   libraries and manage their dependency graphs, including ZK circuit artefacts
   that currently do not build for Android or iOS.
@@ -309,8 +391,8 @@ sense, and they are not module loaders either. They are what a module uses to
 implement its own contract and to call the other modules it depends on.
 
 Because the two are separate, "a Logos SDK for language X" is a shorthand that
-hides more than one piece of work. What an integrator needs is better stated as a
-set of capabilities a library must offer in their language, set out under
+hides more than one piece of work. What an integrator needs is better stated as
+a set of capabilities a library must offer in their language, set out under
 [What a development kit must provide](#what-a-development-kit-must-provide)
 below.
 
@@ -348,18 +430,18 @@ anticipated shape rather than an accident of the API being public.
 
 **Calling** is a separate target. `logos_core.h` exposes no invoke function at
 all; the calling surface is `logos-cpp-sdk::logos_consumer`
-(`logos_lp_client.h`), which is also where the generated per-dependency
-wrappers compile. A standalone application consumes both: the host target to
-stand a core up and load modules, the consumer target to call into them.
+(`logos_lp_client.h`), which is also where the generated per-dependency wrappers
+compile. A standalone application consumes both: the host target to stand a core
+up and load modules, the consumer target to call into them.
 
 **This path is C and C++ today.** Both libraries expose C or C++ surfaces, and
 no binding for another language reaches them. The wrappers that exist for other
 languages drive the CLI as a subprocess rather than linking the library:
-`logos-logoscore-py` describes itself as a thin layer that spawns a
-`logoscore` subprocess per operation, with no C++ bindings and no IPC code, and
+`logos-logoscore-py` describes itself as a thin layer that spawns a `logoscore`
+subprocess per operation, with no C++ bindings and no IPC code, and
 `logos-logoscore-tui`, though written in Rust, likewise invokes the CLI as a
-subprocess and states that no Qt or C++ dependencies are needed. Both are
-usable ways to drive a daemon, but neither is a host-side binding, and a
+subprocess and states that no Qt or C++ dependencies are needed. Both are usable
+ways to drive a daemon, but neither is a host-side binding, and a
 subprocess-per-operation design carries costs an embedded integration would not
 accept.
 
@@ -381,25 +463,25 @@ already carries the semantics a host needs.
 [`liblogos-rust-poc`](https://github.com/fryorcraken/liblogos-rust-poc) embeds
 `liblogos_core` in a standalone Rust application, which demonstrates that the
 path is reachable from a language other than C++ today. It is a proof of concept
-rather than a supported binding, and it is worth reading for what it had to do as
-much as for what it achieved: it carries a twenty-line C++ shim that constructs
-the `QCoreApplication` the C API requires but cannot create, and its analysis of
-that constraint is the basis for the Qt item in the gaps below. It drives the
-full lifecycle, `init`, `add_modules_dir`, `start`, `load_module`, `cleanup`,
-and brings up a real module together with its dependency, so the path is
-demonstrated rather than merely argued.
+rather than a supported binding, and it is worth reading for what it had to do
+as much as for what it achieved: it carries a twenty-line C++ shim that
+constructs the `QCoreApplication` the C API requires but cannot create, and its
+analysis of that constraint is the basis for the Qt item in the gaps below. It
+drives the full lifecycle, `init`, `add_modules_dir`, `start`, `load_module`,
+`cleanup`, and brings up a real module together with its dependency, so the path
+is demonstrated rather than merely argued.
 
 [`liblogos-electron-poc`](https://github.com/fryorcraken/liblogos-electron-poc)
-explores using `liblogos_core` as a library inside an Electron application. It is
-work in progress and not fully proven, so it should be read as an exploration of
-the shape rather than as evidence that the shape works. The question it probes
-matters for the framework limitations noted under
+explores using `liblogos_core` as a library inside an Electron application. It
+is work in progress and not fully proven, so it should be read as an exploration
+of the shape rather than as evidence that the shape works. The question it
+probes matters for the framework limitations noted under
 [Basecamp & Logos Core](#basecamp--logos-core): if an Electron application can
 host Logos modules directly, that is a different answer to the reach of
 web-stack developers than making Basecamp itself more Electron-like, and it
 would let such an application distribute through conventional channels. It has
-established the packaging and the module loading, and what it has not yet settled
-is the invocation path, which is the third capability below.
+established the packaging and the module loading, and what it has not yet
+settled is the invocation path, which is the third capability below.
 
 #### What a development kit must provide
 
@@ -444,9 +526,9 @@ reach.
 The third capability is the one where the shape of the answer matters most,
 because driving a separate binary per call is a poor fit for an embedded
 integration and an especially poor one for mobile. The preferable shape is for
-an application to host the same gateway in process rather than to spawn a
-daemon beside it: `logosctl`'s daemon registers `core_service` as an in-process
-module through the C++ SDK, and that gateway is what every client talks to. Its
+an application to host the same gateway in process rather than to spawn a daemon
+beside it: `logosctl`'s daemon registers `core_service` as an in-process module
+through the C++ SDK, and that gateway is what every client talks to. Its
 dispatch is deliberately Qt-free, and the two methods an integration needs from
 it, proxying a call to a module and watching a module's events, are a small
 surface over the module management an application already has. Taking that route
@@ -508,15 +590,16 @@ place to check.
 
 Two things follow for anyone scoping this work. A delivery covering fewer than
 all three leaves an integrator with something that does not work end to end: the
-runtime lifecycle alone loads modules it cannot call, and adding provider hosting
-without invocation and authorisation produces calls that never complete. And the
-split between the three is not fixed. If the capability surface becomes reachable
-over a plain transport, consuming a module needs no more than the `lp_*` ABI that
-is already bound. If the handshake instead stays behind a token manager, the kit
-hosts that gateway in process, as described above, rather than driving a separate
-binary per call. Either way the aim is the same, an application that carries the
-runtime rather than one that shells out to it, and the difference is how much
-C++ sits between the integrator's language and a working call.
+runtime lifecycle alone loads modules it cannot call, and adding provider
+hosting without invocation and authorisation produces calls that never complete.
+And the split between the three is not fixed. If the capability surface becomes
+reachable over a plain transport, consuming a module needs no more than the
+`lp_*` ABI that is already bound. If the handshake instead stays behind a token
+manager, the kit hosts that gateway in process, as described above, rather than
+driving a separate binary per call. Either way the aim is the same, an
+application that carries the runtime rather than one that shells out to it, and
+the difference is how much C++ sits between the integrator's language and a
+working call.
 
 #### Gaps for `logos-liblogos`
 
@@ -529,8 +612,8 @@ side by side.
 C functions, so Kotlin can stand a core up, point it at a module directory, load
 modules and set the access policy.
 
-**2. An FFI wrap of the SDK surface, the consuming half.** The binding above only
-hosts; calling into a loaded module is a different surface, and a Kotlin
+**2. An FFI wrap of the SDK surface, the consuming half.** The binding above
+only hosts; calling into a loaded module is a different surface, and a Kotlin
 equivalent of what `logos-cpp-sdk::logos_consumer` provides does not exist.
 Delivering this without also reaching the capability handshake leaves calls that
 never complete, so invocation and authorisation above is part of the same piece
@@ -540,13 +623,14 @@ and Go do not appear on the roadmap at all.
 
 **3. A single-process framework for Android.** The default container runs one OS
 process per module, which Android's application model does not accommodate the
-way a desktop does. This is the Local mode question from the mobile side: modules
-would register in-process rather than being spawned, and the registration
-mechanism is what a mobile host needs. The roadmap carries iOS and Android
-support as testnet 0.3 items, though as bare entries without a milestone page,
-and the in-process module model does not appear in them; the recent direction of
-travel, towards stronger process isolation, runs the other way. Whether this is
-planned is worth confirming with the LogosCore team rather than inferring.
+way a desktop does. This is the Local mode question from the mobile side:
+modules would register in-process rather than being spawned, and the
+registration mechanism is what a mobile host needs. The roadmap carries iOS and
+Android support as testnet 0.3 items, though as bare entries without a milestone
+page, and the in-process module model does not appear in them; the recent
+direction of travel, towards stronger process isolation, runs the other way.
+Whether this is planned is worth confirming with the LogosCore team rather than
+inferring.
 
 **4. Addressing the Qt dependency.** This one raises the cost of the others
 rather than blocking them, because Qt leaks through the C boundary rather than
@@ -569,12 +653,12 @@ staying behind it:
   is not a self-contained `.so`.
 
 On desktop this is a developer experience cost rather than a blocker, and the
-proof of concept above is what establishes that: a twenty-line shim was enough to
-bring a real module up from Rust. What it costs is paid per language rather than
-once, and it is paid by every integrator, since each binding carries a C++ shim,
-a Qt build dependency and a version-matching constraint that a C ABI is supposed
-to hide. The value of a C ABI is that it conceals the implementation; here the
-implementation is a precondition the C ABI cannot satisfy on its own.
+proof of concept above is what establishes that: a twenty-line shim was enough
+to bring a real module up from Rust. What it costs is paid per language rather
+than once, and it is paid by every integrator, since each binding carries a C++
+shim, a Qt build dependency and a version-matching constraint that a C ABI is
+supposed to hide. The value of a C ABI is that it conceals the implementation;
+here the implementation is a precondition the C ABI cannot satisfy on its own.
 
 It is also a known item: the embedding doctest notes that `QCoreApplication`
 "should no longer be needed but it's pending some changes", so moving it inside
@@ -585,14 +669,14 @@ Mobile is where it may be more than friction, and the proof of concept does not
 speak to it. There the Qt runtime has to ship inside the artefact and coexist
 with the platform's application model rather than merely be present at build
 time, which makes it a question about size and topology rather than about a
-shim. A Qt-free default loader and container would close that, and the loader and
-container are already swappable inputs, but whether mobile needs them is part of
-the topology question under
+shim. A Qt-free default loader and container would close that, and the loader
+and container are already swappable inputs, but whether mobile needs them is
+part of the topology question under
 [Logos stack readiness](#logos-stack-readiness).
 
-These four are ordered by dependency rather than by difficulty. The first two are
-the substantive work; the Qt item conditions how expensive they are per language
-rather than whether they are possible.
+These four are ordered by dependency rather than by difficulty. The first two
+are the substantive work; the Qt item conditions how expensive they are per
+language rather than whether they are possible.
 
 ### Fit for the JSON-RPC Provider + Wallet Library model
 
@@ -629,16 +713,17 @@ can consume a remote JSON-RPC API:
 ### Fit for the Node and Wallet as a Library model
 
 The existing Logos components are the best fit for this model, though the work
-divides between them: `liblogos_core` loads the modules that already contain node
-and wallet functionality, and the consumer surface calls into them across the
-module boundary. The language SDKs are not what does the loading.
+divides between them: `liblogos_core` loads the modules that already contain
+node and wallet functionality, and the consumer surface calls into them across
+the module boundary. The language SDKs are not what does the loading.
 
 **Strengths:**
 
 - Modules are sandboxed, dynamically loadable, and composable.
 - Local mode keeps everything in one process, which is the intended mobile
   shape.
-- The same wallet and node modules (code and `.so`) can be reused across Basecamp and embedded-library integrations.
+- The same wallet and node modules (code and `.so`) can be reused across
+  Basecamp and embedded-library integrations.
 
 **Gaps:**
 
@@ -646,7 +731,8 @@ module boundary. The language SDKs are not what does the loading.
 - No Kotlin, Swift, Dart, or Go SDKs exist.
 - Hosting is reachable from C and C++ only: see
   [Gaps for `logos-liblogos`](#gaps-for-logos-liblogos).
-- Artefact size, module loading, and tree-shaking need to be resolved for mobile platforms.
+- Artefact size, module loading, and tree-shaking need to be resolved for mobile
+  platforms.
 
 ## Recommendation
 
@@ -679,58 +765,114 @@ This requires:
    `liblogos_core` and the consumer surface for Kotlin, Swift, Dart, Go and
    Rust. This is more than wrapping a C header: the Qt dependency leaks through
    the C boundary, so each binding currently needs a C++ shim before it can call
-   the API at all. See
-   [Gaps for `logos-liblogos`](#gaps-for-logos-liblogos) for the four pieces
-   this breaks into.
+   the API at all. See [Gaps for `logos-liblogos`](#gaps-for-logos-liblogos) for
+   the four pieces this breaks into.
 
 2. **Resolve Android and iOS risks.** Deliver mobile Local mode and confirm that
    modules can run in-process on Android and iOS.
 
 3. **Separate wallet and node functionality into distinct modules.** Split
-   `lez_core` and `logos-blockchain` into smaller modules so that a wallet module can be loaded without the full node. This enables smaller node artefacts for mobile apps (wallet-only integration) and makes wallet + node combinations possible on demand.
-   On Android, each module should be shipped as an independent AAR, similar to
-   the LEZ wallet AAR described below, so that standalone mobile applications can
-   include only the modules they need and leave out the rest.
+   `lez_core` and `logos-blockchain` into smaller modules so that a wallet
+   module can be loaded without the full node. This enables smaller node
+   artefacts for mobile apps (wallet-only integration) and makes wallet + node
+   combinations possible on demand. On Android, each module should be shipped as
+   an independent AAR, similar to the LEZ wallet AAR described below, so that
+   standalone mobile applications can include only the modules they need and
+   leave out the rest.
 
 4. **Enable dynamic configuration between remote JSON-RPC nodes and local
-   nodes.** With modular wallet and node components, an application could load
-   a wallet module locally, point it at a remote node module via JSON-RPC, or
-   load a local node module, switching at runtime based on platform, network
-   conditions, or user preference. This enables both modes for non-Basecamp apps at low cost.
+   nodes.** With modular wallet and node components, an application could load a
+   wallet module locally, point it at a remote node module via JSON-RPC, or load
+   a local node module, switching at runtime based on platform, network
+   conditions, or user preference. This enables both modes for non-Basecamp apps
+   at low cost.
 
-This is the ideal end-state because it avoids maintaining parallel SDKs
-(Logos SDK + LEZ-DK + Logos Blockchain SDK) and lets integrators compose only
-the components they need. It also relies on the Logos core framework, having most components in common with the Basecamp path (TODO: verify/clarify). However, it depends on delivering mobile Local mode,
-modularising the node crates, and producing language SDKs for Kotlin, Swift,
-Dart, and Go with good tree-shaking capabilities. If those prerequisites are not met, this path is not yet viable.
+This is the ideal end-state because it avoids maintaining parallel SDKs (Logos
+SDK + LEZ-DK + Logos Blockchain SDK) and lets integrators compose only the
+components they need. It also relies on the Logos core framework, having most
+components in common with the Basecamp path (TODO: verify/clarify). However, it
+depends on delivering mobile Local mode, modularising the node crates, and
+producing language SDKs for Kotlin, Swift, Dart, and Go with good tree-shaking
+capabilities. If those prerequisites are not met, this path is not yet viable.
+
+### Discarded: native wallet libraries per language
+
+Before the recommendation below, one approach is worth ruling out explicitly,
+because it is the common one elsewhere and its absence here would otherwise look
+like an oversight. Recent non-EVM L1s ship native wallet libraries in each
+language they support: Sui in eight, Aptos in four, Injective and Cosmos in
+four, and Ethereum and Solana likewise have mature per-language wallet stacks
+that re-implement signing rather than binding one codebase. Only Bitcoin takes
+the Rust FFI route, through the Bitcoin Development Kit.
+
+**Neither Logos chain fits the first pattern, so this appendix discards it for
+both.** The reasoning that makes Bitcoin the exception applies here as well, and
+in some respects more strongly.
+
+Bitcoin's case is that its wallet logic requires deep protocol and cryptographic
+knowledge held by a small number of people, that BIPs land in `rust-bitcoin`
+first, and that re-implementing them per language multiplies both the work and
+the opportunity for a subtle, consensus-relevant mistake. A native library in
+another language is not merely more code; it is more code of a kind that is hard
+to get right and hard to review.
+
+Both Logos chains carry that property:
+
+- **LEZ** requires client-side proving for private transactions, so a wallet
+  executes and proves locally rather than signing a payload.
+- **Logos Blockchain** replaces signatures with zero-knowledge proofs whose
+  circuits ship as C libraries. Any wallet that builds a transaction embeds
+  those libraries whatever language surrounds them, so "native" would mean a
+  language-specific shell over the same C dependency rather than an independent
+  implementation. Private UTXO increases that footprint. Alongside proving, UTXO
+  tracking brings fork handling, reorg and pending state, which is the part of
+  Bitcoin wallet software that is most often reimplemented and most often
+  reimplemented wrongly.
+
+The consequence is that a pure native wallet library in Kotlin, Swift, Dart or
+Go is discarded for both chains. It would duplicate cryptography that is
+difficult to write correctly, while still embedding the C circuit libraries it
+was meant to avoid, so it would carry the cost of a rewrite without the benefit
+of independence.
+
+A specification is the one thing that would change this calculus, and it is
+worth keeping open rather than pursuing now. A written specification for UTXO
+tracking and transaction construction, extracted from the existing Rust
+implementation, would let a native library be built against something reviewable
+rather than against a reference implementation's behaviour. Whether such a
+specification can be usefully extracted is unresolved.
 
 ### Short-term / low-risk start: build native libraries
 
 While the Logos SDK-only path matures, the recommended near-term approach is to
 build focused native libraries for the **wallet library + JSON-RPC client**
-integration model.
+integration model. Both wrap existing Rust rather than re-implementing it, for
+the reason set out immediately above.
 
-1. **Dedicated native library for the Logos Blockchain wallet.** Logos
-   Blockchain wallet logic is light and runs node-side today. Because it is
-   simple, it is cost-effective to re-implement it as a native SDK per language
-   or expose it through a small, focused FFI library, rather than adopting a
-   heavy BDK-style Rust-FFI strategy.
+1. **Reuse the Rust codebase for the Logos Blockchain wallet via FFI.** The
+   external wallet implementation in the zone SDK is the candidate to wrap,
+   since it already carries the UTXO tracking, fork handling, reorg and pending
+   state a wallet needs. A caveat worth recording: the zone SDK carries more
+   than a wallet library requires, so extracting a narrower specification for
+   UTXO tracking out of it may be possible, though whether that is worthwhile is
+   unclear.
 
 2. **Reuse the Rust codebase for the LEZ wallet via FFI.** LEZ private
-   transactions require client-side proving and complex state management,
-   making a rewrite risky. Expose the existing Rust LEZ wallet through FFI
-   (the LEZ-DK pattern), similar to BDK.
+   transactions require client-side proving and complex state management, making
+   a rewrite risky. Expose the existing Rust LEZ wallet through FFI (the LEZ-DK
+   pattern), similar to BDK.
 
 These two libraries are delivered as **one SDK with multiple platform
-artefacts**. On Android that means multiple AARs: a pure-Kotlin AAR for the
-Logos Blockchain wallet and a JNI + `.so` AAR for the LEZ wallet. This is
-necessary because Android tree-shaking (R8/ProGuard) removes unused bytecode
-but does **not** remove native `.so` libraries from the APK. A single monolithic
-AAR that bundles both would force every integrator to ship the LEZ `.so`
-whether they use it or not. Splitting into separate AARs lets an integrator
-include only what they need. The same pattern applies on iOS (separate
-Frameworks or Swift Package Manager products), on desktop (separate crates or
-shared libraries), and on server platforms (separate packages).
+artefacts**. Both carry a native `.so`, so the split between them is about what
+an integrator has to ship rather than about one being native and the other not.
+On Android that means separate AARs per wallet, because Android tree-shaking
+(R8/ProGuard) removes unused bytecode but does **not** remove native `.so`
+libraries from the APK. A single monolithic AAR bundling both would force every
+integrator to ship both `.so` files whether they use them or not. Splitting them
+lets an integrator include only the chain they support. The same pattern applies
+on iOS (separate Frameworks or Swift Package Manager products), on desktop
+(separate crates or shared libraries), and on server platforms (separate
+packages).
 
 If the Logos SDK-only path (above) never becomes manageable, these native
 libraries remain the long-term fallback.
@@ -1081,27 +1223,27 @@ since it lets a caller confirm which zone a node is reading.
 
 ### Multizone and the wallet
 
-Whether the wallet spans zones is a separate decision from whether the node does,
-and it should be taken separately. The node question is about where chain state
-comes from; the wallet question is about what a user has to hold and understand,
-which makes it the one with a clear answer at the level of intent even while the
-mechanism is open.
+Whether the wallet spans zones is a separate decision from whether the node
+does, and it should be taken separately. The node question is about where chain
+state comes from; the wallet question is about what a user has to hold and
+understand, which makes it the one with a clear answer at the level of intent
+even while the mechanism is open.
 
 **Key management should be zone-abstract.** A user should worry about one seed,
 not one per zone. If each zone a user touches requires its own seed phrase, the
-burden grows with the ecosystem, and it grows in the most damaging way available:
-more secrets to record, more to back up, and more to lose. Zone-as-a-Service
-means the number of zones is not bounded by anything the user controls, so a
-per-zone seed is a design that degrades as the ecosystem succeeds. Deriving
-per-zone material from one seed keeps the user's burden constant regardless of
-how many zones they end up touching.
+burden grows with the ecosystem, and it grows in the most damaging way
+available: more secrets to record, more to back up, and more to lose.
+Zone-as-a-Service means the number of zones is not bounded by anything the user
+controls, so a per-zone seed is a design that degrades as the ecosystem
+succeeds. Deriving per-zone material from one seed keeps the user's burden
+constant regardless of how many zones they end up touching.
 
-That intent leaves the API question open. Deriving zone-specific keys and viewing
-keys from a single seed is a well-understood shape, but what a clean API looks
-like over it is not settled: whether a caller names a zone on each wallet call,
-holds a per-zone wallet handle derived from one seed, or holds one wallet object
-that reports balances and history per zone. The choice is visible to every
-integrator, so it is worth designing rather than inheriting from whichever
+That intent leaves the API question open. Deriving zone-specific keys and
+viewing keys from a single seed is a well-understood shape, but what a clean API
+looks like over it is not settled: whether a caller names a zone on each wallet
+call, holds a per-zone wallet handle derived from one seed, or holds one wallet
+object that reports balances and history per zone. The choice is visible to
+every integrator, so it is worth designing rather than inheriting from whichever
 implementation lands first.
 
 The consequences run in both directions, and a proposal should weigh them
@@ -1110,18 +1252,19 @@ together:
 - **Developer experience.** A single-zone wallet is simpler to implement and to
   reason about, but pushes multizone onto every integrator who needs it, each
   solving it differently. A multizone wallet concentrates that complexity in one
-  place, at the cost of a larger surface that single-zone integrators still carry.
+  place, at the cost of a larger surface that single-zone integrators still
+  carry.
 - **User experience.** This is where a single-zone wallet is hardest to defend.
   If the wallet is scoped to one zone, an application spanning zones holds
   several wallet instances, and keeping one seed behind them becomes the
   application's problem rather than the wallet's. Different applications will
-  solve it differently or not at all, and the user meets the inconsistency:
-  seed handling and recovery become per-application behaviour rather than a
-  property of the platform.
+  solve it differently or not at all, and the user meets the inconsistency: seed
+  handling and recovery become per-application behaviour rather than a property
+  of the platform.
 
-The recommendation implied by the above is that zone-abstract key management is a
-requirement rather than an option, and that the open question is the shape of the
-API expressing it, not whether one seed should cover a user's zones.
+The recommendation implied by the above is that zone-abstract key management is
+a requirement rather than an option, and that the open question is the shape of
+the API expressing it, not whether one seed should cover a user's zones.
 
 ### Key management across the two chains
 
@@ -1149,10 +1292,10 @@ their seed.
 
 Questions a proposal or an R&D effort should answer:
 
-- Where the derivation tree branches for the two chains, and whether that follows
-  registered coin types, a Logos-specific path, or something else.
-- What a single seed buys in practice given the curve split, and which operations
-  remain per-chain regardless.
+- Where the derivation tree branches for the two chains, and whether that
+  follows registered coin types, a Logos-specific path, or something else.
+- What a single seed buys in practice given the curve split, and which
+  operations remain per-chain regardless.
 - How LEZ viewing keys derive, and whether they recover from the same seed as
   spending keys.
 - Whether unified key management belongs in the LEZ wallet API, in the Logos
@@ -1161,23 +1304,22 @@ Questions a proposal or an R&D effort should answer:
 
 **Hardware-backed keys are the second axis, and the appendix has not treated
 them.** A user holding a meaningful staking position is a candidate for a
-hardware wallet or an external signer, and custodians reach for hardware security
-modules and secure enclaves as a matter of course
+hardware wallet or an external signer, and custodians reach for hardware
+security modules and secure enclaves as a matter of course
 ([Appendix: Wallet Tech Stacks](./wallet-tech-stacks.md)). Whether a Logos
 application on a hardware device is in scope is worth settling early, because it
 constrains the wallet API rather than sitting on top of it: an external signer
 implies the wallet constructs an unsigned transaction and hands it out for
-signing, rather than signing internally, and that shape has to be designed in. It
-bears on LEZ more than on the L1, since client-side proving is not obviously
+signing, rather than signing internally, and that shape has to be designed in.
+It bears on LEZ more than on the L1, since client-side proving is not obviously
 something a signing device performs, so which operations move to the device and
 which stay on the host is itself part of the question.
 
 ## Unified Logos Development Kit & artefact size
 
 The architecture proposed here assumes a similar development kit will be needed
-for Logos Blockchain, and for Storage and Delivery in turn,
-depending on the appetite for integrating those protocols into existing
-applications.
+for Logos Blockchain, and for Storage and Delivery in turn, depending on the
+appetite for integrating those protocols into existing applications.
 
 A unified Logos Development Kit would simplify integration for a developer, at
 the cost of artefact size. BDK is the example to reason from: it publishes a
@@ -1274,9 +1416,9 @@ provisional until it is made.
 
 The architecture above therefore keeps both options open rather than resolving
 them early: the node API is reached the same way whether a local node module or
-a JSON-RPC client module answers it, so a protocol settling on either answer,
-or on a light participant leaning on better-provisioned peers in the manner of
-an edge and relay split, does not invalidate the surface built against it.
+a JSON-RPC client module answers it, so a protocol settling on either answer, or
+on a light participant leaning on better-provisioned peers in the manner of an
+edge and relay split, does not invalidate the surface built against it.
 
 **Multizone support.** `lez_core` serves one zone at a time, and whether
 multizone is delivered inside the module or by running several instances behind
