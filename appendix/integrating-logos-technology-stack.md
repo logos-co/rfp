@@ -14,7 +14,7 @@ a deliverable, the RFP for that deliverable is the authority on its scope.
 The Logos technology stack comprises four main components:
 
 - **Logos Blockchain**: the L1 settlement layer.
-- **LEZ (Logos Execution Zone)**: the programmable execution layer.
+- **LEZ (Logos Execution Zone)**: programmable money.
 - **Storage**: decentralised storage.
 - **Delivery**: messaging and delivery infrastructure.
 
@@ -965,6 +965,33 @@ consume them.
    transport, and a Rust client library with its FFI crate, consumed through the
    LEZ-DK.
 
+   The shape generalises. A server module projecting a node's API over a
+   transport, paired with a client module that re-exposes the same API over the
+   Logos Core FFI, is a pattern rather than a one-off: it applies to gRPC,
+   GraphQL and anything after them, and it applies to **any** node's API rather
+   than only to LEZ. A consuming module speaks IPC in every case and does not
+   learn which transport carried the call, so transports can be added without
+   the applications above them changing.
+
+   **Delivery is the pair worth singling out**, because it removes a
+   prerequisite the others keep. Every transport above needs the node to be
+   reachable at an address: a public endpoint, a port forwarded, a router
+   configured, or a third party running the node on the integrator's behalf.
+   Delivery is the Logos messaging layer, so a client and server module pair
+   over it reaches a node without any of that, and without exposing a JSON-RPC
+   endpoint to the network at all.
+
+   That bears directly on the mobile topology question. If a mobile device
+   cannot carry a full node, whatever is given up in the mobile build is given
+   up for every user. But a user who runs a node at home could recover it: the
+   home node holds the full capability, the phone reaches it over Delivery, and
+   neither end needs a static address, an open port or a router the user has to
+   configure. The sacrifices a mobile build makes would then bind only those
+   without a node of their own, rather than everyone. This makes the pair more
+   than a transport variant, and it argues for settling the mobile topology
+   question and this one together: see
+   [Logos stack readiness](#logos-stack-readiness).
+
 Note that similar components are needed for Logos Blockchain integration and
 will be defined in future RFPs, tracked as the FFI bindings
 ([logos-co/ecosystem#219](https://github.com/logos-co/ecosystem/issues/219)) and
@@ -1454,6 +1481,14 @@ them early: the node API is reached the same way whether a local node module or
 a JSON-RPC client module answers it, so a protocol settling on either answer, or
 on a light participant leaning on better-provisioned peers in the manner of an
 edge and relay split, does not invalidate the surface built against it.
+
+A client and server module pair over Delivery is worth weighing as part of this
+decision rather than after it. It would let a user with a node at home recover
+on a phone whatever a mobile build gives up, without a static address or a
+configured router, which changes who bears the cost of a reduced mobile node:
+everyone, or only those without a node of their own. The transport work is
+described under deliverable 5 in
+[Target architecture and the LEZ-DK](#target-architecture-and-the-lez-dk).
 
 **Multizone support.** `lez_core` serves one zone at a time, and whether
 multizone is delivered inside the module or by running several instances behind
