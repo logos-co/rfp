@@ -520,9 +520,9 @@ opened by path at run time are invisible to ordinary dependency inspection.
 
 ### Fit for the JSON-RPC Provider + Wallet Library model
 
-The JSON-RPC proxy is a Logos Core module deployed via `logosctl` alongside the
-node modules it fronts. That part is standard Logos module development and does
-not need separate SDK analysis.
+The JSON-RPC proxy could be built to be a Logos Core module deployed via
+`logosctl` alongside the node modules it fronts. That part is standard Logos
+module development and does not need separate SDK analysis.
 
 The more relevant question is whether a **wallet module built with a Logos SDK**
 can consume a remote JSON-RPC API:
@@ -563,9 +563,11 @@ tree-shaking are unresolved for mobile. What follows from that is in
 Given the analysis above, one path is recommended and a second is held in
 reserve. Relying exclusively on the Logos SDK is the end state worth building
 towards; a per-module FFI-wrapped kit is the fallback if that proves
-unmanageable. A third approach, native wallet libraries per language, is
-discarded outright, and the reasoning is recorded because its absence would
-otherwise look like an oversight.
+unmanageable. Two further approaches are discarded, and the reasoning is
+recorded because their absence would otherwise look like an oversight: rewriting
+the wallet libraries in each native language, which the zero-knowledge circuits
+make futile, and shipping a single BDK-style FFI library, which the artefact
+sizes rule out.
 
 **Basecamp & Logos Core** remains the canonical path for new applications. It is
 not discussed below because it needs no separate native library or development
@@ -615,58 +617,15 @@ This requires:
    at low cost.
 
 This is the ideal end-state because it avoids maintaining parallel SDKs (Logos
-SDK + LEZ-DK + Logos Blockchain SDK) and lets integrators compose only the
-components they need. It also relies on the Logos core framework, sharing its
-components with the Basecamp path rather than duplicating them: the proofs of
-concept above host the same `liblogos_core` and load the same modules Basecamp
-does, which is what establishes that the two paths differ in the frontend rather
-than in the runtime beneath it. However, it depends on delivering mobile Local
-mode, modularising the node crates, and producing language SDKs for Kotlin,
-Swift, Dart, and Go split per component, so that an integrator resolves only
-what they ship. If those prerequisites are not met, this path is not yet viable.
-
-### Discarded: native wallet libraries per language
-
-Before the recommendation below, one approach is worth ruling out explicitly,
-because it is the common one elsewhere and its absence here would otherwise look
-like an oversight. Recent non-EVM L1s ship native wallet libraries in each
-language they support: Sui in eight, Aptos in four, Injective and Cosmos in
-four, and Ethereum and Solana likewise have mature per-language wallet stacks
-that re-implement signing rather than binding one codebase. Only Bitcoin takes
-the Rust FFI route, through the Bitcoin Development Kit.
-
-**Neither Logos chain fits the first pattern, so this appendix discards it for
-both.** The reasoning that makes Bitcoin the exception applies here as well, and
-in some respects more strongly.
-
-Bitcoin's case is that its wallet logic requires deep protocol and cryptographic
-knowledge held by a small number of people, that BIPs land in `rust-bitcoin`
-first, and that re-implementing them per language multiplies both the work and
-the opportunity for a subtle, consensus-relevant mistake. A native library in
-another language is not merely more code; it is more code of a kind that is hard
-to get right and hard to review.
-
-Both Logos chains carry that property, for the reasons set out under
-[Ecosystem overview](#ecosystem-overview): each requires client-side proving,
-and the circuits that do it are embedded by any wallet that builds a transaction
-whatever language surrounds it. "Native" would therefore mean a
-language-specific shell over the same dependency rather than an independent
-implementation. Alongside proving, UTXO tracking brings fork handling, reorg and
-pending state, which is the part of Bitcoin wallet software most often
-reimplemented and most often reimplemented wrongly.
-
-The consequence is that a pure native wallet library in Kotlin, Swift, Dart or
-Go is discarded for both chains. It would duplicate cryptography that is
-difficult to write correctly, while still embedding the circuit libraries it was
-meant to avoid, so it would carry the cost of a rewrite without the benefit of
-independence.
-
-A specification is the one thing that would change this calculus, and it is
-worth keeping open rather than pursuing now. A written specification for UTXO
-tracking and transaction construction, extracted from the existing Rust
-implementation, would let a native library be built against something reviewable
-rather than against a reference implementation's behaviour. Whether such a
-specification can be usefully extracted is unresolved.
+SDK plus a kit per protocol) and lets integrators compose only the components
+they need. It also relies on the Logos core framework, sharing its components
+with the Basecamp path rather than duplicating them: the proofs of concept above
+host the same `liblogos_core` and load the same modules Basecamp does, which is
+what establishes that the two paths differ in the frontend rather than in the
+runtime beneath it. However, it depends on delivering mobile Local mode,
+modularising the node crates, and producing language SDKs for Kotlin, Swift,
+Dart, and Go split per component, so that an integrator resolves only what they
+ship. If those prerequisites are not met, this path is not yet viable.
 
 ### Fallback: a per-module FFI-wrapped development kit
 
@@ -720,6 +679,69 @@ UniFFI generates bindings but offers nothing for size.
 
 The figures under [Artefact size](#artefact-size) are what this has to beat.
 
+### Discarded: rewriting the wallet libraries in each native language
+
+One approach is worth ruling out explicitly, because it is the common one
+elsewhere and its absence here would otherwise look like an oversight. Recent
+non-EVM L1s ship native wallet libraries in each language they support: Sui in
+eight, Aptos in four, Injective and Cosmos in four, and Ethereum and Solana
+likewise have mature per-language wallet stacks that re-implement signing rather
+than binding one codebase. Only Bitcoin takes the Rust FFI route, through the
+Bitcoin Development Kit.
+
+**Neither Logos chain fits that pattern, so this appendix discards it for
+both.** The reasoning that makes Bitcoin the exception applies here as well, and
+in some respects more strongly.
+
+Bitcoin's case is that its wallet logic requires deep protocol and cryptographic
+knowledge held by a small number of people, that BIPs land in `rust-bitcoin`
+first, and that re-implementing them per language multiplies both the work and
+the opportunity for a subtle, consensus-relevant mistake. A native library in
+another language is not merely more code; it is more code of a kind that is hard
+to get right and hard to review.
+
+**The zero-knowledge circuits are what make a rewrite futile rather than merely
+expensive.** Both chains require client-side proving, and the circuits that do
+it are Circom with C++ witness generators and a C++ prover, embedded by any
+wallet that builds a transaction whatever language surrounds it (see
+[Ecosystem overview](#ecosystem-overview)). A native library cannot re-implement
+them in Kotlin or Swift; it can only wrap the same artefacts. "Native" therefore
+means a language-specific shell over the identical dependency rather than an
+independent implementation, so the rewrite carries its full cost and delivers
+none of the independence that would justify it. Alongside proving, UTXO tracking
+brings fork handling, reorg and pending state, which is the part of Bitcoin
+wallet software most often reimplemented and most often reimplemented wrongly.
+
+A specification is the one thing that would change this calculus, and it is
+worth keeping open rather than pursuing now. A written specification for UTXO
+tracking and transaction construction, extracted from the existing Rust
+implementation, would let a native library be built against something reviewable
+rather than against a reference implementation's behaviour. Whether such a
+specification can be usefully extracted is unresolved.
+
+### Discarded: a single BDK-style FFI library
+
+The opposite approach is equally ruled out, and for an unrelated reason. BDK
+answers the rewrite problem by wrapping one Rust codebase over FFI and shipping
+it as one artefact: `bdk-android` publishes a single `libbdkffi.so` per ABI
+carrying a wallet and four chain backends. That packaging is what makes it a
+poor model here.
+
+A single Logos FFI library would put the LEZ wallet, the LEZ node, the Logos
+Blockchain wallet and the Logos Blockchain node behind one `.so`, and every
+integrator would ship all four whatever they use. That is not a size that
+tolerates the waste: the node libraries alone start at roughly 112 MiB for one
+protocol pair (see [Artefact size](#artefact-size)), against a complete Bitcoin
+kit at 15.3 MiB. Nor can the waste be trimmed after the fact, since a `.so` is
+included by dependency resolution rather than reachability and no shrinker
+removes it.
+
+**So the binding approach is worth taking from BDK and the packaging is not.**
+Wrapping existing Rust over FFI rather than reimplementing it is right, and it
+is what both recommendations above do. Shipping the result as one artefact is
+wrong, and a set of per-component libraries is the alternative, for the reasons
+under the fallback above.
+
 ## Deliverables
 
 Five components make LEZ integrable by the parties that have to integrate a
@@ -748,44 +770,52 @@ RFP, and each of those is the authority on its own scope.
    A Logos Core module projecting the `lez_core` APIs over JSON-RPC, carrying
    both the node and wallet APIs, plus a Rust client library for that surface.
 
-   The client should also be packaged as a **Logos Core module** in its own
-   right, exposing the LEZ node API over the Logos Core FFI and answering it by
-   calling a remote endpoint. That keeps a Basecamp application on one shape:
-   its core module always reaches the node API over IPC, and what sits behind
-   that boundary is either a local node module or the client module pointing at
-   a remote node. Local and remote become a deployment choice rather than a code
-   change, which is what lets a mobile Basecamp application skip the node
-   artefact entirely while still speaking the same API.
+   **This is a pair: a server module and a client module.** The server projects
+   the node's API onto the wire; the client answers calls by reaching that
+   endpoint. Both are needed, and the client is the half that is easy to
+   overlook, since a bare Rust client library serves a non-module application
+   but leaves a Basecamp application with nothing to load.
 
-4. **LEZ-DK: The LEZ Development Kit**
+   **The client module implements the same IPC interface as the module it
+   proxies.** It exposes the LEZ node API over the Logos Core FFI exactly as
+   `lez_core` does, and answers by calling a remote endpoint instead of a local
+   node. That makes the two interchangeable: a consuming module reaches the node
+   API over IPC and cannot tell which is behind the boundary. Local and remote
+   become a deployment choice, resolved by which module is loaded and how it is
+   configured, rather than a code change in the application, and it is what lets
+   a mobile Basecamp application skip the node artefact entirely while still
+   speaking the same API.
+
+4. **The liblogos FFI: language bindings over the host runtime**
    ([logos-co/ecosystem#238](https://github.com/logos-co/ecosystem/issues/238)):
-   Modelled on the Bitcoin Development Kit (BDK), for the reasons set out in
-   [RFP-027: Inspiration from BDK](../RFPs/RFP-027-lez-node-api.md#inspiration-from-bdk-bitcoin-development-kit).
-   It carries the FFI crates exposing the Rust node and wallet APIs, covering
-   both an in-process node and the client for a remote one, and ships per
-   language, Kotlin, Swift and Go among them.
+   Bindings over `liblogos_core` and the consumer surface for Kotlin, Swift,
+   Dart, Go and Rust, carrying the three capabilities set out under
+   [What a development kit must provide](#what-a-development-kit-must-provide).
+   This is what lets an application not built from Logos modules host them and
+   call them, and it is the deliverable the recommended path turns on.
 
-   Whether the in-process node belongs in the same kit or a separate one is yet
-   to be decided; it drives the artefact size, so the choice turns on the
-   figures under [Artefact size](#artefact-size).
+   It is not LEZ-specific. The same bindings reach any module, so an integrator
+   wanting LEZ loads the `lez_core` module through them rather than linking a
+   LEZ library, which is what avoids a parallel kit per protocol. Each module
+   ships as its own artefact, an independent AAR on Android, so an application
+   resolves only what it uses.
 
-   The LEZ-DK exists to integrate LEZ into applications that already exist. It
-   is not the recommended starting point for something new, where the Logos Core
-   framework and Basecamp are the encouraged path.
+   This supersedes the LEZ-DK, a LEZ-specific kit wrapping the Rust node and
+   wallet APIs directly. That approach is discarded: it would have meant a
+   separate kit per protocol, and its BDK-style packaging does not survive the
+   artefact sizes. The tracked issue predates this change.
 
 5. **Further transport proxy modules and their client libraries**
    ([logos-co/ecosystem#222](https://github.com/logos-co/ecosystem/issues/222))
    beyond JSON-RPC, such as gRPC, GraphQL, and a Mesh or Rosetta adapter. Each
-   adds a Logos Core module exposing the wallet and node APIs over the new
-   transport, and a Rust client library with its FFI crate, consumed through the
-   LEZ-DK.
+   adds the same server and client pair over the new transport, with the client
+   again implementing the API it proxies, plus a Rust client library for callers
+   outside the module system.
 
-   The shape generalises: a server module projecting a node's API over a
-   transport, paired with a client module re-exposing the same API over the
-   Logos Core FFI, applies to any transport and to any node's API. A consuming
-   module speaks IPC in every case and does not learn which transport carried
-   the call, so transports can be added without the applications above them
-   changing.
+   The shape generalises to any transport and to any node's API, not only LEZ.
+   Because every client module presents the same IPC interface, a consuming
+   module does not learn which transport carried the call, so transports can be
+   added without the applications above them changing.
 
    **Delivery is the pair worth singling out**, because it removes a
    prerequisite the others keep. Every other transport needs the node reachable
