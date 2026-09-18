@@ -614,9 +614,8 @@ This requires:
    module can be loaded without the full node. This enables smaller node
    artefacts for mobile apps (wallet-only integration) and makes wallet + node
    combinations possible on demand. On Android, each module should be shipped as
-   an independent AAR, similar to the LEZ wallet AAR described below, so that
-   standalone mobile applications can include only the modules they need and
-   leave out the rest.
+   an independent AAR, so that an application resolves only the modules it needs
+   and the rest never reach the artefact.
 
 4. **Enable dynamic configuration between remote JSON-RPC nodes and local
    nodes.** With modular wallet and node components, an application could load a
@@ -630,8 +629,9 @@ SDK + LEZ-DK + Logos Blockchain SDK) and lets integrators compose only the
 components they need. It also relies on the Logos core framework, having most
 components in common with the Basecamp path (TODO: verify/clarify). However, it
 depends on delivering mobile Local mode, modularising the node crates, and
-producing language SDKs for Kotlin, Swift, Dart, and Go with good tree-shaking
-capabilities. If those prerequisites are not met, this path is not yet viable.
+producing language SDKs for Kotlin, Swift, Dart, and Go split per component, so
+that an integrator resolves only what they ship. If those prerequisites are not
+met, this path is not yet viable.
 
 ### Discarded: native wallet libraries per language
 
@@ -691,9 +691,9 @@ Rather than binding the generic runtime, wrap every module individually over
 FFI, and write the glue that composes them in the native language rather than
 loading modules dynamically. The result is a static, non-generic liblogos: it
 does not discover modules or expose their interfaces at run time, it just wires
-a known set of them together. The wrapping is done per component precisely so
-that the native toolchain can drop the wrappers, and ideally the `.so` files
-behind them, for components an integrator does not use.
+a known set of them together. The wrapping is done per component because that is
+the only way an integrator ends up shipping less than everything, for the reason
+below.
 
 Two things recommend it as a fallback. It is incremental in a way the SDK path
 is not: the LEZ wallet can be wrapped first and the Logos Blockchain wallet
@@ -713,20 +713,22 @@ a property of one, so it is not lost if the SDK path is abandoned: splitting
 is what lets a per-module kit wrap a wallet on its own and keep the node out of
 a mobile artefact.
 
-Tree-shaking is the part that has to work for this to pay off, and Android is
-where it is hardest: R8 and ProGuard remove unused bytecode but do **not**
-remove a dynamic `.so` from the APK, and every exported FFI symbol is a
-dynamic-linker entry point the linker cannot prove dead. iOS is more forgiving,
-since a static `.a` can be dead-stripped at app-link time. BDK is the worked
-example of the Android case: `bdk-android` 3.1.0 ships one monolithic
-`libbdkffi.so` per ABI, 42.6 MiB of native code across three ABIs against 1.7
-MiB of Kotlin, with minification disabled. UniFFI generates the bindings but
-offers nothing for size; where comparable projects control it, they do so with
-build-time feature gating, as LDK Node does with Cargo features.
+**A native kit has to be a set of libraries rather than one, because `.so` files
+cannot be tree-shaken.** On Android, native code is included by dependency
+resolution, not reachability: R8 shrinks JVM bytecode only, so a resolved
+module's `.so` is packaged whether or not anything calls it. Excluding it
+through packaging options is a trap, since the dependency still resolved and
+compiled, turning a compile-time error into a runtime `UnsatisfiedLinkError`.
+The only sound way to keep a library out is never to resolve it: the dependency
+graph is the tree-shaking.
 
-Per-module artefacts are therefore the mechanism, separate AARs per wallet on
-Android and separate Frameworks or SPM products on iOS, rather than one artefact
-the toolchain is expected to trim.
+[`logos-android-wrap-poc`](https://github.com/fryorcraken/logos-android-wrap-poc)
+demonstrates this for Logos, publishing delivery and storage as separate Kotlin
+artefacts and asserting in CI that the storage `.so` is absent from a
+delivery-only APK. It anticipates the same for `lez-node`, `lez-wallet`,
+`l1-node` and `l1-wallet`. BDK is the counter-example: one monolithic
+`libbdkffi.so` per ABI, 42.6 MiB across three ABIs against 1.7 MiB of Kotlin.
+UniFFI generates bindings but offers nothing for size.
 
 The figures under [Artefact size](#artefact-size) are what this has to beat.
 
