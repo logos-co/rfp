@@ -152,7 +152,8 @@ secure, private and censorship-resistant distribution of software to users.
 
 #### Current/Potential Gaps
 
-- Completion of Basecamp full USP (security for b)
+- Completion of Basecamp's full USP: container-like isolation of modules, module
+  integrity and signature checking, and further permission management.
 - Mobile support
 - **Electron-like experience/Web UI (?)**: as above, a specific React
   development experience rather than web UI support in general.
