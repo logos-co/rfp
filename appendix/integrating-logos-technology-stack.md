@@ -472,16 +472,23 @@ drives the full lifecycle, `init`, `add_modules_dir`, `start`, `load_module`,
 is demonstrated rather than merely argued.
 
 [`liblogos-electron-poc`](https://github.com/fryorcraken/liblogos-electron-poc)
-explores using `liblogos_core` as a library inside an Electron application. It
-is work in progress and not fully proven, so it should be read as an exploration
-of the shape rather than as evidence that the shape works. The question it
-probes matters for the framework limitations noted under
-[Basecamp & Logos Core](#basecamp--logos-core): if an Electron application can
+uses `liblogos_core` as a library inside an Electron application, and has taken
+the question further than the Rust one. It packages the runtime and its modules
+into a single distributable artefact, loads modules, and calls them from the
+application, with each step measured by a reproducible experiment rather than
+inferred. Its
+[0.3.0 inventory](https://github.com/fryorcraken/liblogos-electron-poc/blob/main/docs/0.3.0-inventory.md)
+is the most detailed account available of what hosting the runtime in process
+actually costs, and the sections below draw on it.
+
+What it probes matters for the framework limitations noted under
+[Basecamp & Logos Core](#basecamp--logos-core). If an Electron application can
 host Logos modules directly, that is a different answer to the reach of
-web-stack developers than making Basecamp itself more Electron-like, and it
-would let such an application distribute through conventional channels. It has
-established the packaging and the module loading, and what it has not yet
-settled is the invocation path, which is the third capability below.
+web-stack developers than making Basecamp itself more Electron-like, and it lets
+such an application distribute through conventional channels. It remains a proof
+of concept: Linux only, with the platform and packaging work described under
+[From a working binding to a library others depend on](#from-a-working-binding-to-a-library-others-depend-on)
+still ahead of it.
 
 #### What a development kit must provide
 
@@ -523,26 +530,38 @@ exists reaches introspection but not invocation, because the capability surface
 publishes nothing over a plain transport and the token lookup has nothing to
 reach.
 
-The third capability is the one where the shape of the answer matters most,
-because driving a separate binary per call is a poor fit for an embedded
-integration and an especially poor one for mobile. The preferable shape is for
-an application to host the same gateway in process rather than to spawn a daemon
-beside it: `logosctl`'s daemon registers `core_service` as an in-process module
-through the C++ SDK, and that gateway is what every client talks to. Its
-dispatch is deliberately Qt-free, and the two methods an integration needs from
-it, proxying a call to a module and watching a module's events, are a small
-surface over the module management an application already has. Taking that route
-would give a development kit a genuine `call(module, method, args)` without a
-second copy of the runtime in the artefact, and it has a reference
-implementation to follow rather than being a new design.
+**An in-process caller needs neither the gateway nor a token, and that makes
+this capability much smaller than it appears.** The measurement is in the
+Electron proof of concept's
+[0.3.0 inventory](https://github.com/fryorcraken/liblogos-electron-poc/blob/main/docs/0.3.0-inventory.md),
+which was arrived at by experiment rather than by reading source. The finding is
+that `core_service` exists so that an *out-of-process* client has something to
+talk to. A caller inside the process invokes modules directly over the default
+local transport, with no gateway, no TCP and no token at all, which is precisely
+what a Qt-free client outside the process could never do. The token handshake
+that makes remote invocation hang is therefore not an obstacle to be routed
+around for an embedded integration; it is a feature of a boundary an embedded
+integration does not cross.
 
-What stands in the way is that the invocation path inside that gateway is a
-client method over Qt's remote objects, so it cannot simply be wrapped from
-another language: hosting the gateway is C++ work even when everything above it
-is not. Whether the approach holds is also unconfirmed at the time of writing.
-The proof of concept that is pursuing it has not yet driven a module through a
-running daemon's gateway, which is the cheaper check that would validate the
-assumption before any of the in-process work is committed to.
+What remains is small and well identified. The inventory puts the irreducible
+C++ at roughly **120 lines**: constructing and owning the `LogosAPI` object,
+`invokeRemoteMethod` itself, the JSON to `QVariant` marshalling that upstream
+already provides, pumping the Qt event loop, moving the blocking call off the
+caller's thread, and delivering event subscriptions back across it. Against that
+it lists what is explicitly not needed, which is where the estimate shrinks: the
+gateway implementation, its dispatch, the call envelope, package operations,
+provider registration, the token manager and its validators, and TCP transports
+and port allocation. All of the libraries involved are already shipped in the
+proof of concept's build, so nothing new has to be fetched or vendored.
+
+So the honest scope for this capability, on a platform where it has been
+demonstrated, is a small compiled shim per language rather than a substantial
+C++ undertaking. Provider hosting above remains the larger barrier, and it is
+worth noting that the same upstream change closes both: a C ABI over the
+universal interface would remove the Qt dependency from the binding, the C++ ABI
+commitment, and the platform-specific event loop question in one move, turning
+what is currently a compiled addon per platform and per runtime version into an
+ordinary FFI binding.
 
 The Qt dependency bears on each of the three differently, and the distinction
 matters more than a general statement that the stack depends on Qt:
@@ -589,17 +608,14 @@ evidence that a given piece is unplanned, and the repositories are the better
 place to check.
 
 Two things follow for anyone scoping this work. A delivery covering fewer than
-all three leaves an integrator with something that does not work end to end: the
-runtime lifecycle alone loads modules it cannot call, and adding provider
-hosting without invocation and authorisation produces calls that never complete.
-And the split between the three is not fixed. If the capability surface becomes
-reachable over a plain transport, consuming a module needs no more than the
-`lp_*` ABI that is already bound. If the handshake instead stays behind a token
-manager, the kit hosts that gateway in process, as described above, rather than
-driving a separate binary per call. Either way the aim is the same, an
-application that carries the runtime rather than one that shells out to it, and
-the difference is how much C++ sits between the integrator's language and a
-working call.
+all three leaves an integrator with something that does not work end to end,
+since the runtime lifecycle alone loads modules it cannot call. And the three
+are not equally hard: the first is a plain C ABI, the third is a small compiled
+shim once the caller is in process, and provider hosting is the one that carries
+a Qt dependency the others do not. What an integrator needs is an application
+that carries the runtime rather than one that shells out to it, and the
+remaining question is how much compiled C++ sits between their language and a
+working call rather than whether the arrangement is reachable at all.
 
 #### Gaps for `logos-liblogos`
 
@@ -677,6 +693,41 @@ part of the topology question under
 These four are ordered by dependency rather than by difficulty. The first two
 are the substantive work; the Qt item conditions how expensive they are per
 language rather than whether they are possible.
+
+#### From a working binding to a library others depend on
+
+A binding that works is not yet a library, and the distance between them is
+mostly platform and packaging work rather than protocol work. The Electron proof
+of concept's
+[0.3.0 inventory](https://github.com/fryorcraken/liblogos-electron-poc/blob/main/docs/0.3.0-inventory.md)
+enumerates that distance from a position of having built the thing, and its list
+generalises beyond JavaScript.
+
+Four items block shipping. **Other platforms** is the first and it gates the
+rest: the event loop integration that was demonstrated on Linux relies on a
+dispatcher that does not exist on Windows, and on macOS both the host runtime
+and the surrounding application want to own the main run loop. That is an open
+design question rather than a port. **Lifecycle and reentrancy** follow, because
+a library is called in orders an application never attempts: a second
+initialisation, teardown during a call, a call in flight at shutdown. **The ABI
+commitment** is structural: binding a C++ interface rather than a C one means an
+upstream release can break consumers at load time, so a binding needs a pinned
+build, a version check, or the C ABI that would remove the problem. And
+**longevity** is simply unobserved, since no run has lasted long enough to
+reveal leaks, descriptor exhaustion or reconnection behaviour.
+
+Packaging is the other half, and it is the part most easily underestimated.
+Prebuilt binaries are needed per platform and per runtime version, which
+multiplies the platform question rather than sitting beside it; a consumer
+installing from a language's ordinary package manager cannot be assumed to have
+the build environment the runtime was developed in; and plugin libraries that
+the runtime opens by path at run time are invisible to the usual dependency
+inspection, so they have to be enumerated by hand when assembling an artefact.
+
+None of this is unusual for a native binding, and none of it is research. It is
+listed here because it is the work that separates a development kit from a
+demonstration, and because estimates that count only the binding itself will be
+wrong by a wide margin.
 
 ### Fit for the JSON-RPC Provider + Wallet Library model
 
