@@ -705,10 +705,10 @@ the opportunity for a subtle, consensus-relevant mistake. A native library in
 another language is not merely more code; it is more code of a kind that is hard
 to get right and hard to review.
 
-**The zero-knowledge circuits are what make a rewrite futile rather than merely
-expensive.** Both chains require client-side proving, and the circuits that do
-it are Circom with C++ witness generators and a C++ prover, embedded by any
-wallet that builds a transaction whatever language surrounds it (see
+**The zero-knowledge circuits are the reason a rewrite buys nothing.** Both
+chains require client-side proving, and the circuits that do it are Circom with
+C++ witness generators and a C++ prover, embedded by any wallet that builds a
+transaction whatever language surrounds it (see
 [Ecosystem overview](#ecosystem-overview)). A native library cannot re-implement
 them in Kotlin or Swift; it can only wrap the same artefacts. "Native" therefore
 means a language-specific shell over the identical dependency rather than an
@@ -725,11 +725,11 @@ complex to specify usefully. Worth keeping open rather than pursuing now.
 
 ### Discarded: a single BDK-style FFI library
 
-The opposite approach is equally ruled out, and for an unrelated reason. BDK
-answers the rewrite problem by wrapping one Rust codebase over FFI and shipping
-it as one artefact: `bdk-android` publishes a single `libbdkffi.so` per ABI
-carrying a wallet and four chain backends. That packaging is what makes it a
-poor model here.
+The opposite approach is ruled out too, for a different reason. BDK answers the
+rewrite problem by wrapping one Rust codebase over FFI and shipping it as one
+artefact: `bdk-android` publishes a single `libbdkffi.so` per ABI carrying a
+wallet and four chain backends. That packaging is what makes it a poor model
+here.
 
 A single Logos FFI library would put the LEZ wallet, the LEZ node, the Logos
 Blockchain wallet and the Logos Blockchain node behind one `.so`, and every
@@ -774,33 +774,29 @@ delivered.
 
 3. **Separation of the wallet from the node.** The two APIs above must be
    implemented by clearly separate modules, over clearly separate libraries,
-   rather than the single `lez_core` module that carries both today. This is a
-   deliverable in its own right, not a refactor that falls out of the other two.
+   rather than the single `lez_core` module that carries both today.
 
-   It is what lets a wallet be loaded without the node, which is what makes a
-   wallet-only mobile integration possible: the node is the artefact that
-   carries the size, and an application that reaches a remote node should not
-   ship it. Since native code is included by dependency resolution rather than
-   reachability, the split has to exist at the module and artefact boundary to
-   have any effect, and each ships independently, an AAR apiece on Android.
+   This lets a wallet be loaded without the node, which is what a wallet-only
+   mobile integration needs: the node carries the size, and an application
+   reaching a remote node should not ship it. Since native code is included by
+   dependency resolution rather than reachability, the split has to exist at the
+   module and artefact boundary, each shipping independently, an AAR apiece on
+   Android.
 
-   **The wallet module must reach the node only through the node API, and
-   nothing else.** Given the transport pairs of deliverables 4 and 6, this is
-   what makes a remote node work at all: the wallet cannot tell a local node
-   module from a client module answering over JSON-RPC, so the two stay
-   interchangeable. A wallet that reached past that boundary, through a shared
-   database, an internal Rust call or any other back channel, would work only
-   when the node is local and would silently foreclose every remote deployment.
+   **The wallet module must reach the node only through the node API.** Given
+   the transport pairs of deliverables 4 and 6, this is what keeps a local node
+   module and a client module interchangeable: a wallet reaching past that
+   boundary, through a shared database or an internal call, would work only when
+   the node is local.
 
-   Logos Blockchain requires the same separation, so this deliverable repeats
-   for it.
+   Logos Blockchain requires the same separation.
 
 4. **The JSON-RPC server and client modules**
    ([logos-co/ecosystem#237](https://github.com/logos-co/ecosystem/issues/237)):
    **A pair of Logos Core modules.** The server module projects the `lez_core`
    APIs over JSON-RPC, carrying both the node and wallet APIs. The client module
    answers those same APIs by reaching that endpoint. Both are needed, and the
-   client is the half that is easy to overlook.
+   client is the half more often left out.
 
    **The client module implements the same IPC interface as the module it
    proxies.** It exposes the LEZ node API over the Logos Core FFI exactly as
@@ -822,17 +818,17 @@ delivered.
    and authorisation through `logos-protocol`. These live in different libraries
    and repositories today.
 
-   **Android and iOS are in scope, and are the harder half.** The bindings are
-   of limited use if they reach desktop only, since the integrators this path
-   serves are largely mobile. Each module ships as its own artefact, an
-   independent AAR on Android, so an application resolves only what it uses.
-   Three things stand in the way, and each is part of this deliverable rather
-   than a prerequisite to it: mobile Local mode, so modules register in-process
-   rather than the runtime spawning one OS process per module, which Android's
-   application model does not accommodate; the Qt runtime shipping inside the
-   artefact and coexisting with the platform's application model; and building
-   the ZK circuits for Android and iOS, which are published for Linux, macOS and
-   Windows only, so a mobile build fails before it produces an artefact at all.
+   **Android and iOS are in scope.** The integrators this path serves are
+   largely mobile, so bindings reaching desktop only would not serve them. Each
+   module ships as its own artefact, an independent AAR on Android, so an
+   application resolves only what it uses. Three things are part of this
+   deliverable rather than prerequisites to it: mobile Local mode, so modules
+   register in-process rather than the runtime spawning one OS process per
+   module, which Android's application model does not accommodate; the Qt
+   runtime shipping inside the artefact and coexisting with the platform's
+   application model; and building the ZK circuits for Android and iOS, which
+   are published for Linux, macOS and Windows only, so a mobile build fails
+   before it produces an artefact at all.
 
 6. **Further transport module pairs**
    ([logos-co/ecosystem#222](https://github.com/logos-co/ecosystem/issues/222))
