@@ -584,9 +584,9 @@ which is the arrangement Basecamp and `logosctl` already use.
 
 This means a library per language carrying the three capabilities set out under
 [What a development kit must provide](#what-a-development-kit-must-provide):
-runtime lifecycle, provider hosting, and invocation and authorisation. A
-delivery covering fewer than all three leaves an integrator with something that
-does not work end to end, so they belong in the same piece of work.
+runtime lifecycle, provider hosting, and invocation and authorisation. All three
+belong in the same piece of work, since the first alone loads modules it cannot
+call.
 
 This requires:
 
@@ -750,31 +750,52 @@ missing. The first two define surfaces; the rest consume them. Each has its own
 RFP, and each of those is the authority on its own scope.
 
 Supporting the rest of the stack repeats parts of this list rather than adding a
-new shape. Deliverables 1 and 2 would be repeated for Logos Blockchain, which
-needs both a node API and a wallet API of its own, and deliverable 1 alone for
-Storage and for Delivery, which have no wallet. Deliverables 3 and 5 are not
-repeated per protocol: one proxy module pair is intended to carry the Logos
-Blockchain API alongside the LEZ one, and other module APIs after them.
-Deliverable 4 is shared outright, since the Logos Core language bindings are not
-protocol-specific and serve every protocol once delivered.
+new shape. Deliverables 1, 2 and 3 would be repeated for Logos Blockchain, which
+needs a node API, a wallet API and the same separation between them, and
+deliverable 1 alone for Storage and for Delivery, which have no wallet.
+Deliverables 4 and 6 are not repeated per protocol: one proxy module pair is
+intended to carry the Logos Blockchain API alongside the LEZ one, and other
+module APIs after them. Deliverable 5 is shared outright, since the Logos Core
+language bindings are not protocol-specific and serve every protocol once
+delivered.
 
 1. **The LEZ node API** ([RFP-027](../RFPs/RFP-027-lez-node-api.md),
    [logos-co/ecosystem#235](https://github.com/logos-co/ecosystem/issues/235)).
-   The global, non-wallet functions, packaged in the `lez_core` Logos Core
-   module. Exposed in Rust for the wallet features within `lez_core`, and over
-   the Logos Core FFI for Basecamp apps and transport proxy modules (see 3 and
-   5).
+   The global, non-wallet functions. Exposed in Rust for the wallet to consume,
+   and over the Logos Core FFI for Basecamp apps and transport proxy modules
+   (see 4 and 6).
 
 2. **The LEZ wallet API**
    ([logos-co/ecosystem#236](https://github.com/logos-co/ecosystem/issues/236)):
    key handling, derivation, proving, and signing, covering local and wallet
-   operations only. Packaged in the `lez_core` module today, but ideally
-   separated into its own module so a wallet can be loaded without the node, and
-   able to run with every wallet API function disabled. Exposed over the Logos
-   Core FFI, which is how every consumer reaches it, whether a Basecamp
-   application or an application using the Logos Core language bindings (see 4).
+   operations only. Exposed over the Logos Core FFI, which is how every consumer
+   reaches it, whether a Basecamp application or an application using the Logos
+   Core language bindings (see 5).
 
-3. **The JSON-RPC server and client modules**
+3. **Separation of the wallet from the node.** The two APIs above must be
+   implemented by clearly separate modules, over clearly separate libraries,
+   rather than the single `lez_core` module that carries both today. This is a
+   deliverable in its own right, not a refactor that falls out of the other two.
+
+   It is what lets a wallet be loaded without the node, which is what makes a
+   wallet-only mobile integration possible: the node is the artefact that
+   carries the size, and an application that reaches a remote node should not
+   ship it. Since native code is included by dependency resolution rather than
+   reachability, the split has to exist at the module and artefact boundary to
+   have any effect, and each ships independently, an AAR apiece on Android.
+
+   **The wallet module must reach the node only through the node API, and
+   nothing else.** Given the transport pairs of deliverables 4 and 6, this is
+   what makes a remote node work at all: the wallet cannot tell a local node
+   module from a client module answering over JSON-RPC, so the two stay
+   interchangeable. A wallet that reached past that boundary, through a shared
+   database, an internal Rust call or any other back channel, would work only
+   when the node is local and would silently foreclose every remote deployment.
+
+   Logos Blockchain requires the same separation, so this deliverable repeats
+   for it.
+
+4. **The JSON-RPC server and client modules**
    ([logos-co/ecosystem#237](https://github.com/logos-co/ecosystem/issues/237)):
    **A pair of Logos Core modules.** The server module projects the `lez_core`
    APIs over JSON-RPC, carrying both the node and wallet APIs. The client module
@@ -791,7 +812,7 @@ protocol-specific and serve every protocol once delivered.
    a mobile Basecamp application skip the node artefact entirely while still
    speaking the same API.
 
-4. **Logos Core language bindings**
+5. **Logos Core language bindings**
    ([logos-co/ecosystem#238](https://github.com/logos-co/ecosystem/issues/238)):
    A library per language, Kotlin, Swift, Dart, Go and Rust, carrying all three
    capabilities set out under
@@ -799,15 +820,21 @@ protocol-specific and serve every protocol once delivered.
    runtime lifecycle over the `logos_core_*` C ABI from `logos-liblogos`,
    provider hosting through `LogosAPI` and `LogosAPIProvider`, and invocation
    and authorisation through `logos-protocol`. These live in different libraries
-   and repositories today, and a delivery covering fewer than all three leaves
-   an integrator with something that loads modules it cannot call. This is what
-   lets an application not built from Logos modules host them and call them, and
-   it is the deliverable the recommended path turns on.
+   and repositories today.
 
-   Each module ships as its own artefact, an independent AAR on Android, so an
-   application resolves only what it uses.
+   **Android and iOS are in scope, and are the harder half.** The bindings are
+   of limited use if they reach desktop only, since the integrators this path
+   serves are largely mobile. Each module ships as its own artefact, an
+   independent AAR on Android, so an application resolves only what it uses.
+   Three things stand in the way, and each is part of this deliverable rather
+   than a prerequisite to it: mobile Local mode, so modules register in-process
+   rather than the runtime spawning one OS process per module, which Android's
+   application model does not accommodate; the Qt runtime shipping inside the
+   artefact and coexisting with the platform's application model; and building
+   the ZK circuits for Android and iOS, which are published for Linux, macOS and
+   Windows only, so a mobile build fails before it produces an artefact at all.
 
-5. **Further transport module pairs**
+6. **Further transport module pairs**
    ([logos-co/ecosystem#222](https://github.com/logos-co/ecosystem/issues/222))
    beyond JSON-RPC, such as gRPC, GraphQL, and a Mesh or Rosetta adapter. Each
    adds the same server and client pair over the new transport, with the client
@@ -863,38 +890,6 @@ wallet can be loaded without the full node. This is what makes a wallet-only
 mobile integration possible, and it is a prerequisite for both recommendations
 above rather than a property of either one.
 
-## Multizone integration
-
-Anyone can create a zone, so an integrator covering the ecosystem rather than a
-single application is likely to face more than one: bridges, aggregators,
-explorers, and wallets showing holdings across zones all share this shape. A
-zone is not obliged to run LEZ, and one that does not is a different chain for
-integration purposes, which bounds what multizone support can promise.
-
-Whether to facilitate many zones is a commercial question as much as a technical
-one, and it should be settled before the architecture hardens: more zones
-fragment liquidity, and thin markets are a security consideration, against which
-zones offer isolation and independent throughput.
-
-`lez_core` serves one zone at a time, so multizone is unresolved rather than a
-configuration detail. Either the module holds several zones, or the integrator
-runs one instance per zone and the proxy routes between them; both may require a
-zone identifier in the node API, so the real question is where the multiplexing
-happens. The indexer's Rust FFI is handle-based, which suggests the
-single-instance restriction sits in the C++ module wrapper rather than beneath
-it, though this needs confirming. Until it is settled, an integrator runs a node
-per zone and joins the results itself.
-
-Key management must be zone-abstract: one seed for Logos, not one per zone and
-not one per chain. The cryptography constrains how far that goes, since the two
-chains use different schemes and SLIP-0010 ed25519 permits only hardened
-derivation where BIP-32 secp256k1 does not
-([Appendix: Wallet Libraries Ecosystem, section 3](./wallet-libraries-ecosystem.md#3-key-derivation)),
-so watch-only derivation is available on one side and not the other. LEZ viewing
-keys are further material a user expects to recover from their seed. The API
-shape over this, where the derivation tree branches, and whether hardware-backed
-keys are in scope are open questions for R&D.
-
 ## Artefact size
 
 Artefact size is the constraint that bears hardest on any kit shipping a node,
@@ -930,17 +925,46 @@ and a proposal is expected to obtain the figures rather than assume them.
 
 ## Open questions
 
-**Basecamp mobile readiness.** Mobile support is planned for testnet 0.4, so the
-Basecamp shape is reachable on desktop and server only at the time of writing.
-
 **Mobile strategy for LEZ and Logos Blockchain nodes.** It is not settled
 whether a mobile device runs light versions of the chain nodes and joins the
 peer-to-peer networks directly, reaches remote nodes over RPC alone, or combines
 the two. None of the protocols has defined its mobile strategy, and the answer
-need not be the same for each. The architecture above therefore keeps both
-options open: the node API is reached the same way whether a local node module
-or a client module answers it, so settling on either answer does not invalidate
-the surface built against it.
+need not be the same for each. This is a protocol question rather than an
+integration one, and the architecture above keeps both options open: the node
+API is reached the same way whether a local node module or a client module
+answers it, so settling on either answer does not invalidate the surface built
+against it.
 
-**Building the ZK circuits for mobile**, which is a prerequisite to obtaining
-any mobile artefact size at all.
+### Multizone integration
+
+Anyone can create a zone, so an integrator covering the ecosystem rather than a
+single application is likely to face more than one: bridges, aggregators,
+explorers, and wallets showing holdings across zones all share this shape. A
+zone is not obliged to run LEZ, and one that does not is a different chain for
+integration purposes, which bounds what multizone support can promise.
+
+Whether to facilitate many zones is a commercial question as much as a technical
+one, and it should be settled before the architecture hardens: more zones
+fragment liquidity, and thin markets are a security consideration, against which
+zones offer isolation and independent throughput.
+
+`lez_core` serves one zone at a time, so multizone is unresolved rather than a
+configuration detail. Either the module holds several zones, or the integrator
+runs one instance per zone and the proxy routes between them; both may require a
+zone identifier in the node API, so the real question is where the multiplexing
+happens. The indexer's Rust FFI is handle-based, which suggests the
+single-instance restriction sits in the C++ module wrapper rather than beneath
+it, though this needs confirming. Until it is settled, an integrator runs a node
+per zone and joins the results itself.
+
+### Key management across zones and chains
+
+Key management must be zone-abstract: one seed for Logos, not one per zone and
+not one per chain. The cryptography constrains how far that goes, since the two
+chains use different schemes and SLIP-0010 ed25519 permits only hardened
+derivation where BIP-32 secp256k1 does not
+([Appendix: Wallet Libraries Ecosystem, section 3](./wallet-libraries-ecosystem.md#3-key-derivation)),
+so watch-only derivation is available on one side and not the other. LEZ viewing
+keys are further material a user expects to recover from their seed. The API
+shape over this, where the derivation tree branches, and whether hardware-backed
+keys are in scope are open questions for R&D.
