@@ -466,7 +466,7 @@ constructing the `QCoreApplication` the C API requires but cannot create.
 [`liblogos-electron-poc`](https://github.com/fryorcraken/liblogos-electron-poc)
 goes further, packaging the runtime and its modules into a single distributable
 artefact and measuring each step by reproducible experiment. Its
-[0.3.0 inventory](https://github.com/fryorcraken/liblogos-electron-poc/blob/main/docs/0.3.0-inventory.md)
+[0.3.0 inventory](https://github.com/fryorcraken/liblogos-electron-poc/blob/master/docs/0.3.0-inventory.md)
 is the most detailed account available of what hosting the runtime in process
 costs, and the sections below draw on it. It remains Linux only.
 
@@ -493,10 +493,12 @@ and the token handshake are still Qt C++.
 An in-process caller appears to need neither the gateway nor a token, which
 would make the third capability smaller than it looks. The Electron proof of
 concept's
-[0.3.0 inventory](https://github.com/fryorcraken/liblogos-electron-poc/blob/main/docs/0.3.0-inventory.md)
-measured the irreducible C++ at roughly **120 lines**, with the gateway,
-provider registration, token manager and TCP transports all excluded. That
-figure comes from one proof of concept on one platform, so it is a starting
+[0.3.0 inventory](https://github.com/fryorcraken/liblogos-electron-poc/blob/master/docs/0.3.0-inventory.md)
+measured the irreducible C++ at roughly **190 lines**, against a pre-build
+estimate of 120; the overage is in asynchronous dispatch and in distinguishing a
+runtime call failure from a module's own refusal. The gateway, provider
+registration, token manager and TCP transports are all excluded from that
+figure. It comes from one proof of concept on one platform, so it is a starting
 estimate rather than a scope (TODO: confirm with @dlipicar).
 
 Beyond the binding itself, shipping a library rather than a demonstration
