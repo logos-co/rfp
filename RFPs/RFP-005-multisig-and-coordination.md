@@ -232,8 +232,8 @@ design space.
     engage (for example: OpenZeppelin, Trail of Bits, Spearbit, Cantina,
     ChainSecurity, Certora, Halborn), include the audit budget as a line item in
     the proposal, and include the audit timeline ahead of any mainnet
-    recommendation. Audit reports must be published with the codebase before
-    mainnet deployment is recommended.
+    recommendation. Audit reports must be published with the codebase before any
+    production deployment of the software.
 
 ### Soft Requirements
 
