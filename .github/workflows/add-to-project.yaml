@@ -5,11 +5,13 @@ on:
     types:
       - opened
 
+permissions:
+  contents: read
+
 jobs:
   add-to-project:
     name: Add proposal issue to project
     runs-on: ubuntu-latest
-    if: contains(github.event.issue.labels.*.name, 'proposal')
     steps:
       - id: add-to-project
         uses: actions/add-to-project@v1.0.2
@@ -17,6 +19,8 @@ jobs:
           # Organization project URL
           # Format: https://github.com/orgs/<org>/projects/<number>
           project-url: https://github.com/orgs/logos-co/projects/18
+          # Only proposal issues (see .github/ISSUE_TEMPLATE/proposal.yml)
+          labeled: proposal
           # A GitHub PAT or app token with `project` scope is required
           # Create a fine-grained PAT with "Projects" read/write access
           # or use a GitHub App with "Organization projects" permissions
