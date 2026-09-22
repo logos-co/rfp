@@ -214,12 +214,10 @@ design space.
     and step-by-step instructions for creating a multisig, proposing, approving,
     and executing via CLI and front-end, including how the coordination room is
     provisioned.
-09. Submit a
-    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-    for the SDK, covering the developer integration journey.
-10. Submit a
-    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-    for the CLI, covering the core operator journey.
+09. Provide documentation in repo for the SDK, covering the developer
+    integration journey.
+10. Provide documentation in repo for the CLI, covering the core operator
+    journey.
 11. Provide Figma designs or equivalent for the mini-app GUI, including the
     proposal list and the coordination room.
 12. Publish the resulting modules in a module catalog of the team's own, built
