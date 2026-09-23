@@ -83,7 +83,7 @@ ecosystem.
 
 ### Hard Requirements
 
-Use FURPS framework. Each numbered item should be a testable statement.
+Use the FURPS framework. Each numbered item should be a testable statement.
 
 #### Functionality
 
@@ -128,12 +128,10 @@ Standard requirements (adapt as needed):
 5. A README documents end-to-end usage: deployment steps, program addresses, and
    step-by-step instructions for interacting with the program via CLI and
    mini-app.
-6. Submit a
-   [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-   for the Logos module/library, covering the developer integration journey.
-7. Submit a
-   [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-   for the CLI, covering the core operator/user journey.
+6. Provide documentation in repo for the Logos module/library, covering the
+   developer integration journey.
+7. Provide documentation in repo for the CLI, covering the core operator/user
+   journey.
 8. Provide Figma designs or equivalent for all GUI artifacts.
 9. Provide a privacy and anonymisation properties document covering: what
    on-chain state and transaction data is visible to observers; what data is
@@ -141,6 +139,12 @@ Standard requirements (adapt as needed):
    specifying which guarantees are enforced by the on-chain program and which
    depend on correct client behaviour; and what happens if a user bypasses the
    expected interaction path.
+10. Publish the resulting modules in a module catalog of the team's own, built
+    from the
+    [Logos module catalog template](https://github.com/logos-co/logos-modules-release-base),
+    so the modules are installable by Logos clients.
+11. The modules must be built and released to that catalog using
+    [logos-modules-release-action](https://github.com/logos-co/logos-modules-release-action).
 
 ### Soft Requirements
 
