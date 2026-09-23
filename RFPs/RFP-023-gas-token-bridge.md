@@ -323,7 +323,7 @@ to delay their own submissions for privacy reasons.
 
 ### Hard Requirements
 
-Use FURPS framework. Each numbered item should be a testable statement.
+Use the FURPS framework. Each numbered item should be a testable statement.
 
 #### Functionality
 
@@ -556,23 +556,18 @@ Use FURPS framework. Each numbered item should be a testable statement.
 04. A README documents end-to-end usage: contract and program addresses,
     deployment steps for both chains, and step-by-step instructions for both
     directions via CLI and mini-app.
-05. Submit a
-    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-    for the core module, covering the developer integration journey for both
-    flows including position recovery.
-06. Submit a
-    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-    for the CLI and any operator-facing components, covering the core user and
-    operator journeys respectively.
-07. Submit a
-    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-    for the deployer journey, covering how an entity stands up its own
-    independently configured deployment (Functionality #22) as a complete set:
-    deploying the LEZ vault program, deploying the EVM mint and burn contract
-    with its dedicated ERC-20, and running the paymaster. The paymaster section
-    must cover funding it, configuring the minimum sponsored amount, exposing it
-    over Logos Delivery and Tor, and the deployment constraints that keep
-    requester addresses out of reach (Functionality #8).
+05. Provide documentation in repo for the core module, covering the developer
+    integration journey for both flows including position recovery.
+06. Provide documentation in repo for the CLI and any operator-facing
+    components, covering the core user and operator journeys respectively.
+07. Provide documentation in repo for the deployer journey, covering how an
+    entity stands up its own independently configured deployment (Functionality
+    #22) as a complete set: deploying the LEZ vault program, deploying the EVM
+    mint and burn contract with its dedicated ERC-20, and running the paymaster.
+    The paymaster section must cover funding it, configuring the minimum
+    sponsored amount, exposing it over Logos Delivery and Tor, and the
+    deployment constraints that keep requester addresses out of reach
+    (Functionality #8).
 08. The Ethereum contract undergoes an independent third-party smart-contract
     security audit before mainnet deployment; the audit report must be
     published. The audit scope must explicitly include the mint authorisation
@@ -594,8 +589,12 @@ Use FURPS framework. Each numbered item should be a testable statement.
     to hold, and guidance for users bridging before the pool has matured.
 11. The UI must let users change the targeted Ethereum RPC address and the
     targeted LEZ sequencer or zone.
-12. The deliverable must be published on the module catalog.
-13. The repository must use the standard Logos GitHub Actions.
+12. Publish the resulting modules in a module catalog of the team's own, built
+    from the
+    [Logos module catalog template](https://github.com/logos-co/logos-modules-release-base),
+    so the modules are installable by Logos clients.
+13. The modules must be built and released to that catalog using
+    [logos-modules-release-action](https://github.com/logos-co/logos-modules-release-action).
 
 #### + Bridge Security
 
