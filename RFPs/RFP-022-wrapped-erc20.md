@@ -51,8 +51,8 @@ dependencies:
 ## 🧭 Overview
 
 Build a trustless, privacy-preserving lock-and-mint bridge that lets ERC-20
-tokens and native ETH, held on Ethereum, enter LEZ as canonical wrapped assets,
-and exit back to Ethereum on redemption.
+tokens and native ETH, held on Ethereum, enter LEZ as wrapped assets backed one
+to one by the escrowed originals, and exit back to Ethereum on redemption.
 
 An Ethereum-side vault contract escrows deposits. A LEZ-side program mints the
 corresponding wrapped token once it has cryptographically verified, with no
@@ -63,14 +63,13 @@ rather than rebuilds. Redemption reverses the flow: burning the wrapped token on
 LEZ entitles the holder to release the original ERC-20 from the vault, again on
 cryptographic proof alone.
 
-The bridge must **maximise privacy on both legs, minimising the linkability
-between a specific Ethereum deposit and the LEZ mint it funded, or between a
-specific LEZ burn and the Ethereum release it triggered.** This shapes the
-design: the deposit should not name its LEZ destination, the burn should not
-name its Ethereum destination, and information that would connect them should
-stay with the user wherever the design permits it. Where a specific form of
-linkability cannot be avoided, the proposal must document why and what residual
-correlation results.
+Neither leg may publish data that connects its two ends: an Ethereum deposit
+must not name its LEZ destination, a LEZ burn must not name its Ethereum
+destination, and no signal other than amount, token and timing may narrow down
+which LEZ mint a deposit funded or which Ethereum release a burn triggered
+(Privacy Preservation #1 to #3). Where the design leaves a correlation
+observable, the proposal must document which correlation it is, why it remains,
+and what an observer can infer from it.
 
 Teams will need experience with zero-knowledge proof systems, privacy-preserving
 protocol design, Solidity smart-contract development, and LEZ program
@@ -78,13 +77,16 @@ development.
 
 ## 🔥 Why This Matters
 
-Thanks to LEZ's separated public/private state architecture and programmability,
-and Logos Blockchain's Cryptarchia and Blend protocols, private DeFi is possible
-with privacy guarantees at both the execution layer and the underlying consensus
-layer. To let users move assets in from non-private blockchains such as
-Ethereum, that move has to happen while preserving Logos' principle of
-sovereignty: no custodian, signer, or federation should be trusted with a user's
-assets or identity along the way.
+LEZ separates public and private state: private account state is held on chain
+only as commitments, and private state transitions are verified by
+zero-knowledge proof without revealing the accounts, balances or program inputs
+involved. Beneath it, Logos Blockchain's Cryptarchia consensus lets a block
+proposer prove its eligibility without revealing its identity or stake, and the
+Blend network relays block proposals through other nodes so the proposer's
+network origin is not exposed. To let users move assets in from public
+blockchains such as Ethereum, that move has to happen while preserving Logos'
+principle of sovereignty: no custodian, signer, or federation needs to be
+trusted with a user's assets or identity along the way.
 
 Wrapped tokens are what let users bring assets they already hold, and whose
 value is already established, on Ethereum into that private DeFi, spending them
@@ -93,12 +95,12 @@ there directly or posting them as collateral: the privacy-preserving DEX
 ([RFP-008](./RFP-008-lending-borrowing-protocol.md)), the reflexive stablecoin
 ([RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)), and the price feeds
 that collateralise them ([RFP-019](./RFP-019-twap-oracle.md),
-[RFP-020](./RFP-020-redstone-oracle-adaptor.md)). This RFP delivers that
-wrapping primitive for the Ethereum leg. Bitcoin, Monero, and Zcash reach LEZ
-liquidity through a different route: direct, trustless swaps against LEZ assets
-via [RFP-003](./RFP-003-atomic-swaps.md), rather than a wrapped representation,
-noting that other strategies such as wrapped Bitcoin and synthetics are also
-being considered.
+[RFP-020](./RFP-020-redstone-oracle-adaptor.md)). This RFP invites proposals for
+that wrapping primitive for the Ethereum leg. Bitcoin, Monero, and Zcash are
+outside the scope of this RFP: [RFP-003](./RFP-003-atomic-swaps.md) covers
+direct, trustless swaps between those assets and LEZ assets, and alternative
+approaches such as wrapped Bitcoin or synthetic assets are likewise out of scope
+here.
 
 RFP-003 explicitly carved Ethereum out of its scope for this reason. Bitcoin,
 Monero, and Zcash lack general smart-contract expressiveness, so a trustless
@@ -113,33 +115,28 @@ wrapping creates a genuine LEZ-native representation of the external asset
 itself, which is what lets it be deposited into an AMM pool, posted as loan
 collateral, or otherwise composed with LEZ DeFi programs directly.
 
-### Minimising linkability between Ethereum and LEZ events
+### Linkability between Ethereum and LEZ events
 
-Privacy is baked into LEZ, and this bridge should maximise privacy where it
-touches a non-private chain. Ethereum is public: the deposit and the release it
-eventually triggers are visible to anyone. A conventional lock-and-mint bridge
-adds to that a deposit event naming both the Ethereum depositor and the LEZ
-recipient, and a redemption event naming the Ethereum destination alongside the
-LEZ account that funded it, each permanently binding a traceable Ethereum
-identity to LEZ activity for anyone to read.
+Ethereum is public: the deposit and the release it eventually triggers are
+visible to anyone. A conventional lock-and-mint bridge adds to that a deposit
+event naming both the Ethereum depositor and the LEZ recipient, and a redemption
+event naming the Ethereum destination alongside the LEZ account that funded it,
+each permanently binding a traceable Ethereum identity to LEZ activity for
+anyone to read.
 
-The applicant must consider and document the bridge's strategy for reducing
-linkability between an Ethereum deposit and the LEZ mint it funds, and between a
-LEZ burn and the Ethereum release it triggers. Where a specific form of
-linkability cannot be avoided, given what a lock-and-mint bridge to a public
-chain necessarily reveals, the applicant must document why, and what residual
-correlation an observer is left with as a result.
+The applicant must document every correlation the design leaves observable
+between an Ethereum deposit and the LEZ mint it funds, and between a LEZ burn
+and the Ethereum release it triggers: which signal carries it, why it remains
+given what a lock-and-mint bridge to a public chain necessarily reveals, and
+what an observer can infer from it.
 
-### Stablecoins are the concrete prize
+### Target tokens
 
-A healthy DeFi ecosystem needs a variety of assets available as collateral and
-liquidity: native LEZ assets, wrapped assets, and synthetics each have a role,
-and wrapping is one strategy among those we want to see implemented, not the
-only one. USDT and USDC together account for over 80% of a stablecoin market
-that stood above $300B in mid-2026, and are the settlement asset most DeFi money
-markets and DEXes actually run on, which makes them a concrete target for this
-strategy: wrapping USDC, USDT, DAI, and WETH gives the lending protocol and the
-reflexive stablecoin a credible collateral base at launch.
+Wrapping is one of several ways to make assets available as collateral and
+liquidity on LEZ, alongside native LEZ assets and synthetics. The design must
+support registering at least USDC, USDT, DAI, and WETH, which between them cover
+6- and 18-decimal tokens and a token whose transfer functions do not return a
+boolean (USDT, Functionality #17).
 
 ### Bridge risks: hacking
 
@@ -156,14 +153,14 @@ cryptographic design does not remove, because it depends on that logic being
 correct (see
 [Appendix: Bridges and Wrapped Tokens](../appendix/bridges-and-wrapped-tokens.md)
 for the sourced figures, per-hack root causes, and the exact Chainalysis
-citation). This RFP therefore does not want mutable verification logic, which
-carries two distinct risks: whoever can change it can point the bridge at a
-verifier that accepts anything, and an upgrade made in good faith can ship a
-catastrophic bug. The first has no documented cross-chain bridge example; the
-second caused Nomad (~$190M) and nearly caused a second Ronin incident in 2024
-($12M, returned). This RFP treats verification logic correctness (audit, formal
-methods, extensive adversarial testing) as a security requirement of the same
-order as eliminating signer trust. Per-token and global caps and an
+citation). The verification logic is therefore fixed at deployment (Security
+#8). Mutable verification logic carries two distinct risks: whoever can change
+it can point the bridge at a verifier that accepts anything, and an upgrade made
+in good faith can ship a catastrophic bug. The first has no documented
+cross-chain bridge example; the second caused Nomad (~$190M) and nearly caused a
+second Ronin incident in 2024 ($12M, returned). Verification logic correctness
+(audit, formal methods, extensive adversarial testing) is a security requirement
+of the same order as eliminating signer trust. Per-token and global caps and an
 admin-governed freeze authority remain as operational safety nets against both
 failure modes.
 
@@ -191,11 +188,11 @@ the Ethereum release it triggered.**
 Both are stated relative to this *anonymity set*, the candidates amount, token,
 and timing leave unresolved, and degrade to nothing when that set is small.
 Sizing and minimising it (amount and timing above all, see Soft Requirement 1,
-Hidden amounts, below) is a first-class requirement. Privacy comes from making
-these public facts *uninformative about which counterparty they pair with*, not
-from hiding them.
+Committed amounts, below) is a first-class requirement. Privacy comes from
+making these public facts *uninformative about which counterparty they pair
+with*, not from hiding them.
 
-Three further consequences follow from what cannot be hidden, and proposals must
+Three further consequences follow from what stays public, and proposals must
 address each:
 
 - **Amounts correlate.** A deposit of 1,337.42 USDC followed by a mint of
@@ -203,7 +200,7 @@ address each:
   between them. The amount visible on the Ethereum side must not act as a
   fingerprint. Restricting transfers to a fixed set of per-token denominations
   is the simpler and better-understood mitigation, and is the expected baseline
-  for this RFP; hiding amounts outright via value commitments is stronger but
+  for this RFP; recording amounts as value commitments is stronger but
   considerably heavier, and is specified as a soft requirement below.
 - **Timing correlates.** A deposit followed promptly by a mint, at a quiet
   moment, is matched by inspection. The protocol must not force users into
@@ -317,17 +314,18 @@ the admin authority per deployment, for the same reason the token registry is
 reasonably want to strike the latency-versus-risk balance differently, and a
 fixed, hard-coded depth would foreclose that choice.
 
-Once a user's claim is valid it must remain valid indefinitely, since users are
-expected to delay their own submissions for privacy reasons and must never be
-forced to act promptly to avoid expiry.
+Once a user's claim is valid it must remain valid indefinitely, since delayed
+submission may be used to reduce timing correlation, and a valid claim must not
+expire as a result.
 
 ### Fee structure
 
-This RFP mandates a protocol fee on both minting (deposit-side) and burning
-(redemption-side) of the wrapped token on LEZ. The rate itself is not mandated:
-it must be configurable by the admin authority per deployment, for the same
-reason the token registry and finality depth are (see "Token registry and
-decimal normalisation" and "Finality and reorg protection" above), so different
+This RFP requires that the program support a protocol fee on both minting
+(deposit-side) and burning (redemption-side) of the wrapped token on LEZ. The
+rate itself is not mandated: it must be configurable by the admin authority per
+deployment, for the same reason the token registry and finality depth are (see
+"Token registry and decimal normalisation" and "Finality and reorg protection"
+above), so different
 deployers can compete on sustainability and fee policy rather than being locked
 into one rate. This RFP does not mandate a fee on the Ethereum side; the focus
 here is the Logos ecosystem and its privacy-preserving LEZ side, and an
@@ -351,8 +349,8 @@ Configuration proposals must specify:
    and the burn-side fee at burn or at release, and how partial amounts (after
    fee deduction) interact with the fixed-denomination requirement in "The
    privacy requirement, stated precisely," above.
-4. **Routing.** The destination of collected fees (protocol treasury, relayer
-   compensation, burn, or a combination).
+4. **Routing.** The destination of collected fees (the deploying entity's
+   treasury, relayer compensation, burn, or a combination).
 
 Whatever the denomination and rate, any fee paid by a user (protocol or relayer)
 must take a value that does not distinguish their transaction from others, since
@@ -381,7 +379,7 @@ direction, with the reasoning made explicit.
 
 ### Hard Requirements
 
-Use FURPS framework. Each numbered item should be a testable statement.
+Use the FURPS framework. Each numbered item should be a testable statement.
 
 #### Functionality
 
@@ -458,6 +456,8 @@ Use FURPS framework. Each numbered item should be a testable statement.
     configuration must have no privileged access over another's configuration or
     funds, as if each were a fully separate deployment. Document how a client
     identifies and switches between configurations.
+17. The Ethereum vault must correctly deposit and release ERC-20s whose
+    `transfer` and `transferFrom` do not return a boolean (USDT).
 
 #### Usability
 
@@ -499,7 +499,10 @@ Use FURPS framework. Each numbered item should be a testable statement.
     must not reveal which deposit or burn a failed attempt referred to.
 09. The UI must let users change the targeted Ethereum RPC address and the
     targeted LEZ sequencer or zone.
-10. All resulting modules are published in catalogue for easy installation.
+10. Publish the resulting modules in a module catalog of the team's own, built
+    from the
+    [Logos module catalog template](https://github.com/logos-co/logos-modules-release-base),
+    so the modules are installable by Logos clients.
 
 #### Reliability
 
@@ -529,20 +532,14 @@ Use FURPS framework. Each numbered item should be a testable statement.
     trip against a LEZ sequencer (standalone mode) and an Ethereum test network
     or local fork, and are included in CI.
 11. Every hard requirement has at least one corresponding test.
-12. Submit a
-    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-    for the core module, covering the developer integration journey for both
-    flows including position recovery.
-13. Submit a
-    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-    for the CLI and any operator-facing components, covering the core user and
-    operator journeys respectively.
-14. Submit a
-    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-    for the deployer journey, covering how an entity stands up its own
-    independently configured deployment (Functionality #16): registering tokens,
-    setting fees, configuring the admin and freeze authorities, and the finality
-    depth.
+12. Provide documentation in repo for the core module, covering the developer
+    integration journey for both flows including position recovery.
+13. Provide documentation in repo for the CLI and any operator-facing
+    components, covering the core user and operator journeys respectively.
+14. Provide documentation in repo for the deployer journey, covering how an
+    entity stands up its own independently configured deployment (Functionality
+    #16): registering tokens, setting fees, configuring the admin and freeze
+    authorities, and the finality depth.
 
 #### Performance
 
@@ -567,19 +564,23 @@ Use FURPS framework. Each numbered item should be a testable statement.
 6. Document the compute resources (CPU, RAM, time) required to run any off-chain
    component the design requires.
 7. Document the growth rate and on-chain storage cost of all bridge state that
-   accumulates with usage, with projections at 1M and 10M operations.
+   accumulates with usage, projected at 1M and 10M operations.
 
 #### Supportability
 
 1. The Ethereum vault contract and the LEZ bridge program are deployed and
    tested on a public Ethereum testnet and LEZ testnet respectively.
 2. The modules work on both Linux and MacOS platforms.
-3. The repository must use the standard Logos GitHub Actions.
+3. The modules must be built and released to the team's module catalog
+   (Usability #10) using
+   [logos-modules-release-action](https://github.com/logos-co/logos-modules-release-action).
 
 #### + Security
 
-1. Both blockchain contracts undergoes an independent third-party smart-contract
-   security audit before mainnet deployment; the audit report must be published.
+1. Both blockchain contracts undergo an independent third-party smart-contract
+   security audit prior to any mainnet deployment; the audit report must be
+   published. Mainnet deployment is not part of this RFP: whether, when and by
+   whom the software is deployed is a matter for those who deploy it.
 2. Proof verification must be independently verifiable. Both the LEZ program and
    the Ethereum vault must reject invalid proofs, including those with incorrect
    public inputs, proofs for incorrect chain state, tampered headers, and
@@ -655,9 +656,9 @@ Use FURPS framework. Each numbered item should be a testable statement.
 
 ### Soft Requirements
 
-1. **Hidden amounts.** Remove the amount-visibility constraint entirely by
-   concealing transferred values on the LEZ side, rather than relying on a fixed
-   set of permitted amounts. This merges all per-amount anonymity sets into one
+1. **Committed amounts.** Record transferred values on the LEZ side as value
+   commitments rather than restricting transfers to a fixed set of permitted
+   amounts, removing the amount-visibility constraint. This merges all per-amount anonymity sets into one
    and reduces the need for users to split transfers. Whatever is delivered
    under the hard requirements should be designed so this can be adopted later
    without redeploying the vault or resetting accumulated anonymity; document
@@ -684,9 +685,9 @@ The following are explicitly excluded from this RFP:
   activity is out of scope as an implementation concern, but must be disclosed
   as residual leakage under Privacy Preservation #6.
 - Protocol-level compliance, disclosure, or selective-deanonymisation
-  mechanisms. Voluntary user-held viewing keys are Soft Requirement #2; any
-  capability allowing a third party to deanonymise a user without their consent
-  is contrary to the design and out of scope.
+  mechanisms. Voluntary user-held viewing keys are Soft Requirement #2; no other
+  third-party deanonymisation capability is included within the scope of this
+  RFP.
 - Circuit optimisation or custom zkVM accelerators for the LEZ side: LEZ itself
   runs on RISC0, so proposals should leverage mature existing implementations
   (e.g. Zisk) for LEZ-side proving rather than implementing novel circuits or
@@ -785,9 +786,10 @@ Team experienced with:
 Estimated software delivery duration: **16–20 weeks**. This is longer than a
 transparent lock-and-mint bridge would require; the privacy construction,
 user-side proving, position recovery, and the privacy test suite are the
-additional scope. This excludes the third-party audit lead time required before
-mainnet deployment (Security #1), which is typically procured and scheduled
-separately.
+additional scope. The estimate excludes the third-party audit lead time required
+prior to any mainnet deployment (Security #1). Proposals may include the audit
+in their scope and budget or leave it to be procured separately, and must state
+which.
 
 ## 🌍 Open Source Requirement
 
@@ -810,7 +812,7 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [RFP-020 — RedStone Off-Chain Oracle Adaptor for LEZ](./RFP-020-redstone-oracle-adaptor.md)
   (reference for in-program proof verification cost measurement)
 - [RFP-021 — Trustless Ethereum State Attestation for LEZ](./RFP-021-ethereum-state-attestation.md)
-  (delivers the verification of finalised Ethereum state that the inbound mint
+  (specifies the verification of finalised Ethereum state that the inbound mint
   path consumes)
 - [RFP-023 — Native Gas Token Bridge for LEZ](./RFP-023-gas-token-bridge.md)
   (the reverse direction, with LEZ as the vault, built on this RFP's patterns)
