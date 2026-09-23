@@ -408,7 +408,7 @@ Reuse is expected to be assessed seriously; it is not mandated.
 
 ### Hard Requirements
 
-Use FURPS framework. Each numbered item should be a testable statement.
+Use the FURPS framework. Each numbered item should be a testable statement.
 
 #### Functionality
 
@@ -610,20 +610,16 @@ Use FURPS framework. Each numbered item should be a testable statement.
 02. End-to-end integration tests exercise attestation production and consumption
     against a LEZ sequencer (standalone mode) and an Ethereum test network or
     local fork, and are included in CI.
-03. Submit a
-    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-    for the core module, covering the developer integration journey for a
-    consuming LEZ program.
+03. Provide documentation in repo for the core module, covering the developer
+    integration journey for a consuming LEZ program.
 04. The consumer documentation must include a **"Recommended Consumer Pattern"**
     section covering: enforcing uniqueness with a nullifier keyed on the
     statement identifier from Functionality #6, verifying the chain binding
     matches the consumer's expectation, handling each typed error code, and the
     recommended behaviour when an attestation cannot be produced (refuse the
     action, never fall back to an unverified input).
-05. Submit a
-    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-    for the CLI and any operator-facing components, covering the core user and
-    operator journeys respectively.
+05. Provide documentation in repo for the CLI and any operator-facing
+    components, covering the core user and operator journeys respectively.
 06. Provide a **trust assumptions document** covering: the honest sync-committee
     supermajority assumption and the cost of the attack it admits; the
     weak-subjectivity checkpoint, who supplies it and how a verifier confirms it
@@ -641,8 +637,12 @@ Use FURPS framework. Each numbered item should be a testable statement.
 08. The module undergoes an independent third-party security audit of the
     consensus and inclusion verification logic before any mainnet-facing
     deployment; the audit report must be published.
-09. The deliverable must be published on the module catalog.
-10. The repository must use the standard Logos GitHub Actions.
+09. Publish the resulting modules in a module catalog of the team's own, built
+    from the
+    [Logos module catalog template](https://github.com/logos-co/logos-modules-release-base),
+    so the modules are installable by Logos clients.
+10. The modules must be built and released to that catalog using
+    [logos-modules-release-action](https://github.com/logos-co/logos-modules-release-action).
 
 #### + Verification Security
 
