@@ -119,26 +119,26 @@ List performance requirements. Document compute unit usage of each operation
 
 Standard requirements (adapt as needed):
 
-1. The program is deployed and tested on LEZ devnet/testnet.
-2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
-   and are included in CI
-3. CI must be green on the default branch.
-4. Every hard requirement in Functionality, Usability, Reliability, and
-   Performance has at least one corresponding test.
-5. A README documents end-to-end usage: deployment steps, program addresses, and
-   step-by-step instructions for interacting with the program via CLI and
-   mini-app.
-6. Provide documentation in repo for the Logos module/library, covering the
-   developer integration journey.
-7. Provide documentation in repo for the CLI, covering the core operator/user
-   journey.
-8. Provide Figma designs or equivalent for all GUI artifacts.
-9. Provide a privacy and anonymisation properties document covering: what
-   on-chain state and transaction data is visible to observers; what data is
-   protected when the private account path is used; trust assumptions,
-   specifying which guarantees are enforced by the on-chain program and which
-   depend on correct client behaviour; and what happens if a user bypasses the
-   expected interaction path.
+01. The program is deployed and tested on LEZ devnet/testnet.
+02. End-to-end integration tests run against a LEZ sequencer (standalone mode)
+    and are included in CI
+03. CI must be green on the default branch.
+04. Every hard requirement in Functionality, Usability, Reliability, and
+    Performance has at least one corresponding test.
+05. A README documents end-to-end usage: deployment steps, program addresses,
+    and step-by-step instructions for interacting with the program via CLI and
+    mini-app.
+06. Provide documentation in repo for the Logos module/library, covering the
+    developer integration journey.
+07. Provide documentation in repo for the CLI, covering the core operator/user
+    journey.
+08. Provide Figma designs or equivalent for all GUI artifacts.
+09. Provide a privacy and anonymisation properties document covering: what
+    on-chain state and transaction data is visible to observers; what data is
+    protected when the private account path is used; trust assumptions,
+    specifying which guarantees are enforced by the on-chain program and which
+    depend on correct client behaviour; and what happens if a user bypasses the
+    expected interaction path.
 10. Publish the resulting modules in a module catalog of the team's own, built
     from the
     [Logos module catalog template](https://github.com/logos-co/logos-modules-release-base),
