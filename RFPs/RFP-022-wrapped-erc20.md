@@ -325,11 +325,11 @@ This RFP requires that the program support a protocol fee on both minting
 rate itself is not mandated: it must be configurable by the admin authority per
 deployment, for the same reason the token registry and finality depth are (see
 "Token registry and decimal normalisation" and "Finality and reorg protection"
-above), so different
-deployers can compete on sustainability and fee policy rather than being locked
-into one rate. This RFP does not mandate a fee on the Ethereum side; the focus
-here is the Logos ecosystem and its privacy-preserving LEZ side, and an
-Ethereum-side protocol fee is left to the proposal if it chooses to specify one.
+above), so different deployers can compete on sustainability and fee policy
+rather than being locked into one rate. This RFP does not mandate a fee on the
+Ethereum side; the focus here is the Logos ecosystem and its privacy-preserving
+LEZ side, and an Ethereum-side protocol fee is left to the proposal if it
+chooses to specify one.
 
 Configuration proposals must specify:
 
@@ -658,11 +658,12 @@ Use the FURPS framework. Each numbered item should be a testable statement.
 
 1. **Committed amounts.** Record transferred values on the LEZ side as value
    commitments rather than restricting transfers to a fixed set of permitted
-   amounts, removing the amount-visibility constraint. This merges all per-amount anonymity sets into one
-   and reduces the need for users to split transfers. Whatever is delivered
-   under the hard requirements should be designed so this can be adopted later
-   without redeploying the vault or resetting accumulated anonymity; document
-   the intended migration path even if it is not implemented.
+   amounts, removing the amount-visibility constraint. This merges all
+   per-amount anonymity sets into one and reduces the need for users to split
+   transfers. Whatever is delivered under the hard requirements should be
+   designed so this can be adopted later without redeploying the vault or
+   resetting accumulated anonymity; document the intended migration path even if
+   it is not implemented.
 2. Optional viewing keys allowing a user to *voluntarily* disclose their own
    bridge activity to a chosen third party, without weakening privacy for anyone
    else and without any protocol-level disclosure capability.
