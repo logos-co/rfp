@@ -124,8 +124,10 @@ design space.
     Logos chat module, scoped to the multisig's members. The room carries both
     human deliberation and machine coordination: proposals are published to the
     room, member approvals are collected through it, and the resulting approval
-    package is presented to the program at execution. See the Coordination
-    Architecture section.
+    package is presented to the program at execution. Given a multisig, its room
+    can be provisioned by a defined mechanism that binds each member's LEZ
+    account to a chat identity; proposers must specify this mechanism. See the
+    Coordination Architecture section.
 10. Run the multisig private by default: the program runs over LEZ private
     accounts so that the multisig data items listed in the Privacy Architecture
     section are not published on-chain. Support the auditability and
@@ -273,6 +275,13 @@ approvals through the room removes per-approval on-chain writes and keeps
 pending-proposal metadata off-chain even for a public-posture multisig. An
 on-chain proposal record is not an audit-trail advantage over this model: both
 models yield a verifiable record of who authorised an action at execution.
+
+LEZ accounts and Logos chat identities are independent: no binding between a
+member's LEZ account and a chat identity is defined today. Proposals must
+specify the mechanism that establishes this binding, how a room is provisioned
+from a multisig's member set (including any invite and accept step), and how the
+program verifies that an approval collected in the room was signed by the LEZ
+account of a member.
 
 Room membership and program membership are separate state and can diverge.
 Removing a member through the M-of-N flow (F.5) changes the program's member
