@@ -155,15 +155,15 @@ design space.
    on-chain and which are not), so a multisig operator understands exactly what
    an observer can see, including what becomes visible to an audience under each
    disclosure mechanism.
-6. Before a member signs an approval, the mini-app must display the exact action
-   that approval authorises (target program, decoded instruction, amounts), so
-   the member verifies what they are signing rather than a UI-rendered summary.
-   This addresses the signing-layer attack surface behind the Bybit and WazirX
-   losses, in which signers authorised what a compromised UI showed them rather
-   than what was actually executed. It complements the primary mitigation, which
-   is the Logos module model itself: the UI ships as a module package whose
-   developer signature is verified at install time, rather than being fetched
-   from a remote server on every use.
+6. Before a member signs an approval, the mini-app must decode and display the
+   action from the exact bytes the approval signs (target program, decoded
+   instruction, amounts), using the registry in F.4, rather than from a
+   description supplied by the proposer or a remote service. This addresses the
+   signing-layer attack surface behind the Bybit and WazirX losses, in which
+   what signers were shown differed from what they signed. It complements the
+   primary mitigation, which is the Logos module model itself: the UI ships as a
+   module package whose developer signature is verified at install time, rather
+   than being fetched from a remote server on every use.
 7. Failed or rejected proposals and executions must return clear, actionable
    error messages.
 
