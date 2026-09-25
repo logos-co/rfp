@@ -137,9 +137,9 @@ design space.
 
 #### Usability
 
-1. Provide an SDK that can be used to build Logos modules for interacting with
-   the multisig (create, propose, approve, reject, execute, manage members and
-   policies).
+1. Provide a Logos multisig module whose API other Logos modules can call to
+   interact with the multisig (create, propose, approve, reject, execute, manage
+   members and policies).
 2. Provide a Logos mini-app QML GUI with local build instructions, downloadable
    assets, and loadable in Logos app (Basecamp) via git repo. The mini-app must
    surface the per-multisig coordination room alongside the proposal list.
@@ -216,8 +216,8 @@ design space.
     and step-by-step instructions for creating a multisig, proposing, approving,
     and executing via CLI and front-end, including how the coordination room is
     provisioned.
-09. Provide documentation in repo for the SDK, covering the developer
-    integration journey.
+09. Provide API documentation in repo for the multisig module, covering every
+    call it exposes and the developer integration journey.
 10. Provide documentation in repo for the CLI, covering the core operator
     journey.
 11. Provide Figma designs or equivalent for the mini-app GUI, including the
@@ -394,7 +394,7 @@ Team experienced with:
 
 Estimated duration: **6 months** (fresh implementation of the M-of-N program
 with its private-by-default execution path, the coordination room with in-room
-approval collection, and the SDK, CLI, and mini-app).
+approval collection, and the multisig module, CLI, and mini-app).
 
 This estimate assumes a team already productive on LEZ. Proposers new to the
 platform should account for ramp-up separately and say so.
