@@ -254,6 +254,11 @@ If possible.
    and whose verifying key would need to be established and trusted. A proposer
    may scope this as a research deliverable with its own budget, or document a
    design for later implementation. Proposals may omit this soft requirement.
+3. **Mixed postures.** Allow the operator to choose, at creation, which of the
+   data items listed in the Privacy Architecture section are public and which
+   are private, beyond the fully private and fully public postures (for example,
+   public holdings with a private member set). Proposals must state which
+   combinations they support and what each combination reveals.
 
 ### Coordination Architecture
 
@@ -306,7 +311,8 @@ accounts by default, so none of the ten items is published in the clear;
 coordination content is always private (the E2EE room), and the co-signing
 social graph is not readable from chain state. Where identity is concerned, the
 property in question is unlinkability between a user's account and its role in a
-multisig, not concealment of the user.
+multisig, not concealment of the user. Mixed postures, where some items are
+public and others private, are soft requirement #3 in Functionality.
 
 **Auditability and transparency options.** Privacy is not the opposite of
 oversight, and different organisations need different audiences able to inspect
