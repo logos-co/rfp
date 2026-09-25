@@ -11,7 +11,7 @@ body:
       label: RFP ID
       description: Which RFP are you applying for? Pick the matching RFP — this drives the per-RFP label used for tracking.
       options:
-        - "— No RFPs are currently open for proposals —"
+        - "RFP-005 — Multisig and Coordination"
     validations:
       required: true
 
