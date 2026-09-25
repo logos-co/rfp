@@ -95,12 +95,14 @@ design space.
     members and a threshold M; an action requires at least M approvals before it
     can execute. Members, threshold, and the action set are configurable at
     creation.
-02. Support the full proposal lifecycle. Proposals and approvals are coordinated
-    off-chain through the per-multisig coordination room (requirement F.9): a
-    member publishes a proposal to the room; members approve or reject
-    asynchronously; once M approvals are collected the action can be executed,
-    and the program verifies the collected approvals at execution. Proposals
-    carry an expiry after which the program rejects execution.
+02. Support the full proposal lifecycle: a member proposes an action; members
+    approve or reject asynchronously; once M approvals are collected the action
+    can be executed, and the program verifies the approvals at execution.
+    Proposals carry an expiry after which the program rejects execution.
+    Proposals and approvals may be recorded on-chain or collected off-chain (for
+    example, through the coordination room in F.9); proposers must state which.
+    Either way, under the private posture, neither a pending proposal nor its
+    approvals may reveal the action to anyone outside the multisig.
 03. Execute approved actions on any arbitrary program deployed in the given LEZ.
 04. Provide a registry for proposal code and target programs so any client can
     confirm what instructions a proposal's bytes represent and what program they
@@ -121,13 +123,12 @@ design space.
 08. Support an optional spending-limit policy: a member or sub-quorum may
     execute transfers up to a configured limit without the full M-of-N approval.
 09. Provision an end-to-end-encrypted coordination room per multisig using the
-    Logos chat module, scoped to the multisig's members. The room carries both
-    human deliberation and machine coordination: proposals are published to the
-    room, member approvals are collected through it, and the resulting approval
-    package is presented to the program at execution. Given a multisig, its room
-    can be provisioned by a defined mechanism that binds each member's LEZ
-    account to a chat identity; proposers must specify this mechanism. See the
-    Coordination Architecture section.
+    Logos chat module, scoped to the multisig's members. The room carries human
+    deliberation and, where approvals are collected off-chain (F.2), proposals
+    and member approvals. Given a multisig, its room can be provisioned by a
+    defined mechanism that binds each member's LEZ account to a chat identity;
+    proposers must specify this mechanism. See the Coordination Architecture
+    section.
 10. Run the multisig private by default: the program runs over LEZ private
     accounts so that the multisig data items listed in the Privacy Architecture
     section are not published on-chain. Support the auditability and
@@ -263,30 +264,29 @@ If possible.
 ### Coordination Architecture
 
 Every multisig provisions one end-to-end-encrypted room using the Logos chat
-module, scoped to its members. The room is the single channel for both kinds of
-coordination traffic:
+module, scoped to its members. The room carries:
 
 - **Human deliberation**: the discussion among signers about whether to approve.
-- **Machine coordination**: proposals are published to the room, and members'
-  approvals (signatures over the proposal) are collected through it. Once M
-  approvals are gathered, the approval package is submitted for execution; the
-  program verifies the collected approvals at execution time.
+- **Machine coordination**, where approvals are collected off-chain (F.2):
+  proposals are published to the room, and members' approvals (signatures over
+  the proposal) are collected through it. Once M approvals are gathered, the
+  approval package is submitted for execution; the program verifies the
+  collected approvals at execution time.
 
 No sovereign multisig in production today offers an encrypted,
 metadata-resistant coordination channel: coordination is either public on-chain
 state (Squads), a relay that sees the metadata (Safe), or a user-supplied
-external channel (Bitcoin). The Logos chat module closes that gap. Carrying
-approvals through the room removes per-approval on-chain writes and keeps
-pending-proposal metadata off-chain even for a public-posture multisig. An
-on-chain proposal record is not an audit-trail advantage over this model: both
-models yield a verifiable record of who authorised an action at execution.
+external channel (Bitcoin). The Logos chat module closes that gap. Collecting
+approvals through the room also removes per-approval on-chain writes and keeps
+pending-proposal metadata off-chain even for a public-posture multisig; either
+approach yields a verifiable record of who authorised an action at execution.
 
 LEZ accounts and Logos chat identities are independent: no binding between a
 member's LEZ account and a chat identity is defined today. Proposals must
 specify the mechanism that establishes this binding, how a room is provisioned
-from a multisig's member set (including any invite and accept step), and how the
-program verifies that an approval collected in the room was signed by the LEZ
-account of a member.
+from a multisig's member set (including any invite and accept step), and, where
+approvals are collected in the room, how the program verifies that each was
+signed by the LEZ account of a member.
 
 Room membership and program membership are separate state and can diverge.
 Removing a member through the M-of-N flow (F.5) changes the program's member
@@ -371,10 +371,10 @@ the benchmark a deliverable.
 Private-transaction throughput per block is limited, and proof generation is
 paid client-side and measured in minutes rather than seconds. This shapes the
 product: the mini-app and CLI must treat execution as a long-running background
-operation with visible progress, not a request-response interaction. Carrying
-approvals through the coordination room keeps the on-chain footprint small, but
-proposers must measure and report the real figures under Performance requirement
-P.1.
+operation with visible progress, not a request-response interaction. On-chain
+approvals add a transaction per approval, which off-chain collection avoids;
+either way, proposers must measure and report the real figures under Performance
+requirement P.1.
 
 Benchmarks must be produced with real proving. Development mode skips proof
 generation and yields figures that are orders of magnitude optimistic, which is
@@ -393,8 +393,8 @@ Team experienced with:
 ## ⏱ Timeline Expectations
 
 Estimated duration: **6 months** (fresh implementation of the M-of-N program
-with its private-by-default execution path, the coordination room with in-room
-approval collection, and the multisig module, CLI, and mini-app).
+with its private-by-default execution path, the coordination room, approval
+collection, and the multisig module, CLI, and mini-app).
 
 This estimate assumes a team already productive on LEZ. Proposers new to the
 platform should account for ramp-up separately and say so.
