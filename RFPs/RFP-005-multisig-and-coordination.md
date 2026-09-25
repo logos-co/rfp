@@ -287,6 +287,13 @@ module, scoped to its members. The room carries:
   approval package is submitted for execution; the program verifies the
   collected approvals at execution time.
 
+Where approvals are collected in the room, the program's verification at
+execution (R.1) is the only authority on their validity; the room carries no
+trust for validity. Proposals must document what a room participant can do by
+withholding, reordering, replaying, or injecting proposals and approvals, or by
+presenting different members with different views of the room, and how the
+design detects or tolerates each.
+
 No sovereign multisig in production today offers an encrypted,
 metadata-resistant coordination channel: coordination is either public on-chain
 state (Squads), a relay that sees the metadata (Safe), or a user-supplied
