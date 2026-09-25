@@ -102,7 +102,8 @@ design space.
     Proposals and approvals may be recorded on-chain or collected off-chain (for
     example, through the coordination room in F.9); proposers must state which.
     Either way, under the private posture, neither a pending proposal nor its
-    approvals may reveal the action to anyone outside the multisig.
+    approvals publishes the action payload on-chain in the clear or outside the
+    coordination room.
 03. Execute approved actions on any arbitrary program deployed in the given LEZ.
 04. Provide a registry for proposal code and target programs so any client can
     confirm what instructions a proposal's bytes represent and what program they
@@ -238,6 +239,19 @@ design space.
     recommendation. Audit reports must be published with the codebase before any
     production deployment of the software.
 
+#### + Privacy
+
+1. Under the private posture, no LEZ transaction the multisig submits publishes
+   data identifying a member's account as belonging to the multisig, or
+   identifying the member's role in it (proposer, approver, executor).
+2. Under the private posture, no message the coordination room sends over its
+   transport publishes data identifying a chat identity as belonging to the
+   multisig, or identifying its role in it.
+3. Proposals must document every correlation the design leaves observable across
+   the two layers, including timing and patterns between room traffic and LEZ
+   transactions, and the LEZ-to-chat identity binding: which signal carries it,
+   why it remains, and what an observer of both layers can infer from it.
+
 ### Soft Requirements
 
 If possible.
@@ -309,10 +323,9 @@ private accounts (only a post-state commitment and validity proof on-chain).
 **Posture: private by default.** Under this RFP the multisig runs over private
 accounts by default, so none of the ten items is published in the clear;
 coordination content is always private (the E2EE room), and the co-signing
-social graph is not readable from chain state. Where identity is concerned, the
-property in question is unlinkability between a user's account and its role in a
-multisig, not concealment of the user. Mixed postures, where some items are
-public and others private, are soft requirement #3 in Functionality.
+social graph is not readable from chain state. The Privacy hard requirements
+state what each layer may publish. Mixed postures, where some items are public
+and others private, are soft requirement #3 in Functionality.
 
 **Auditability and transparency options.** Privacy is not the opposite of
 oversight, and different organisations need different audiences able to inspect
