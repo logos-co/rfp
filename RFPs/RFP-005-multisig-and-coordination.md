@@ -238,6 +238,10 @@ design space.
     the proposal, and include the audit timeline ahead of any mainnet
     recommendation. Audit reports must be published with the codebase before any
     production deployment of the software.
+14. Provide a design decision log in repo recording each major design decision
+    and choice: the context, the options considered, the option chosen, and the
+    rationale and trade-offs. The log is updated as decisions are made and is
+    current at each milestone delivery.
 
 #### + Privacy
 
