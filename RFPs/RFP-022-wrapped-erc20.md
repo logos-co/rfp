@@ -574,6 +574,10 @@ Use the FURPS framework. Each numbered item should be a testable statement.
 3. The modules must be built and released to the team's module catalog
    (Usability #10) using
    [logos-modules-release-action](https://github.com/logos-co/logos-modules-release-action).
+4. Provide a design decision log in repo recording each major design decision
+   and choice: the context, the options considered, the option chosen, and the
+   rationale and trade-offs. The log is updated as decisions are made and is
+   current at each milestone delivery.
 
 #### + Security
 
