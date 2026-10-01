@@ -1043,6 +1043,10 @@ the module that links it.
     generated from the machine-readable description required by Functionality
     #58 rather than maintained by hand, so it cannot drift from the header it
     describes.
+11. Provide a design decision log in repo recording each major design decision
+    and choice: the context, the options considered, the option chosen, and the
+    rationale and trade-offs. The log is updated as decisions are made and is
+    current at each milestone delivery.
 
 #### + Privacy
 
