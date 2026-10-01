@@ -643,6 +643,10 @@ Use the FURPS framework. Each numbered item should be a testable statement.
     so the modules are installable by Logos clients.
 10. The modules must be built and released to that catalog using
     [logos-modules-release-action](https://github.com/logos-co/logos-modules-release-action).
+11. Provide a design decision log in repo recording each major design decision
+    and choice: the context, the options considered, the option chosen, and the
+    rationale and trade-offs. The log is updated as decisions are made and is
+    current at each milestone delivery.
 
 #### + Verification Security
 
