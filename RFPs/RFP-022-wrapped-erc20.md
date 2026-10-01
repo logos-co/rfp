@@ -216,7 +216,17 @@ address each:
 This bridge is **trustless**. It requires no trust in signers, validators,
 attestor federations, relayers, or proof-generation services. A user relies only
 on the correctness of the proof system, the security of the Ethereum network,
-and the security of the LEZ network.
+the security of the LEZ network, and the issuer of the underlying ERC-20 token.
+
+The last of these is inherited from the token, not introduced by the bridge.
+Some issuers retain administrative powers over their contracts, such as the
+ability to freeze or blacklist addresses, and upgradeable tokens can have their
+logic changed. Such an issuer could block redemption by blacklisting the vault
+or a release destination, or by altering the token contract. Because the vault
+pools every deposit of a given token, an action against the vault affects all
+holders of that wrapped token at once, not just one user. The bridge cannot
+remove this dependency; holding the wrapped token carries the same issuer risk
+as holding the underlying asset on Ethereum.
 
 The protocol should not depend on any specific off-chain participant at all: a
 deposit or burn should not need a particular counterparty online to complete,
