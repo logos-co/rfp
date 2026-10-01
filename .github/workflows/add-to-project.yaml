@@ -1,0 +1,68 @@
+name: Add proposals to project
+
+on:
+  issues:
+    types:
+      - opened
+
+permissions:
+  contents: read
+
+jobs:
+  add-to-project:
+    name: Add proposal issue to project
+    runs-on: ubuntu-latest
+    steps:
+      - id: add-to-project
+        uses: actions/add-to-project@v1.0.2
+        with:
+          # Organization project URL
+          # Format: https://github.com/orgs/<org>/projects/<number>
+          project-url: https://github.com/orgs/logos-co/projects/18
+          # Only proposal issues (see .github/ISSUE_TEMPLATE/proposal.yml)
+          labeled: proposal
+          # A GitHub PAT or app token with `project` scope is required
+          # Create a fine-grained PAT with "Projects" read/write access
+          # or use a GitHub App with "Organization projects" permissions
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+
+      - name: Set Category and Status fields
+        if: steps.add-to-project.outputs.itemId != ''
+        uses: actions/github-script@v7
+        env:
+          ITEM_ID: ${{ steps.add-to-project.outputs.itemId }}
+        with:
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+          script: |
+            const projectId = "PVT_kwDOBmg7884BfoPW";
+            const categoryFieldId = "PVTSSF_lADOBmg7884BfoPWzhZ5zSM";
+            const categoryOptionId = "e41458d3"; // RFP
+            const statusFieldId = "PVTSSF_lADOBmg7884BfoPWzhZ5zQ0";
+            // Status option: "Proposals & Submissions to review"
+            const statusOptionId = "f8d53801";
+
+            const setField = (fieldId, optionId) => github.graphql(`
+              mutation(
+                $projectId: ID!
+                $itemId: ID!
+                $fieldId: ID!
+                $optionId: String!
+              ) {
+                updateProjectV2ItemFieldValue(input: {
+                  projectId: $projectId
+                  itemId: $itemId
+                  fieldId: $fieldId
+                  value: { singleSelectOptionId: $optionId }
+                }) {
+                  projectV2Item { id }
+                }
+              }
+            `, {
+              projectId,
+              itemId: process.env.ITEM_ID,
+              fieldId,
+              optionId,
+            });
+
+            await setField(categoryFieldId, categoryOptionId);
+            await setField(statusFieldId, statusOptionId);
