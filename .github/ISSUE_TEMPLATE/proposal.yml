@@ -12,6 +12,8 @@ body:
       description: Which RFP are you applying for? Pick the matching RFP — this drives the per-RFP label used for tracking.
       options:
         - "RFP-005 — Multisig and Coordination"
+        - "RFP-021 — Trustless Ethereum State Attestation for LEZ"
+        - "RFP-022 — Privacy-Preserving Wrapped ERC-20 and Ether Bridge for LEZ"
     validations:
       required: true
 
