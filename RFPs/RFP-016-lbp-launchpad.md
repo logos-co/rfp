@@ -64,6 +64,9 @@ between the buyer's private identity and their participation in the sale. An
 optional private allowlist gate enables projects to restrict participation
 without exposing the eligibility set on-chain.
 
+The LBP LEZ program is delivered for LEZ testnet 0.4 (Supportability requirement
+#1).
+
 The launchpad is the entry point for new projects into the Logos ecosystem. It
 is where token price and initial distribution are established.
 
@@ -458,15 +461,16 @@ pattern for account layout and address derivation.
 3. Document the compute unit (CU) cost of each operation: create namespace,
    create sale, buy, poke weights, pause/resume, close sale, collect fees,
    withdraw, set fee rate, set treasury. The withdraw figure must include the
-   fee transfer when collection has not already occurred. Note the LEZ testnet
-   version against which measurements were taken.
+   fee transfer when collection has not already occurred. Measurements are taken
+   on LEZ testnet 0.4.
 
 #### Supportability
 
-Proposals must include separate milestones for testnet 0.2, testnet 0.3, and
-mainnet deployment.
+Proposals must include separate milestones for testnet 0.4 and mainnet
+deployment.
 
-1. The launchpad program is deployed and tested on LEZ testnet 0.2.
+1. The LBP LEZ program is delivered for LEZ testnet 0.4: it is deployed and
+   tested on LEZ testnet 0.4.
 2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
    and are included in CI. CI must be green on the default branch.
 3. Every hard requirement in Functionality, Usability, Reliability, and
@@ -495,8 +499,7 @@ mainnet deployment.
    specifying which guarantees are enforced by the on-chain program and which
    depend on correct client behaviour; and what happens if a user bypasses the
    expected interaction path.
-6. The program is updated and verified on LEZ testnet 0.3.
-7. The program is deployed to LEZ mainnet.
+6. The program is deployed to LEZ mainnet.
 
 #### + Privacy
 
