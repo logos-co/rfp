@@ -386,15 +386,14 @@ protocols.
 2. A refund claim completes within one LEZ transaction.
 3. Document the compute unit (CU) cost of each operation: create
    sale, buy, pause/resume, close sale, withdraw, claim refund.
-   Note the LEZ testnet version against which measurements were
-   taken.
+   Measurements are taken on LEZ testnet 0.4.
 
 #### Supportability
 
-Proposals must include separate milestones for testnet 0.2, testnet 0.3,
-and mainnet deployment.
+Proposals must include separate milestones for testnet 0.4 and mainnet
+deployment.
 
-1. The tiered sale program is deployed and tested on LEZ testnet 0.2.
+1. The tiered sale program is deployed and tested on LEZ testnet 0.4.
 2. End-to-end integration tests run against a LEZ sequencer
    (standalone mode) and are included in CI. CI must be green on
    the default branch.
@@ -415,8 +414,7 @@ and mainnet deployment.
    the on-chain program and which depend on correct client
    behaviour; and what happens if a user bypasses the expected
    interaction path.
-6. The program is updated and verified on LEZ testnet 0.3.
-7. The program is deployed to LEZ mainnet.
+6. The program is deployed to LEZ mainnet.
 
 #### + Privacy
 
