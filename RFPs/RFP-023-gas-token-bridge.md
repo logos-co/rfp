@@ -544,8 +544,8 @@ Use the FURPS framework. Each numbered item should be a testable statement.
 
 #### Supportability
 
-01. The LEZ vault program and the Ethereum contract are deployed and tested on a
-    LEZ testnet and a public Ethereum testnet respectively.
+01. The LEZ vault program and the Ethereum contract are deployed and tested on
+    LEZ testnet 0.4 and a public Ethereum testnet respectively.
 02. End-to-end integration tests exercise the full round trip in both directions
     against a LEZ sequencer (standalone mode) and an Ethereum test network or
     local fork, and are included in CI. One test must cover the motivating
