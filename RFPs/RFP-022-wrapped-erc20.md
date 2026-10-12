@@ -579,7 +579,7 @@ Use the FURPS framework. Each numbered item should be a testable statement.
 #### Supportability
 
 1. The Ethereum vault contract and the LEZ bridge program are deployed and
-   tested on a public Ethereum testnet and LEZ testnet respectively.
+   tested on a public Ethereum testnet and LEZ testnet 0.4 respectively.
 2. The modules work on both Linux and MacOS platforms.
 3. The modules must be built and released to the team's module catalog
    (Usability #10) using

@@ -605,8 +605,8 @@ Use the FURPS framework. Each numbered item should be a testable statement.
 
 #### Supportability
 
-01. The module is deployed and tested on LEZ testnet, attesting to state on a
-    public Ethereum testnet.
+01. The LEZ program is deployed and tested on LEZ testnet 0.4, attesting to
+    state on a public Ethereum testnet.
 02. End-to-end integration tests exercise attestation production and consumption
     against a LEZ sequencer (standalone mode) and an Ethereum test network or
     local fork, and are included in CI.
