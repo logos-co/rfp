@@ -39,7 +39,7 @@ dependencies:
 > does so as principal, in their own name, and is solely responsible for
 > assessing its regulatory treatment, including any licensing, registration,
 > sanctions or anti-money laundering obligations that may apply to them. Logos
-> does not make any representation, provides any advice or assumes any
+> does not make any representation, provide any advice or assume any
 > responsibility in respect of any such determination or compliance.
 
 ## 🧭 Overview
@@ -55,18 +55,19 @@ occurred on Ethereum" establishes only that it minted given the claim; the claim
 itself is uncertified, and whoever controls the input can assert a deposit that
 never happened.
 
-This RFP delivers the missing piece: a LEZ module that verifies Ethereum
-consensus and finality, verifies inclusion of a referenced piece of state under
-a finalised Ethereum header, evaluates a predicate over that state, and emits a
-**verified statement** with no application action attached. It takes an Ethereum
-header, the consensus material needed to prove that header is finalised, the
-proofs binding the referenced state to that header, and a predicate to check. It
-returns a proven assertion that any LEZ program can consume.
+This RFP specification describes the missing piece: a LEZ module that verifies
+Ethereum consensus and finality, verifies inclusion of a referenced piece of
+state under a finalised Ethereum header, evaluates a predicate over that state,
+and emits a **verified statement** with no application action attached. It takes
+an Ethereum header, the consensus material needed to prove that header is
+finalised, the proofs binding the referenced state to that header, and a
+predicate to check. It returns a proven assertion that any LEZ program can
+consume.
 
-The deliverable is deliberately application-free. Minting, escrow release,
-settlement, and every other action belong to the consuming program. This RFP
-delivers only the attestation, plus the tooling and documentation a consumer
-needs to integrate it.
+The output is deliberately application-free. Minting, escrow release,
+settlement, and every other action belong to the consuming program. The scope is
+the attestation only, plus the tooling and documentation a consumer needs to
+integrate it.
 
 Teams will need experience with Ethereum consensus, the light-client and
 verified proxy protocols, and LEZ program development.
@@ -273,20 +274,20 @@ Two sub-problems sit inside "act on an Ethereum fact":
 2. **Uniqueness.** Has this particular piece of Ethereum state already been
    consumed on LEZ, so that it cannot be acted on twice?
 
-This RFP delivers existence. Uniqueness is solvable with mechanisms LEZ already
-has: a consuming program records a nullifier or a program-owned account marking
-a given Ethereum event as spent and rejects any second attempt. That is standard
-double-spend protection, and it belongs to the consumer because only the
-consumer knows what "the same action" means for its own application: a bridge
-mint must be once-per-deposit, whereas a read-only escrow check may legitimately
-be evaluated many times.
+This RFP specification covers existence. Uniqueness is solvable with mechanisms
+LEZ already has: a consuming program records a nullifier or a program-owned
+account marking a given Ethereum event as spent and rejects any second attempt.
+That is standard double-spend protection, and it belongs to the consumer because
+only the consumer knows what "the same action" means for its own application: a
+bridge mint must be once-per-deposit, whereas a read-only escrow check may
+legitimately be evaluated many times.
 
 The primitive must nonetheless make uniqueness enforceable. Every verified
 statement carries a deterministic, collision-resistant identifier derived from
 the attested state itself, so a consumer can key a nullifier on it without
 inventing its own derivation and without two consumers deriving incompatible
-identifiers from the same event. Guidance on doing this correctly is a
-documentation deliverable (Supportability #4).
+identifiers from the same event. Guidance on doing this correctly is part of the
+documentation (Supportability #4).
 
 ### What the attestation does not do
 
@@ -295,12 +296,12 @@ by construction. Amounts and timing of deposits and releases are visible on the
 public chain, and linking them to LEZ activity is a separate privacy problem,
 handled by the consuming application through fixed denominations, delayed
 submission, and anonymity-set growth (see [RFP-022](./RFP-022-wrapped-erc20.md),
-Design Rationale, "The privacy requirement, stated precisely"). What this RFP
-must guarantee is narrower and still essential: verifying and consuming an
-attestation must not itself add a new correlation signal beyond what Ethereum
-already exposes. A consumer that does its own privacy work correctly must not
-have that work undone by the attestation path, which is why the verified
-statement's public inputs are constrained in Functionality #8.
+Design Rationale, "The privacy requirement, stated precisely"). What is required
+here is narrower and still essential: verifying and consuming an attestation
+must not itself add a new correlation signal beyond what Ethereum already
+exposes. A consumer that does its own privacy work correctly must not have that
+work undone by the attestation path, which is why the verified statement's
+public inputs are constrained in Functionality #8.
 
 **It does not verify LEZ state on Ethereum.** The reverse direction, proving a
 LEZ event natively on Ethereum, is specific to the bridge and stays in
@@ -341,7 +342,7 @@ exists it must share a single verification core with the direct path, so the
 audit surface and the cost profile stay common, following the pattern
 established in [RFP-020](./RFP-020-redstone-oracle-adaptor.md).
 
-### Cost is a primary deliverable
+### Cost measurement is a primary output
 
 Where the cost lands depends on which execution path pays it, and the two are
 not alike. A public transaction is executed by the sequencer, so in-program
@@ -374,8 +375,8 @@ an interactive budget on a user's machine is unmeasured. That answer determines
 whether the primitive is usable privately at all.
 
 Measuring and documenting both paths, separated by where the cost is paid, is
-therefore a first-class deliverable and not a side report, exactly as it was for
-RFP-020. Consumers cannot size their own designs without those numbers.
+therefore a primary output and not a side report, exactly as it was for RFP-020.
+Consumers cannot size their own designs without those numbers.
 
 ### Assess reuse before rewriting
 
@@ -389,8 +390,8 @@ It is not a drop-in. It targets EVM destination chains with Solidity contracts,
 and LEZ is neither. How much transfers, and whether the better base is one of
 these zkVM forks or the upstream light-client implementations they derive from,
 is a judgement the applicant is better placed to make than this specification.
-That evaluation is itself work, and Reliability #6 scopes it as a deliverable.
-Reuse is expected to be assessed seriously; it is not mandated.
+That evaluation is itself work, and Reliability #6 scopes it as part of the
+work. Reuse is expected to be assessed seriously; it is not mandated.
 
 ## ✅ Scope of Work
 
@@ -483,7 +484,7 @@ Use the FURPS framework. Each numbered item should be a testable statement.
    off-chain as a dry run, submitting a consensus-state update, and reading an
    instance's configuration. The dry run must report the same typed error codes
    the on-chain path returns.
-3. Deliver the **update-submitting component**: a process that follows Ethereum
+3. Provide the **update-submitting component**: a process that follows Ethereum
    through the Logos Ethereum core module, detects when the tracked instance is
    behind, and submits the outstanding light-client updates to LEZ. It must be
    provided as a **Logos module accompanied by a Logos Core headless
@@ -528,8 +529,8 @@ Use the FURPS framework. Each numbered item should be a testable statement.
     cryptographic primitives and the light-client protocol. Evaluating what
     existing implementations offer, and stating what is reused, what is
     rewritten, and the cost and audit-surface consequences of that split, is a
-    scoped deliverable to be budgeted in the proposal (see Design Rationale,
-    "Assess reuse before rewriting").
+    scoped part of the work to be budgeted in the proposal (see Design
+    Rationale, "Assess reuse before rewriting").
 07. An instance left unadvanced does not lose safety: attestations against
     already-verified headers continue to verify, and a stalled instance resumes
     correctly when any party submits the outstanding updates, with no manual
@@ -556,17 +557,17 @@ Use the FURPS framework. Each numbered item should be a testable statement.
 #### Performance
 
 1. Verifying an attestation and evaluating its predicate must complete within a
-   single LEZ transaction at the per-transaction cycle budget in force at
-   delivery time, in the direct consumption path of Functionality #7. If this
-   proves infeasible at delivery time, the measurement in Performance #2 stands
-   as the deliverable and the shortfall must be documented with the specific
-   component responsible.
-2. Cost measurement is a primary deliverable. Measure and document, with a
-   breakdown by program action: advancing the tracked Ethereum state, and
-   statement verification by type of statement. Report cycle count, gas cost,
-   proof time, and proof size for each, extending the measurement methodology
-   from [RFP-020](./RFP-020-redstone-oracle-adaptor.md). Numbers must be
-   reproducible from the test suite.
+   single LEZ transaction at the per-transaction cycle budget in force at the
+   time the work is completed, in the direct consumption path of Functionality
+   #7. If this proves infeasible at the time the work is completed, the
+   measurement in Performance #2 stands as the output and the shortfall must be
+   documented with the specific component responsible.
+2. Cost measurement is a primary output. Measure and document, with a breakdown
+   by program action: advancing the tracked Ethereum state, and statement
+   verification by type of statement. Report cycle count, gas cost, proof time,
+   and proof size for each, extending the measurement methodology from
+   [RFP-020](./RFP-020-redstone-oracle-adaptor.md). Numbers must be reproducible
+   from the test suite.
 3. Document the amortised per-attestation cost of sync-committee tracking at the
    recommended operating cadence, separately from the per-attestation
    verification cost, since the two amortise differently across consumers.
@@ -623,8 +624,10 @@ Use the FURPS framework. Each numbered item should be a testable statement.
     State plainly that no party is obliged to operate and that liveness rests on
     interested parties choosing to spend the gas.
 08. The module undergoes an independent third-party security audit of the
-    consensus and inclusion verification logic before any mainnet-facing
-    deployment; the audit report must be published.
+    consensus and inclusion verification logic before any production deployment
+    of the software; the audit report must be published. Mainnet deployment is
+    not part of this RFP: whether, when and by whom the software is deployed is
+    a matter for those who deploy it.
 09. Publish the resulting modules in a module catalog of the team's own, built
     from the
     [Logos module catalog template](https://github.com/logos-co/logos-modules-release-base),
@@ -701,20 +704,20 @@ The following are explicitly excluded from this RFP:
 - **Verifying LEZ state or events on Ethereum.** The reverse direction is
   specific to the bridge and stays in [RFP-022](./RFP-022-wrapped-erc20.md).
 - **Any application action.** Minting, escrow release, settlement, and every
-  other action belong to the consuming program. This RFP emits a verified
-  statement and stops there.
+  other action belong to the consuming program. The software described here
+  emits a verified statement and stops there.
 - **Uniqueness enforcement.** The primitive supplies the statement identifier
   (Functionality #6) and the guidance (Supportability #4); the nullifier or
   spent-marker itself belongs to the consumer (see Design Rationale, "Uniqueness
   is the consumer's job, not the primitive's").
 - **Hiding Ethereum-side activity.** Ethereum state is public by construction.
   Unlinkability between Ethereum activity and LEZ activity is the consuming
-  application's problem; this RFP's obligation is only to avoid adding a new
+  application's problem; this requirement here is only to avoid adding a new
   correlation signal (Functionality #8).
-- **Adding a BLS12-381 precompile to LEZ.** The in-program path is the
-  deliverable here. A precompile becomes a candidate for a follow-on RFP if and
-  only if the cost measurement in Performance #2 shows the in-program path is
-  too expensive for production use.
+- **Adding a BLS12-381 precompile to LEZ.** The in-program path is what this
+  specification covers. A precompile becomes a candidate for a follow-on RFP if
+  and only if the cost measurement in Performance #2 shows the in-program path
+  is too expensive for production use.
 - **Circuit optimisation or custom zkVM accelerators.** LEZ runs on RISC0, so
   proposals should leverage mature existing implementations rather than
   implementing novel circuits or optimisation techniques.
@@ -753,12 +756,11 @@ Team experienced with:
 
 ## ⏱ Timeline Expectations
 
-Estimated software delivery duration: **8–12 weeks**. The scope is a single
-primitive with no application logic, but sync-committee tracking, in-program
-BLS12-381 verification, and the cost measurement deliverable are each
-substantial. This excludes the third-party audit lead time required before any
-mainnet-facing deployment (Supportability #8), which is typically procured and
-scheduled separately.
+Estimated development duration: **8–12 weeks**. The scope is a single primitive
+with no application logic, but sync-committee tracking, in-program BLS12-381
+verification, and the cost measurement output are each substantial. This
+excludes the third-party audit lead time (Supportability #8), which is typically
+procured and scheduled separately.
 
 ## 🌍 Open Source Requirement
 
@@ -785,6 +787,15 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   (Boundless Ethereum light client, audited by zkSecurity; reuse candidate)
 - [`succinctlabs/sp1-helios`](https://github.com/succinctlabs/sp1-helios)
   (upstream implementation of the same pattern)
+
+The Resources listed above, and any third-party material referred to elsewhere
+in this specification, are for informational purposes only and are intended
+solely as guidance regarding tools or other artefacts that may be relevant to
+preparing a Submission under the Program. They may include, or may refer to
+earlier published specifications, some of which may have received Submissions.
+Logos does not endorse or approve, and makes no representation regarding, any
+Submission or referenced material. It is ultimately the Applicant’s
+responsibility to determine whether, and how, if at all, to use any Resource.
 
 ## ✏️ How to Apply
 

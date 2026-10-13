@@ -45,7 +45,7 @@ dependencies:
 > does so as principal, in their own name, and is solely responsible for
 > assessing its regulatory treatment, including any licensing, registration,
 > sanctions or anti-money laundering obligations that may apply to them. Logos
-> does not make any representation, provides any advice or assumes any
+> does not make any representation, provide any advice or assume any
 > responsibility in respect of any such determination or compliance.
 
 ## 🧭 Overview
@@ -560,9 +560,9 @@ Use the FURPS framework. Each numbered item should be a testable statement.
 #### Performance
 
 1. Verifying an inbound claim and minting must complete within a single LEZ
-   public transaction at the per-transaction compute budget in force at delivery
-   time. Document the compute-unit cost with a breakdown by component, extending
-   the measurement methodology from
+   public transaction at the per-transaction compute budget in force at the time
+   the work is completed. Document the compute-unit cost with a breakdown by
+   component, extending the measurement methodology from
    [RFP-020](./RFP-020-redstone-oracle-adaptor.md).
 2. Document the compute-unit cost of any additional LEZ-side verification the
    design requires beyond the per-claim path, and its amortised per-deposit cost
@@ -705,16 +705,23 @@ The following are explicitly excluded from this RFP:
   IP-level correlation between a user's Ethereum deposit and their later LEZ
   activity is out of scope as an implementation concern, but must be disclosed
   as residual leakage under Privacy Preservation #6.
-- Protocol-level compliance, disclosure, or selective-deanonymisation
-  mechanisms. Voluntary user-held viewing keys are Soft Requirement #2; no other
-  third-party deanonymisation capability is included within the scope of this
-  RFP. This does not prevent an entity deploying its own configuration from
-  screening the depositor, whose Ethereum address is public, in its own vault
-  contract before accepting a deposit, without changing the privacy or
-  verification design; this RFP does not require such a hook. Screening the
-  Ethereum release destination is technically possible, but because the burn
-  precedes the release, a refused release would leave the burned funds
-  unrecoverable.
+- Protocol-level compliance mechanisms are outside the scope of this RFP. The
+  requirements in this RFP concern the technical design of the software and do
+  not seek to determine or prescribe legal or regulatory requirements that may
+  apply to a particular deployment or operator. Those requirements will depend
+  on the circumstances of the relevant deployer or operator and the
+  jurisdictions in which they act. Each deployer is responsible for assessing
+  its own requirements and determining whether and how the implementation should
+  be adapted or supplemented as appropriate to its circumstances. Protocol-level
+  disclosure, or selective-deanonymisation mechanisms are also out of scope.
+  Voluntary user-held viewing keys are Soft Requirement #2; no other third-party
+  deanonymisation capability is included within the scope of this RFP. This does
+  not prevent an entity deploying its own configuration from screening the
+  depositor, whose Ethereum address is public, in its own vault contract before
+  accepting a deposit, without changing the privacy or verification design; this
+  RFP does not require such a hook. Screening the Ethereum release destination
+  is technically possible, but because the burn precedes the release, a refused
+  release would leave the burned funds unrecoverable.
 - Circuit optimisation or custom zkVM accelerators for the LEZ side: LEZ itself
   runs on RISC0, so proposals should leverage mature existing implementations
   (e.g. Zisk) for LEZ-side proving rather than implementing novel circuits or
@@ -810,13 +817,13 @@ Team experienced with:
 
 ## ⏱ Timeline Expectations
 
-Estimated software delivery duration: **16–20 weeks**. This is longer than a
+Estimated development duration: **16–20 weeks**. This is longer than a
 transparent lock-and-mint bridge would require; the privacy construction,
 user-side proving, position recovery, and the privacy test suite are the
-additional scope. The estimate excludes the third-party audit (Security #1).
-Proposals may include the audit in their scope and budget, or leave it to be
-procured separately and scheduled independently of software delivery, and must
-state which.
+additional scope. The estimate excludes the third-party audit lead time required
+prior to any mainnet deployment (Security #1). Proposals may include the audit
+in their scope and budget or leave it to be procured separately, and must state
+which.
 
 ## 🌍 Open Source Requirement
 
@@ -848,6 +855,15 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   implementation for proof generation)
 - [Chainalysis — Cross-Chain Bridge Hacks](https://www.chainalysis.com/blog/cross-chain-bridge-hacks-2022/)
   (bridge-hack loss data)
+
+The Resources listed above, and any third-party material referred to elsewhere
+in this specification, are for informational purposes only and are intended
+solely as guidance regarding tools or other artefacts that may be relevant to
+preparing a Submission under the Program. They may include, or may refer to
+earlier published specifications, some of which may have received Submissions.
+Logos does not endorse or approve, and makes no representation regarding, any
+Submission or referenced material. It is ultimately the Applicant’s
+responsibility to determine whether, and how, if at all, to use any Resource.
 
 ## ✏️ How to Apply
 
