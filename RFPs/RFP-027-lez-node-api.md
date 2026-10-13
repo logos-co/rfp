@@ -65,7 +65,8 @@ Basecamp and Logos Core must remain the first recommended way to build on LEZ,
 on every platform: mobile, desktop and server. There is nonetheless a need for a
 path by which an existing application can add LEZ support without
 re-architecting itself, which secures distribution channels LEZ would not
-otherwise reach.
+otherwise reach. Such an application hosts Logos Core itself and bundles the
+modules it needs.
 
 The parties that integrate a chain before it is usable in practice are wallets,
 centralised exchanges, custodians, payment gateways, data and price aggregators,
@@ -78,14 +79,18 @@ satisfies it satisfies the others, and it is the profile whose absence is most
 visible, since a chain no exchange will list is a chain most users cannot reach.
 
 This RFP defines the LEZ node API. It is one of five components the Logos stack
-exposes for integration, alongside the LEZ wallet API, the JSON-RPC proxy module
-and its client library, the LEZ Development Kit, and further transport modules.
-How those fit together, the shapes an integration takes, and what embedding a
-node costs are described in
+exposes for integration, alongside the LEZ wallet API, the Logos Blockchain node
+API, the Logos Blockchain wallet API, and the Logos Runtime DK, which lets an
+application host Logos Core. Each chain is served by a wallet module and a node
+module, and a wallet reaches its node only through the node API. That holds
+wherever the node runs: in the application, on another device the user owns, or
+in an integrator's infrastructure, the last two reached through Logos Core
+peering. How those fit together, the shapes an integration takes, and what
+embedding a node costs are described in
 [Appendix: Integrating the Logos Technology Stack](../appendix/integrating-logos-technology-stack.md).
 
-Wallet and key management, transaction construction and signing, the JSON-RPC
-transport, the further transport bindings, and the LEZ-DK are out of scope here
+Wallet and key management, transaction construction and signing, the Logos
+Blockchain APIs, and hosting Logos Core in an application are out of scope here
 and will be defined in separate RFPs.
 
 ## 🔥 Why This Matters
@@ -153,8 +158,9 @@ scope here and belongs to the LEZ wallet API, defined separately.
 ### Inspiration from BDK: Bitcoin Development Kit
 
 The [Bitcoin Development Kit](https://bitcoindevkit.org) is the closest
-precedent for what this suite is building, and the LEZ-DK is named after it.
-Everything below was read at `bdk-ffi` `3.1.0-alpha.0`.
+precedent for the split this RFP sits on one side of: a wallet that holds the
+keys, and a chain client that holds none. Everything below was read at `bdk-ffi`
+`3.1.0-alpha.0`.
 
 BDK is what a wallet developer uses instead of writing wallet logic against a
 node. It is layered. At the bottom sits
@@ -175,9 +181,9 @@ against it. A Kotlin consumer never sees Rust: it adds one dependency,
 `bdk-android`, whose entire Kotlin source tree is a build artefact regenerated
 from the FFI crate.
 
-That arrangement answers two questions this suite would otherwise have to guess
-at: how the pieces are packaged, and how the wallet and a client relate to each
-other at runtime.
+That arrangement answers two questions about the split between a wallet and a
+node: how the pieces are packaged, and how the wallet and a client relate to
+each other at runtime.
 
 The first is packaging. Wallet and chain access ship as one crate, one UniFFI
 namespace, and one native library: `lib.rs` declares `mod wallet` beside
@@ -225,17 +231,15 @@ than the wallet. Two transports against the same wallet therefore present two
 different consumer flows, and the wallet accommodates both only because it
 exposes several `apply_*` entry points rather than one.
 
-Two consequences for this suite. The client library is a component the
-integrator links and constructs directly, choosing its transport at the call
-site rather than receiving it through the wallet, so it is not reachable only by
-way of the wallet FFI. And because the three-step sequence is verbose enough
-that integrators tend to wrap it themselves, a convenience that performs a sync
-against a supplied client is worth offering rather than leaving every consumer
-to write it: the `lez_core` module ships one, and the value-passing path stays
-available for a consumer that needs to control the transport. LEZ differs from
-BDK in having one transport today and further ones anticipated, so whether those
-clients are feature-gated is a decision worth making before there are several
-rather than after.
+Two consequences for the node API. A wallet reaches its node only through the
+node API, and the node API is an interface more than one module can implement,
+as four clients sit behind one BDK wallet. The functions below are therefore
+specified by what they answer, whichever component holds the data today, and
+nothing in them assumes where the node runs. And because the three-step sequence
+is verbose enough that integrators tend to wrap it themselves, a convenience
+that performs a sync against a supplied node is worth offering rather than
+leaving every consumer to write it: the `lez_core` module ships one. That
+convenience belongs to the LEZ wallet API.
 
 ### What a node can answer about a privacy-preserving transaction
 
@@ -1256,8 +1260,11 @@ The following are explicitly excluded from this RFP:
   both public and privacy-preserving transactions, for the reason given in the
   Design Rationale. Nothing in this RFP executes a transaction a caller
   supplies.
-- **The JSON-RPC proxy and its client, and the LEZ-DK.** Each has its own RFP.
-  This RFP defines what those consume, not how it is transported or wrapped.
+- **Hosting Logos Core in an application, and reaching a node on another
+  machine.** The Logos Runtime DK has its own RFP, and a node elsewhere is
+  reached through Logos Core peering. This RFP defines the functions, not how a
+  call to them is carried.
+- **The Logos Blockchain node and wallet APIs.** Each has its own RFP.
 - **Reaching inside a node.** A consumer reaches a LEZ node only through the API
   defined here. Whatever a node is made of internally, those interfaces are not
   an API this RFP or any other in this set defines. Every read an integrator
