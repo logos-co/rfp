@@ -239,6 +239,12 @@ censor selectively, or deanonymise. Proposals must identify every such
 participant and justify that none of them, individually or as a class, can block
 a user's deposit or burn from eventually completing.
 
+These constraints apply to the permissionless off-chain participants, the
+relayers and provers, and none of them may block or single out a user. They do
+not restrict the controls of an entity deploying its own configuration
+(Functionality #16): token registration and deregistration, caps, and global or
+per-token freezes (Functionality #10, #11, #14).
+
 Caps and the freeze authority remain in place as operational safety mechanisms
 independent of the cryptographic trust model. Note that the freeze authority can
 necessarily operate at token and protocol granularity only: it cannot freeze an
@@ -702,7 +708,15 @@ The following are explicitly excluded from this RFP:
 - Protocol-level compliance, disclosure, or selective-deanonymisation
   mechanisms. Voluntary user-held viewing keys are Soft Requirement #2; no other
   third-party deanonymisation capability is included within the scope of this
-  RFP.
+  RFP. This does not prevent an entity deploying its own configuration from
+  screening the depositor, whose Ethereum address is public, in its own vault
+  contract before accepting a deposit, without changing the privacy or
+  verification design; this RFP does not require such a hook. The design does
+  not permit linking a deposit to the mint it funded or a burn to its release
+  (Privacy Preservation #1 to #4), freezing or screening an individual LEZ
+  holder, or screening the LEZ recipient of a deposit. Screening the Ethereum
+  release destination is technically possible, but because the burn precedes the
+  release, a refused release would leave the burned funds unrecoverable.
 - Circuit optimisation or custom zkVM accelerators for the LEZ side: LEZ itself
   runs on RISC0, so proposals should leverage mature existing implementations
   (e.g. Zisk) for LEZ-side proving rather than implementing novel circuits or
@@ -726,6 +740,11 @@ does not rebuild it, so that the consensus verification path is audited once and
 shared with the other LEZ programs that need to read Ethereum state. The
 outbound leg, verifying a LEZ burn natively on Ethereum, is specific to this
 bridge and remains in scope here.
+
+RFP-021 is contracted first, and grants under this RFP are contracted once
+RFP-021 is close to delivering the components this RFP consumes. A proposal must
+state which RFP-021 interface it builds against and how a change to that
+interface would be absorbed.
 
 #### Admin authority (RFP-001)
 
@@ -801,10 +820,10 @@ Team experienced with:
 Estimated software delivery duration: **16–20 weeks**. This is longer than a
 transparent lock-and-mint bridge would require; the privacy construction,
 user-side proving, position recovery, and the privacy test suite are the
-additional scope. The estimate excludes the third-party audit lead time required
-prior to any mainnet deployment (Security #1). Proposals may include the audit
-in their scope and budget or leave it to be procured separately, and must state
-which.
+additional scope. The estimate excludes the third-party audit (Security #1).
+Proposals may include the audit in their scope and budget, or leave it to be
+procured separately and scheduled independently of software delivery, and must
+state which.
 
 ## 🌍 Open Source Requirement
 
@@ -829,8 +848,6 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [RFP-021 — Trustless Ethereum State Attestation for LEZ](./RFP-021-ethereum-state-attestation.md)
   (specifies the verification of finalised Ethereum state that the inbound mint
   path consumes)
-- [RFP-023 — Native Gas Token Bridge for LEZ](./RFP-023-gas-token-bridge.md)
-  (the reverse direction, with LEZ as the vault, built on this RFP's patterns)
 - [LP-0012: Event/Log mechanism for LEZ](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)
 - [LP-0013: Token program improvements: authorities](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0013.md)
 - [RISC0 — Zero-Knowledge VM](https://github.com/risc0/risc0)
