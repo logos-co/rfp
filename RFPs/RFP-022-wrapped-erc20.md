@@ -711,12 +711,10 @@ The following are explicitly excluded from this RFP:
   RFP. This does not prevent an entity deploying its own configuration from
   screening the depositor, whose Ethereum address is public, in its own vault
   contract before accepting a deposit, without changing the privacy or
-  verification design; this RFP does not require such a hook. The design does
-  not permit linking a deposit to the mint it funded or a burn to its release
-  (Privacy Preservation #1 to #4), freezing or screening an individual LEZ
-  holder, or screening the LEZ recipient of a deposit. Screening the Ethereum
-  release destination is technically possible, but because the burn precedes the
-  release, a refused release would leave the burned funds unrecoverable.
+  verification design; this RFP does not require such a hook. Screening the
+  Ethereum release destination is technically possible, but because the burn
+  precedes the release, a refused release would leave the burned funds
+  unrecoverable.
 - Circuit optimisation or custom zkVM accelerators for the LEZ side: LEZ itself
   runs on RISC0, so proposals should leverage mature existing implementations
   (e.g. Zisk) for LEZ-side proving rather than implementing novel circuits or
@@ -740,11 +738,6 @@ does not rebuild it, so that the consensus verification path is audited once and
 shared with the other LEZ programs that need to read Ethereum state. The
 outbound leg, verifying a LEZ burn natively on Ethereum, is specific to this
 bridge and remains in scope here.
-
-RFP-021 is contracted first, and grants under this RFP are contracted once
-RFP-021 is close to delivering the components this RFP consumes. A proposal must
-state which RFP-021 interface it builds against and how a change to that
-interface would be absorbed.
 
 #### Admin authority (RFP-001)
 
