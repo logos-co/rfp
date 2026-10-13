@@ -55,6 +55,12 @@ module alone achieves nothing. See
 [Appendix: Logos API Surfaces](../appendix/logos-api-surfaces.md) for the
 as-built inventory of every layer.
 
+One LEZ node serves several independent wallets at once. Wallets belonging to
+different users, in different applications or on other Logos Core runtimes, read
+from the same node and submit through it, and none of them operates it. The
+surface therefore separates the functions any wallet calls from the functions
+that operate the node, and each function is granted to callers individually.
+
 Basecamp and Logos Core must remain the first recommended way to build on LEZ,
 on every platform: mobile, desktop and server. There is nonetheless a need for a
 path by which an existing application can add LEZ support without
@@ -279,6 +285,55 @@ they are proven against, which a wallet needs to reconstruct its own balance.
 The sequencer answers that today and the wallet reaches it directly, so what is
 new is serving it from the node. #42 requires the oldest-first ordering a wallet
 walking forward from its last processed block relies on to decrypt what it can.
+
+### One node, many wallets
+
+**The node keeps nothing per wallet.** It holds no keys, and every read is an
+answer about the chain, which is the same answer whoever asks. A wallet does not
+register with the node, and the node does not need to know a wallet exists in
+order to serve it. What is per caller is narrow: the subscriptions a caller
+opened, the walks it is part way through, and the calls it has in flight. The
+requirements keep those from reaching across callers, and keep the node's
+lifecycle out of every wallet's hands.
+
+**Access follows the caller and the function, not a role.** Logos Core attaches
+a caller identity to a call it dispatches. The receiving runtime writes that
+identity, it is not a parameter of the method, and a module reads it. It names
+the runtime itself or a named module, a shell and a UI plugin arriving as named
+modules, and work in development adds an operator and a consumer on another
+runtime. The deployer's access policy names, per target module, which callers
+may reach it, and its per method form narrows a caller to a list of methods
+([logos-liblogos#232](https://github.com/logos-co/logos-liblogos/pull/232),
+[logos-capability-module#37](https://github.com/logos-co/logos-capability-module/pull/37)).
+Logos Core defines no user or administrator class.
+
+This RFP therefore proposes two sets of functions rather than two kinds of
+account. The **administrative set** is the functions that operate the node:
+starting it, stopping it, and resetting its storage. The **user set** is every
+other function [Functionality](#functionality) defines, which is what a wallet
+or integrator calls. A deployer grants either set, or any single function, to
+the callers it chooses. #65 fixes the assignment and #66 requires each function
+to be individually grantable.
+
+**The administrative set is closed unless granted.** Enforcement of the access
+policy is off unless the deployer turns it on, and a policy in force may admit a
+caller to every method of the module, so an administrative function cannot rely
+on the policy to protect it. #67 requires the module to refuse an administrative
+call itself, on the caller identity, unless the policy grants that caller the
+function by name or the caller is the runtime, its shell, or an operator of that
+runtime. A caller the runtime cannot identify is refused.
+
+**The boundary is the module, not the FFI.** A caller identity exists only on a
+call that arrives through Logos Core. Whoever links `libindexer_ffi` and holds
+the handle is the node's host and can call every exported function, so the
+requirements below bind `lez_indexer_module`, which is the surface a wallet
+reaches.
+
+**Callers are no finer than Logos Core makes them.** Two wallets in two modules,
+two UI plugins, or two runtimes are two callers. Two wallets behind one calling
+module are one caller, and the node cannot tell them apart. Because the node
+keeps nothing per wallet, it does not need to. [Out of Scope](#out-of-scope)
+records that the node issues no credentials of its own.
 
 ### Retention is reported, not configured
 
@@ -931,6 +986,76 @@ Every function defined above is further bound by the following.
     established for the returns exported today; the return types this RFP adds
     need theirs. **[Ready, not exposed]**
 
+##### Access control and concurrent callers
+
+Who may call which function, and what holds when several wallets call the same
+node.
+
+- **Ethereum**: Geth groups methods into namespaces and exposes them per
+  transport. Local IPC serves every namespace, and HTTP serves `eth`, `net`, and
+  `web3` unless `--http.api` names others, so `admin`, `debug`, and `txpool`
+  stay off a default HTTP endpoint.
+- **Solana**: the validator's administrative calls, `exit` among them, are
+  served over a local IPC socket in the ledger directory and not on the public
+  JSON-RPC port.
+- **Bitcoin**: `stop` sits on the same RPC as the reads. `-rpcauth` defines
+  several users and `-rpcwhitelist` restricts each to a list of methods, which
+  is the closest precedent to a per method grant.
+- **Zcash**: `zcashd` inherits `stop` from Bitcoin on the same RPC. Many wallets
+  reach one node through lightwalletd, which exposes reads and transaction
+  submission and no administrative call.
+
+**`start_indexer(runtime, config_path, storage_dir) -> PointerResult<IndexerServiceFFI, OperationStatus>`**
+
+Starts the node against a configuration and a storage directory and returns the
+handle every other function takes. It is the one function that takes no handle.
+
+**`stop_indexer() -> OperationStatus`**
+
+Stops the node and releases the handle.
+
+**`reset_storage(config_path)`**
+
+Stops the node and deletes the store of the zone the configuration names,
+without restarting it. Exposed by `lez_indexer_module` only.
+
+65. Every function this RFP defines belongs to exactly one of two sets, and the
+    machine-readable description of #58 states which. The user set holds every
+    function defined under the headings above. The administrative set holds
+    `start_indexer`, `stop_indexer`, and `reset_storage`, together with any
+    other function the module exposes that changes how the node runs, such as
+    the FFI's `init_logger`. A function added to the surface later is assigned
+    to a set when it is added. **[New]**
+66. Each function exposed through `lez_indexer_module` is individually
+    grantable. Where the deployer's Logos Core access policy grants a caller a
+    list of methods on the module, that caller reaches those methods and no
+    others, and the module is built so that such a grant is enforced against it
+    rather than refused as unenforceable. **[New]**
+67. An administrative function refuses a call unless the access policy grants
+    the caller that function by name, or the caller is the runtime, its shell,
+    or an operator of that runtime. The refusal holds when no access policy is
+    in force, when the policy leaves the module open to every caller, when the
+    caller is on another runtime, and when the runtime cannot identify the
+    caller. **[New]**
+68. A user function requires nothing of a caller beyond admission to the module.
+    No user function requires a caller to register, to name a wallet, or to have
+    made an earlier call, and the node holds no state for a caller other than
+    the subscriptions that caller opened. **[New]**
+69. A refused call is reported as an outcome distinct from the not-found,
+    invalid-argument, and backend failure outcomes of #61, and has no effect on
+    the node. A caller does not retry it. **[New]**
+70. Calls from different callers are served concurrently. No call waits on
+    another caller's call, page walk, or subscription callback, and a cursor
+    issued to one caller is neither advanced nor invalidated by another caller's
+    calls. **[New]**
+71. A subscription belongs to the caller that opened it. `unsubscribe` cancels
+    only a subscription the caller itself holds, and one caller's cancellation,
+    disconnection, or failing callback neither stops nor delays delivery to any
+    other caller. **[New]**
+72. Once the node is stopped, every call from every caller reports the node as
+    stopped, distinctly from a backend failure, and each open subscription
+    receives a final notification that delivery has ended. **[New]**
+
 #### Usability
 
 1. Provide a Logos module surface (`lez_indexer_module`) covering every function
@@ -954,6 +1079,11 @@ Every function defined above is further bound by the following.
 6. Document the semantics of every pagination parameter, including the
    exclusivity of the block bound, what a cursor guarantees across ingestion,
    and the behaviour when new data lands during a walk.
+7. Provide a reference Logos Core access policy for a node serving wallets on
+   its own runtime and for a node serving wallets on other runtimes. Each grants
+   the user set to wallets and the administrative set to the operator alone.
+8. Document how a deployer grants a caller a single function or a subset of the
+   user set, such as the reads without `submit_transaction`.
 
 #### Reliability
 
@@ -981,6 +1111,11 @@ Every function defined above is further bound by the following.
    would size for is a defect on a desktop. A deployment can put a ceiling on
    what the indexer retains, and reaching that ceiling degrades what the
    retention floor reports rather than failing reads or exhausting the disk.
+8. No caller degrades the node for the others through the user set. Every user
+   function bounds what one call consumes, including the size of a batch, the
+   limit of a page, the span of a range, and the number of subscriptions one
+   caller holds open. A call past a bound returns `InvalidArgument`, and the
+   bounds are documented.
 
 #### Performance
 
@@ -998,6 +1133,9 @@ Every function defined above is further bound by the following.
    density.
 5. Benchmarks are reproducible from the test suite and run against a LEZ
    devnet/testnet indexer.
+6. Document the latency of the user set under concurrent callers, measured
+   against a stated number of callers and open subscriptions, alongside the
+   single caller figures.
 
 #### Supportability
 
@@ -1018,8 +1156,11 @@ the module that links it.
     spanning recorded and unrecorded accounts; effects for a public transaction
     and for the public leg of a privacy-preserving transaction; membership
     proofs for a commitment the set holds and one it does not; a transaction
-    status at each documented level; and a subscription resumed from a stored
-    position across a disconnection.
+    status at each documented level; a subscription resumed from a stored
+    position across a disconnection; an administrative call from a caller
+    holding no grant, with no access policy in force and with a policy that
+    leaves the module open; and two callers holding subscriptions when one of
+    them cancels.
 06. A README documents end-to-end usage: building the FFI and the module that
     links it, the configuration and storage directory `start_indexer` requires,
     and step-by-step instructions for every operation via the CLI.
@@ -1062,6 +1203,17 @@ the module that links it.
    boundaries are enforced by encryption and which by the API declining to
    expose data it holds; and what an operator running their own indexer can see
    that a remote caller cannot.
+4. No function discloses one caller's activity to another. Which accounts,
+   commitments, and transactions a caller asked about, which subscriptions it
+   holds and with what filter, and which caller submitted a transaction are not
+   readable by any other caller through this surface.
+5. The node keeps no record tying a caller identity to what that caller read or
+   submitted beyond what serving the call requires. Any logging that does so is
+   off by default.
+6. The privacy properties document states what the operator of a node shared by
+   several wallets learns about each of them from its calls: the accounts and
+   commitments it reads, the transactions it submits, and the caller identity
+   those arrive under.
 
 ### Soft Requirements
 
@@ -1111,6 +1263,11 @@ The following are explicitly excluded from this RFP:
   an API this RFP or any other in this set defines. Every read an integrator
   needs is required of the node above, whichever part of it holds the data
   today.
+- **Identifying wallets or users.** The node identifies a caller as Logos Core
+  does and no finer. It issues no API keys, keeps no user accounts, and applies
+  no quota or billing per user. Which callers a deployment admits, and which
+  functions it grants them, is decided in the deployer's Logos Core access
+  policy.
 - **The program event system.** Events already exist end to end, from
   `ProgramOutput.events` through indexer capture to `getEvents`,
   `subscribeToEvents`, and `query_events` on the FFI. Nothing here changes them.
@@ -1134,6 +1291,29 @@ configuration carries only an endpoint. Reaching it therefore depends on Logos
 Blockchain exposing it, or on the zone obtaining it at initialisation and
 retaining it. The requirement that an unobtainable value be reported as
 unavailable keeps the rest of the surface deliverable while that is outstanding.
+
+Access control rests on Logos Core in four places.
+
+- **Caller identities.** A module sees the runtime and named modules today, and
+  some call paths carry no identity. A shell identity and an operator identity
+  are in development with the per method grants below. Functionality #67 refuses
+  a caller the runtime cannot identify, so the administrative set is reachable
+  by a shell or an operator only once those identities exist.
+- **Per method grants.** The access policy admits a caller to a module today.
+  Narrowing a caller to a list of methods is in development
+  ([logos-liblogos#232](https://github.com/logos-co/logos-liblogos/pull/232),
+  [logos-capability-module#37](https://github.com/logos-co/logos-capability-module/pull/37))
+  and is what Functionality #66 depends on. Functionality #67 does not depend on
+  it: the module's own refusal keeps the administrative set closed meanwhile.
+- **Callers on another runtime.** A wallet on another runtime reaches the node
+  through Logos Core peering, which is also in development
+  ([logos-liblogos#230](https://github.com/logos-co/logos-liblogos/pull/230)). A
+  proposal states how a per method grant is enforced for such a caller where the
+  platform does not enforce it.
+- **Events per caller.** A Logos Core module event reaches every subscriber of
+  the module. Functionality #71 and Privacy #4 require delivery per caller, so a
+  proposal states how a subscription is delivered to the caller that opened it
+  and to no other.
 
 ## 🌍 Open Source Requirement
 
