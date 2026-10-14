@@ -481,7 +481,11 @@ Use the FURPS framework. Each numbered item should be a testable statement.
     enabling the delivery of different Logos ui modules to use these programs:
     depositing, claiming a deposit on LEZ, redeeming, releasing on Ethereum,
     recovering a position from user credentials, and reading and administering
-    the supported-token registry and its permitted amounts.
+    the supported-token registry and its permitted amounts. All off-chain
+    software described here, including every user and admin interface, must be
+    implemented as Logos modules: core modules for functionality and Logos ui
+    modules for interfaces. The Ethereum vault contract and the LEZ bridge
+    program are the only components that are not Logos modules.
 02. Provide a Logos mini-app, aka Logos ui module, covering the deposit and
     redemption flows end to end, position recovery, and a registry view showing
     supported tokens, permitted amounts, caps and current utilisation. Also
