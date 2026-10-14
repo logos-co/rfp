@@ -485,7 +485,8 @@ Use the FURPS framework. Each numbered item should be a testable statement.
     software described here, including every user and admin interface, must be
     implemented as Logos modules: core modules for functionality and Logos ui
     modules for interfaces. The Ethereum vault contract and the LEZ bridge
-    program are the only components that are not Logos modules.
+    program are the only components that are not Logos modules, apart from any
+    supplementary interface offered under Soft Requirement #5.
 02. Provide a Logos mini-app, aka Logos ui module, covering the deposit and
     redemption flows end to end, position recovery, and a registry view showing
     supported tokens, permitted amounts, caps and current utilisation. Also
@@ -699,6 +700,18 @@ Use the FURPS framework. Each numbered item should be a testable statement.
    improvements, proof compression, or hardware acceleration can be adopted
    without restructuring the vault or the bridge program (redeployment and
    migration would be necessary, per Security #8)
+5. **Common Ethereum wallet compatibility.** The hard requirements assume the
+   use of the Logos Ethereum core module, meaning users hold their Ethereum
+   assets in software loaded in Basecamp. This can add friction: a user whose
+   funds are in another Ethereum wallet first has to transfer them to the Logos
+   Ethereum core module before wrapping. Proposals may offer a supplementary
+   approach compatible with common Ethereum wallet software, such as a web
+   application or another wallet integration, in addition to the Logos modules
+   required above. Browser-based software is exposed to security risks that
+   locally loaded Logos modules are intended to avoid, such as malicious or
+   compromised browser extensions, injected scripts, and phishing front ends.
+   Any such approach must be carefully considered, and the proposal must
+   document its security trade-offs.
 
 ### Out of Scope
 
