@@ -214,10 +214,10 @@ one.
 
 The counterweight is that fragmenting across instances splits the operator
 incentive, duplicates gas, and forces every consumer to choose which instance to
-trust, dissolving the shared-state benefit that motivates the architecture. A
-single canonical instance per chain, which consumers converge on, is the
-intended outcome, and a replacement instance is a recovery path rather than a
-routine one.
+trust, dissolving the shared-state benefit that motivates the architecture. The
+architecture supports shared instances, which can reduce duplicated verification
+costs and fragmented consensus-tracking state. Independent developers determine
+whether to deploy, operate or rely on any particular instance.
 
 Sync-committee tracking itself is established rather than novel, and has been
 built and audited several times over: Telepathy, SP1 Helios, and `r0vm-helios`
@@ -309,19 +309,20 @@ LEZ event natively on Ethereum, is specific to the bridge and stays in
 
 ### Consumption model
 
-On testnet and mainnet the primitive is a deployed LEZ program with a published
-interface, and a consumer calls it. Source-level availability matters for local
-testing, review, and reproducing the cost measurements, but consumers do not
-each compile and deploy their own copy of the verification logic, because doing
-so would fragment the shared consensus state the architecture depends on and
-multiply the audited surface.
+For this RFP, the output is a testnet implementation. Any subsequent mainnet
+deployment is independently determined and undertaken by the relevant deployer.
+Source-level availability matters for local testing, review, and reproducing the
+cost measurements. The architecture enables multiple consumers to use a shared
+verification logic, reducing duplication of consensus-tracking state and
+verification logic. Consumers independently determine which implementation or
+deployment, if any, to use.
 
-The program is deployed once and its code is immutable. Everything that varies
-between chains is configuration held in accounts owned by that program: the
-weak-subjectivity checkpoint, the chain binding, the finality parameters, and
-the tracked consensus state. Each such namespace of accounts is an instance,
-configured when it is initialised and never reconfigured after. A consumer binds
-to a specific instance by address.
+The program's code is immutable, and it supports any number of independently
+configured instances. Everything that varies between chains is configuration
+held in accounts owned by that program: the weak-subjectivity checkpoint, the
+chain binding, the finality parameters, and the tracked consensus state. Each
+such namespace of accounts is an instance, configured when it is initialised and
+never reconfigured after. A consumer binds to a specific instance by address.
 
 What has to be atomic in the consumer's transaction is the part specific to that
 consumer. Two things are being consumed and they differ:
@@ -427,10 +428,11 @@ Use the FURPS framework. Each numbered item should be a testable statement.
     identifier derived from the attested Ethereum state, suitable for a consumer
     to key a nullifier on. Identical Ethereum state yields an identical
     identifier; distinct state yields a distinct one.
-07. The module is deployed as a LEZ program with a published interface any
-    consuming program can call. Inclusion verification and predicate evaluation
-    occur inside the consuming transaction, and no consumption path requires a
-    consumer to act on a predicate result computed in an earlier transaction.
+07. The module is implemented and tested as a LEZ program on testnet, with a
+    published interface any consuming program can call. Inclusion verification
+    and predicate evaluation occur inside the consuming transaction, and no
+    consumption path requires a consumer to act on a predicate result computed
+    in an earlier transaction.
 08. Verifying and consuming an attestation must not introduce any correlation
     signal beyond what is already public on Ethereum. The public inputs of the
     verified statement must be limited to what the consumer explicitly chooses
