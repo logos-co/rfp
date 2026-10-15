@@ -2,7 +2,7 @@
 id: RFP-022
 title: Privacy-Preserving Wrapped ERC-20 and Ether Bridge for LEZ
 tier: L
-status: open
+status: draft
 category: Developer Tooling & Infrastructure
 dependencies:
   - id: RFP-021
@@ -18,6 +18,8 @@ dependencies:
 <!-- Don't forget to add this RFP to the table in README.md (between RFP_TABLE_START / RFP_TABLE_END markers) -->
 
 # RFP-022 — Privacy-Preserving Wrapped ERC-20 and Ether Bridge for LEZ
+
+> **Status:** Draft. This RFP is not yet accepting proposal submissions.
 
 > **Note.** This specification describes an outcome that may benefit the Logos
 > ecosystem. It is a proposal rather than an instruction. Its requirements
