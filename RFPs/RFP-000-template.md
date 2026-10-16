@@ -63,6 +63,8 @@ Explain things like:
 - Why it matters
 - How it strengthens the Logos ecosystem
 - The type of team likely to succeed
+- The LEZ testnet version the LEZ program is delivered for (currently testnet
+  0.4)
 
 ## 🔥 Why This Matters
 
@@ -119,7 +121,8 @@ List performance requirements. Document compute unit usage of each operation
 
 Standard requirements (adapt as needed):
 
-01. The program is deployed and tested on LEZ devnet/testnet.
+01. The LEZ program is delivered for LEZ testnet 0.4: it is deployed and tested
+    on LEZ testnet 0.4.
 02. End-to-end integration tests run against a LEZ sequencer (standalone mode)
     and are included in CI
 03. CI must be green on the default branch.
