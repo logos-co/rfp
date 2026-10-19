@@ -195,7 +195,7 @@ auction logic. Each instance carries its own configuration.
 
 #### Supportability
 
-1. The program is deployed and tested on LEZ devnet/testnet.
+1. The program is deployed and tested on LEZ testnet 0.4.
 
 2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
    with `RISC0_DEV_MODE=0` and are included in CI.
