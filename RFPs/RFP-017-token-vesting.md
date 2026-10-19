@@ -265,9 +265,6 @@ distribution platforms) may be included but is not required.
 
 #### Supportability
 
-Proposals must include separate milestones for testnet 0.4 and mainnet
-deployment.
-
 1. The vesting LEZ program is delivered for LEZ testnet 0.4: it is deployed and
    tested on LEZ testnet 0.4.
 2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
@@ -277,7 +274,6 @@ deployment.
 4. A README documents end-to-end usage: deployment steps, program addresses, and
    step-by-step instructions for creating a schedule, claiming, and cancelling
    via CLI and mini-app.
-5. The program is deployed to LEZ mainnet.
 
 #### + Privacy
 

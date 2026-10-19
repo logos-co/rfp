@@ -466,9 +466,6 @@ pattern for account layout and address derivation.
 
 #### Supportability
 
-Proposals must include separate milestones for testnet 0.4 and mainnet
-deployment.
-
 1. The LBP LEZ program is delivered for LEZ testnet 0.4: it is deployed and
    tested on LEZ testnet 0.4.
 2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
@@ -499,7 +496,6 @@ deployment.
    specifying which guarantees are enforced by the on-chain program and which
    depend on correct client behaviour; and what happens if a user bypasses the
    expected interaction path.
-6. The program is deployed to LEZ mainnet.
 
 #### + Privacy
 
