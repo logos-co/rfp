@@ -3,13 +3,7 @@ id: RFP-015
 title: 'Privacy-Preserving Token Launchpad: Bonding Curve'
 tier: L
 status: closed
-dependencies:
-  - id: LP-0013
-    reason: Token transfer-authority primitives are required to custody the token sale reserve and the real collateral reserve.
-  - id: RFP-001
-    reason: Provides the standardised admin authority library that governs each launchpad namespace (admin authority, protocol fee rate, and treasury address applied uniformly to all sales in that namespace per F.8, F.9).
-  - id: LP-0015
-    reason: General cross-program calls via tail calls, used to complete a buy operation atomically (transfer collateral, compute output, transfer tokens, update curve state).
+dependencies: []
 category: Applications & Integrations
 ---
 
@@ -41,7 +35,7 @@ category: Applications & Integrations
 > does so as principal, in their own name, and is solely responsible for
 > assessing its regulatory treatment, including any licensing, registration,
 > sanctions or anti-money laundering obligations that may apply to them. Logos
-> does not make any representation, provides any advice or assumes any
+> does not make any representation, provide any advice or assume any
 > responsibility in respect of any such determination or compliance.
 
 ## 🧭 Overview
@@ -54,28 +48,28 @@ supply-driven: price advances with each purchase. Participants can buy tokens
 directly from a public account or, for privacy, via a deshield→buy→re-shield
 pattern (see [RFP-008](./RFP-008-lending-borrowing-protocol.md), which defines
 this interaction model for LEZ applications): when a private account is used,
-each purchase is routed through a fresh, single-use public account, hiding the
-link between the buyer's private identity and their participation in the sale.
+each purchase is routed through a fresh, single-use public account, so that the
+buy is submitted by an account with no prior on-chain history and no on-chain
+link to the buyer's private account.
 
 The bonding curve LEZ program is delivered for LEZ testnet 0.4 (Supportability
 requirement #1).
 
-The bonding curve launchpad complements [RFP-016](./RFP-016-lbp-launchpad.md):
-where LBPs reward patient buyers (price falls over time unless buying pressure
-counteracts it), bonding curves reward early believers (price rises with each
-purchase). The two mechanisms suit different project profiles, and together they
-give the Logos ecosystem a complete token launch toolkit.
+The bonding curve launchpad complements [RFP-016](./RFP-016-lbp-launchpad.md).
+The mechanisms have different price trajectories: absent offsetting buying
+pressure, an LBP price generally declines over time, while a bonding-curve price
+increases as purchases reduce the remaining curve supply. They therefore provide
+distinct token-distribution mechanisms.
 
 ## 🔥 Why This Matters
 
-Bonding curves are one of the most proven token distribution mechanisms in DeFi.
-pump.fun surpassed $1B in daily trading volume on Solana using a
-constant-product bonding curve, demonstrating that the model scales and attracts
-broad community participation. Meteora's Dynamic Bonding Curve is a leading
-open-source SVM launchpad primitive, used in production by multiple projects.
-Beyond Solana, the constant-product model underpins Uniswap, Balancer, and
-virtually every major AMM; the formula is the most audited and best-understood
-pricing primitive in DeFi.
+Bonding curves are used as token distribution mechanisms across a number of DeFi
+applications. pump.fun surpassed $1B in daily trading volume on Solana using a
+constant-product bonding curve. Meteora's Dynamic Bonding Curve is an
+open-source SVM launchpad primitive used in production by multiple projects.
+Beyond Solana, constant-product pricing (and its weighted generalisation)
+underpins Uniswap and Balancer; the model is widely deployed and has been
+subject to substantial implementation and audit experience.
 
 ## 🏗 Design Rationale
 
@@ -157,10 +151,10 @@ and the LBP launchpad uses ([RFP-016](./RFP-016-lbp-launchpad.md)); the two
 launchpads differ only in who bears the fee and when it may be collected. It
 keeps the treasury account out of the swap path entirely, so a buy costs one
 fewer token transfer and cannot fail because a treasury token account for the
-sale's collateral mint does not exist. Meteora's Dynamic Bonding Curve, the
-reference implementation for this RFP, accrues protocol and partner fees in the
-pool and exposes claim instructions in the same way. The cost is that the vault
-holds both the reserve and the accrued fees, so the program must maintain
+sale's collateral mint does not exist. Meteora's Dynamic Bonding Curve, a
+production deployment of this mechanism, accrues protocol and partner fees in
+the pool and exposes claim instructions in the same way. The cost is that the
+vault holds both the reserve and the accrued fees, so the program must maintain
 `vault_balance ≥ reserve + fees_accrued` on every path, including sells, which
 drain the reserve and must never be paid out of accrued fees. Curve StableSwapNG
 documents the failure mode of getting this wrong: fee state that is withdrawn
@@ -182,10 +176,10 @@ Per-swap accrual is critical for bonding curves. The graduation rate across the
 ecosystem is approximately 0.7% to 1.4% (see the
 [Sale Lifecycle](../appendix/token-launchpad-ecosystem.md#sale-lifecycle-and-close-mechanics)
 section of the appendix): over 98% of bonding curves never reach their supply
-target. An at-close fee model would capture revenue on fewer than 2% of
-launches. Pump.fun, the largest bonding curve platform by volume, uses a
-buyer-side per-swap fee (dynamic, 0.05–0.95% since September 2025) and has
-generated over $818M in cumulative protocol fees (see the
+target. An at-close fee model would accrue fees on fewer than 2% of launches.
+Pump.fun, the largest bonding curve platform by volume, uses a buyer-side
+per-swap fee (dynamic, 0.05–0.95% since September 2025) and has generated over
+$818M in cumulative protocol fees (see the
 [Fee Structures](../appendix/token-launchpad-ecosystem.md#fee-structures)
 section of the appendix for a cross-platform comparison).
 
@@ -212,26 +206,24 @@ for account layout and address derivation.
 
 ### Bonding curves and LBPs as complementary mechanisms
 
-The Logos ecosystem provides both a bonding curve launchpad (this RFP) and an
-LBP launchpad ([RFP-016](./RFP-016-lbp-launchpad.md)). The two mechanisms are
-not redundant: they suit different project profiles and together provide a
-complete token launch toolkit.
+This RFP specifies a bonding curve launchpad and
+[RFP-016](./RFP-016-lbp-launchpad.md) specifies an LBP launchpad. The two
+mechanisms are not redundant: they have different price trajectories and
+different properties at sale open.
 
-A bonding curve rewards early participation with a lower entry price and
-provides a fully deterministic, supply-driven price trajectory. The complete
-economic outcome is computable before the sale opens: starting price, price at
-any supply point, and total collateral at graduation are all known in advance.
-Graduation to a DEX pool is natural, since the virtual reserve model accumulates
-both token and collateral reserves in the correct ratio throughout the sale.
-This suits projects that want to reward early believers, need a transparent and
-auditable price formula, and value a predictable raise range.
+In a bonding curve, earlier purchases execute at a lower price, and the price
+trajectory is fully deterministic and supply-driven. The complete economic
+outcome is computable before the sale opens: starting price, price at any supply
+point, and total collateral at graduation are all known in advance. Graduation
+to a DEX pool follows directly from the virtual reserve model, which accumulates
+both token and collateral reserves in the correct ratio throughout the sale. The
+price formula is transparent and auditable, and the raise range is known before
+the sale opens.
 
 An LBP opens above estimated fair value and lets the market discover price over
-multiple days, without requiring the project to pre-set a valuation. It is
-better suited to projects that want broad, patient participation and
-market-driven price discovery. The two mechanisms are genuinely different tools
-for genuinely different launch strategies: teams should choose based on their
-community profile and distribution goals.
+multiple days, without the creator pre-setting a valuation. Participation is
+spread across the sale window and the clearing price is market-driven. Which
+mechanism fits a given launch depends on the creator's distribution goals.
 
 ### Known limitations of bonding curves for token launches
 
@@ -241,8 +233,7 @@ bonding curve, buying early is cheapest: bots that execute at the first block of
 an open sale acquire tokens at the starting spot price `p₀ = Vc / Vt`, before
 the broader community can participate. No bonding curve platform in the
 ecosystem implements access restrictions or bot mitigation at the protocol
-level. Projects seeking stronger bot-deterrence properties should use RFP-016
-instead.
+level.
 
 ## ✅ Scope of Work
 
@@ -504,6 +495,8 @@ instead.
    specifying which guarantees are enforced by the on-chain program and which
    depend on correct client behaviour; and what happens if a user bypasses the
    expected interaction path.
+6. Deployment scripts and documentation are sufficient for a third party to
+   deploy and configure the program without assistance from the team.
 
 #### + Privacy
 
@@ -589,8 +582,7 @@ directly or uses a non-conforming client could skip the re-shield, leaving
 purchased tokens in the ephemeral public account and breaking their own
 anonymity. The program enforces correctness of the buy (invariant preservation,
 slippage checks); the privacy pattern is enforced by the SDK, not by the
-on-chain program. Buyers who bypass the SDK accept full responsibility for any
-resulting privacy loss.
+on-chain program.
 
 ### Known Limitations
 
@@ -599,9 +591,7 @@ above estimated fair value and declines over time, a bonding curve opens at its
 lowest price (`p₀ = Vc / Vt`). Bots that execute at the first block of the sale
 acquire tokens at the cheapest possible price, before the community can
 participate. No bonding curve platform in the ecosystem implements access
-restrictions or bot mitigation at the protocol level. Projects requiring
-stronger bot deterrence should use [RFP-016](./RFP-016-lbp-launchpad.md)
-instead.
+restrictions or bot mitigation at the protocol level.
 
 ### Reference Implementation
 
@@ -687,57 +677,6 @@ production deployments or audits.
   relative to public-path buyers. No bonding curve platform currently implements
   this feature.
 
-## ⚠ Platform Dependencies
-
-This RFP is open for proposals. However, full implementation is blocked until
-the hard blockers below are delivered. Proposers may begin design and
-development work, but a working on-chain deployment requires them to be
-available.
-
-### Hard blockers
-
-#### Token authorities (LP-0013)
-
-The launchpad program is a token custodian: it holds the token sale reserve and
-the real collateral reserve, pays out tokens on buys and collateral on sells,
-and routes protocol fees to the treasury. This requires the transfer-authority
-primitives in
-[LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md),
-currently **open**.
-
-#### Admin authority (RFP-001)
-
-Each launchpad namespace is governed by its own admin authority (Functionality
-requirement F.9), which configures the protocol fee rate and treasury address
-(F.8) and can be transferred or renounced, using the standardised library from
-[RFP-001](./RFP-001-admin-authority-lib.md). The RFP is closed (candidate
-picked) and the library is in development.
-
-### Resolved dependencies
-
-These primitives were once blockers but are now delivered on LEZ, so they no
-longer gate this RFP. They remain in the frontmatter `dependencies` index for
-traceability.
-
-#### General cross-program calls (LP-0015)
-
-A buy operation must: (1) call the token program to transfer collateral from the
-buyer into the real collateral reserve, (2) compute `tokens_out` using the
-constant product formula, (3) call the token program again to transfer project
-tokens to the buyer, and (4) update curve state (`Vt`, `Vc`, real reserves).
-General cross-program calls via tail calls let each step continue in a protected
-continuation.
-[LP-0015](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0015.md)
-is **closed**, delivered by the LEZ team as part of the core runtime.
-
-#### Event emission (LP-0012)
-
-Analytics dashboards and monitoring services react to curve events (buy
-executed, sale closed) through structured events rather than polling every
-account.
-[LP-0012](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md)
-is **closed**.
-
 ## 👤 Recommended Team Profile
 
 Team experienced with:
@@ -778,8 +717,7 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [LP-0014: Token program improvements: ATAs + wallet tooling](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0014.md)
 
 - [Meteora Dynamic Bonding Curve (program and docs)](https://github.com/MeteoraAg/dynamic-bonding-curve)
-  (primary reference implementation for constant product bonding curve on
-  Solana)
+  (a production deployment of a constant-product bonding curve on Solana)
 
 - [pump.fun bonding curve mechanism](https://deepwiki.com/pump-fun/pump-public-docs/3.1-pump-bonding-curve-mechanism)
   (canonical production deployment of constant product with virtual reserves)
@@ -788,6 +726,15 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   (TypeScript reference for buy/sell formula)
 
 - [SPEL framework](https://github.com/logos-co/spel)
+
+The Resources listed above, and any third-party material referred to elsewhere
+in this specification, are for informational purposes only and are intended
+solely as guidance regarding tools or other artefacts that may be relevant to
+preparing a Submission under the Program. They may include, or may refer to,
+earlier published specifications, some of which may have received Submissions.
+Logos does not endorse or approve, and makes no representation regarding, any
+Submission or referenced material. It is ultimately the Applicant's
+responsibility to determine whether, and how, if at all, to use any Resource.
 
 ## ✏️ How to Apply
 

@@ -4,17 +4,7 @@ title: 'Privacy-Preserving Token Launchpad: LBP'
 tier: XL
 status: closed
 category: Applications & Integrations
-dependencies:
-  - id: LP-0013
-    reason: Token transfer-authority primitives are required to custody pool token and collateral balances and to route protocol fees.
-  - id: RFP-001
-    reason: Provides the standardised admin authority library that governs each launchpad namespace (admin authority, protocol fee rate, and treasury address applied uniformly to all sales in that namespace per F.10, F.11).
-  - id: RFP-002
-    reason: Provides the standardised freeze authority underpinning the sale pause capability, the emergency stop for security incidents (F6).
-  - id: LP-0015
-    reason: General cross-program calls via tail calls, used to complete a buy operation atomically (transfer collateral, compute output, transfer tokens, update pool state).
-  - id: LEZ-clock
-    reason: Platform feature. Weight progression and sale start and end enforcement are functions of elapsed time. Delivered via the LEZ clock program.
+dependencies: []
 ---
 
 # RFP-016: Privacy-Preserving Token Launchpad: LBP
@@ -45,7 +35,7 @@ dependencies:
 > does so as principal, in their own name, and is solely responsible for
 > assessing its regulatory treatment, including any licensing, registration,
 > sanctions or anti-money laundering obligations that may apply to them. Logos
-> does not make any representation, provides any advice or assumes any
+> does not make any representation, provide any advice or assume any
 > responsibility in respect of any such determination or compliance.
 
 Note that ecosystem research is available in the
@@ -59,16 +49,14 @@ price discovery for new token launches. Participants can buy tokens directly
 from a public account or, for privacy, via a deshield→buy→re-shield pattern (see
 [RFP-008](./RFP-008-lending-borrowing-protocol.md), which defines this
 interaction model for LEZ applications): when a private account is used, each
-purchase is routed through a fresh, single-use public account, hiding the link
-between the buyer's private identity and their participation in the sale. An
-optional private allowlist gate enables projects to restrict participation
-without exposing the eligibility set on-chain.
+purchase is routed through a fresh, single-use public account, so that the buy
+is submitted by an account with no prior on-chain history and no on-chain link
+to the buyer's private account. An optional private allowlist gate enables
+projects to restrict participation without exposing the eligibility set
+on-chain.
 
 The LBP LEZ program is delivered for LEZ testnet 0.4 (Supportability requirement
 #1).
-
-The launchpad is the entry point for new projects into the Logos ecosystem. It
-is where token price and initial distribution are established.
 
 ## 🔥 Why This Matters
 
@@ -93,8 +81,7 @@ On LEZ, the optional deshield→buy→re-shield pattern means a buyer's private
 account is never linked to their purchase on-chain. Observers see a buy
 transaction from an ephemeral public account with no prior history. The buyer's
 identity, their total position size, and the destination of their purchased
-tokens are all private. This is a structurally different, and stronger, privacy
-guarantee than anything available on existing launchpad platforms.
+tokens are all private.
 
 ## 🏗 Design Rationale
 
@@ -112,16 +99,14 @@ underpricing benefits buyers and dilutes the project; overpricing leads to an
 incomplete raise and reputation damage. Dutch auctions clear at a single price
 moment, which creates a coordination game: buyers wait for the price to fall and
 then rush simultaneously, producing congestion and poor UX.
-[LP-0004 (sealed-bid)](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0004.md)
-hides individual bids and is well-suited to single-item auctions, but clears at
-one moment rather than over days, making it unsuitable for broad community
-distribution.
+[LP-0004](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0004.md)
+uses a sealed-bid mechanism that hides individual bids and clears at a single
+point rather than continuously over a multi-day period.
 
-The Logos ecosystem also provides a bonding curve launchpad
-([RFP-015](./RFP-015-bonding-curve-launchpad.md)) for projects where early-entry
-incentives are intentional: price rises deterministically with each purchase,
-rewarding early believers with a lower entry price. The two mechanisms suit
-different project profiles and together provide a complete token launch toolkit.
+[RFP-015](./RFP-015-bonding-curve-launchpad.md) specifies a bonding curve
+launchpad, in which price rises deterministically with each purchase, so earlier
+purchases execute at a lower price. The two mechanisms have different price
+trajectories and provide distinct token-distribution mechanisms.
 
 Fixed-price mode is retained as a soft requirement for projects that have an
 existing community with a known clearing price and prefer simplicity over
@@ -135,22 +120,22 @@ practical implementation on any network. It would also undermine the LBP
 mechanism itself: price discovery requires all participants to observe the same
 current price curve so they can make informed decisions about when to buy.
 
-Public pool state is the correct choice here. It enables permissionless price
-transparency (every participant sees the same price), composability with other
-LEZ programs (e.g., routing, aggregators), permissionless weight poke
-transactions (anyone can advance the schedule without depending on the creator),
-and verifiable sale analytics. Participant privacy is instead enforced at the UX
-layer via the optional deshield→buy→re-shield pattern, which unlinks the buyer's
-private identity from their on-chain purchase without requiring private pool
-state.
+This RFP specification therefore uses public pool state. It enables
+permissionless price transparency (every participant sees the same price),
+composability with other LEZ programs (e.g., routing, aggregators),
+permissionless weight poke transactions (anyone can advance the schedule without
+depending on the creator), and verifiable sale analytics. Participant privacy is
+instead enforced at the UX layer via the optional deshield→buy→re-shield
+pattern, which unlinks the buyer's private identity from their on-chain purchase
+without requiring private pool state.
 
 ### Optional allowlist
 
-The allowlist gate is opt-in: many projects want permissionless open sales. When
-projects do need access control (e.g., geographic restrictions, community-only
-sales, pre-selected investor lists), the creator can commit an eligibility set
-at creation time and restrict buys to participants who can prove inclusion. The
-implementation approach is left to the proposing team.
+The allowlist gate is optional. When projects do need access control (e.g.,
+geographic restrictions, community-only sales, pre-selected investor lists), the
+creator can commit an eligibility set at creation time and restrict buys to
+participants who can prove inclusion. The implementation approach is left to the
+proposing team.
 
 On LEZ, the relevant anonymity set for any private account action is all private
 accounts in the zone, not the allowlist size. The execution environment is
@@ -496,6 +481,8 @@ pattern for account layout and address derivation.
    specifying which guarantees are enforced by the on-chain program and which
    depend on correct client behaviour; and what happens if a user bypasses the
    expected interaction path.
+6. Deployment scripts and documentation are sufficient for a third party to
+   deploy and configure the program without assistance from the team.
 
 #### + Privacy
 
@@ -577,8 +564,7 @@ itself cannot enforce the re-shield step: a buyer who calls the program directly
 or uses a non-conforming client could skip the re-shield, leaving purchased
 tokens in the ephemeral public account and breaking their own anonymity. The
 program enforces correctness of the buy (weight computation, slippage checks);
-the privacy pattern is enforced by the SDK, not by the on-chain program. Buyers
-who bypass the SDK accept full responsibility for any resulting privacy loss.
+the privacy pattern is enforced by the SDK, not by the on-chain program.
 
 ### Known Limitations
 
@@ -590,8 +576,8 @@ each buy from a private account uses a fresh ephemeral public address with no
 prior history, so the program cannot link multiple buys to the same underlying
 participant. Providing this feature would either require breaking the privacy
 guarantee or introducing off-chain coordination that reintroduces
-centralisation. Projects that need whale concentration limits should use the
-allowlist gate to restrict the eligible set instead.
+centralisation. The allowlist gate can restrict which participants are eligible,
+but does not cap the amount any eligible participant contributes.
 
 ### Soft Requirements
 
@@ -677,10 +663,10 @@ stored weight value.
 #### Timestamp dependency
 
 The program reads the block timestamp (or equivalent on-chain time source) at
-each buy to compute current weights. This creates a hard dependency on an
-on-chain clock primitive, noted in Platform Dependencies. The weight function's
-correctness depends on the timestamp advancing monotonically; if the on-chain
-clock stalls or regresses, weight computation will produce incorrect results.
+each buy to compute current weights. This creates a dependency on an on-chain
+clock primitive. The weight function's correctness depends on the timestamp
+advancing monotonically; if the on-chain clock stalls or regresses, weight
+computation will produce incorrect results.
 
 #### Deviation standard
 
@@ -690,62 +676,6 @@ auction overlay) provided the proposal includes: (1) a formal specification
 equivalent in detail to the formulas above, (2) a security argument that the
 mechanism's core invariant is preserved under all operations, and (3) citations
 to existing production deployments or audits.
-
-## ⚠ Platform Dependencies
-
-### Hard blockers
-
-These must be available on LEZ for development to start:
-
-#### Token authorities (LP-0013)
-
-The launchpad program is a token custodian: it holds pool token and collateral
-balances, pays out tokens on buys, and routes protocol fees to the treasury.
-This requires the transfer-authority primitives in
-[LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md),
-currently **open**.
-
-#### Authority libraries (RFP-001, RFP-002)
-
-Each launchpad namespace is governed by its own admin authority (Functionality
-requirement F.11), which configures the protocol fee rate and treasury address
-(F.10) and can be transferred or renounced; the sale pause capability (F.6)
-builds on a freeze authority. These come from the standardised libraries in
-[RFP-001](./RFP-001-admin-authority-lib.md) and
-[RFP-002](./RFP-002-freeze-authority-lib.md). Both RFPs are closed (candidate
-picked) and the libraries are in development.
-
-### Resolved dependencies
-
-These primitives were once blockers but are now delivered on LEZ, so they no
-longer gate this RFP. They remain in the frontmatter `dependencies` index for
-traceability.
-
-#### On-chain clock / timestamp
-
-The LBP mechanism is fundamentally time-driven: pool weights shift linearly from
-the start weight to the end weight over the sale duration, and the current price
-at any moment is a function of elapsed time since sale start. The LEZ clock
-program now maintains on-chain timestamp accounts that any program can read, so
-this is **delivered**.
-
-#### General cross-program calls (LP-0015)
-
-A buy operation must: (1) call the token program to transfer collateral from the
-buyer into the pool, (2) compute the token output based on current weights, (3)
-call the token program again to transfer project tokens to the buyer, and (4)
-update pool state (weights, balances, cumulative volume). General cross-program
-calls via tail calls let each step continue in a protected continuation.
-[LP-0015](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0015.md)
-is **closed**, delivered by the LEZ team as part of the core runtime.
-
-#### Event emission (LP-0012)
-
-Analytics dashboards and sale monitoring services react to pool events (buy
-executed, weights updated, sale closed) through structured events rather than
-polling every account.
-[LP-0012](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md)
-is **closed**.
 
 ## 👤 Recommended Team Profile
 
@@ -789,6 +719,15 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [Fjord Foundry LBP reference](https://help.fjordfoundry.com/fjord-foundry-docs/for-sale-creators/faqs-creators/lbp-faq)
 
 - [SPEL framework](https://github.com/logos-co/spel)
+
+The Resources listed above, and any third-party material referred to elsewhere
+in this specification, are for informational purposes only and are intended
+solely as guidance regarding tools or other artefacts that may be relevant to
+preparing a Submission under the Program. They may include, or may refer to,
+earlier published specifications, some of which may have received Submissions.
+Logos does not endorse or approve, and makes no representation regarding, any
+Submission or referenced material. It is ultimately the Applicant's
+responsibility to determine whether, and how, if at all, to use any Resource.
 
 ## ✏️ How to Apply
 
