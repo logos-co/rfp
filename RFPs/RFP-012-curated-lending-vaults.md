@@ -5,7 +5,7 @@ tier: L
 status: closed
 dependencies:
   - id: RFP-008
-    reason: The vault layer allocates deposits across the isolated lending markets delivered by RFP-008 and cannot proceed until the base protocol is live.
+    reason: The vault layer allocates deposits across the isolated lending markets specified in RFP-008 and cannot proceed until the base protocol is live.
   - id: LP-0013
     reason: Token transfer-authority primitives are required for the vault program to custody idle balances and issue vault share tokens.
 category: Applications & Integrations
@@ -22,9 +22,9 @@ category: Applications & Integrations
 >
 > Teams implementing it are solely responsible for (i) assessing the risks and
 > implications of what they build; (ii) obtaining their own professional advice;
-> and (iii) for complying with any legal and regulatory requirements that apply
-> to them. Software developed under the Program is published and maintained by
-> its developers, not by Logos.
+> and (iii) complying with any legal and regulatory requirements that apply to
+> them. Software developed under the Program is published and maintained by its
+> developers, not by Logos.
 >
 > Anyone who chooses to deploy, host, operate or use software developed under
 > the Program, whether or not they were awarded a grant under the Program, does
@@ -39,18 +39,20 @@ category: Applications & Integrations
 > does so as principal, in their own name, and is solely responsible for
 > assessing its regulatory treatment, including any licensing, registration,
 > sanctions or anti-money laundering obligations that may apply to them. Logos
-> does not make any representation, provides any advice or assumes any
+> does not make any representation, provide any advice or assume any
 > responsibility in respect of any such determination or compliance.
 
 ## 🧭 Overview
 
 Build a curated vault layer on top of the isolated-market lending protocol
-delivered by [RFP-008](./RFP-008-lending-borrowing-protocol.md). Each vault
+specified in [RFP-008](./RFP-008-lending-borrowing-protocol.md). Each vault
 accepts deposits of a single loan token, issues transferable vault share tokens
 (LEZ fungible tokens), and allocates deposits across multiple Morpho-style
 lending markets according to a curator-defined strategy. This is the Morpho
 Vaults V2 equivalent for LEZ: a vault layer that abstracts isolated markets into
 a single deposit interface for passive lenders.
+
+The vault program targets testnet 0.4 (Supportability requirement #1).
 
 Morpho Blue's isolated-market core is powerful but requires lenders to choose
 individual markets manually (evaluating collateral quality, oracle reliability,
@@ -59,29 +61,26 @@ token, the curator allocates across vetted markets, and depositors earn blended
 yield. On Ethereum, the MetaMorpho vault layer absorbs the majority of the full
 Morpho stack ($11.78B TVL across Blue + vaults by 2026-05, with the Blue core
 itself at ~$4.9B); Coinbase's USDC lending product alone routes multi-billion
-AUM through a single Steakhouse-curated MetaMorpho vault. The applying team
-should ideally be the same team that delivered RFP-008, or have deep familiarity
-with the deployed protocol's internals.
+AUM through a single Steakhouse-curated MetaMorpho vault. The vault layer
+extends the RFP-008 implementation, so the applying team needs deep familiarity
+with its internals.
 
 ## 🔥 Why This Matters
 
 The isolated-market model in RFP-008 optimises for safety and
 permissionlessness, but it fragments liquidity: each market is independent, and
-lenders must actively manage exposure across markets. Most passive lenders (the
-largest source of TVL in any lending ecosystem) will not do this. Without
-curated vaults, the protocol's TVL ceiling is limited to active, sophisticated
-lenders.
+a lender supplying directly must choose markets and manage exposure across them
+individually.
 
-Curated vaults solve this by aggregating passive capital and directing it where
-it earns the best risk-adjusted yield. On Ethereum, the majority of Morpho
-deposits flow through MetaMorpho vaults rather than directly into isolated
-markets. For the Logos ecosystem, vaults make the lending protocol usable for
-passive depositors who would not otherwise interact with raw isolated markets.
-This widens the protocol's addressable market.
+A curated vault aggregates deposits of a single token and allocates them across
+markets within the caps its curator sets, so a depositor holds one vault share
+position rather than positions in individual markets. On Ethereum, the majority
+of Morpho deposits flow through MetaMorpho vaults rather than directly into
+isolated markets.
 
-Multiple curators can offer different risk and yield profiles in parallel, and
-depositors choose the vault that matches their preference. This avoids
-concentrating risk decisions in a single governance body.
+The program supports any number of independently created vaults, each with its
+own curator, caps and adapter set, so allocation decisions are not concentrated
+in a single governance body.
 
 ## ✅ Scope of Work
 
@@ -149,7 +148,7 @@ concentrating risk decisions in a single governance body.
 
 #### Usability
 
-1. All vault features are exposed by extending the **core module** delivered in
+1. All vault features are exposed by extending the **core module** specified in
    RFP-008 (the headless business-logic module that the GUI, CLI, and reference
    services all consume). The CLI and GUI built in RFP-008 are extended to
    surface the new vault features; no separate front-end is required.
@@ -213,7 +212,7 @@ concentrating risk decisions in a single governance body.
 
 #### Supportability
 
-1. The updated program is deployed and tested on LEZ devnet/testnet.
+1. The vault program is deployed and tested on testnet 0.4.
 2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
    and are included in CI; CI must be green on the default branch.
 3. Every hard requirement in Functionality, Usability, Reliability, and
@@ -221,16 +220,13 @@ concentrating risk decisions in a single governance body.
 4. A README addendum documents the vault features: vault creation, curator
    setup, market allocation, deposit/withdrawal flow, and sentinel
    configuration.
-5. Submit a
-   [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-   for each new SDK feature (vault creation, deposit/withdraw, market
-   allocation, curator/allocator/sentinel roles), covering the developer
-   integration journey.
-6. Submit a
-   [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-   for the CLI additions covering the vault features.
+5. Provide documentation in repo for each new SDK feature (vault creation,
+   deposit/withdraw, market allocation, curator/allocator/sentinel roles),
+   covering the developer integration journey.
+6. Provide documentation in repo for the CLI additions, covering the vault
+   features.
 7. Provide Figma designs or equivalent for all GUI additions to the GUI.
-8. Update the privacy and anonymisation properties document delivered by RFP-008
+8. Update the privacy and anonymisation properties document required by RFP-008
    to cover the vault layer: what vault state and operations are visible to
    observers; what data is protected when the private account path is used for
    vault interactions; trust assumptions, specifying which guarantees are
@@ -243,19 +239,17 @@ concentrating risk decisions in a single governance body.
    covering the vault program and the role-permission surface (curator,
    allocator, sentinel). The proposal must name at least one tier-1 audit firm
    the applicant intends to engage, include the audit budget as a line item, and
-   include the audit timeline ahead of any mainnet recommendation. Audit reports
-   must be published with the codebase before mainnet deployment is recommended.
-   If RFP-008 and RFP-012 are delivered by the same team, the audit programmes
-   may be combined in a single engagement; the proposal must make the combined
-   scope explicit.
+   include the audit timeline. Audit reports must be published with the codebase
+   before any production deployment of the software. If RFP-008 and RFP-012 are
+   implemented by the same team, the audit programmes may be combined in a
+   single engagement; the proposal must make the combined scope explicit.
 
 #### + Privacy
 
 1. The GUI and SDK must support both direct public account interaction and the
    deshield→interact→reshield pattern for private account interaction with
-   vaults. When a user chooses the private account path, the SDK must enforce
-   the complete deshield→interact→reshield pattern; the reshield step must not
-   be skippable.
+   vaults. When a user chooses the private account path, the SDK must complete
+   the full deshield→interact→reshield pattern for the operation.
 2. When using the private account path, the GUI must display a pre-confirmation
    summary for each vault operation that clearly identifies what will be visible
    on-chain (deposit/withdrawal amount, vault address, vault share mint/burn,
@@ -289,7 +283,9 @@ If possible.
 - Governance token design and distribution
 - Cross-chain liquidity or bridging
 - Leveraged looping / one-click multiply products
-- Any feature already delivered by RFP-008
+- Any feature already specified in RFP-008
+- Mainnet deployment. Mainnet deployment is not part of this RFP: whether, when
+  and by whom the software is deployed is a matter for those who deploy it.
 
 ### Privacy Architecture
 
@@ -305,8 +301,8 @@ observability split.
 This RFP is open for proposal submission. However, development is blocked until
 the following is satisfied:
 
-1. **RFP-008 is live on LEZ devnet/testnet**: this RFP extends the deployed
-   protocol; it cannot proceed without the base layer.
+1. **RFP-008 is deployed on testnet 0.4**: this RFP extends the RFP-008 program;
+   it cannot proceed without the base layer.
 
 All other platform primitives required by this RFP (including LP-0013 token
 transfer authorities and an oracle provider) are hard blockers for RFP-008 and
@@ -325,8 +321,7 @@ Team experienced with:
 - DeFi risk curation and yield optimisation strategies
 - Token standard design (vault share token mechanics)
 - Front-end development for DeFi applications
-
-Ideally the same team that delivered RFP-008.
+- The internals of the RFP-008 implementation that the vault layer extends
 
 ## ⏱ Timeline Expectations
 
@@ -344,6 +339,15 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   — MetaMorpho curated-vault deep dive, curator landscape, Vault V2 design
 - TODO: Oracle integration guide for LEZ
 - TODO: SPEL framework documentation
+
+The Resources listed above, and any third-party material referred to elsewhere
+in this specification, are for informational purposes only and are intended
+solely as guidance regarding tools or other artefacts that may be relevant to
+preparing a Submission under the Program. They may include, or may refer to
+earlier published specifications, some of which may have received Submissions.
+Logos does not endorse or approve, and makes no representation regarding, any
+Submission or referenced material. It is ultimately the Applicant’s
+responsibility to determine whether, and how, if at all, to use any Resource.
 
 ## ✏️ How to Apply
 
