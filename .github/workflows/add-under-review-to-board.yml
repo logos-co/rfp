@@ -1,0 +1,118 @@
+name: Sync RFP proposals to tracking board
+
+# Keeps the "RFP & LPrize Tracking" org project (#17) in sync with proposal
+# issues in this repo:
+#   * label `proposal`      -> add to board as "Received Proposals", but ONLY
+#                              if the issue does NOT already carry `under-review`
+#                              and is not already on the board in another column
+#                              (never overrides an existing status).
+#   * label `under-review`  -> move to "Priority review" (always).
+#   * label `rejected`      -> move to "Rejected proposals" (always; terminal).
+# Net effect: "Received Proposals" = has `proposal`, not yet `under-review`.
+#
+# The default GITHUB_TOKEN cannot write to org-level Projects v2, so this uses
+# a PAT stored as the PROJECTS_PAT secret (classic PAT with `repo` + `project`,
+# or a fine-grained PAT with Organization projects: Read & write + Issues: Read).
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    if: github.event.label.name == 'proposal' || github.event.label.name == 'under-review' || github.event.label.name == 'rejected'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECTS_PAT }}
+          script: |
+            const ORG = 'logos-co';
+            const PROJECT_NUMBER = 17;
+            const label = context.payload.label.name;
+            const issueNodeId = context.payload.issue.node_id;
+            const issueNumber = context.payload.issue.number;
+            const issueLabels = (context.payload.issue.labels || [])
+              .map(l => (typeof l === 'string' ? l : l.name));
+
+            // Target column per label.
+            const TARGET =
+              label === 'under-review' ? 'Priority review'
+              : label === 'rejected'   ? 'Rejected proposals'
+              : 'Received Proposals';
+
+            // 1. Resolve project id, Status field id, and option ids (by name,
+            //    so this survives Projects option-id regeneration).
+            const meta = await github.graphql(`
+              query($org:String!, $num:Int!) {
+                organization(login:$org){
+                  projectV2(number:$num){
+                    id
+                    field(name:"Status"){
+                      ... on ProjectV2SingleSelectField { id options { id name } }
+                    }
+                  }
+                }
+              }`, { org: ORG, num: PROJECT_NUMBER });
+
+            const project = meta.organization.projectV2;
+            const statusField = project.field;
+            const option = statusField.options.find(o => o.name === TARGET);
+            if (!option) { core.setFailed(`No Status option named "${TARGET}"`); return; }
+
+            // 2. Is this issue already on the board, and does it have a status?
+            const existing = await github.graphql(`
+              query($id:ID!) {
+                node(id:$id){
+                  ... on Issue {
+                    projectItems(first:20){
+                      nodes{
+                        id
+                        project{ id }
+                        fieldValueByName(name:"Status"){
+                          ... on ProjectV2ItemFieldSingleSelectValue { name }
+                        }
+                      }
+                    }
+                  }
+                }
+              }`, { id: issueNodeId });
+
+            const boardItem = (existing.node.projectItems.nodes || [])
+              .find(n => n.project && n.project.id === project.id);
+            const currentStatus = boardItem && boardItem.fieldValueByName
+              ? boardItem.fieldValueByName.name : null;
+
+            // For `proposal`: it belongs in "Received Proposals" only while it
+            // has NOT yet been moved to review. If it already carries
+            // `under-review`, that path owns it — do nothing here.
+            if (label === 'proposal' && issueLabels.includes('under-review')) {
+              core.info(`#${issueNumber} already has under-review — not a Received Proposal.`);
+              return;
+            }
+            // For `proposal`: never override an item that already sits in a
+            // column. Only place brand-new / status-less items.
+            if (label === 'proposal' && currentStatus) {
+              core.info(`#${issueNumber} already on board in "${currentStatus}" — leaving as is.`);
+              return;
+            }
+
+            // 3. Add to the project (idempotent) and set the target status.
+            const added = await github.graphql(`
+              mutation($project:ID!, $content:ID!) {
+                addProjectV2ItemById(input:{projectId:$project, contentId:$content}){ item { id } }
+              }`, { project: project.id, content: issueNodeId });
+            const itemId = added.addProjectV2ItemById.item.id;
+
+            await github.graphql(`
+              mutation($project:ID!, $item:ID!, $field:ID!, $opt:String!) {
+                updateProjectV2ItemFieldValue(input:{
+                  projectId:$project, itemId:$item, fieldId:$field,
+                  value:{ singleSelectOptionId:$opt }
+                }){ projectV2Item { id } }
+              }`, { project: project.id, item: itemId, field: statusField.id, opt: option.id });
+
+            core.info(`#${issueNumber} → "${TARGET}".`);
