@@ -59,6 +59,9 @@ instance. It detects undercollateralized positions, seizes collateral, and sells
 it via auctions to cover debt. It also manages protocol surplus and debt through
 separate auction mechanisms.
 
+The liquidation and auction LEZ program is delivered for LEZ testnet 0.4
+(Supportability requirement #1).
+
 The design follows proven patterns from
 [RAI / Reflexer Finance](https://reflexer.finance/): a fixed-discount auction
 for seized collateral that incentivizes quick liquidation while minimizing
@@ -186,7 +189,8 @@ guarantees.
 
 #### Supportability
 
-1. The program is deployed and tested on LEZ devnet/testnet.
+1. The liquidation and auction LEZ program is delivered for LEZ testnet 0.4: it
+   is deployed and tested on LEZ testnet 0.4.
 
 2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
    with `RISC0_DEV_MODE=0` and are included in CI.

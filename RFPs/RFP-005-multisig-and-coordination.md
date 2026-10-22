@@ -51,8 +51,9 @@ the properties LEZ makes uniquely possible: multisig state that is private by
 default, and a coordination channel that is encrypted and metadata-resistant.
 
 The deliverable is a codebase carried through an independent security audit
-(Supportability requirement #13) and deployed on devnet/testnet. Deploying or
-operating the software beyond that is outside the scope of this RFP.
+(Supportability requirement #13), with the multisig LEZ program delivered for
+LEZ testnet 0.4 (Supportability requirement #4). Deploying or operating the
+software beyond that is outside the scope of this RFP.
 
 Multisig is the single most widely used custody primitive in the ecosystem, and
 the value in multisig custody today is immense. Safe (formerly Gnosis Safe), the
@@ -186,7 +187,7 @@ design space.
 #### Performance
 
 1. Compute unit usage, transaction size, and client-side proving time for each
-   on-chain operation must be documented and benchmarked against LEZ devnet
+   on-chain operation must be documented and benchmarked against LEZ testnet 0.4
    limits. All benchmarks must be produced with **real proving**. Development
    mode produces stub receipts orders of magnitude smaller and faster than real
    ones, and figures gathered that way are meaningless for capacity planning;
@@ -203,8 +204,9 @@ design space.
 01. The multisig program runs on the Logos Execution Zone (LEZ) and uses LEZ
     private accounts for its private-by-default posture.
 02. The per-multisig coordination room is built on the Logos chat module.
-03. The delivered implementation is compatible with Logos testnet 0.3 and 0.4.
-04. The multisig program is deployed and tested on LEZ devnet/testnet.
+03. The delivered implementation is compatible with Logos testnet 0.4.
+04. The multisig LEZ program is delivered for LEZ testnet 0.4: it is deployed
+    and tested on LEZ testnet 0.4.
 05. End-to-end integration tests run against a LEZ sequencer (standalone mode)
     and are included in CI.
 06. CI must be green on the default branch.

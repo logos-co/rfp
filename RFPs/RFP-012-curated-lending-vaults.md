@@ -52,6 +52,9 @@ lending markets according to a curator-defined strategy. This is the Morpho
 Vaults V2 equivalent for LEZ: a vault layer that abstracts isolated markets into
 a single deposit interface for passive lenders.
 
+The vault LEZ program is delivered for LEZ testnet 0.4 (Supportability
+requirement #1).
+
 Morpho Blue's isolated-market core is powerful but requires lenders to choose
 individual markets manually (evaluating collateral quality, oracle reliability,
 LLTV risk). Curated vaults abstract this complexity: depositors supply a single
@@ -213,7 +216,8 @@ concentrating risk decisions in a single governance body.
 
 #### Supportability
 
-1. The updated program is deployed and tested on LEZ devnet/testnet.
+1. The vault LEZ program is delivered for LEZ testnet 0.4: it is deployed and
+   tested on LEZ testnet 0.4.
 2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
    and are included in CI; CI must be green on the default branch.
 3. Every hard requirement in Functionality, Usability, Reliability, and

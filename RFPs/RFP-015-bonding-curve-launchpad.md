@@ -57,6 +57,9 @@ this interaction model for LEZ applications): when a private account is used,
 each purchase is routed through a fresh, single-use public account, hiding the
 link between the buyer's private identity and their participation in the sale.
 
+The bonding curve LEZ program is delivered for LEZ testnet 0.4 (Supportability
+requirement #1).
+
 The bonding curve launchpad complements [RFP-016](./RFP-016-lbp-launchpad.md):
 where LBPs reward patient buyers (price falls over time unless buying pressure
 counteracts it), bonding curves reward early believers (price rises with each
@@ -469,14 +472,12 @@ instead.
    one LEZ transaction.
 3. Document the compute unit (CU) cost of each operation: create namespace,
    create sale, buy, sell, close sale, collect fees, withdraw, set fee rate, set
-   treasury. Note the LEZ testnet version against which measurements were taken.
+   treasury. Measurements are taken on LEZ testnet 0.4.
 
 #### Supportability
 
-Proposals must include separate milestones for testnet 0.2, testnet 0.3, and
-mainnet deployment.
-
-1. The bonding curve program is deployed and tested on LEZ testnet 0.2.
+1. The bonding curve LEZ program is delivered for LEZ testnet 0.4: it is
+   deployed and tested on LEZ testnet 0.4.
 2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
    and are included in CI. CI must be green on the default branch.
 3. Every hard requirement in Functionality, Usability, Reliability, and
@@ -503,8 +504,6 @@ mainnet deployment.
    specifying which guarantees are enforced by the on-chain program and which
    depend on correct client behaviour; and what happens if a user bypasses the
    expected interaction path.
-6. The program is updated and verified on LEZ testnet 0.3.
-7. The program is deployed to LEZ mainnet.
 
 #### + Privacy
 
