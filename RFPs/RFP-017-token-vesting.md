@@ -25,8 +25,8 @@ dependencies:
 > Teams implementing it are solely responsible for (i) assessing the risks and
 > implications of what they build; (ii) obtaining their own professional advice;
 > and (iii) complying with any legal and regulatory requirements that apply to
-> them. Software developed under the Program is published and maintained by
-> its developers, not by Logos.
+> them. Software developed under the Program is published and maintained by its
+> developers, not by Logos.
 >
 > Anyone who chooses to deploy, host, operate or use software developed under
 > the Program, whether or not they were awarded a grant under the Program, does
@@ -53,8 +53,7 @@ account or to a private account. When claimed to a private account, the
 destination account and subsequent token movements are not recorded in public
 on-chain state.
 
-The vesting LEZ program targets LEZ testnet 0.4 (Supportability requirement
-#1).
+The vesting LEZ program targets LEZ testnet 0.4 (Supportability requirement #1).
 
 A token vesting program holds token allocations in escrow and releases them to
 beneficiaries according to a configured schedule. Vesting is commonly applied to
@@ -229,8 +228,8 @@ distribution platforms) may be included but is not required.
 5. When using the private account path, the mini-app must display a privacy
    disclosure before each claim, identifying what will be visible on-chain
    (claim amount, beneficiary address, vesting schedule address) and what will
-   not be recorded in public on-chain state (the destination private account
-   and subsequent movements).
+   not be recorded in public on-chain state (the destination private account and
+   subsequent movements).
 6. Provide an IDL for the vesting program using the
    [SPEL framework](https://github.com/logos-co/spel).
 7. Failed claims must return clear, actionable error messages, including the
@@ -323,12 +322,12 @@ subsequent movements of the claimed tokens are not.
 
 The beneficiary address is permanently and publicly associated with the vesting
 schedule from the moment it is created. Every claim from the schedule is linked
-to that address in public on-chain state. The privacy property covers
-post-claim token movements only: the destination private account and subsequent
-activity are not recorded in public on-chain state, but the beneficiary's
-association with the vesting position is. Keeping the beneficiary address itself
-out of public on-chain state would require commitment-based beneficiary
-registration (depending on LP-0003); this is deferred to a future RFP.
+to that address in public on-chain state. The privacy property covers post-claim
+token movements only: the destination private account and subsequent activity
+are not recorded in public on-chain state, but the beneficiary's association
+with the vesting position is. Keeping the beneficiary address itself out of
+public on-chain state would require commitment-based beneficiary registration
+(depending on LP-0003); this is deferred to a future RFP.
 
 ### Soft Requirements
 
