@@ -23,8 +23,8 @@ category: Applications & Integrations
 > Teams implementing it are solely responsible for (i) assessing the risks and
 > implications of what they build; (ii) obtaining their own professional advice;
 > and (iii) complying with any legal and regulatory requirements that apply to
-> them. Software developed under the Program is published and maintained by
-> its developers, not by Logos.
+> them. Software developed under the Program is published and maintained by its
+> developers, not by Logos.
 >
 > Anyone who chooses to deploy, host, operate or use software developed under
 > the Program, whether or not they were awarded a grant under the Program, does
