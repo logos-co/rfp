@@ -86,27 +86,22 @@ the vesting program to release distributed tokens over a schedule.
 
 ### Three schedule types: cliff+linear, fully linear, milestone
 
-These three types cover the full range of real-world vesting relationships
-without unnecessary complexity.
+The program supports three release patterns, which differ in what triggers a
+release.
 
-**Cliff + linear** is the industry standard for team and investor allocations.
-The cliff (commonly 1 year) prevents immediate selling at TGE and signals that
-insiders have a long-term commitment. Linear release after the cliff aligns
-incentives continuously over the remaining period; recipients have ongoing
-reason to contribute. This pattern is used in virtually every serious protocol's
-team allocation.
+**Cliff + linear** releases nothing before the cliff date. At the cliff, the
+amount accrued since the start date becomes claimable as a lump sum; the
+remainder then accrues linearly until the end date. This pattern is commonly
+used for team and investor allocations.
 
-**Fully linear** (no cliff) is appropriate for ongoing contributors (advisors,
-contractors) where there is no fixed start date requiring a binary lock-up, or
-for grant programmes where disbursement should begin immediately.
+**Fully linear** (no cliff) accrues tokens continuously from the start date to
+the end date, so the claimable amount starts increasing immediately.
 
-**Milestone-based** serves deliverable-oriented relationships: grants,
-partnerships, or service agreements where time-based vesting is economically
-incorrect. Unlocking tokens when a milestone is achieved rather than when a date
-passes better reflects the nature of the obligation. Importantly, milestone
-authority stays with the creator, not an on-chain oracle; this is intentional:
-the conditions for milestone completion are often qualitative and cannot be
-reliably evaluated on-chain.
+**Milestone-based** releases a fixed amount each time completion of a tranche is
+signalled, independently of elapsed time. Completion is signalled by the
+schedule creator (or a nominated milestone authority; see Soft Requirements)
+rather than evaluated by an on-chain oracle, because milestone conditions are
+often qualitative and cannot be evaluated from on-chain data.
 
 ### Cancellation semantics
 
@@ -128,22 +123,19 @@ cancellation.
 ### Transferable positions as a creation-time flag
 
 Whether a vesting position is transferable to a new beneficiary address is set
-at creation and cannot be changed afterwards. For employment vesting, the
-incentive is personal; the position should be non-transferable so the token lock
-applies specifically to the individual. For investor positions, secondary
-transfers may be needed (assignment of rights, secondary market sales of locked
-tokens). Allowing this to be configured at creation but frozen afterwards avoids
-mid-schedule ambiguity: all parties know the rules when the schedule is created
-and cannot change them unilaterally later.
+at creation and cannot be changed afterwards. A non-transferable position can
+only be claimed by the beneficiary named at creation; a transferable position
+can be reassigned to a new beneficiary address. Because the flag is fixed at
+creation, neither party can change a schedule's transfer rules after it is
+created.
 
 ### Batch creation
 
-Token launches routinely create vesting schedules for many recipients
-simultaneously (co-founders, advisors, early contributors, investor tranches).
-Creating them one by one is gas-expensive and error-prone. Batch creation is a
-practical necessity, not a nice-to-have, for any real-world launch. The batch
-size is bounded by the LEZ transaction size limit, which the implementation must
-document.
+A single allocation event often involves many recipients (for example
+co-founders, advisors, contributors, and investor tranches). Batch creation lets
+a creator set up schedules for multiple recipients in one operation instead of
+one transaction per recipient. The batch size is bounded by the LEZ transaction
+size limit, which the implementation must document.
 
 ### Fee structure
 
@@ -327,20 +319,15 @@ token movements only: the destination private account and subsequent activity
 are not recorded in public on-chain state, but the beneficiary's association
 with the vesting position is. Keeping the beneficiary address itself out of
 public on-chain state would require commitment-based beneficiary registration
-(depending on LP-0003); this is deferred to a future RFP.
+(depending on LP-0003), which is outside the scope of this RFP.
 
 ### Soft Requirements
 
 - The creator can nominate a separate cancellation authority distinct from the
-  creator wallet (useful when vesting is managed by a multisig or DAO).
+  creator wallet (for example, a multisig or DAO account).
 - The creator can nominate a separate milestone authority distinct from the
-  creator wallet. Creator-controlled milestone authority is appropriate for team
-  vesting, but creates a conflict of interest when vesting is used for buyer
-  protection (e.g., creator collateral vesting from a token launch per
-  [RFP-015](./RFP-015-bonding-curve-launchpad.md) or
-  [RFP-016](./RFP-016-lbp-launchpad.md)): the creator could approve milestones
-  and drain funds immediately. Delegating milestone authority to a governance
-  body or multisig that excludes the creator prevents this.
+  creator wallet, so that milestone signalling can be held by a party other than
+  the schedule creator.
 
 ### Out of Scope
 
