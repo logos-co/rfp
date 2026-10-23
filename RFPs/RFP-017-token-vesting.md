@@ -24,8 +24,8 @@ dependencies:
 >
 > Teams implementing it are solely responsible for (i) assessing the risks and
 > implications of what they build; (ii) obtaining their own professional advice;
-> and (iii) for complying with any legal and regulatory requirements that apply
-> to them. Software developed under the Program is published and maintained by
+> and (iii) complying with any legal and regulatory requirements that apply to
+> them. Software developed under the Program is published and maintained by
 > its developers, not by Logos.
 >
 > Anyone who chooses to deploy, host, operate or use software developed under
@@ -41,7 +41,7 @@ dependencies:
 > does so as principal, in their own name, and is solely responsible for
 > assessing its regulatory treatment, including any licensing, registration,
 > sanctions or anti-money laundering obligations that may apply to them. Logos
-> does not make any representation, provides any advice or assumes any
+> does not make any representation, provide any advice or assume any
 > responsibility in respect of any such determination or compliance.
 
 ## 🧭 Overview
@@ -50,44 +50,38 @@ Build a token vesting program on LEZ that locks project, team, or investor
 tokens against configurable time-based schedules (cliff, linear, or
 milestone-based). Recipients can claim vested tokens directly to a public
 account or to a private account. When claimed to a private account, the
-destination and all subsequent token movements are hidden from on-chain
-observers.
+destination account and subsequent token movements are not recorded in public
+on-chain state.
 
-The vesting LEZ program is delivered for LEZ testnet 0.4 (Supportability
-requirement #1).
+The vesting LEZ program targets LEZ testnet 0.4 (Supportability requirement
+#1).
 
-Token vesting is a prerequisite for credible token launches. Every protocol that
-issues a token must lock some allocation for founders, early contributors, or
-ecosystem reserves. The scale of this market is substantial: Tokenomist
-documented $97.43B in token vesting unlocks during 2025 alone, and Magna (the
-largest vesting platform) reached $60B peak TVL before being acquired by Kraken.
-Despite this scale, leading protocols (Sablier, Hedgey, Jupiter Lock) charge
-zero fees, and no existing protocol offers any privacy features for vesting (see
+A token vesting program holds token allocations in escrow and releases them to
+beneficiaries according to a configured schedule. Vesting is commonly applied to
+founder, contributor, investor, and ecosystem allocations. Tokenomist recorded
+$97.43B in token vesting unlocks during 2025, and Magna reached $60B peak TVL
+before its acquisition by Kraken. The vesting protocols surveyed record schedule
+terms and claims in public on-chain state, and none of them offers claims to a
+private account (see
 [Appendix: Token Vesting Ecosystem](../appendix/token-vesting-ecosystem.md)).
 
 ## 🔥 Why This Matters
 
-On transparent chains, vesting contracts (Streamflow, Sablier, Team.Finance) are
-surveillance tools: every cliff unlock, every linear release, and every claim is
-publicly linkable to a beneficiary address, exposing token unlock schedules to
-the market and enabling adversarial trading against known unlock events. With
-$97.43B in token unlocks during 2025 tracked by public analytics platforms like
-Tokenomist, traders routinely index upcoming unlock events and position against
-them before the beneficiary can act. The April 2025 MANTRA ($OM) collapse (90%
-in hours, from over $6 to under $0.50, wiping over $5B in market cap), while not
-solely caused by front-running, illustrates the fragility of transparent unlock
-mechanics at scale.
+On transparent chains, vesting contracts (Streamflow, Sablier, Team.Finance)
+record every cliff unlock, linear release, and claim in public on-chain state,
+linked to the beneficiary address. Unlock schedules are therefore readable in
+advance, and analytics platforms such as Tokenomist index upcoming unlock
+events.
 
-On LEZ, recipients can claim vested tokens directly to a private account.
-Observers see that a claim occurred; they cannot determine which private account
-holds the tokens or trace subsequent movements. This makes LEZ the only
-environment where teams can vest tokens without creating a public unlock
-calendar for adversarial front-running.
+On LEZ, recipients can claim vested tokens directly to a private account. The
+claim event (amount and timestamp) is recorded in public on-chain state; the
+destination private account and subsequent movements of the claimed tokens are
+not. Schedule terms, including unlock dates and the beneficiary address, remain
+public (see [Privacy Architecture](#privacy-architecture)).
 
-Vesting is also a composition primitive. A launchpad (see
-[RFP-016](./RFP-016-lbp-launchpad.md)) or investor round on LEZ needs vesting to
-be in place before tokens can be distributed to contributors and early backers.
-This RFP is a direct prerequisite for a credible token economy on LEZ.
+Vesting can also be composed with other programs. A launchpad (see
+[RFP-016](./RFP-016-lbp-launchpad.md)) or an investor allocation on LEZ can call
+the vesting program to release distributed tokens over a schedule.
 
 ## 🏗 Design Rationale
 
@@ -119,20 +113,18 @@ reliably evaluated on-chain.
 
 Whether a schedule is cancelable is set at creation and defaults to cancelable.
 A cancelable schedule can be converted to non-cancelable (irreversible); the
-reverse is not permitted. This one-way conversion serves as a credible
-commitment mechanism: a project can issue vesting to investors and later make it
-irrevocable as a trust signal, following the pattern established by Sablier and
-Hedgey (see
+reverse is not permitted. This lets a creator remove its own ability to cancel
+after the schedule is created. Sablier offers the same one-way conversion;
+Hedgey separates revocable and non-revocable schedules into two products (see
 [Appendix: Cancellation and Revocation](../appendix/token-vesting-ecosystem.md#cancellation-and-revocation)).
 
-When a cancelable schedule is cancelled, unvested tokens return to the creator;
-already-vested but unclaimed tokens remain claimable by the beneficiary. This
-reflects the economic reality of the relationship: vested tokens are earned
-compensation that cannot be revoked. Unvested tokens represent future commitment
-not yet earned, and returning them to the creator on early termination is the
-universal invariant across every protocol in the ecosystem (Streamflow, Sablier,
-Team.Finance, and others alike). Burning unvested tokens would destroy value
-unnecessarily and make the program harder to adopt.
+When a cancelable schedule is cancelled, the program returns unvested tokens to
+the creator, and tokens already vested but not yet claimed remain claimable by
+the beneficiary. Cancellation therefore affects only the portion of the schedule
+that has not vested at the time of cancellation. This matches the cancellation
+behaviour of every surveyed protocol that supports cancellation (Streamflow,
+Sablier, Team.Finance, and others). The program does not burn unvested tokens on
+cancellation.
 
 ### Transferable positions as a creation-time flag
 
@@ -156,9 +148,8 @@ document.
 
 ### Fee structure
 
-This RFP does not mandate a specific fee rate. The ecosystem trend is decisively
-toward zero protocol fees: 7 of 10 vesting protocols surveyed charge nothing
-beyond gas (see
+This RFP does not specify a fee rate. Of the 10 vesting protocols surveyed, 7
+charge nothing beyond gas (see
 [Appendix: Fee Structures](../appendix/token-vesting-ecosystem.md#fee-structures)).
 Proposals must specify:
 
@@ -171,8 +162,8 @@ Proposals must specify:
 4. **Where fees are routed:** the destination account or mechanism (protocol
    treasury, burn, staking reward pool, etc.).
 
-A governance-activatable fee switch with an initial zero rate is the recommended
-baseline. An optional broker fee for third-party integrators (launchpads,
+Any fee, treasury or governance mechanism is a matter for whoever deploys the
+software. An optional broker fee for third-party integrators (launchpads,
 distribution platforms) may be included but is not required.
 
 ## ✅ Scope of Work
@@ -238,7 +229,8 @@ distribution platforms) may be included but is not required.
 5. When using the private account path, the mini-app must display a privacy
    disclosure before each claim, identifying what will be visible on-chain
    (claim amount, beneficiary address, vesting schedule address) and what will
-   not be traceable (the destination private account and subsequent movements).
+   not be recorded in public on-chain state (the destination private account
+   and subsequent movements).
 6. Provide an IDL for the vesting program using the
    [SPEL framework](https://github.com/logos-co/spel).
 7. Failed claims must return clear, actionable error messages, including the
@@ -265,8 +257,7 @@ distribution platforms) may be included but is not required.
 
 #### Supportability
 
-1. The vesting LEZ program is delivered for LEZ testnet 0.4: it is deployed and
-   tested on LEZ testnet 0.4.
+1. The team deploys and tests the vesting program on LEZ testnet 0.4.
 2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
    and are included in CI. CI must be green on the default branch.
 3. Every hard requirement in Functionality, Usability, Reliability, and
@@ -282,8 +273,9 @@ distribution platforms) may be included but is not required.
 2. When using the private account path, the mini-app must display the
    pre-confirmation privacy disclosure described in the Usability section before
    each claim, identifying what is visible on-chain (claim amount, beneficiary
-   address, vesting schedule address) and what remains private (the destination
-   private account and subsequent movements of claimed tokens).
+   address, vesting schedule address) and what is not recorded in public
+   on-chain state (the destination private account and subsequent movements of
+   claimed tokens).
 3. When using the private account path, the SDK must validate that the claim
    target is a private (shielded) account before submitting the transaction, and
    reject with an explicit error if it is not.
@@ -306,14 +298,14 @@ private account at claim time.
 Recipients choose at claim time whether tokens go to a public account or a
 private account.
 
-When claiming to a **public account**, the claim is fully transparent: observers
-see the recipient address, the amount, and can trace subsequent token movements.
-This is identical to every existing vesting protocol.
+When claiming to a **public account**, the recipient address, the amount, and
+subsequent token movements are recorded in public on-chain state, as with
+vesting claims on transparent chains.
 
 When claiming to a **private account**, the vesting program credits the
-beneficiary's private account directly. Observers see that a claim occurred
-(amount and timestamp) but cannot determine which private account holds the
-tokens or trace subsequent movements.
+beneficiary's private account directly. The claim event (amount and timestamp)
+is recorded in public on-chain state; the destination private account and
+subsequent movements of the claimed tokens are not.
 
 #### What is public (observable on-chain)
 
@@ -330,13 +322,13 @@ tokens or trace subsequent movements.
 #### Privacy limitation
 
 The beneficiary address is permanently and publicly associated with the vesting
-schedule from the moment it is created. Every claim from the schedule is
-observably linked to that address. The privacy guarantee covers post-claim token
-movements only: the destination private account and all subsequent activity are
-untraceable, but the beneficiary's association with the vesting position cannot
-be hidden. For full beneficiary anonymity, commitment-based beneficiary
-registration (depending on LP-0003) would be required; this is deferred to a
-future RFP.
+schedule from the moment it is created. Every claim from the schedule is linked
+to that address in public on-chain state. The privacy property covers
+post-claim token movements only: the destination private account and subsequent
+activity are not recorded in public on-chain state, but the beneficiary's
+association with the vesting position is. Keeping the beneficiary address itself
+out of public on-chain state would require commitment-based beneficiary
+registration (depending on LP-0003); this is deferred to a future RFP.
 
 ### Soft Requirements
 
@@ -350,6 +342,11 @@ future RFP.
   [RFP-016](./RFP-016-lbp-launchpad.md)): the creator could approve milestones
   and drain funds immediately. Delegating milestone authority to a governance
   body or multisig that excludes the creator prevents this.
+
+### Out of Scope
+
+Mainnet deployment is not part of this RFP: whether, when and by whom the
+software is deployed is a matter for those who deploy it.
 
 ## ⚠ Platform Dependencies
 
@@ -439,6 +436,15 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [Streamflow Finance (vesting reference)](https://streamflow.finance/)
 - [Appendix: Token Vesting Ecosystem](../appendix/token-vesting-ecosystem.md)
   (survey of existing vesting protocols, scale data, and fee structures)
+
+The Resources listed above, and any third-party material referred to elsewhere
+in this specification, are for informational purposes only and are intended
+solely as guidance regarding tools or other artefacts that may be relevant to
+preparing a Submission under the Program. They may include, or may refer to,
+earlier published specifications, some of which may have received Submissions.
+Logos does not endorse or approve, and makes no representation regarding, any
+Submission or referenced material. It is ultimately the Applicant’s
+responsibility to determine whether, and how, if at all, to use any Resource.
 
 ## ✏️ How to Apply
 
