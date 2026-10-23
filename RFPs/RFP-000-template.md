@@ -178,7 +178,7 @@ RFP/related work.
 The Resources listed above, and any third-party material referred to elsewhere
 in this specification, are for informational purposes only and are intended
 solely as guidance regarding tools or other artefacts that may be relevant to
-preparing a Submission under the Program. They may include, or may refer to
+preparing a Submission under the Program. They may include, or may refer to,
 earlier published specifications, some of which may have received Submissions.
 Logos does not endorse or approve, and makes no representation regarding, any
 Submission or referenced material. It is ultimately the Applicant’s
