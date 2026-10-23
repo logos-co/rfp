@@ -30,9 +30,9 @@ category: Applications & Integrations
 >
 > Teams implementing it are solely responsible for (i) assessing the risks and
 > implications of what they build; (ii) obtaining their own professional advice;
-> and (iii) for complying with any legal and regulatory requirements that apply
-> to them. Software developed under the Program is published and maintained by
-> its developers, not by Logos.
+> and (iii) complying with any legal and regulatory requirements that apply to
+> them. Software developed under the Program is published and maintained by its
+> developers, not by Logos.
 >
 > Anyone who chooses to deploy, host, operate or use software developed under
 > the Program, whether or not they were awarded a grant under the Program, does
@@ -58,6 +58,8 @@ reusable program that supports multiple independently configured instances, one
 per host CDP protocol. It detects undercollateralized positions, seizes
 collateral, and sells it via auctions to cover debt. It also manages protocol
 surplus and debt through separate auction mechanisms.
+
+The program targets LEZ testnet 0.4 (Supportability requirement #1).
 
 The design follows the auction model deployed by
 [RAI / Reflexer Finance](https://reflexer.finance/): a discount auction for
@@ -106,8 +108,8 @@ auction logic. Each instance carries its own configuration.
    increases over time. The discount schedule must be configurable per instance.
    Auctions terminate early when the target amount is reached.
 
-3. Auctions support buying partial collateral lots, preventing large positions
-   from becoming stuck.
+3. Auctions support buying partial collateral lots: a bid may purchase any
+   portion of the remaining lot.
 
 4. When collateral auctions don't raise enough to cover debt plus penalty, the
    shortfall is handled via a debt auction mechanism. The mechanism must be
@@ -153,8 +155,8 @@ auction logic. Each instance carries its own configuration.
    operations.
 
 4. Tools display undercollateralized positions with estimated liquidator
-   incentives and allow users to trigger liquidation, enabling efficient bot and
-   manual operation.
+   incentives and allow users to trigger liquidation, both manually and
+   programmatically.
 
 5. Active auctions display collateral type, amount, current discount, raised
    amount vs target, and time remaining. Users can bid with clear previews of
@@ -195,7 +197,7 @@ auction logic. Each instance carries its own configuration.
 
 #### Supportability
 
-1. The program is deployed and tested on LEZ testnet 0.4.
+1. The team deploys and tests the program on LEZ testnet 0.4.
 
 2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
    with `RISC0_DEV_MODE=0` and are included in CI.
@@ -251,10 +253,12 @@ The following are explicitly excluded from this RFP.
 - Liquidation aggregators (batching across multiple positions)
 - Insurance funds or socialized loss mechanisms
 - Multi-collateral atomic liquidations
-- Mainnet deployment. Whether, when and by whom the software is deployed, and
-  the holding of the admin and freeze authorities and the choice of price feeds
-  and parameter values for any deployed instance, are matters for those who
-  deploy it.
+- Mainnet deployment. Mainnet deployment is not part of this RFP: whether, when
+  and by whom the software is deployed is a matter for those who deploy it.
+- The identity of persons holding the admin and freeze authorities, and the
+  exercise of those authorities, including the choice of price feeds and
+  parameter values, in any deployment, are matters for the relevant independent
+  deployer or operator and are outside the scope of this RFP.
 
 ### Privacy Architecture
 
@@ -285,12 +289,13 @@ For every protocol operation (liquidate, bid, settle):
 - All liquidation events and their amounts.
 - Price feeds and position health data.
 
-#### What is private
+#### What is not recorded in public on-chain state
 
-- Which private account initiated any liquidation or bid.
-- Where auction proceeds go after reshielding.
-- Any link between multiple protocol interactions by the same user (no on-chain
-  linkability across ephemeral accounts).
+- The private account that initiated a liquidation or bid.
+- The destination of auction proceeds after reshielding.
+- Any association between the ephemeral accounts used by the same private
+  account. Timing and amounts of operations remain public and may still be
+  correlated.
 
 ## Platform Dependencies
 
@@ -339,7 +344,7 @@ picked) and the libraries are in development.
 
 ### Resolved dependencies
 
-These primitives were once blockers but are now delivered on LEZ, so they no
+These primitives were once blockers but are now available on LEZ, so they no
 longer gate this RFP. They remain in the frontmatter `dependencies` index for
 traceability.
 
@@ -394,14 +399,16 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [RFP-013 — Reflexive Stablecoin Protocol](./RFP-013-reflexive-stablecoin-protocol.md)
 - [Appendix: Liquidation & Auction Ecosystem](../appendix/appendix-liquidation-auction-ecosystem.md)
 
-The Resources listed above, and any third-party material referred to elsewhere
-in this specification, are for informational purposes only and are intended
-solely as guidance regarding tools or other artefacts that may be relevant to
-preparing a Submission under the Program. They may include, or may refer to
-earlier published specifications, some of which may have received Submissions.
-Logos does not endorse or approve, and makes no representation regarding, any
-Submission or referenced material. It is ultimately the Applicant's
-responsibility to determine whether, and how, if at all, to use any Resource.
+Except for technical dependencies expressly identified as hard blockers under
+Platform Dependencies, the Resources listed above, and any third-party material
+referred to elsewhere in this specification, are for informational purposes only
+and are intended solely as guidance regarding tools or other artefacts that may
+be relevant to preparing a Submission under the Program. They may include, or
+may refer to earlier published specifications, some of which may have received
+Submissions. Logos does not endorse or approve, and makes no representation
+regarding, any Submission or referenced material. It is ultimately the
+Applicant's responsibility to determine whether, and how, if at all, to use any
+Resource.
 
 ## How to Apply
 
