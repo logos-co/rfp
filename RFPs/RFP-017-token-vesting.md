@@ -4,13 +4,7 @@ title: Privacy-Preserving Token Vesting
 tier: L
 status: closed
 category: Applications & Integrations
-dependencies:
-  - id: LP-0013
-    reason: Token transfer-authority primitives are required for the program to escrow vested tokens and pay beneficiaries on claim.
-  - id: LP-0015
-    reason: General cross-program calls via tail calls, used so schedule-state updates execute in a protected continuation after the token transfer.
-  - id: LEZ-clock
-    reason: Platform feature. Cliff dates, linear accrual, and vested amounts are functions of elapsed time. Delivered via the LEZ clock program.
+dependencies: []
 ---
 
 # RFP-017: Privacy-Preserving Token Vesting
@@ -334,65 +328,6 @@ public on-chain state would require commitment-based beneficiary registration
 Mainnet deployment is not part of this RFP: whether, when and by whom the
 software is deployed is a matter for those who deploy it.
 
-## ⚠ Platform Dependencies
-
-LEZ has similar programming capabilities to Solana but one primitive required by
-a vesting protocol is not yet available. Development is blocked until the
-dependencies below are resolved.
-
-### Hard dependencies
-
-#### Token authorities (LP-0013)
-
-The vesting program is a token custodian: it escrows the full schedule amount at
-creation and pays vested tokens to beneficiaries on claim. This requires the
-transfer-authority primitives in
-[LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md),
-currently **open**.
-
-### Resolved dependencies
-
-These primitives were once blockers but are now delivered on LEZ, so they no
-longer gate this RFP. They remain in the frontmatter `dependencies` index for
-traceability.
-
-#### On-chain clock / timestamp
-
-Vesting schedules are fundamentally time-based: the cliff date, linear accrual
-rate, and total vested amount at any moment are all functions of elapsed time.
-The LEZ clock program now maintains on-chain timestamp accounts that any program
-can read, so this is **delivered**.
-
-#### General cross-program calls (LP-0015)
-
-A claim operation must: (1) verify the schedule and compute the claimable
-amount, (2) call the token program to transfer the vested tokens to the
-beneficiary, and then (3) update the schedule state (recording the claimed
-amount and timestamp). General cross-program calls via tail calls let step 3 run
-in a protected continuation after step 2.
-[LP-0015](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0015.md)
-is **closed**, delivered by the LEZ team as part of the core runtime.
-
-#### Event emission (LP-0012)
-
-Off-chain dashboards and notification services react to vesting events (schedule
-created, cliff reached, tokens claimed, schedule cancelled) through structured
-events rather than polling every account.
-[LP-0012](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md)
-is **closed**.
-
-### Soft dependencies
-
-Desirable but not required to begin development.
-
-#### Admin authority (RFP-001)
-
-If a proposal includes a protocol fee with a governance-activatable fee switch
-(see Fee structure), the fee configuration should reuse the standardised admin
-authority library from [RFP-001](./RFP-001-admin-authority-lib.md). Since the
-fee switch is optional, this is a soft dependency rather than a frontmatter
-entry.
-
 ## 👤 Recommended Team Profile
 
 Team experienced with:
@@ -418,7 +353,7 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [RFP-008: Lending & Borrowing Protocol](./RFP-008-lending-borrowing-protocol.md)
   (reference for the optional public/private account interaction pattern)
 - [LP-0012: Event/Log mechanism for LEZ](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md)
-- [LP-0013: Token program improvements: mint authorities](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md)
+- [LP-0013: Token program improvements: authorities](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md)
 - [Streamflow Finance (vesting reference)](https://streamflow.finance/)
 - [Appendix: Token Vesting Ecosystem](../appendix/token-vesting-ecosystem.md)
   (survey of existing vesting protocols, scale data, and fee structures)
