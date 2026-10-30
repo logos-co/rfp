@@ -2,7 +2,7 @@
 id: RFP-005
 title: Multisig and Coordination
 tier: L
-status: open
+status: closed
 dependencies:
   - id: LP-0002
     reason: LP-0002 is an open prize for a private M-of-N multisig primitive on LEZ; it is adjacent work, not a delivered capability, and no end-to-end multi-party authorization flow exists in the LEZ codebase today. Its anonymous-approval design differs from this RFP's attributed approvals (R.1), so it is not a drop-in foundation. What this RFP actually requires is private-account execution, which is available.
