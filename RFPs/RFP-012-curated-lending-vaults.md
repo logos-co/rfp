@@ -422,13 +422,12 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   on LEZ
 - [SPEL framework](https://github.com/logos-co/spel)
 
-Except for the dependencies identified under Platform Dependencies, the
-Resources listed above, and any third-party material referred to elsewhere in
-this specification, are for informational purposes only and are intended solely
-as guidance regarding tools or other artefacts that may be relevant to preparing
-a Submission under the Program. They may include, or may refer to earlier
-published specifications, some of which may have received Submissions. Logos
-does not endorse or approve, and makes no representation regarding, any
+The Resources listed above, and any third-party material referred to elsewhere
+in this specification, are for informational purposes only and are intended
+solely as guidance regarding tools or other artefacts that may be relevant to
+preparing a Submission under the Program. They may include, or may refer to
+earlier published specifications, some of which may have received Submissions.
+Logos does not endorse or approve, and makes no representation regarding, any
 Submission or referenced material. It is ultimately the Applicant’s
 responsibility to determine whether, and how, if at all, to use any Resource.
 
