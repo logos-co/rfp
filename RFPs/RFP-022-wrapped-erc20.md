@@ -19,6 +19,10 @@ dependencies:
 
 # RFP-022 — Privacy-Preserving Wrapped ERC-20 and Ether Bridge for LEZ
 
+> **Combined proposals.** Proposals that cover both this RFP and
+> [RFP-021](./RFP-021-ethereum-state-attestation.md) (the Ethereum state
+> attestation primitive this bridge depends on) will be given preference.
+
 > **Note.** This specification describes an outcome that may benefit the Logos
 > ecosystem. It is a proposal rather than an instruction. Its requirements
 > reflect the technical compatibility with the Logos technology stack and are
