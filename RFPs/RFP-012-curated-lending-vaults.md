@@ -5,9 +5,9 @@ tier: L
 status: closed
 dependencies:
   - id: RFP-008
-    reason: The vault layer allocates deposits across the isolated lending markets specified in RFP-008 and cannot proceed until the base protocol is live.
+    reason: The vault layer allocates deposits across an isolated-market lending protocol with Morpho Blue semantics; RFP-008 specifies such a protocol and is an illustrative example.
   - id: LP-0013
-    reason: Token transfer-authority primitives are required for the vault program to custody idle balances and issue vault share tokens.
+    reason: Token transfer authorities are required for the vault program to hold idle balances and issue vault share tokens; LP-0013 is an illustrative example.
 category: Applications & Integrations
 ---
 
@@ -44,13 +44,13 @@ category: Applications & Integrations
 
 ## 🧭 Overview
 
-Build a curated vault layer on top of the isolated-market lending protocol
-specified in [RFP-008](./RFP-008-lending-borrowing-protocol.md). Each vault
-accepts deposits of a single loan token, issues transferable vault share tokens
-(LEZ fungible tokens), and allocates deposits across multiple Morpho-style
-lending markets according to a curator-defined strategy. This is the Morpho
-Vaults V2 equivalent for LEZ: a vault layer that abstracts isolated markets into
-a single deposit interface for passive lenders.
+Build a curated vault layer on top of an isolated-market lending protocol on LEZ
+(the lending protocol, Platform Dependencies #1). Each vault accepts deposits of
+a single loan token, issues transferable vault share tokens (LEZ fungible
+tokens), and allocates deposits across multiple Morpho-style lending markets
+according to a curator-defined strategy. This is the Morpho Vaults V2 equivalent
+for LEZ: a vault layer that abstracts isolated markets into a single deposit
+interface for passive lenders.
 
 The vault program targets testnet 0.4 (Supportability requirement #1).
 
@@ -62,15 +62,14 @@ yield. On Ethereum, the MetaMorpho vault layer absorbs the majority of the full
 Morpho stack ($11.78B TVL across Blue + vaults by 2026-05, with the Blue core
 itself at ~$4.9B); Coinbase's USDC lending product alone routes multi-billion
 AUM through a single Steakhouse-curated MetaMorpho vault. The vault layer
-extends the RFP-008 implementation, so the applying team needs deep familiarity
-with its internals.
+extends the lending protocol the proposal builds against, so the applying team
+needs deep familiarity with its internals.
 
 ## 🔥 Why This Matters
 
-The isolated-market model in RFP-008 optimises for safety and
-permissionlessness, but it fragments liquidity: each market is independent, and
-a lender supplying directly must choose markets and manage exposure across them
-individually.
+An isolated-market lending model optimises for safety and permissionlessness,
+but it fragments liquidity: each market is independent, and a lender supplying
+directly must choose markets and manage exposure across them individually.
 
 A curated vault aggregates deposits of a single token and allocates them across
 markets within the caps its curator sets, so a depositor holds one vault share
@@ -139,14 +138,14 @@ Roles follow Morpho Vaults V2 semantics. Reference:
     balance does not cover them.
 14. There is no ordered supply or withdraw queue: routing is adapter-based,
     consistent with Morpho Vaults V2.
-15. The proposal includes an RFP-008 market adapter that can allocate to any
-    RFP-008 market, with the market selected on each call.
+15. The proposal includes a market adapter for the lending protocol that can
+    allocate to any of its markets, with the market selected on each call.
 
 ##### Risk ids and caps
 
 16. A risk id identifies a property shared by one or more allocations, such as
     an adapter, a collateral token or a specific market.
-17. For each allocation, the RFP-008 market adapter returns three risk ids: one
+17. For each allocation, the market adapter (#15) returns three risk ids: one
     for the adapter, one for the market's collateral token, and one for the
     specific market.
 18. For each risk id, the vault tracks the amount currently allocated against
@@ -230,10 +229,11 @@ Roles follow Morpho Vaults V2 semantics. Reference:
 
 #### Usability
 
-1. All vault features are exposed by extending the **core module** specified in
-   RFP-008 (the headless business-logic module that the GUI, CLI, and reference
-   services all consume). The CLI and GUI built in RFP-008 are extended to
-   surface the new vault features; no separate front-end is required.
+1. All vault features are exposed through a **core module** (the headless
+   business-logic module that the GUI, CLI, and reference services all consume).
+   Where the lending protocol provides a core module, CLI and GUI (as RFP-008
+   specifies), the vault features extend them; otherwise the proposal provides
+   them.
 2. The GUI displays per-vault: current APY, total deposits, allocated markets
    with individual utilisation, risk-id caps (absolute and relative) and
    remaining capacity, and the curator's performance fee.
@@ -246,8 +246,8 @@ Roles follow Morpho Vaults V2 semantics. Reference:
    must show the estimated transaction fee and confirm that the user's shielded
    balance covers both the deposit amount and fees within the single deshield
    action.
-6. Vault share tokens must be usable as collateral in RFP-008 lending markets
-   (subject to an oracle being available for the vault share price).
+6. Vault share tokens must be usable as collateral in the lending protocol's
+   markets (subject to an oracle being available for the vault share price).
 
 #### Reliability
 
@@ -270,8 +270,9 @@ Roles follow Morpho Vaults V2 semantics. Reference:
    depositors proportionally to their share at the time the loss is realised.
    Bad debt is accounted **on touch**: the vault's exposure to a damaged market
    is repriced when any operation (deposit, withdrawal, reallocation, fee
-   accrual) next reads that market's state, mirroring the lazy-accrual model of
-   RFP-008. The vault must track and report realised bad debt per market.
+   accrual) next reads that market's state, mirroring the lending protocol's
+   lazy-accrual model (as in Morpho Blue). The vault must track and report
+   realised bad debt per market.
 
    This is the same realisation model Morpho uses and it has a known asymmetry:
    under the adapter-based allocation model (Functionality #8 to #21), a
@@ -309,13 +310,13 @@ Roles follow Morpho Vaults V2 semantics. Reference:
 6. Provide documentation in repo for the CLI additions, covering the vault
    features.
 7. Provide Figma designs or equivalent for all GUI additions to the GUI.
-8. Update the privacy and anonymisation properties document required by RFP-008
-   to cover the vault layer: what vault state and operations are visible to
-   observers; what data is protected when the private account path is used for
-   vault interactions; trust assumptions, specifying which guarantees are
-   enforced by the on-chain program and which depend on correct client
-   behaviour; and what happens if a user bypasses the expected interaction path.
-   See
+8. Provide a privacy and anonymisation properties document for the vault layer,
+   extending the lending protocol's own document where one exists, covering:
+   what vault state and operations are visible to observers; what data is
+   protected when the private account path is used for vault interactions; trust
+   assumptions, specifying which guarantees are enforced by the on-chain program
+   and which depend on correct client behaviour; and what happens if a user
+   bypasses the expected interaction path. See
    [RFP-008 — Privacy Architecture](./RFP-008-lending-borrowing-protocol.md#privacy-architecture)
    for the baseline this document must align with.
 9. **Audit programme.** The proposal must include a planned audit programme
@@ -323,9 +324,10 @@ Roles follow Morpho Vaults V2 semantics. Reference:
    allocator, sentinel). The proposal must name at least one tier-1 audit firm
    the applicant intends to engage, include the audit budget as a line item, and
    include the audit timeline. Audit reports must be published with the codebase
-   before any production deployment of the software. If RFP-008 and RFP-012 are
-   implemented by the same team, the audit programmes may be combined in a
-   single engagement; the proposal must make the combined scope explicit.
+   before any production deployment of the software. If the lending protocol and
+   the vault layer are implemented by the same team, the audit programmes may be
+   combined in a single engagement; the proposal must make the combined scope
+   explicit.
 
 #### + Privacy
 
@@ -366,7 +368,7 @@ If possible.
 - Governance token design and distribution
 - Cross-chain liquidity or bridging
 - Leveraged looping / one-click multiply products
-- Any feature already specified in RFP-008
+- Any feature already provided by the lending protocol
 - Mainnet deployment. Mainnet deployment is not part of this RFP: whether, when
   and by whom the software is deployed is a matter for those who deploy it.
 - The identity of persons holding the owner, curator, allocator and sentinel
@@ -385,11 +387,26 @@ observability split.
 
 ## ⚠ Platform Dependencies
 
-This RFP is open for proposal submission. However, implementation of the vault
-layer depends on the availability of the RFP-008 base protocol on testnet 0.4.
-The underlying platform dependencies are described in
-[RFP-008 Platform Dependencies](./RFP-008-lending-borrowing-protocol.md#-platform-dependencies)
-and must be resolved to the extent necessary for integration.
+This RFP is open for proposal submission. Implementation of the vault layer
+depends on the availability, on testnet 0.4, of the following technical
+capabilities:
+
+1. **An isolated-market lending protocol** with Morpho Blue semantics
+   (per-market supply, withdrawal and interest accrual, with market state
+   readable by other programs) that the vault can allocate to through an
+   adapter. [RFP-008](./RFP-008-lending-borrowing-protocol.md) specifies such a
+   protocol and is given as an illustrative example.
+2. **Token transfer authorities**, so that the vault program can hold idle
+   balances and issue vault share tokens.
+   [LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md)
+   is an illustrative example.
+3. **A price oracle** for the vault share price, needed for vault shares to be
+   usable as collateral (Usability #6).
+   [RFP-020](./RFP-020-redstone-oracle-adaptor.md) and
+   [RFP-019](./RFP-019-twap-oracle.md) are illustrative examples.
+
+Proposals must state which implementation of each capability they will build
+against, and how a change to that implementation's interface would be absorbed.
 
 ## 👤 Recommended Team Profile
 
@@ -401,12 +418,12 @@ Team experienced with:
 - DeFi risk curation and yield optimisation strategies
 - Token standard design (vault share token mechanics)
 - Front-end development for DeFi applications
-- The internals of the RFP-008 implementation that the vault layer extends
+- The internals of the lending protocol that the vault layer extends
 
 ## ⏱ Timeline Expectations
 
-Estimated duration: **12 weeks** (after platform dependencies are resolved and
-RFP-008 is live).
+Estimated duration: **12 weeks** (after the capabilities under Platform
+Dependencies are available).
 
 ## 🌍 Open Source Requirement
 
