@@ -88,9 +88,6 @@ in a single governance body.
 
 #### Functionality
 
-Roles follow Morpho Vaults V2 semantics. Reference:
-[Morpho Vaults V2 Roles & Capabilities](https://docs.morpho.org/morpho-vaults/concepts/roles/).
-
 ##### Vault program
 
 1. The vault program has no program-level admin or upgrade authority: once
