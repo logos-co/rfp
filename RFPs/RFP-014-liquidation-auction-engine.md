@@ -1,21 +1,22 @@
 ---
+note: This metadata is for internal programme tracking only. It is not part of this specification and does not form part of its requirements.
 id: RFP-014
 title: Liquidation & Auction Engine
 tier: L
 status: closed
 dependencies:
   - id: RFP-013
-    reason: Reflexive Stablecoin Protocol (or equivalent CDP host) provides the positions that this engine liquidates.
+    reason: The engine liquidates positions of a host CDP protocol implementing the F7 interface; RFP-013 specifies such a protocol and is an illustrative example.
   - id: RFP-020
-    reason: Specifies an off-chain oracle adaptor for the external price feeds required for liquidation triggers and auction pricing (F1, R2).
+    reason: External price feeds are required for liquidation triggers and auction pricing (F1, R2); RFP-020 is an illustrative example.
   - id: LP-0013
-    reason: Token transfer-authority primitives are required to custody seized collateral and settle auction payouts.
+    reason: Token transfer authorities are required for the program to hold seized collateral and settle auction payouts; LP-0013 is an illustrative example.
   - id: RFP-001
-    reason: Provides the standardised admin authority library used to manage auction parameters.
+    reason: An admin authority capability is required to manage auction parameters (F8); RFP-001 describes such a capability and is an illustrative example.
   - id: RFP-002
-    reason: Provides the standardised freeze authority that pauses new debt generation when bad debt exceeds the surplus buffer (F4).
+    reason: A freeze authority capability is required to pause new debt generation when bad debt exceeds the surplus buffer (F4); RFP-002 describes such a capability and is an illustrative example.
   - id: LP-0015
-    reason: General cross-program calls via tail calls, used to seize collateral from the host CDP and update auction state in a protected continuation.
+    reason: General cross-program calls via tail calls, used to seize collateral from the host CDP and update auction state in a protected continuation; available in the LEZ core runtime.
 category: Applications & Integrations
 ---
 
@@ -47,17 +48,17 @@ category: Applications & Integrations
 > does so as principal, in their own name, and is solely responsible for
 > assessing its regulatory treatment, including any licensing, registration,
 > sanctions or anti-money laundering obligations that may apply to them. Logos
-> does not make any representation, provides any advice or assumes any
+> does not make any representation, provide any advice or assume any
 > responsibility in respect of any such determination or compliance.
 
 ## Overview
 
 Build a permissionless liquidation and auction system for collateralized debt
-position (CDP) protocols on the Logos Execution Zone (LEZ). The system is a
-reusable program that supports multiple independently configured instances, one
-per host CDP protocol. It detects undercollateralized positions, seizes
-collateral, and sells it via auctions to cover debt. It also manages protocol
-surplus and debt through separate auction mechanisms.
+position (CDP) protocols on the Logos Execution Zone (LEZ). This system is
+designed as a reusable program that may be independently deployed and configured
+for use with individual CDP protocols. It detects undercollateralized positions,
+seizes collateral, and sells it via auctions to cover debt. It also manages
+protocol surplus and debt through separate auction mechanisms.
 
 The program targets LEZ testnet 0.4 (Supportability requirement #1).
 
@@ -83,16 +84,14 @@ of this kind are a standard component of CDP protocols in other ecosystems,
 including Sky/MakerDAO's Liquidation 2.0 Dutch auctions and Reflexer's discount
 auction houses on Ethereum (see the
 [companion appendix](../appendix/appendix-liquidation-auction-ecosystem.md)).
-Auction design has a measurable effect on outcomes: during MakerDAO's March 2020
-market event, slow English auctions cleared at near-zero bids and left about $6M
-of bad debt.
 
 In those ecosystems the liquidation logic is typically coupled to a single host
 protocol. This RFP specifies it as a separate program with a defined host
 interface (F7), so that a CDP protocol such as the one described in
 [RFP-013](./RFP-013-reflexive-stablecoin-protocol.md), or another CDP design
 that implements the interface, can integrate with it without reimplementing the
-auction logic. Each instance carries its own configuration.
+auction logic. Each instance is independently deployed and carries its own
+configuration, which requires its own assessment.
 
 ## Scope of Work
 
@@ -105,8 +104,10 @@ auction logic. Each instance carries its own configuration.
    incentive (e.g., a percentage of seized collateral).
 
 2. Seized collateral is sold via auctions where the discount to market price
-   increases over time. The discount schedule must be configurable per instance.
-   Auctions terminate early when the target amount is reached.
+   increases over time. The discount schedule must be configurable by the
+   independent deployer or other authorised persons under the applicable
+   protocol's governance arrangements. Auctions terminate early when the target
+   amount is reached.
 
 3. Auctions support buying partial collateral lots: a bid may purchase any
    portion of the remaining lot.
@@ -119,8 +120,7 @@ auction logic. Each instance carries its own configuration.
    [RFP-013 Out of Scope](./RFP-013-reflexive-stablecoin-protocol.md#out-of-scope)).
    Until a protocol token is configured, the surplus buffer absorbs shortfalls
    up to its capacity; if bad debt exceeds the buffer, the system pauses new
-   debt generation via freeze authority
-   ([RFP-002](./RFP-002-freeze-authority-lib.md)).
+   debt generation via a freeze authority (see Platform Dependencies).
 
 5. When the protocol accumulates excess stablecoin above a threshold, surplus
    auctions sell it for a protocol token (which is burned). As with F4, the
@@ -131,10 +131,11 @@ auction logic. Each instance carries its own configuration.
 6. Auctions follow strict state transitions with no reversals. All state changes
    are atomic and verifiable.
 
-7. The system integrates with its host CDP protocol via a well-defined
-   interface. The program supports multiple independent instances, each with its
-   own configuration (price feeds, discount schedule, surplus threshold, token
-   addresses) set when the instance is initialised.
+7. The system integrates with its host CDP protocol via a well-defined interface
+   and supports independently configured instances that may be deployed by the
+   relevant CDP developers or operators. Each instance's configuration (price
+   feeds, discount schedule, surplus threshold, token addresses) is set when the
+   instance is initialised.
 
 8. The admin authority (F2 discount schedule, F4 and F5 token addresses, F5
    surplus threshold) and the freeze authority (F4) of each instance are set
@@ -215,8 +216,8 @@ auction logic. Each instance carries its own configuration.
 
 1. The mini-app and SDK must support both direct public account interaction and
    the deshield-interact-reshield pattern for private account interaction. When
-   a user chooses the private account path, the SDK must enforce the complete
-   pattern — the reshield step must not be skippable.
+   a user chooses the private account path, the SDK must complete the full
+   deshield-interact-reshield pattern for the operation.
 
 2. When using the private account path, the SDK must validate that the target
    account for reshielding is a private (shielded) account before submitting the
@@ -269,7 +270,7 @@ liquidation, price feed integration, and composability.
 User privacy is optionally enforced at the UX layer. The mini-app and SDK
 support both direct public account interaction and private account interaction
 via the deshield-interact-reshield pattern. When users opt to interact from a
-private account, the SDK must enforce the complete pattern as described below.
+private account, the SDK must complete the full pattern as described below.
 
 #### Interaction flow
 
@@ -299,77 +300,45 @@ For every protocol operation (liquidate, bid, settle):
 
 ## Platform Dependencies
 
-### Hard blockers
+This RFP is open for proposal submission. Implementation of the liquidation and
+auction program depends on the availability, on testnet 0.4, of the following
+technical capabilities:
 
-This RFP depends on the primitives below. The status of each is stated as at the
-date of this specification. Several are specified in other RFPs whose
-deliverables are still in development; proposals should identify any assumption
-they make about these interfaces and explain how it is reflected in the proposed
-phasing, scope and pricing.
+1. **External price feeds** for collateral valuation and liquidation triggers.
+   Every hard requirement related to liquidation (F1) and reliability (R2)
+   depends on this. The price feed used by each collateral type is a
+   configuration choice of the instance (F7).
+   [RFP-020](./RFP-020-redstone-oracle-adaptor.md) and
+   [RFP-019](./RFP-019-twap-oracle.md) are illustrative examples.
+2. **A host CDP protocol** that provides positions to liquidate and implements
+   the interface in F7. [RFP-013](./RFP-013-reflexive-stablecoin-protocol.md)
+   specifies such a protocol and is given as an illustrative example.
+3. **Token transfer authorities**, so that the program can hold seized
+   collateral during auctions and settle payouts to bidders and the surplus
+   buffer according to its programmed rules.
+   [LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md)
+   is an illustrative example.
+4. **Admin and freeze authority capabilities**, used to manage auction
+   parameters and to pause new debt generation when bad debt exceeds the surplus
+   buffer (F4, F8). These capabilities are described in
+   [RFP-001](./RFP-001-admin-authority-lib.md) and
+   [RFP-002](./RFP-002-freeze-authority-lib.md), which are illustrative
+   examples.
 
-#### Price feed
+The following capabilities are already available in the LEZ core runtime:
 
-The system requires external price feeds for collateral valuation and
-liquidation triggers. Every hard requirement related to liquidation (F1) and
-reliability (R2) depends on this.
-[RFP-020](./RFP-020-redstone-oracle-adaptor.md) specifies an off-chain oracle
-adaptor for external price feeds; [RFP-019](./RFP-019-twap-oracle.md) specifies
-an on-chain TWAP oracle that requires a live DEX. This RFP specifies
-compatibility with a price feed interface only; the price feed used by each
-collateral type is a configuration choice of the instance (F7).
+- **General cross-program calls via tail calls**, so that a liquidation can call
+  the host CDP protocol to seize collateral from an undercollateralized position
+  and then continue, in a protected continuation, to initialise auction state
+  and account for the seized collateral
+  ([LP-0015](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0015.md)).
+- **Structured event emission**, so that liquidator bots and indexers can
+  observe positions and react to on-chain state changes without polling every
+  account
+  ([LP-0012](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)).
 
-#### CDP Protocol
-
-This liquidation system integrates with a host CDP protocol that provides
-positions to liquidate, such as the one specified in
-[RFP-013](./RFP-013-reflexive-stablecoin-protocol.md) or another CDP protocol
-implementing the interface in F7.
-
-#### Token authorities (LP-0013)
-
-The liquidation program holds seized collateral in program-controlled accounts
-during auctions and settles payouts to bidders and the surplus buffer. This
-requires the transfer-authority primitives in
-[LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md),
-currently **open**.
-
-#### Authority libraries (RFP-001, RFP-002)
-
-Auction parameters are managed through an admin authority, and bad debt
-exceeding the surplus buffer pauses new debt generation via a freeze authority
-(F4). Both authorities are set per instance (F8). These come from the
-standardised libraries in [RFP-001](./RFP-001-admin-authority-lib.md) and
-[RFP-002](./RFP-002-freeze-authority-lib.md). Both RFPs are closed (candidate
-picked) and the libraries are in development.
-
-### Resolved dependencies
-
-These primitives were once blockers but are now available on LEZ, so they no
-longer gate this RFP. They remain in the frontmatter `dependencies` index for
-traceability.
-
-#### General cross-program calls (LP-0015)
-
-A liquidation operation needs to: (1) call the host CDP protocol to seize
-collateral from an undercollateralized position, then (2) continue executing to
-initialize auction state and account for the seized collateral. General
-cross-program calls via tail calls let step 2 run in a protected continuation
-after step 1.
-[LP-0015](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0015.md)
-is **closed**, delivered by the LEZ team as part of the core runtime.
-
-#### Event emission (LP-0012)
-
-Liquidator bots and indexers observe positions and react to on-chain state
-changes through structured events rather than polling every account.
-[LP-0012](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)
-is **closed**.
-
-### Soft blockers
-
-Desirable but the RFP can open without them.
-
-None
+Proposals must state which implementation of each capability they will build
+against, and how a change to that implementation's interface would be absorbed.
 
 ## Recommended Team Profile
 
@@ -399,16 +368,14 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [RFP-013 — Reflexive Stablecoin Protocol](./RFP-013-reflexive-stablecoin-protocol.md)
 - [Appendix: Liquidation & Auction Ecosystem](../appendix/appendix-liquidation-auction-ecosystem.md)
 
-Except for technical dependencies expressly identified as hard blockers under
-Platform Dependencies, the Resources listed above, and any third-party material
-referred to elsewhere in this specification, are for informational purposes only
-and are intended solely as guidance regarding tools or other artefacts that may
-be relevant to preparing a Submission under the Program. They may include, or
-may refer to earlier published specifications, some of which may have received
-Submissions. Logos does not endorse or approve, and makes no representation
-regarding, any Submission or referenced material. It is ultimately the
-Applicant's responsibility to determine whether, and how, if at all, to use any
-Resource.
+The Resources listed above, and any third-party material referred to elsewhere
+in this specification, are for informational purposes only and are intended
+solely as guidance regarding tools or other artefacts that may be relevant to
+preparing a Submission under the Program. They may include, or may refer to
+earlier published specifications, some of which may have received Submissions.
+Logos does not endorse or approve, and makes no representation regarding, any
+Submission or referenced material. It is ultimately the Applicant's
+responsibility to determine whether, and how, if at all, to use any Resource.
 
 ## How to Apply
 
