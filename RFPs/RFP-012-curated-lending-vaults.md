@@ -1,4 +1,5 @@
 ---
+note: This metadata is for internal programme tracking only. It is not part of this specification and does not form part of its requirements.
 id: RFP-012
 title: Curated Lending Vaults
 tier: L
