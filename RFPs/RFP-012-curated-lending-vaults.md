@@ -1,13 +1,14 @@
 ---
+note: This metadata is for internal programme tracking only. It is not part of this specification and does not form part of its requirements.
 id: RFP-012
 title: Curated Lending Vaults
 tier: L
 status: closed
 dependencies:
   - id: RFP-008
-    reason: The vault layer allocates deposits across the isolated lending markets delivered by RFP-008 and cannot proceed until the base protocol is live.
+    reason: The vault layer allocates deposits across an isolated-market lending protocol with Morpho Blue semantics; RFP-008 specifies such a protocol and is an illustrative example.
   - id: LP-0013
-    reason: Token transfer-authority primitives are required for the vault program to custody idle balances and issue vault share tokens.
+    reason: Token transfer authorities are required for the vault program to hold idle balances and issue vault share tokens; LP-0013 is an illustrative example.
 category: Applications & Integrations
 ---
 
@@ -22,9 +23,9 @@ category: Applications & Integrations
 >
 > Teams implementing it are solely responsible for (i) assessing the risks and
 > implications of what they build; (ii) obtaining their own professional advice;
-> and (iii) for complying with any legal and regulatory requirements that apply
-> to them. Software developed under the Program is published and maintained by
-> its developers, not by Logos.
+> and (iii) complying with any legal and regulatory requirements that apply to
+> them. Software developed under the Program is published and maintained by its
+> developers, not by Logos.
 >
 > Anyone who chooses to deploy, host, operate or use software developed under
 > the Program, whether or not they were awarded a grant under the Program, does
@@ -39,21 +40,20 @@ category: Applications & Integrations
 > does so as principal, in their own name, and is solely responsible for
 > assessing its regulatory treatment, including any licensing, registration,
 > sanctions or anti-money laundering obligations that may apply to them. Logos
-> does not make any representation, provides any advice or assumes any
+> does not make any representation, provide any advice or assume any
 > responsibility in respect of any such determination or compliance.
 
 ## 🧭 Overview
 
-Build a curated vault layer on top of the isolated-market lending protocol
-delivered by [RFP-008](./RFP-008-lending-borrowing-protocol.md). Each vault
-accepts deposits of a single loan token, issues transferable vault share tokens
-(LEZ fungible tokens), and allocates deposits across multiple Morpho-style
-lending markets according to a curator-defined strategy. This is the Morpho
-Vaults V2 equivalent for LEZ: a vault layer that abstracts isolated markets into
-a single deposit interface for passive lenders.
+Build a curated vault layer on top of an isolated-market lending protocol on LEZ
+(the lending protocol, Platform Dependencies #1). Each vault accepts deposits of
+a single loan token, issues transferable vault share tokens (LEZ fungible
+tokens), and allocates deposits across multiple Morpho-style lending markets
+according to a curator-defined strategy. This is the Morpho Vaults V2 equivalent
+for LEZ: a vault layer that abstracts isolated markets into a single deposit
+interface for passive lenders.
 
-The vault LEZ program is delivered for LEZ testnet 0.4 (Supportability
-requirement #1).
+The vault program targets testnet 0.4 (Supportability requirement #1).
 
 Morpho Blue's isolated-market core is powerful but requires lenders to choose
 individual markets manually (evaluating collateral quality, oracle reliability,
@@ -62,29 +62,25 @@ token, the curator allocates across vetted markets, and depositors earn blended
 yield. On Ethereum, the MetaMorpho vault layer absorbs the majority of the full
 Morpho stack ($11.78B TVL across Blue + vaults by 2026-05, with the Blue core
 itself at ~$4.9B); Coinbase's USDC lending product alone routes multi-billion
-AUM through a single Steakhouse-curated MetaMorpho vault. The applying team
-should ideally be the same team that delivered RFP-008, or have deep familiarity
-with the deployed protocol's internals.
+AUM through a single Steakhouse-curated MetaMorpho vault. The vault layer
+extends the lending protocol the proposal builds against, so the applying team
+needs deep familiarity with its internals.
 
 ## 🔥 Why This Matters
 
-The isolated-market model in RFP-008 optimises for safety and
-permissionlessness, but it fragments liquidity: each market is independent, and
-lenders must actively manage exposure across markets. Most passive lenders (the
-largest source of TVL in any lending ecosystem) will not do this. Without
-curated vaults, the protocol's TVL ceiling is limited to active, sophisticated
-lenders.
+An isolated-market lending model optimises for safety and permissionlessness,
+but it fragments liquidity: each market is independent, and a lender supplying
+directly must choose markets and manage exposure across them individually.
 
-Curated vaults solve this by aggregating passive capital and directing it where
-it earns the best risk-adjusted yield. On Ethereum, the majority of Morpho
-deposits flow through MetaMorpho vaults rather than directly into isolated
-markets. For the Logos ecosystem, vaults make the lending protocol usable for
-passive depositors who would not otherwise interact with raw isolated markets.
-This widens the protocol's addressable market.
+A curated vault aggregates deposits of a single token and allocates them across
+markets within the caps its curator sets, so a depositor holds one vault share
+position rather than positions in individual markets. On Ethereum, the majority
+of Morpho deposits flow through MetaMorpho vaults rather than directly into
+isolated markets.
 
-Multiple curators can offer different risk and yield profiles in parallel, and
-depositors choose the vault that matches their preference. This avoids
-concentrating risk decisions in a single governance body.
+The program supports any number of independently created vaults, each with its
+own curator, caps and adapter set, so allocation decisions are not concentrated
+in a single governance body.
 
 ## ✅ Scope of Work
 
@@ -92,70 +88,150 @@ concentrating risk decisions in a single governance body.
 
 #### Functionality
 
-01. **Vault creation**: anyone can create a vault by specifying the loan token,
-    a vault name, and a vault symbol. The creator becomes the vault's initial
-    curator. Vault creation is permissionless.
-02. **Vault share tokens**: depositors receive LEZ fungible tokens representing
-    their proportional share of the vault's total assets. Vault shares are
-    freely transferable and composable with other LEZ programs. The
-    share-to-asset exchange rate increases monotonically as interest accrues
-    (absent bad debt).
-03. **Deposit and withdraw**: users can deposit the vault's loan token and
-    receive vault shares. Users can redeem vault shares for the underlying loan
-    token, subject to available liquidity across the vault's allocated markets.
-04. **Market allocation via adapters**: the vault connects to RFP-008 lending
-    markets through adapters (enabled yield sources). The curator enables and
-    disables adapters; an authorised allocator moves capital from the vault's
-    idle balance into enabled adapters (`allocate`) and back to idle
-    (`deallocate`). There is no ordered supply or withdraw queue: routing is
-    adapter-based, consistent with Morpho Vaults V2.
-05. **ID-based risk caps**: the curator sets absolute and relative caps keyed to
-    a risk id (a collateral asset, a market, or a protocol), bounding the
-    vault's maximum exposure to that risk class. Allocators may reallocate only
-    within these caps. The curator designates a `liquidityAdapter` that serves
-    user deposits and withdrawals, so that any liquidity supplied by the vault
-    is reachable on withdrawal.
-06. **Curator role**: the curator can enable or disable adapters (adding or
-    removing markets from the vault's allocation set), increase caps for any
-    risk id (subject to timelock) and instantly decrease them, and set a
-    performance fee. The curator can transfer the curator role to another
-    account. The curator cannot allocate or deallocate capital directly.
-07. **Allocator role**: the curator can authorise allocator accounts that may
-    allocate capital from idle assets into enabled adapters and deallocate it
-    back to idle, manage the `liquidityAdapter`, and set a maximum asset growth
-    rate, all within the curator's caps. Allocators cannot enable new adapters,
-    change caps, or set fees.
-08. **Performance fee**: a configurable percentage of yield accrued by the vault
-    is directed to the curator as a performance fee. The fee is denominated in
-    vault shares. Lazy fee accrual (debit on claim, or batched mint when accrued
-    fees cross a threshold) is acceptable provided supply share value and
-    pending-fee accounting reflect accrued-but-unclaimed fees on read.
-09. **Timelock for parameter changes**: risk-increasing changes (cap increases
-    for any risk id, enabling new adapters, fee adjustments, allocator
-    additions, gate-contract changes) and sentinel appointment or rotation are
-    subject to a configurable timelock. In Morpho Vaults V2 the timelock is
-    configured per action (per selector), with no protocol-enforced minimum (it
-    can be zero, the default at creation) up to an overflow-bounded maximum. Cap
-    decreases by the curator or sentinel are instant and not timelocked. Any
-    address may execute a timelocked action once its delay has expired. The
-    applicant should define a sensible minimum timelock for risk-increasing
-    actions for LEZ; this minimum is set at vault creation and is immutable.
-10. **Sentinel role** (Morpho Vaults V2 semantics): the owner can appoint one or
-    more sentinels whose mandate is risk reduction only. A sentinel can: (a)
-    deallocate assets from any enabled adapter back to the vault's idle balance,
-    (b) instantly decrease absolute or relative caps for any risk id, and (c)
-    revoke any pending timelocked action submitted by the curator. A sentinel
-    **cannot** introduce new risk: it cannot add adapters, increase caps,
-    allocate capital into new markets, or modify fees. This is the safety
-    mechanism against compromised curator keys. Reference:
-    [Morpho Vaults V2 Roles & Capabilities](https://docs.morpho.org/morpho-vaults/concepts/roles/).
+##### Vault program
+
+1. The vault program has no program-level admin or upgrade authority: once
+   deployed, its code cannot be changed, and the account that deployed it holds
+   no role in any vault.
+2. Anyone can create a vault by specifying the loan token, a vault name and a
+   vault symbol. Vault creation is permissionless.
+3. The account that sends the vault creation transaction is assigned as the
+   vault's owner and as its curator.
+4. One account may hold more than one role in the same vault.
+
+##### Vault shares, deposits and fees
+
+5. **Vault share tokens**: depositors receive LEZ fungible tokens representing
+   their proportional share of the vault's total assets. Vault shares are freely
+   transferable and composable with other LEZ programs. The share-to-asset
+   exchange rate increases monotonically as interest accrues (absent bad debt).
+6. **Deposit and withdraw**: users can deposit the vault's loan token and
+   receive vault shares. Users can redeem vault shares for the underlying loan
+   token, subject to available liquidity across the vault's allocated markets.
+7. **Performance fee**: a configurable percentage of yield accrued by the vault
+   is directed to the curator as a performance fee. The fee is denominated in
+   vault shares. Lazy fee accrual (debit on claim, or batched mint when accrued
+   fees cross a threshold) is acceptable provided supply share value and
+   pending-fee accounting reflect accrued-but-unclaimed fees on read.
+
+##### Adapters
+
+08. An adapter is the component through which the vault invests in a yield
+    source. It exposes three operations to the vault: allocate (receive assets
+    from the vault and invest them), deallocate (divest assets and return them
+    to the vault) and report the current value of its positions in the loan
+    token.
+09. Allocate and deallocate each return the risk ids the operation affects and
+    the signed change in the adapter's position.
+10. Only the vault that enabled an adapter can call that adapter's allocate and
+    deallocate.
+11. Any program that implements the adapter interface can be enabled as an
+    adapter, subject to the adapter registry if one is set.
+12. The curator can set an adapter registry, subject to the timelock. While a
+    registry is set, only adapters listed in it can be enabled, and setting a
+    registry fails if any already-enabled adapter is not listed in it. With no
+    registry set, any adapter can be enabled.
+13. The `liquidityAdapter` is the enabled adapter to which deposits are
+    allocated, and from which withdrawals are deallocated when the vault's idle
+    balance does not cover them.
+14. There is no ordered supply or withdraw queue: routing is adapter-based,
+    consistent with Morpho Vaults V2.
+15. The proposal includes a market adapter for the lending protocol that can
+    allocate to any of its markets, with the market selected on each call.
+
+##### Risk ids and caps
+
+16. A risk id identifies a property shared by one or more allocations, such as
+    an adapter, a collateral token or a specific market.
+17. For each allocation, the market adapter (#15) returns three risk ids: one
+    for the adapter, one for the market's collateral token, and one for the
+    specific market.
+18. For each risk id, the vault tracks the amount currently allocated against
+    it.
+19. The absolute cap of a risk id is the maximum amount, in loan-token units,
+    that can be allocated against it. An absolute cap of zero blocks allocation
+    to that id.
+20. The relative cap of a risk id is the maximum allocation against it as a
+    fraction of the vault's total assets. A relative cap of 100% means no
+    relative limit.
+21. Caps are checked on every allocation, including deposits routed to the
+    `liquidityAdapter`, and an allocation that would exceed a cap fails. Caps
+    are not checked on deallocation or withdrawal, so interest accrued on a
+    position can take its allocation above a cap.
+
+##### Timelock
+
+22. Curator actions marked as subject to the timelock are submitted first and
+    can be executed only once their delay has expired. Any address may execute a
+    timelocked action once its delay has expired. In Morpho Vaults V2 the
+    timelock is configured per action (per selector), with no protocol-enforced
+    minimum (it can be zero, the default at creation) up to an overflow-bounded
+    maximum. Cap decreases by the curator or sentinel are instant and not
+    timelocked. The applicant should define a sensible minimum timelock for
+    risk-increasing actions (at least cap increases, enabling adapters, fee
+    changes, allocator additions and gate-contract changes) for LEZ; this
+    minimum is set at vault creation and is immutable.
+
+##### Owner
+
+23. Each vault has exactly one owner.
+24. The owner can appoint a new curator. The change takes effect immediately and
+    is not timelocked.
+25. The owner can appoint and remove sentinels. The change takes effect
+    immediately and is not timelocked.
+26. The owner can transfer ownership to another account. The transfer takes
+    effect immediately and is not timelocked.
+27. The owner cannot enable or disable adapters, change caps or fees, authorise
+    or remove allocators, or allocate or deallocate capital.
+
+##### Curator
+
+28. Each vault has exactly one curator.
+29. The curator can enable and disable adapters, adding or removing markets from
+    the vault's allocation set, subject to the timelock.
+30. The curator can increase absolute and relative caps for any risk id, subject
+    to the timelock, and decrease them instantly.
+31. The curator can set the performance fee, subject to the timelock.
+32. The curator can authorise and remove allocators, subject to the timelock.
+33. The curator can set gate contracts, subject to the timelock.
+34. The curator can set a forced-deallocation penalty for each adapter
+    (Reliability #3), up to 2% of the amount force-deallocated, subject to the
+    timelock.
+35. The curator can change per-action timelock durations, subject to the
+    timelock. A decrease is delayed by the current timelock of the action being
+    decreased. No risk-increasing action's timelock can be set below the minimum
+    fixed at vault creation, and each risk-increasing action's timelock starts
+    at that minimum.
+36. The curator cannot allocate or deallocate capital, appoint or remove
+    sentinels, or appoint a curator.
+
+##### Allocator
+
+37. A vault has zero or more allocators.
+38. An allocator can allocate idle assets into enabled adapters and deallocate
+    them back to idle, within the curator's caps.
+39. An allocator can set the `liquidityAdapter` and the maximum asset growth
+    rate. These changes take effect immediately and are not timelocked.
+40. An allocator cannot enable or disable adapters, change caps or fees, or
+    change any role.
+
+##### Sentinel
+
+41. A vault has zero or more sentinels, whose mandate is risk reduction only.
+    This is the safety mechanism against compromised curator keys.
+42. A sentinel can deallocate assets from any enabled adapter back to idle,
+    instantly decrease any absolute or relative cap, and revoke any pending
+    timelocked action.
+43. A sentinel cannot enable adapters, increase caps, allocate capital, change
+    fees, or change any role.
 
 #### Usability
 
-1. All vault features are exposed by extending the **core module** delivered in
-   RFP-008 (the headless business-logic module that the GUI, CLI, and reference
-   services all consume). The CLI and GUI built in RFP-008 are extended to
-   surface the new vault features; no separate front-end is required.
+1. All vault features are exposed through a **core module** (the headless
+   business-logic module that the GUI, CLI, and reference services all consume).
+   Where the lending protocol provides a core module, CLI and GUI (as RFP-008
+   specifies), the vault features extend them; otherwise the proposal provides
+   them.
 2. The GUI displays per-vault: current APY, total deposits, allocated markets
    with individual utilisation, risk-id caps (absolute and relative) and
    remaining capacity, and the curator's performance fee.
@@ -168,8 +244,8 @@ concentrating risk decisions in a single governance body.
    must show the estimated transaction fee and confirm that the user's shielded
    balance covers both the deposit amount and fees within the single deshield
    action.
-6. Vault share tokens must be usable as collateral in RFP-008 lending markets
-   (subject to an oracle being available for the vault share price).
+6. Vault share tokens must be usable as collateral in the lending protocol's
+   markets (subject to an oracle being available for the vault share price).
 
 #### Reliability
 
@@ -192,19 +268,21 @@ concentrating risk decisions in a single governance body.
    depositors proportionally to their share at the time the loss is realised.
    Bad debt is accounted **on touch**: the vault's exposure to a damaged market
    is repriced when any operation (deposit, withdrawal, reallocation, fee
-   accrual) next reads that market's state, mirroring the lazy-accrual model of
-   RFP-008. The vault must track and report realised bad debt per market.
+   accrual) next reads that market's state, mirroring the lending protocol's
+   lazy-accrual model (as in Morpho Blue). The vault must track and report
+   realised bad debt per market.
 
    This is the same realisation model Morpho uses and it has a known asymmetry:
-   under the adapter-based allocation model (F4, F5), a depositor who withdraws
-   between the bad-debt event and the next-touch repricing of the affected
-   market can draw against healthy adapters and exit at an inflated share price,
-   passing a larger proportional loss to the depositors who remain. Atomic,
-   cross-market repricing is not feasible without transaction-atomic price feeds
-   across every allocated market. Applicants must document this asymmetry in the
-   privacy and properties document (Supportability #8) and surface it in the
-   GUI's risk disclosures, so depositors understand that the first interaction
-   after a market loss bears a disproportionate cost.
+   under the adapter-based allocation model (Functionality #8 to #21), a
+   depositor who withdraws between the bad-debt event and the next-touch
+   repricing of the affected market can draw against healthy adapters and exit
+   at an inflated share price, passing a larger proportional loss to the
+   depositors who remain. Atomic, cross-market repricing is not feasible without
+   transaction-atomic price feeds across every allocated market. Applicants must
+   document this asymmetry in the privacy and properties document
+   (Supportability #8) and surface it in the GUI's risk disclosures, so
+   depositors understand that the first interaction after a market loss bears a
+   disproportionate cost.
 
 #### Performance
 
@@ -216,8 +294,7 @@ concentrating risk decisions in a single governance body.
 
 #### Supportability
 
-1. The vault LEZ program is delivered for LEZ testnet 0.4: it is deployed and
-   tested on LEZ testnet 0.4.
+1. The vault program is deployed and tested on testnet 0.4.
 2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
    and are included in CI; CI must be green on the default branch.
 3. Every hard requirement in Functionality, Usability, Reliability, and
@@ -225,41 +302,37 @@ concentrating risk decisions in a single governance body.
 4. A README addendum documents the vault features: vault creation, curator
    setup, market allocation, deposit/withdrawal flow, and sentinel
    configuration.
-5. Submit a
-   [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-   for each new SDK feature (vault creation, deposit/withdraw, market
-   allocation, curator/allocator/sentinel roles), covering the developer
-   integration journey.
-6. Submit a
-   [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-   for the CLI additions covering the vault features.
+5. Provide documentation in repo for each new SDK feature (vault creation,
+   deposit/withdraw, market allocation, curator/allocator/sentinel roles),
+   covering the developer integration journey.
+6. Provide documentation in repo for the CLI additions, covering the vault
+   features.
 7. Provide Figma designs or equivalent for all GUI additions to the GUI.
-8. Update the privacy and anonymisation properties document delivered by RFP-008
-   to cover the vault layer: what vault state and operations are visible to
-   observers; what data is protected when the private account path is used for
-   vault interactions; trust assumptions, specifying which guarantees are
-   enforced by the on-chain program and which depend on correct client
-   behaviour; and what happens if a user bypasses the expected interaction path.
-   See
+8. Provide a privacy and anonymisation properties document for the vault layer,
+   extending the lending protocol's own document where one exists, covering:
+   what vault state and operations are visible to observers; what data is
+   protected when the private account path is used for vault interactions; trust
+   assumptions, specifying which guarantees are enforced by the on-chain program
+   and which depend on correct client behaviour; and what happens if a user
+   bypasses the expected interaction path. See
    [RFP-008 — Privacy Architecture](./RFP-008-lending-borrowing-protocol.md#privacy-architecture)
    for the baseline this document must align with.
 9. **Audit programme.** The proposal must include a planned audit programme
    covering the vault program and the role-permission surface (curator,
    allocator, sentinel). The proposal must name at least one tier-1 audit firm
    the applicant intends to engage, include the audit budget as a line item, and
-   include the audit timeline ahead of any mainnet recommendation. Audit reports
-   must be published with the codebase before mainnet deployment is recommended.
-   If RFP-008 and RFP-012 are delivered by the same team, the audit programmes
-   may be combined in a single engagement; the proposal must make the combined
-   scope explicit.
+   include the audit timeline. Audit reports must be published with the codebase
+   before any production deployment of the software. If the lending protocol and
+   the vault layer are implemented by the same team, the audit programmes may be
+   combined in a single engagement; the proposal must make the combined scope
+   explicit.
 
 #### + Privacy
 
 1. The GUI and SDK must support both direct public account interaction and the
    deshield→interact→reshield pattern for private account interaction with
-   vaults. When a user chooses the private account path, the SDK must enforce
-   the complete deshield→interact→reshield pattern; the reshield step must not
-   be skippable.
+   vaults. When a user chooses the private account path, the SDK must complete
+   the full deshield→interact→reshield pattern for the operation.
 2. When using the private account path, the GUI must display a pre-confirmation
    summary for each vault operation that clearly identifies what will be visible
    on-chain (deposit/withdrawal amount, vault address, vault share mint/burn,
@@ -284,8 +357,8 @@ If possible.
 
 1. **Formal verification of vault invariants**: (a) vault share value cannot
    decrease except through realised bad debt, (b) no risk-id cap (absolute or
-   relative) is ever exceeded, (c) timelock duration cannot be shortened after
-   vault creation.
+   relative) is ever exceeded, (c) no risk-increasing action's timelock can be
+   set below the minimum fixed at vault creation.
 
 ### Out of Scope
 
@@ -293,7 +366,13 @@ If possible.
 - Governance token design and distribution
 - Cross-chain liquidity or bridging
 - Leveraged looping / one-click multiply products
-- Any feature already delivered by RFP-008
+- Any feature already provided by the lending protocol
+- Mainnet deployment. Mainnet deployment is not part of this RFP: whether, when
+  and by whom the software is deployed is a matter for those who deploy it.
+- The identity of persons holding the owner, curator, allocator and sentinel
+  roles, and the exercise of vault-specific governance and operational powers in
+  any deployment, are matters for the relevant independent deployer or operator
+  and are outside the scope of this RFP.
 
 ### Privacy Architecture
 
@@ -306,18 +385,26 @@ observability split.
 
 ## ⚠ Platform Dependencies
 
-This RFP is open for proposal submission. However, development is blocked until
-the following is satisfied:
+This RFP is open for proposal submission. Implementation of the vault layer
+depends on the availability, on testnet 0.4, of the following technical
+capabilities:
 
-1. **RFP-008 is live on LEZ devnet/testnet**: this RFP extends the deployed
-   protocol; it cannot proceed without the base layer.
+1. **An isolated-market lending protocol** with Morpho Blue semantics
+   (per-market supply, withdrawal and interest accrual, with market state
+   readable by other programs) that the vault can allocate to through an
+   adapter. [RFP-008](./RFP-008-lending-borrowing-protocol.md) specifies such a
+   protocol and is given as an illustrative example.
+2. **Token transfer authorities**, so that the vault program can hold idle
+   balances and issue vault share tokens.
+   [LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md)
+   is an illustrative example.
+3. **A price oracle** for the vault share price, needed for vault shares to be
+   usable as collateral (Usability #6).
+   [RFP-020](./RFP-020-redstone-oracle-adaptor.md) and
+   [RFP-019](./RFP-019-twap-oracle.md) are illustrative examples.
 
-All other platform primitives required by this RFP (including LP-0013 token
-transfer authorities and an oracle provider) are hard blockers for RFP-008 and
-will therefore be resolved before this RFP opens. LP-0015 (general cross-program
-calls), once a blocker, is delivered. See
-[RFP-008 — Platform Dependencies](./RFP-008-lending-borrowing-protocol.md#-platform-dependencies)
-for details.
+Proposals must state which implementation of each capability they will build
+against, and how a change to that implementation's interface would be absorbed.
 
 ## 👤 Recommended Team Profile
 
@@ -329,13 +416,12 @@ Team experienced with:
 - DeFi risk curation and yield optimisation strategies
 - Token standard design (vault share token mechanics)
 - Front-end development for DeFi applications
-
-Ideally the same team that delivered RFP-008.
+- The internals of the lending protocol that the vault layer extends
 
 ## ⏱ Timeline Expectations
 
-Estimated duration: **12 weeks** (after platform dependencies are resolved and
-RFP-008 is live).
+Estimated duration: **12 weeks** (after the capabilities under Platform
+Dependencies are available).
 
 ## 🌍 Open Source Requirement
 
@@ -346,8 +432,19 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [RFP-008 — Lending & Borrowing Protocol](./RFP-008-lending-borrowing-protocol.md)
 - [Appendix: Lending and Borrowing Ecosystem](../appendix/lending-ecosystem.md)
   — MetaMorpho curated-vault deep dive, curator landscape, Vault V2 design
-- TODO: Oracle integration guide for LEZ
-- TODO: SPEL framework documentation
+- [RFP-020 RedStone Off-Chain Oracle Adaptor](./RFP-020-redstone-oracle-adaptor.md)
+  and [RFP-019 On-Chain TWAP Oracle](./RFP-019-twap-oracle.md): oracle sources
+  on LEZ
+- [SPEL framework](https://github.com/logos-co/spel)
+
+The Resources listed above, and any third-party material referred to elsewhere
+in this specification, are for informational purposes only and are intended
+solely as guidance regarding tools or other artefacts that may be relevant to
+preparing a Submission under the Program. They may include, or may refer to
+earlier published specifications, some of which may have received Submissions.
+Logos does not endorse or approve, and makes no representation regarding, any
+Submission or referenced material. It is ultimately the Applicant’s
+responsibility to determine whether, and how, if at all, to use any Resource.
 
 ## ✏️ How to Apply
 
