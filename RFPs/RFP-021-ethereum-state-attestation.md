@@ -13,6 +13,10 @@ dependencies:
 
 # RFP-021 — Trustless Ethereum State Attestation for LEZ
 
+> **Combined proposals.** Proposals that cover both this RFP and
+> [RFP-022](./RFP-022-wrapped-erc20.md) (the wrapped-token bridge that consumes
+> this attestation primitive) will be given preference.
+
 > **Note.** This specification describes an outcome that may benefit the Logos
 > ecosystem. It is a proposal rather than an instruction. Its requirements
 > reflect the technical compatibility with the Logos technology stack and are
