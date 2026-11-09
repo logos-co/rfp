@@ -7,38 +7,50 @@ It makes no recommendation about what should change.
 
 Everything below was read from source at these commits:
 
-| Repository                                                                                                        | Commit    | Role                               |
-| ----------------------------------------------------------------------------------------------------------------- | --------- | ---------------------------------- |
-| [`logos-blockchain/logos-blockchain`](https://github.com/logos-blockchain/logos-blockchain)                       | `ecb2cc6` | Logos L1 node                      |
-| [`logos-blockchain/logos-execution-zone`](https://github.com/logos-blockchain/logos-execution-zone)               | `47eba25` | LEZ sequencer, indexer, wallet     |
-| [`logos-blockchain/logos-execution-zone-module`](https://github.com/logos-blockchain/logos-execution-zone-module) | `b220144` | LEZ core module (`lez_core` 0.4.0) |
-| [`logos-blockchain/lez-indexer-module`](https://github.com/logos-blockchain/lez-indexer-module)                   | `a1c10fe` | LEZ indexer module (1.1.1)         |
-| [`logos-blockchain/logos-blockchain-module`](https://github.com/logos-blockchain/logos-blockchain-module)         | `93c5b16` | L1 module (`blockchain_module`)    |
+| Repository                                                                                                        | Commit      | Role                                              |
+| ----------------------------------------------------------------------------------------------------------------- | ----------- | ------------------------------------------------- |
+| [`logos-blockchain/logos-blockchain`](https://github.com/logos-blockchain/logos-blockchain)                       | `ecb2cc6`   | Logos L1 node                                     |
+| [`logos-blockchain/logos-execution-zone`](https://github.com/logos-blockchain/logos-execution-zone)               | `3d3bac3e2` | LEZ sequencer, indexer, core FFI (default branch) |
+| [`logos-blockchain/logos-execution-zone-module`](https://github.com/logos-blockchain/logos-execution-zone-module) | `fdd6a75`   | LEZ core module (`lez_core` 0.5.1)                |
+| [`logos-blockchain/lez-indexer-module`](https://github.com/logos-blockchain/lez-indexer-module)                   | `87463b1`   | LEZ indexer module (1.2.1)                        |
+| [`logos-blockchain/logos-blockchain-module`](https://github.com/logos-blockchain/logos-blockchain-module)         | `93c5b16`   | L1 module (`blockchain_module`)                   |
+
+The LEZ commit is on the default branch after `v0.4.0-rc1`. Both LEZ modules are
+built against LEZ `v0.3.1` (`1a003bf`) rather than the default branch
+(`lez-indexer-module/flake.nix:14`, `logos-execution-zone-module/flake.nix:15`),
+and neither builds against the default branch as it stands: the indexer module
+uses the `v0.3.1` account read and record types, and the core module links
+`wallet_ffi`, which the default branch has replaced with `core_ffi`. The module
+rows below therefore describe what ships, and the FFI and RPC rows describe the
+default branch.
 
 ## How the layers stack
 
 An application on Logos Core does not talk to a node directly. It calls a
-module, the module calls an FFI, and the FFI calls a service. Two independent
-stacks serve LEZ, and they do not meet:
+module, the module calls an FFI, and the FFI calls a service. Two stacks serve
+LEZ, and they do not meet:
 
 ```
   LEZ reads                          LEZ wallet and writes
   ---------                          ---------------------
-  lez_indexer_module   (11 methods)  lez_core module     (48 methods)
-    wraps the 8 queries              wraps
-  indexer_ffi          (8 queries)   wallet_ffi          (63 functions)
-    wraps                              wraps
-  indexer RPC          (12 methods)  WalletCore
-    reads from                         talks to
-  indexer store                      MultiSequencerClient
-                                       calls
-                                     sequencer RPC       (12 methods)
+  lez_indexer_module   (11 methods)  lez_core module     (37 methods)
+    wraps 8 of 9 queries               wraps 44 of 55 v0.3.1 wallet_ffi functions
+  indexer_ffi          (9 queries)   core_ffi            (88 exports)
+    reads                              wallet (61) -> WalletClient
+  indexer store                          Http      -> sequencer RPC (19 methods)
+  (indexer RPC, 17, same store)          Embedded  -> in-process sequencer
+                                       sequencer FFI (15): its own read set
 ```
 
-The consequence worth stating plainly: the `lez_core` module holds no indexer
-client, and the indexer stack performs no writes. A capability reaches an
-application only if it is exposed by the module at the top of one of these two
-stacks.
+The `lez_core` module holds no indexer client, and the indexer stack performs no
+writes. A capability reaches an application only if it is exposed by the module
+at the top of one of these two stacks.
+
+Below the modules the separation is no longer one of reads against writes.
+`core_ffi` carries a sequencer FFI that runs a sequencer in process and serves a
+read set named after the indexer's, so the write-side library now has reads of
+its own. The two libraries still do not depend on one another, and neither the
+wallet nor `core_ffi` references the indexer.
 
 Logos L1 has a single stack:
 
@@ -52,118 +64,221 @@ Logos L1 has a single stack:
 
 ## 1. LEZ Indexer FFI
 
-`lez/indexer/ffi/src/api/`. Ten exported functions: eight queries plus two
-lifecycle. A ninth query, `query_events`, has since been added on the default
-branch and is not counted in this section or its table. This is the read surface
-an application reaches through `lez_indexer_module`, whose eleven public methods
-wrap all eight queries and both lifecycle functions, plus one method the FFI
-does not have: `reset_storage` calls the module's own stop and then deletes the
-store directory from C++. The module also flattens the FFI's error signalling,
-returning an empty string for both not-found and failure.
+`lez/indexer/ffi/src/api/`. Eleven exported functions: nine queries plus two
+lifecycle. Beside them sit `init_logger` and nine free functions, one per
+heap-allocating return type. The C header `lez/indexer/ffi/indexer_ffi.h` is
+committed and regenerated by cbindgen at build time.
 
-| Function                        | Parameters                               | Returns                                             |
-| ------------------------------- | ---------------------------------------- | --------------------------------------------------- |
-| `query_last_block`              | indexer                                  | `LastBlockIdResult`                                 |
-| `query_status`                  | indexer                                  | `*mut c_char` (JSON)                                |
-| `query_block`                   | indexer, `block_id`                      | `PointerResult<FfiBlockOpt>`                        |
-| `query_block_by_hash`           | indexer, `hash`                          | `PointerResult<FfiBlockOpt>`                        |
-| `query_account`                 | indexer, `account_id`                    | `PointerResult<FfiAccount>`                         |
-| `query_transaction`             | indexer, `hash`                          | `PointerResult<FfiOption<FfiTransaction>>`          |
-| `query_block_vec`               | indexer, `before`, `limit`               | `PointerResult<FfiVec<FfiBlock>>`                   |
-| `query_transactions_by_account` | indexer, `account_id`, `offset`, `limit` | `PointerResult<FfiVec<FfiTransaction>>`             |
-| `start_indexer`                 | runtime, config path, storage dir        | `PointerResult<IndexerServiceFFI, OperationStatus>` |
-| `stop_indexer`                  | indexer                                  | `OperationStatus`                                   |
+| Function                        | Parameters                                                                     | Returns                                             |
+| ------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------- |
+| `query_last_block`              | indexer                                                                        | `LastBlockIdResult` (inline)                        |
+| `query_status`                  | indexer                                                                        | `*mut c_char` (JSON)                                |
+| `query_block`                   | indexer, `block_id`                                                            | `PointerResult<FfiBlockOpt>`                        |
+| `query_block_by_hash`           | indexer, `hash`                                                                | `PointerResult<FfiBlockOpt>`                        |
+| `query_account`                 | indexer, `account_id`                                                          | `PointerResult<FfiOption<FfiAccount>>`              |
+| `query_transaction`             | indexer, `hash`                                                                | `PointerResult<FfiOption<FfiTransaction>>`          |
+| `query_block_vec`               | indexer, `before`, `limit`                                                     | `PointerResult<FfiVec<FfiBlock>>`                   |
+| `query_transactions_by_account` | indexer, `account_id`, `offset`, `limit`                                       | `PointerResult<FfiVec<FfiTransaction>>`             |
+| `query_events`                  | indexer, `from_block`, `to_block`, `tx_hash`, `program_account_id`, `selector` | `PointerResult<FfiVec<FfiEventRecord>>`             |
+| `start_indexer`                 | runtime, config path, storage dir                                              | `PointerResult<IndexerServiceFFI, OperationStatus>` |
+| `stop_indexer`                  | indexer                                                                        | `OperationStatus`                                   |
 
-The status type has four variants: `Ok`, `NullPointer`, `InitializationError`,
-`ClientError`. Not-found is signalled structurally rather than through that
-type, and the source is explicit that the two are distinct: an `Ok` result with
-`is_some == false` "means the indexer has no finalized block yet (an empty
-chain) which is distinct from an error". Blocks and transactions carry the same
-distinction through an `FfiOption`, and the list queries return an empty vector.
-`ClientError` is set only on a store or backend failure.
+The status type has five variants: `Ok`, `NullPointer`, `InitializationError`,
+`ClientError`, and `InvalidArgument` (`lez/indexer/ffi/src/errors.rs:3-10`).
+`InvalidArgument` is set only by `query_events`: for a range wider than
+`MAX_EVENT_QUERY_BLOCK_SPAN` (1000 blocks), a bound past the indexed tip, a
+range outside the event-filter history, and a transaction hash no indexed block
+holds. `ClientError` is set only on a store or backend failure.
 
-Two exceptions are worth recording. `query_account` cannot express not-found at
-all: the store returns a default account for an unknown id, so a never-seen
-account is indistinguishable from a real one holding zero balance and zero
-nonce. And `query_status` has no status channel, returning a bare null pointer
-for both a null indexer handle and a serialisation failure.
+Not-found is signalled structurally rather than through the status type. An `Ok`
+result from `query_last_block` with `is_some == false` "means the indexer has no
+finalized block yet (an empty chain) which is distinct from an error". Blocks,
+transactions, and accounts carry the same distinction through an `FfiOption`,
+and the list queries return an empty vector. `query_account` became optional on
+the default branch after `v0.3.1`; at `v0.3.1`, which the module is built
+against, it returns a default account for an unknown identifier, so a never-seen
+account is indistinguishable from an empty one there. `query_status` still has
+no status channel, returning a bare null pointer for a null indexer handle, a
+serialisation failure, and an interior nul byte alike.
+
+An account is a nonce and one actor state per program holding state on it, keyed
+by that program's account identifier; the native balance is the actor state at
+the native token program (`lez/indexer/ffi/src/api/types/account.rs`,
+`lez/indexer/service/protocol/src/lib.rs:100-127`). A block's header carries its
+identifier, previous hash, own hash, and timestamp. The stored block also lists
+the indices of transactions whose action reverted, which the FFI block type
+drops.
+
+`lez_indexer_module` exposes eleven public methods: eight of the nine queries
+and both lifecycle functions, plus `reset_storage`, which the FFI does not have.
+It omits `query_events`. `reset_storage` stops the indexer, reads the channel
+identifier from the configuration, and deletes that zone's store directory. The
+module flattens the FFI's error signalling, returning an empty string for a
+module not yet started, invalid input, an FFI error, and not-found alike, and it
+handles no caller identity: any caller that reaches the module can call
+`stop_indexer` and `reset_storage`.
 
 ## 2. LEZ Indexer RPC
 
-`lez/indexer/service/rpc/src/lib.rs`. Twelve methods, one of them a
-subscription. The right-hand column records whether the indexer FFI exposes it.
+`lez/indexer/service/rpc/src/lib.rs`. Seventeen entries: fifteen methods and two
+subscriptions. The right-hand column records whether the indexer FFI exposes it.
 
-| Method                       | Signature                                                | In FFI |
-| ---------------------------- | -------------------------------------------------------- | ------ |
-| `getLastFinalizedBlockId`    | `() -> Option<BlockId>`                                  | yes    |
-| `getBlockById`               | `(BlockId) -> Option<Block>`                             | yes    |
-| `getBlockByHash`             | `(HashType) -> Option<Block>`                            | yes    |
-| `getBlocks`                  | `(Option<BlockId> before, u64 limit) -> Vec<Block>`      | yes    |
-| `getAccount`                 | `(AccountId) -> Account`                                 | yes    |
-| `getTransaction`             | `(HashType) -> Option<Transaction>`                      | yes    |
-| `getTransactionsByAccount`   | `(AccountId, u64 offset, u64 limit) -> Vec<Transaction>` | yes    |
-| `getStatus`                  | `() -> IndexerStatus`                                    | yes    |
-| `getAccountAtBlock`          | `(AccountId, BlockId) -> Account`                        | **no** |
-| `subscribeToFinalizedBlocks` | subscription, item `BlockId`                             | **no** |
-| `getSchema`                  | `() -> serde_json::Value`                                | **no** |
-| `checkHealth`                | `() -> ()`                                               | **no** |
+| Method                       | Signature                                                    | In FFI |
+| ---------------------------- | ------------------------------------------------------------ | ------ |
+| `getLastFinalizedBlockId`    | `() -> Option<BlockId>`                                      | yes    |
+| `getBlockById`               | `(BlockId) -> Option<Block>`                                 | yes    |
+| `getBlockByHash`             | `(HashType) -> Option<Block>`                                | yes    |
+| `getBlocks`                  | `(Option<BlockId> before, u64 limit) -> Vec<Block>`          | yes    |
+| `getAccount`                 | `(AccountId) -> Option<Account>`                             | yes    |
+| `getTransaction`             | `(HashType) -> Option<Transaction>`                          | yes    |
+| `getTransactionsByAccount`   | `(AccountId, u64 offset, u64 limit) -> Vec<Transaction>`     | yes    |
+| `getEvents`                  | `(GetEventsFilter) -> Vec<EventRecord>`                      | yes    |
+| `getStatus`                  | `() -> IndexerStatus`                                        | yes    |
+| `getAccountAtBlock`          | `(AccountId, BlockId) -> Option<Account>`                    | **no** |
+| `getAccountSummary`          | `(AccountId) -> AccountSummary`                              | **no** |
+| `getAccountView`             | `(Actor) -> Option<Account>`                                 | **no** |
+| `getAccountViewAtBlock`      | `(Actor, BlockId) -> Option<Account>`                        | **no** |
+| `subscribeToFinalizedBlocks` | subscription, item `BlockId`                                 | **no** |
+| `subscribeToEvents`          | subscription `(EventSubscriptionFilter)`, item `EventRecord` | **no** |
+| `getSchema`                  | `() -> serde_json::Value`                                    | **no** |
+| `checkHealth`                | `() -> ()`                                                   | **no** |
 
-`IndexerStatus` carries `state`, `last_error`, `indexed_block_id`, and
-`stall_reason`, so it reports how far ingestion has reached and why it stopped.
+`IndexerStatus` carries `state`, `last_error`, `indexed_block_id`,
+`stall_reason`, `cross_zone_halt`, and `cross_zone_peers`, so it reports how far
+ingestion has reached, why it stopped, and the health of each peer zone.
 `checkHealth` returns unit and is the weaker of the two.
+
+An `Actor` names an account and one program's actor state on it, so
+`getAccountView` returns the nonce and that single actor state rather than the
+whole account. `getAccountSummary` returns the nonce, the native balance, and
+each actor state's size rather than its bytes, since nothing bounds how many
+actor states an account holds or how large each one is; unlike `getAccount` it
+returns a default summary for an unknown account. `getEvents` caps its response
+at 8 MiB, which the FFI's `query_events` does not. `getSchema` describes the
+block, event record, and event filter types.
 
 ## 3. LEZ Sequencer RPC
 
-`lez/sequencer/service/rpc/src/lib.rs`. Twelve methods. This is the write path
-and the live-state path. No FFI wraps it directly; `wallet_ffi` reaches it
-through `WalletCore` and `MultiSequencerClient`.
+`lez/sequencer/service/rpc/src/lib.rs`. Nineteen methods. This is the write path
+and the live-state path. The wallet reaches it over HTTP, or reaches an
+in-process sequencer's actors directly through the sequencer FFI (section 4).
 
-| Method              | Signature                                                                  | Also on indexer              |
-| ------------------- | -------------------------------------------------------------------------- | ---------------------------- |
-| `sendTransaction`   | `(LeeTransaction) -> HashType`                                             | no                           |
-| `getBlock`          | `(BlockId) -> Option<Block>`                                               | as `getBlockById`            |
-| `getBlockRange`     | `(BlockId start, BlockId end) -> Vec<Block>`                               | as `getBlocks`               |
-| `getLastBlockId`    | `() -> BlockId`                                                            | as `getLastFinalizedBlockId` |
-| `getAccount`        | `(AccountId) -> Account`                                                   | yes                          |
-| `getAccountBalance` | `(AccountId) -> u128`                                                      | no                           |
-| `getAccountsNonces` | `(Vec<AccountId>) -> Vec<Nonce>`                                           | no                           |
-| `getTransaction`    | `(HashType) -> Option<(LeeTransaction, BlockId)>`                          | yes                          |
-| `getProofsAndRoot`  | `(Vec<Commitment>) -> (Vec<Option<MembershipProof>>, CommitmentSetDigest)` | no                           |
-| `getProgramIds`     | `() -> BTreeMap<String, ProgramId>`                                        | no                           |
-| `getChannelId`      | `() -> ChannelId`                                                          | no                           |
-| `checkHealth`       | `() -> ()`                                                                 | yes                          |
+| Method                       | Signature                                                                                                                         | Also on indexer              |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `sendTransaction`            | `(LeeTransaction) -> HashType`                                                                                                    | no                           |
+| `getFeeState`                | `() -> FeeStateQuote`                                                                                                             | no                           |
+| `checkHealth`                | `() -> ()`                                                                                                                        | yes                          |
+| `getBlock`                   | `(BlockId) -> Option<Block>`                                                                                                      | as `getBlockById`            |
+| `getBlockRange`              | `(BlockId start, BlockId end) -> Vec<Block>`                                                                                      | as `getBlocks`               |
+| `getLastBlockId`             | `() -> BlockId`                                                                                                                   | as `getLastFinalizedBlockId` |
+| `getAccountBalance`          | `(AccountId) -> u128`                                                                                                             | no                           |
+| `getTransaction`             | `(HashType) -> Option<(LeeTransaction, BlockId)>`                                                                                 | yes                          |
+| `getAccountsNonces`          | `(Vec<AccountId>) -> Vec<Nonce>`                                                                                                  | no                           |
+| `getAccountView`             | `(Actor) -> Option<Account>`                                                                                                      | yes                          |
+| `getPublications`            | `(CommitmentPosition from, PageLimit) -> Vec<(CommitmentPosition, Publication)>`                                                  | no                           |
+| `getMessagePath`             | `(CommitmentPosition) -> Option<MembershipProof>`                                                                                 | no                           |
+| `getRecoveryBinding`         | `(AccountId) -> Option<EncryptedNote>`                                                                                            | no                           |
+| `getProofsAndRoot`           | `(Vec<Commitment>, Vec<CommitmentPosition>) -> (Vec<Option<MembershipProof>>, Vec<Option<MembershipProof>>, CommitmentSetDigest)` | no                           |
+| `getAccount`                 | `(AccountId) -> Option<Account>`                                                                                                  | yes                          |
+| `getProgramIds`              | `() -> BTreeMap<String, ProgramId>`                                                                                               | no                           |
+| `getChannelId`               | `() -> ChannelId`                                                                                                                 | no                           |
+| `getCrossZoneDeadLetters`    | `() -> CrossZoneDeadLetterReport`                                                                                                 | no                           |
+| `requeueCrossZoneDeadLetter` | `(HashType) -> CrossZoneDeadLetterRequeue`                                                                                        | no                           |
 
-Note the sequencer's `getTransaction` returns the transaction paired with its
-block id, while the indexer's returns the transaction alone.
+The sequencer's `getTransaction` returns the transaction paired with its block
+id, while the indexer's returns the transaction alone. The methods from
+`getBlock` onward are marked in source for removal "after wallet starts using
+indexer for this type of queries"
+(`lez/sequencer/service/rpc/src/lib.rs:59-60`). `getFeeState` reports the
+current base fees for execution and storage gas, the band the next block's may
+move within, and the per-block gas caps. Two rejections carry codes of their
+own: a full mempool (`-31900`) and a privacy-preserving transaction whose fee
+reserve is below the current fee (`-31901`); other rejections are invalid
+parameters with text. `getProgramIds` returns a fixed list naming only the
+privacy-preserving circuit
+(`lez/sequencer/actors/rpc_server/src/actor/service.rs:280-288`).
+`requeueCrossZoneDeadLetter` is an operator write on the same unauthenticated
+endpoint as the reads.
 
-## 4. LEZ Wallet FFI and the `lez_core` module
+## 4. LEZ core FFI and the `lez_core` module
 
-`lez/wallet-ffi/src/`, 63 exported functions across twelve areas. The `lez_core`
-module calls 56 of them; the seven it does not are PDA derivation (two), key
-import (two), a private-accounts key constructor, an instruction-word free
-function, and a serialisation helper. None is a chain read. The module exposes
-48 methods, excluding constructor, destructor, and the deleted copy operations.
+`lez/core_ffi/`, 88 exported functions: 61 wallet functions, 15 for the
+sequencer, and 12 free functions shared between them. The header
+`lez/core_ffi/core_ffi.h` is committed. The error type, `FfiOperationError`, is
+shared by the wallet and sequencer functions and has 26 variants
+(`lez/core_ffi/src/error.rs`).
 
-| Area                 | Functions | Module surface                                                       |
-| -------------------- | --------: | -------------------------------------------------------------------- |
-| Wallet lifecycle     |         7 | `create_new`, `open`, `save`, `restore_storage`, `wallet_dir`        |
-| Accounts             |        11 | create and list accounts, get account, register account              |
-| Keys                 |         8 | public and private account keys                                      |
-| Transfers            |         9 | public, shielded, deshielded, private, and owned variants            |
-| Generic transactions |         5 | `send_generic_public_transaction`, private variant                   |
-| Program deployment   |         6 | `send_program_deployment_transaction`, ELF accessors                 |
-| Labels               |         5 | `check_label_available`, `add_label`, `resolve_label`                |
-| Vault                |         3 | `get_vault_balance`, `vault_claim`, `vault_claim_private`            |
-| Sync                 |         3 | `sync_to_block`, `get_last_synced_block`, `get_current_block_height` |
-| PDA                  |         2 | not exposed by the module                                            |
-| Bridge               |         1 | `bridge_withdraw`                                                    |
-| Pinata               |         3 | `claim_pinata` and two private variants                              |
+### 4.1 Sequencer FFI
 
-Read-side methods on the module are `list_accounts`, `get_balance`,
-`get_account_public`, `get_account_private`, the two key getters,
-`get_vault_balance`, `get_sequencer_addr`, the three sync methods,
-`poll_transaction_status`, and the label lookups. `poll_transaction_status`
-returns a boolean, carrying no state, position, or finality.
+`lez/core_ffi/src/sequencer/`. `sequencer_ffi_start_sequencer` runs a sequencer
+in process, with its executor, storage, and gossip actors, and serves queries
+from those actors rather than over RPC
+(`lez/core_ffi/src/sequencer/api/lifecycle.rs:65-115`). A wallet opened with a
+sequencer handle talks to it directly; one opened without talks to a sequencer
+over HTTP (`lez/core_ffi/src/wallet/client.rs:12-16`).
+
+| Function                                           | Returns                                                 |
+| -------------------------------------------------- | ------------------------------------------------------- |
+| `sequencer_ffi_start_sequencer`                    | `PointerResult<SequencerServiceFFI, FfiOperationError>` |
+| `sequencer_ffi_stop_sequencer`                     | `FfiOperationError`                                     |
+| `sequencer_ffi_init_logger`                        | nothing                                                 |
+| `sequencer_ffi_query_last_block`                   | `LastBlockIdResult`                                     |
+| `sequencer_ffi_query_status`                       | `*mut c_char`, always `"Not yet supported"`             |
+| `sequencer_ffi_query_block`                        | `PointerResult<FfiBlockOpt>`                            |
+| `sequencer_ffi_query_block_by_hash`                | `PointerResult<FfiBlockOpt>`                            |
+| `sequencer_ffi_query_block_by_tx_hash`             | `PointerResult<u64>`                                    |
+| `sequencer_ffi_free_query_block_id_by_transaction` | nothing                                                 |
+| `sequencer_ffi_query_account`                      | `PointerResult<FfiOption<FfiAccount>>`                  |
+| `sequencer_ffi_query_transaction`                  | `PointerResult<FfiOption<FfiTransaction>>`              |
+| `sequencer_ffi_query_block_vec`                    | `PointerResult<FfiVec<FfiBlock>>`                       |
+| `sequencer_ffi_query_transactions_by_account`      | `PointerResult<FfiVec<FfiTransaction>>`                 |
+| `sequencer_ffi_query_events`                       | `PointerResult<FfiVec<FfiEventRecord>>`                 |
+| `sequencer_ffi_send_transaction`                   | `PointerResult<FfiHashType>`                            |
+
+The query set mirrors the indexer FFI's nine queries by name, adds a lookup of a
+transaction's block, and adds submission. It differs in its error type, reads
+blocks without regard to finality, and has no status. No fee query is exported;
+the wallet reads the fee state internally.
+
+### 4.2 Wallet
+
+`lez/core_ffi/src/wallet/`, 61 functions across eleven areas.
+
+| Area               | Functions | Surface                                                                                 |
+| ------------------ | --------: | --------------------------------------------------------------------------------------- |
+| Wallet lifecycle   |         8 | `create_new`, `open`, `save`, `restore_data`, `set_password`, `storage_is_encrypted`    |
+| Accounts           |        12 | create, import, and list accounts; get account, balance, and one program's account view |
+| Keys               |         8 | public and private account keys, base58 encoding, account resolution                    |
+| Transfers          |         7 | public, shielded, deshielded, private, and owned variants                               |
+| Generic tx         |         4 | `send_generic_public_transaction`, private variant, `poll_transaction_status`           |
+| Program deployment |         6 | `program_loader_write_segment`, header create and update, deploy, update                |
+| Labels             |         5 | `check_label_available`, `add_label`, `resolve_label`, labels for an account            |
+| Sync               |         4 | `sync_to_block`, `rescan_private_accounts`, last synced block, current height           |
+| PDA                |         2 | public and private PDA account identifiers                                              |
+| Pending messages   |         4 | list and receive the messages pending for a private account                             |
+| Bridge             |         1 | `bridge_withdraw`                                                                       |
+
+The vault and pinata functions are gone with the programs they called. A fee
+payer is a parameter of the generic public transaction and of every program
+loader call, and nothing else. `poll_transaction_status` returns a boolean,
+carrying no state, position, or finality.
+
+### 4.3 `lez_core` module
+
+37 public methods, excluding constructor, destructor, and the deleted copy
+operations, over the `v0.3.1` `wallet_ffi`, whose 55 functions it calls 44 of.
+The eleven it does not call are PDA derivation (two), account import (two), the
+private-accounts key constructor, the single-program account view, four program
+loader steps, and a free function. The module holds a wallet handle and nothing
+else, and reaches the sequencer over HTTP only. Everything the default branch
+added is unreachable from it: the pending-message functions, rescan, storage
+passwords, and the sequencer FFI.
+
+Read-side methods are `list_accounts`, `get_balance`, `get_account_public`,
+`get_account_private`, the two key getters, `get_sequencer_addr`, the three sync
+methods, `poll_transaction_status`, and the label lookups.
+`poll_transaction_status` returns `false` for a transaction not yet included, an
+FFI error, and malformed input alike.
 
 ## 5. Logos L1 C bindings
 
@@ -231,21 +346,25 @@ exposes the chain reads the LEZ core module does not: `get_block`, `get_blocks`,
 
 Counting distinct capabilities rather than method names:
 
-| Layer              | Surface                            | Count |
-| ------------------ | ---------------------------------- | ----: |
-| LEZ indexer RPC    | read methods plus one subscription |    12 |
-| LEZ indexer FFI    | queries plus lifecycle             |    10 |
-| LEZ indexer module | public methods                     |    11 |
-| LEZ sequencer RPC  | read and write methods             |    12 |
-| LEZ wallet FFI     | exported functions                 |    63 |
-| LEZ core module    | public methods                     |    48 |
-| L1 node HTTP       | route constants                    |    42 |
-| L1 C bindings      | exported functions                 |    46 |
-| L1 module          | public methods, plus 3 signals     |    29 |
+| Layer              | Surface                        | Count |
+| ------------------ | ------------------------------ | ----: |
+| LEZ indexer RPC    | methods plus two subscriptions |    17 |
+| LEZ indexer FFI    | queries plus lifecycle         |    11 |
+| LEZ indexer module | public methods                 |    11 |
+| LEZ sequencer RPC  | read and write methods         |    19 |
+| LEZ sequencer FFI  | exported functions             |    15 |
+| LEZ wallet FFI     | exported functions             |    61 |
+| LEZ core module    | public methods                 |    37 |
+| L1 node HTTP       | route constants                |    42 |
+| L1 C bindings      | exported functions             |    46 |
+| L1 module          | public methods, plus 3 signals |    29 |
 
-Two observations follow from the inventory. Four indexer RPC methods stop at the
-FFI boundary rather than at the module boundary, so the FFI is where the LEZ
-read surface is bounded. And six sequencer methods have no indexer counterpart
-at all, of which `getAccountBalance` and `getAccountsNonces` are derivable from
-data the indexer already stores, since its `Account` record carries both
-`balance` and `nonce`.
+Three observations follow from the inventory. Eight indexer RPC entries stop at
+the FFI boundary rather than at the module boundary, among them the pinned
+account read, both subscriptions, and the actor-scoped reads, so the FFI is
+where the LEZ read surface is bounded. Twelve sequencer methods have no indexer
+counterpart, among them everything a wallet needs to receive and to spend
+privately: the publications, message paths, recovery bindings, and membership
+proofs, all of which the indexer's own state already holds. And both modules are
+built against a release older than the FFIs inventoried here, so what the
+default branch has added reaches no application yet.

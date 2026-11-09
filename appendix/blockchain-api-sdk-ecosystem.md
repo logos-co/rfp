@@ -10,7 +10,8 @@ table, recording what they expose today.
 
 Every claim carries a first-party source that was fetched and confirmed to
 resolve. Logos rows cite files and line numbers in `logos-blockchain` at commit
-`ecb2cc6` and `logos-execution-zone` at commit `47eba25`.
+`ecb2cc6` and `logos-execution-zone` at commit `3d3bac3e2`, on the default
+branch after `v0.4.0-rc1`.
 
 ### On `[NOT FOUND]`
 
@@ -139,10 +140,14 @@ negotiation a property of the contract rather than of documentation.
   structure to carry a network identifier, feature flags, or retention bounds;
   the build collects target, profile, rustc version, and tag name, and the
   handler discards all four [[119]](#ref-119).
-- **LEZ**: No FFI reports a node version or build identity. The `lez_core`
-  module returns its own module version [[120]](#ref-120), and the sequencer's
-  `getProgramIds` has no FFI export, so the image check the wallet performs
-  internally is unreachable.
+- **LEZ**: No FFI reports a node version or build identity: neither the indexer
+  FFI nor `core_ffi` exports one, and both `checkHealth` methods return unit
+  [[21]](#ref-21)[[22]](#ref-22). The `lez_core` module returns its own module
+  version [[120]](#ref-120). The only compatibility check is the command-line
+  wallet's health check, which compares the privacy-preserving circuit
+  identifier from the sequencer's `getProgramIds` with its own; that method
+  returns a fixed list naming only the circuit and has no FFI export
+  [[119]](#ref-119).
 
 ### 1.2 Health and sync-status check
 
@@ -192,7 +197,7 @@ sequence such as `24900901-24900984,24901116-24901158`", and signals finality by
 which field is present rather than by a status enum [[101]](#ref-101).
 
 LEZ discloses indexer staleness, which most surveyed chains do not: its status
-is "the ingestion state plus the indexed L2 tip and, when stalled, the stall
+is "the ingestion state plus the indexed L2 tip and, when stalled or halted, the
 diagnostics" [[115]](#ref-115), so a client can tell how far behind an
 indexer-backed read is, and why. That disclosure is indexer-only: the sequencer,
 which is the submission path, reports nothing, its `checkHealth` returning an
@@ -221,10 +226,12 @@ client disagree about whether `phase` is part of the response.
 - **Logos L1**: Finer-grained than most of the survey, reporting consensus state
   plus a documented four-stage phase on one call [[118]](#ref-118); no retention
   floor is reported, so a client cannot tell which history the node still holds.
-- **LEZ**: The indexer discloses ingestion state, tip, and stall diagnostics
-  [[115]](#ref-115), but the sequencer, which is the submission path, reports
-  nothing: its `checkHealth` returns an unconditional empty success
-  [[119]](#ref-119).
+- **LEZ**: The indexer discloses ingestion state, tip, stall diagnostics, and
+  the health of each peer zone, and its FFI exports them as `query_status`
+  [[115]](#ref-115)[[120]](#ref-120). The sequencer, which is the submission
+  path, reports nothing: its `checkHealth` returns an unconditional empty
+  success, and the sequencer FFI's `sequencer_ffi_query_status` returns the
+  fixed string "Not yet supported" [[119]](#ref-119).
 
 ### 1.3 Identify the network or chain
 
@@ -267,10 +274,12 @@ the API which network an L1 endpoint serves.
   ledger initialisation [[119]](#ref-119), but no route returns it, so a client
   cannot detect that it has been pointed at the wrong network.
 - **LEZ**: Neither FFI exposes a zone identifier. `getChannelId` exists on the
-  sequencer RPC with no FFI export, and the indexer FFI's eight queries include
-  no equivalent [[120]](#ref-120), so an application cannot confirm which zone
-  it reads from. The nearest reachable value is `get_sequencer_addr`, a
-  configured address rather than a chain identity [[120]](#ref-120).
+  sequencer RPC with no FFI export, and neither the indexer FFI's nine queries
+  nor the sequencer FFI's queries include an equivalent [[120]](#ref-120),
+  although the indexer holds the channel identifier in its own configuration
+  [[119]](#ref-119). An application therefore cannot confirm which zone it reads
+  from. The nearest reachable value is `get_sequencer_addr`, a configured
+  address rather than a chain identity [[120]](#ref-120).
 
 ### 1.4 Retrieve a machine-readable API description
 
@@ -304,8 +313,9 @@ L1 serves an OpenAPI document at runtime, which Bitcoin, Zcash, and Solana do
 not, though it is incomplete: five wired routes including both signing endpoints
 are absent from it, most successful responses declare no body, and three
 component schemas are registered [[119]](#ref-119). The LEZ `getSchema` method
-returns a JSON Schema for the block type rather than an interface description,
-so a client cannot be generated from it [[22]](#ref-22).
+returns a JSON Schema for the block, event record, and event filter types rather
+than an interface description, so a client cannot be generated from it
+[[22]](#ref-22).
 
 **Potential gaps.**
 
@@ -314,9 +324,10 @@ so a client cannot be generated from it [[22]](#ref-22).
   and registers three component schemas [[119]](#ref-119), so it indexes routes
   rather than describing payloads.
 - **LEZ**: No FFI serves a machine-readable description. `getSchema` exists on
-  the indexer RPC without an FFI export [[120]](#ref-120), and the module
-  contract is generated from the C++ header by a line-oriented parser, so no
-  artefact describes the reachable surface.
+  the indexer RPC without an FFI export, and describes data types rather than
+  methods [[22]](#ref-22)[[120]](#ref-120); the module contract is generated
+  from the C++ header by a line-oriented parser, so no artefact describes the
+  reachable surface.
 
 ### 1.5 Get a block by height or hash
 
@@ -342,8 +353,9 @@ Fetches one block, ledger, or checkpoint and its contents by identifier.
 
 - **Logos L1**: Comparable, though lookup is by header id only, so a client
   holding a height reaches the block through the slot-bounded range routes.
-- **LEZ**: Comparable, with lookup by id and hash on the indexer and by id on
-  the sequencer [[22]](#ref-22).
+- **LEZ**: Comparable, with lookup by id and hash on the indexer and its FFI, by
+  id on the sequencer RPC, and by id, hash, and transaction hash on the
+  sequencer FFI [[22]](#ref-22)[[120]](#ref-120).
 
 ### 1.6 Get the current chain tip
 
@@ -370,9 +382,10 @@ most subsequent reads.
 
 - **Logos L1**: Comparable: one call returns tip, height, slot, and the last
   irreversible block [[19]](#ref-19).
-- **LEZ**: `getLastBlockId` and `getLastFinalizedBlockId` return an identifier
-  only, with no height, timestamp, or hash, so learning anything about the tip
-  costs a second call [[21]](#ref-21)[[22]](#ref-22).
+- **LEZ**: `getLastBlockId`, `getLastFinalizedBlockId`, and the FFIs'
+  `query_last_block` return the block identifier only, with no timestamp or
+  hash, so learning anything more about the tip costs a second call
+  [[21]](#ref-21)[[22]](#ref-22)[[120]](#ref-120).
 
 ### 1.7 Get an account or object
 
@@ -412,11 +425,17 @@ available to a party holding no key at all.
 - **Logos L1**: No general subject query exists, and there is no lookup by note
   commitment or nullifier; the only account-shaped read is the wallet balance,
   which returns 404 for any key the node does not hold [[119]](#ref-119).
-- **LEZ**: An account read is reachable through `query_account` and through the
-  module's account getters, but `getAccountAtBlock` has no FFI export, and the
-  indexer path cannot distinguish a never-seen account from one holding zero,
-  since the store returns a default record and the module returns an empty
-  string for both not-found and failure [[120]](#ref-120).
+- **LEZ**: An account read is reachable through `query_account` on both FFIs and
+  through the module's account getters. An account is a nonce and one actor
+  state per program holding state on it, the native balance being the native
+  token program's actor state [[115]](#ref-115). On the default branch
+  `query_account` returns an optional record, so a never-seen account is
+  distinct from an empty one, but the indexer module is built against `v0.3.1`,
+  where the read returns a default record, and returns an empty string for both
+  not-found and failure [[120]](#ref-120). The pinned `getAccountAtBlock`, the
+  single-program `getAccountView`, and the size-only `getAccountSummary` exist
+  on the indexer RPC with no indexer FFI export; the wallet FFI's
+  `get_account_view` reaches the sequencer's view instead [[120]](#ref-120).
 
 ### 1.8 Get a balance
 
@@ -447,11 +466,13 @@ being a general subject query.
   configuration [[119]](#ref-119), so an integrator cannot read an arbitrary
   address's balance, and a 404 does not distinguish an unknown key from a zero
   balance.
-- **LEZ**: The reachable balance read is wallet-scoped: `get_balance` takes a
-  wallet handle and returns a 16-byte value for an account the wallet holds,
-  with no block identifier [[120]](#ref-120). The sequencer's
-  `getAccountBalance` for an arbitrary address has no FFI export, so a
-  third-party balance is available only by reading the indexer's account record.
+- **LEZ**: The reachable balance read needs a wallet handle: the wallet FFI's
+  `get_balance` relays the sequencer's `getAccountBalance` for any public
+  identifier and returns the wallet's cached value for a private one, as a
+  16-byte value with no block identifier [[119]](#ref-119)[[120]](#ref-120).
+  Without a wallet, a balance is read by decoding the native token actor state
+  from the indexer's account record [[115]](#ref-115); `getAccountSummary`
+  returns it decoded but has no FFI export [[120]](#ref-120).
 
 ### 1.9 Read a transaction by hash
 
@@ -492,10 +513,14 @@ place: API v1 continues to render `Amount`, API v2 renders `DeliverMax`
 - **Logos L1**: The route returns the transaction body but no block id, slot, or
   confirmation depth [[119]](#ref-119), so a caller learns that it exists but
   not where it landed.
-- **LEZ**: Only the indexer path reaches an application: `query_transaction`
-  returns the transaction without its block id [[120]](#ref-120). The
-  sequencer's variant, which pairs the transaction with its block id, has no FFI
-  export, so the richer of the two results is unreachable.
+- **LEZ**: The indexer FFI's `query_transaction` returns the transaction without
+  its block id [[120]](#ref-120). The sequencer RPC's variant pairs the
+  transaction with its block id, and the sequencer FFI reaches the same pair in
+  two calls, `sequencer_ffi_query_transaction` and
+  `sequencer_ffi_query_block_by_tx_hash`, but only in an application hosting its
+  own sequencer, and neither module reaches it [[120]](#ref-120). No result says
+  whether the transaction's action reverted, which the stored block records
+  separately [[115]](#ref-115).
 
 ### 1.10 Read-only contract call
 
@@ -532,9 +557,11 @@ no way of knowing if the user requires this field or not" [[98]](#ref-98).
 
 - **Logos L1**: No equivalent and no general contract layer; execution is a
   fixed set of operation types rather than deployed code.
-- **LEZ**: Programs are deployed and executed, and a state-diff computation runs
-  one against state without applying it [[119]](#ref-119), but nothing on the
-  RPC surface reaches it.
+- **LEZ**: Programs are deployed and executed, but nothing reachable runs one
+  and returns its output. The wallet's local dry run returns only the cycles a
+  public transaction would be charged and whether it would fail, and the
+  settlement routine that computes a state diff on a scratch copy of state runs
+  only inside block production [[119]](#ref-119).
 
 ### 1.11 Get the validator or committee set
 
@@ -563,8 +590,12 @@ light-client verification.
   service-type enumeration having a single variant [[119]](#ref-119);
   Cryptarchia leadership is a private lottery, so there is no committee to
   enumerate.
-- **LEZ**: The zone has one sequencer, so there is no set to return, and no
-  method reports that sequencer's identity or signing key.
+- **LEZ**: The zone has a sequencer committee: the keys staked through the
+  `sequencer_stake` program, mirrored to the Bedrock channel as its accredited
+  keys [[119]](#ref-119). No method returns the set or a sequencer's identity;
+  the set is held as the Borsh-encoded actor state of a system account, so a
+  client reaches it only through a general account read and its own decoding
+  [[119]](#ref-119).
 
 ### 1.12 Fetch construction parameters
 
@@ -612,10 +643,12 @@ with the parameter rather than having to compute it [[25]](#ref-25).
   for wallet-held keys, a third party cannot fetch what it needs to construct a
   transaction.
 - **LEZ**: No FFI exposes a nonce or other construction parameter as such.
-  `getAccountsNonces` exists on the sequencer RPC without an FFI export, and the
-  indexer's account record carries a nonce that `query_account` returns with no
-  expiry or validity window [[120]](#ref-120). Nonce selection stays inside the
-  wallet core, reachable only by submitting through the transfer functions.
+  `getAccountsNonces` and `getFeeState` exist on the sequencer RPC without an
+  FFI export [[120]](#ref-120), and the account record carries a nonce that
+  `query_account` returns; only a privacy-preserving transaction carries a block
+  and a timestamp validity window [[115]](#ref-115). Nonce and fee selection
+  stay inside the wallet core, reachable only by submitting through the transfer
+  and generic transaction functions.
 
 ### 1.13 Build an unsigned transaction
 
@@ -703,9 +736,9 @@ directions.
   crate and are never re-exported through a handler [[119]](#ref-119), so a
   non-Rust client must reimplement the layout to compute a hash or verify what
   it signed.
-- **LEZ**: Borsh codecs exist as library methods but none is an RPC method; the
-  only encoding helper exposed over FFI converts instruction bytes to prover
-  words and has no decode counterpart [[119]](#ref-119).
+- **LEZ**: Borsh codecs exist as library methods but none is an RPC or FFI
+  method. Both FFIs pass transactions as C structures converted inside the
+  library, and no encoding helper is exported [[120]](#ref-120).
 
 ### 1.15 Simulate transaction execution
 
@@ -769,9 +802,14 @@ offers, and a Zcash sender learns a transaction's fate only from submission.
 
 - **Logos L1**: No simulation of any kind; a transaction's outcome is knowable
   only after inclusion.
-- **LEZ**: A validation routine returns a state diff without applying it, but
-  its only caller is the block builder [[119]](#ref-119), so the primitive a
-  simulation method would wrap exists and is unreachable over RPC.
+- **LEZ**: The wallet dry-runs a public transaction locally rather than on the
+  sequencer: `simulate_public_transaction` runs its action at the declared gas
+  limit and returns the cycles it would be charged and, on failure, why, without
+  checking signatures, nonces, or validity windows and without returning a state
+  diff [[119]](#ref-119). It is reached only through the command-line wallet's
+  `--dry-run` flag, not through either FFI or a module [[119]](#ref-119). The
+  settlement routine that does compute a state diff without committing it runs
+  only inside block production [[119]](#ref-119).
 
 ### 1.16 Estimate execution cost
 
@@ -800,9 +838,13 @@ can set a sufficient limit.
   calculation lives in the core library [[119]](#ref-119), and because execution
   gas depends on proof length a client must reimplement that accounting to
   predict a fee.
-- **LEZ**: There is no cost to estimate: transactions carry no fee field and
-  fees are unimplemented, with execution bounded by a fixed cycle cap instead
-  [[119]](#ref-119).
+- **LEZ**: Transactions carry a fee, metered in two dimensions: execution gas in
+  zkVM cycles and storage gas in bytes [[119]](#ref-119). A public transaction
+  declares a gas limit, a tip, and a cap on its fee reserve [[115]](#ref-115),
+  and a privacy-preserving one is charged a fixed verification and storage cost
+  plus the cycles of its public part [[119]](#ref-119). No method estimates
+  either; the nearest is the wallet's local dry run, reachable from the command
+  line only [[119]](#ref-119).
 
 ### 1.17 Estimate the fee or fee rate
 
@@ -821,7 +863,7 @@ confirms without overpaying.
 | NEAR     | `gas_price` [[13]](#ref-13)                                                      |
 | Sui      | `suix_getReferenceGasPrice` [[17]](#ref-17)                                      |
 | Logos L1 | `GET /mantle/gas-prices` [[19]](#ref-19)                                         |
-| LEZ      | [NOT FOUND] as a fee-estimation method [[21]](#ref-21)                           |
+| LEZ      | `getFeeState`, base fees and caps only [[21]](#ref-21)                           |
 
 **Why it exists.** EIP-1559 states the problem it set out to solve: first-price
 auctions require "complex fee estimation algorithms" that "often end up not
@@ -834,8 +876,12 @@ base fee was introduced so that wallets could "auto-set gas fees reliably"
 - **Logos L1**: `/mantle/gas-prices` returns two input prices and the tip they
   were read at [[119]](#ref-119), with no fee for a given transaction or size,
   and no history or percentile from which to choose a priority fee.
-- **LEZ**: No fee model exists to price: the only fee in the system is the L1
-  cost the sequencer pays to publish [[119]](#ref-119).
+- **LEZ**: `getFeeState` returns the execution and storage base fees at a stated
+  height, the band within which the next block's may move, and the per-block gas
+  caps [[21]](#ref-21)[[119]](#ref-119), but no fee for a given transaction, and
+  no history or percentile from which to choose the tip a public transaction
+  declares. It has no FFI export; the wallet reads it internally when pricing a
+  transaction [[120]](#ref-120).
 
 ### 1.18 Sign a transaction
 
@@ -883,8 +929,10 @@ security risks due to the tight integration of components" [[110]](#ref-110).
   CORS to any origin [[119]](#ref-119), and neither signing route appears in the
   served OpenAPI document.
 - **LEZ**: Signing is client side, and the wallet FFI offers no signature-only
-  export, so every exported path builds, signs, and submits in one call
-  [[119]](#ref-119).
+  export, so every exported wallet path builds, signs, and submits in one call
+  [[120]](#ref-120). The sequencer FFI's `sequencer_ffi_send_transaction`
+  accepts a transaction signed elsewhere, but only in an application hosting its
+  own sequencer [[120]](#ref-120).
 
 ### 1.19 Sign an arbitrary message
 
@@ -1008,9 +1056,16 @@ the transaction will be processed or confirmed" [[42]](#ref-42).
 - **Logos L1**: The submission route returns an empty body [[119]](#ref-119), so
   unlike every surveyed chain it yields no identifier to track the transaction
   by, while the Blend route does return one [[119]](#ref-119).
-- **LEZ**: `sendTransaction` returns the transaction hash but no acceptance
-  code, position, or reason [[21]](#ref-21), so a caller learns only that the
-  node accepted it into a queue.
+- **LEZ**: `sendTransaction` returns the transaction hash but no position
+  [[21]](#ref-21), so a caller learns only that the node accepted it into a
+  queue. Rejections are typed in part: a full mempool and a privacy-preserving
+  fee reserve below the current fee carry codes of their own, `-31900` and
+  `-31901`, while an oversized, malformed, sequencer-only, or underpaying
+  transaction is `InvalidParams` with free text
+  [[55]](#ref-55)[[119]](#ref-119). The sequencer FFI's
+  `sequencer_ffi_send_transaction` also returns the hash, and reports every
+  failure as `QueryError` [[119]](#ref-119). An accepted transaction is
+  published to peer sequencers by gossip [[119]](#ref-119).
 
 ### 1.22 Pre-submission acceptance check
 
@@ -1038,9 +1093,12 @@ broadcasting, so a doomed transaction fails locally and cheaply.
 - **Logos L1**: No standalone check; validation happens on submission, and with
   an empty response body a rejection is distinguishable only by HTTP status and
   free text.
-- **LEZ**: No standalone check, though submission runs a real one and reports it
-  with a reason [[119]](#ref-119); the state-level check that would predict
-  execution failure is not reachable over RPC [[119]](#ref-119).
+- **LEZ**: No standalone check, though submission runs a size check, the
+  stateless check, and a fee admission screen against the head state, and
+  reports each with a reason [[119]](#ref-119). The settlement that would
+  predict execution failure is not reachable over RPC or FFI, and the wallet's
+  local dry run covers only a public transaction's action, from the command line
+  [[119]](#ref-119).
 
 ### 1.23 Submit a batch or package of transactions
 
@@ -1082,8 +1140,8 @@ API.
 - **Logos L1**: No batch submission, consistent with the survey; batching is
   expressed as multiple operations within one transaction.
 - **LEZ**: No batch submission, and no in-transaction batching either: a public
-  transaction carries one program invocation [[115]](#ref-115), so LEZ lacks
-  both forms the survey found elsewhere.
+  transaction carries one root call [[115]](#ref-115), so LEZ lacks both forms
+  the survey found elsewhere.
 
 ### 1.24 Get transaction status
 
@@ -1128,11 +1186,16 @@ has settled unless both implement the same ZIP.
   documented as best-effort, so `Unknown` conflates never-seen, mined, and
   evicted; the response is positional with no hash echoed back, and its declared
   OpenAPI type differs from what the service returns [[119]](#ref-119).
-- **LEZ**: The reachable status call is `poll_transaction_status`, which returns
-  a bare boolean meaning found or not found [[120]](#ref-120), conflating
-  never-seen, pending, and rejected. The `Pending`, `Safe`, and `Finalized`
-  marker lives on the block [[115]](#ref-115), so a confirmation level costs a
+- **LEZ**: The reachable status call is `poll_transaction_status`, which polls
+  until the transaction appears or a retry budget runs out and returns a bare
+  boolean [[119]](#ref-119)[[120]](#ref-120), conflating never-seen, pending,
+  and rejected. The `Pending`, `Safe`, and `Finalized` marker lives on the
+  block, and the indexer stamps every block it stores `Finalized`
+  [[115]](#ref-115)[[119]](#ref-119), so a confirmation level costs a
   transaction fetch and then a block fetch on the separate indexer stack.
+  Whether the action reverted is recorded only as a list of indices on the
+  stored block, which neither FFI block type carries
+  [[115]](#ref-115)[[120]](#ref-120).
 
 ### 1.25 Wait for a chosen confirmation level
 
@@ -1188,10 +1251,10 @@ assumptions" [[11]](#ref-11).
 - **Logos L1**: No wait or per-transaction subscription, so confirmation means
   polling; with no identifier returned at submission the caller derives the hash
   itself first.
-- **LEZ**: No FFI exposes a wait. The retry and delay budget lives inside the
-  wallet core, below the boundary; an application polls
-  `poll_transaction_status` itself [[120]](#ref-120), and its boolean return
-  offers no confirmation level to wait on.
+- **LEZ**: No FFI exposes a wait for a chosen level. `poll_transaction_status`
+  blocks inside the wallet core on a configured delay and retry budget
+  [[119]](#ref-119), and its boolean return offers no confirmation level to wait
+  on [[120]](#ref-120).
 
 ### 1.26 Inspect the mempool or pending set
 
@@ -1220,7 +1283,9 @@ Lists transactions the node holds but has not yet included in a block.
   set.
 - **LEZ**: The sequencer holds a bounded mempool but the service uses its handle
   only to push [[119]](#ref-119); the only external visibility is a metrics
-  gauge, so a submitted transaction is unobservable until it appears in a block.
+  gauge. Transactions also arrive from peer sequencers by gossip
+  [[119]](#ref-119), so a submitted transaction may sit in several pending sets,
+  none of them observable, until it appears in a block.
 
 ### 1.27 Get execution effects and state changes
 
@@ -1293,9 +1358,14 @@ requires a great deal of raw string matching and parsing" [[106]](#ref-106).
   only three transaction payload variants exist, all deposit or reward specific
   [[119]](#ref-119), so ordinary transfers produce no effects record and there
   is no success or failure indicator.
-- **LEZ**: No effects view; the nearest is the post-state account snapshot
-  inside a privacy-preserving transaction's public actions [[115]](#ref-115),
-  which is a snapshot rather than a delta and absent from public transactions.
+- **LEZ**: No effects view. A privacy-preserving transaction carries no public
+  post-states: the node executes its public part, as it executes a public
+  transaction [[115]](#ref-115)[[119]](#ref-119). Execution yields a state diff
+  of post-states only, with no pre-states, which is applied and discarded
+  [[119]](#ref-119). What persists is the list of transactions whose action
+  reverted, kept on the stored block and returned by no FFI block type; a source
+  comment records per-transaction receipts carrying status and fee as not yet
+  exposed [[115]](#ref-115)[[119]](#ref-119).
 
 ### 1.28 Query contract events or logs
 
@@ -1339,15 +1409,16 @@ query can therefore succeed against one client and fail against another.
 - **Logos L1**: Events are retrievable one block at a time with no filter by
   address, type, or range [[119]](#ref-119), so following an account means
   fetching and scanning every block.
-- **LEZ**: No gap at the pinned commit's successor. At `47eba25` program output
-  carried state and chained calls only [[119]](#ref-119), but an event system
-  has since merged to the default branch: `ProgramOutput` gained an `events`
-  field, and events are queryable by `getEvents`, by a `subscribeToEvents`
-  subscription, and over the FFI as `query_events`, filtered by block range,
-  transaction hash, program, and selector [[121]](#ref-121). Two limits remain:
-  events are dropped for privacy-preserving transactions, and an indexer
-  captures only what its configured event filter matches, so availability is a
-  deployment property rather than a protocol guarantee.
+- **LEZ**: No gap in the protocol. Events are queryable by `getEvents`, by a
+  `subscribeToEvents` subscription, and over the indexer FFI as `query_events`,
+  filtered by block range, transaction hash, program, and selector
+  [[121]](#ref-121). Events from the public part of a privacy-preserving
+  transaction are captured like any other, while execution inside the proof
+  yields none the node can see [[121]](#ref-121). Two limits remain: an indexer
+  captures only what its configured event filter matches, and the default filter
+  matches nothing, so availability is a deployment property rather than a
+  protocol guarantee [[121]](#ref-121); and the indexer module does not wrap
+  `query_events` [[120]](#ref-120).
 
 ### 1.29 Read historical state at a past version
 
@@ -1394,10 +1465,12 @@ guarantee/SLA that objects with past versions can be retrieved by this API"
 - **Logos L1**: A tip parameter pins three routes, but two are wallet-scoped
   [[119]](#ref-119), so pinned reads are unavailable for third-party state; no
   route declares a retention floor.
-- **LEZ**: No FFI exposes a pinned read. `getAccountAtBlock` exists on the
-  indexer RPC but is not among the eight exported queries [[120]](#ref-120), so
-  every account read an application can make is against current state, and
-  neither stack declares a retention floor.
+- **LEZ**: No FFI exposes a pinned read. `getAccountAtBlock` and
+  `getAccountViewAtBlock` exist on the indexer RPC but are not among the nine
+  exported queries [[120]](#ref-120), so every account read an application can
+  make is against current state. The indexer serves a pinned read by replaying
+  blocks from the nearest stored state snapshot, and neither stack declares a
+  retention floor [[119]](#ref-119).
 
 ### 1.30 Paginate a result set
 
@@ -1439,9 +1512,10 @@ uses both a cursor and an offset idiom in one interface.
 - **Logos L1**: No cursor is exposed; the headers route silently truncates at
   512 entries with no indication of truncation, and the blocks route derives its
   limit from the requested slot range with no server cap [[119]](#ref-119).
-- **LEZ**: Two idioms coexist, a cursor on `getBlocks` and a numeric offset on
-  `getTransactionsByAccount` [[22]](#ref-22), and neither returns a total, a
-  next position, or an indication that more remain.
+- **LEZ**: Two idioms coexist, a cursor on `getBlocks` and `query_block_vec` and
+  a numeric offset on `getTransactionsByAccount` and
+  `query_transactions_by_account` [[22]](#ref-22)[[120]](#ref-120), and neither
+  returns a total, a next position, or an indication that more remain.
 
 ### 1.31 Query historical transactions for an address
 
@@ -1484,9 +1558,10 @@ from heights it has already scanned, and no method returns a next position.
 
 - **Logos L1**: No address-history method, and because the only account-scoped
   read is wallet-scoped there is no first-party path to an address's history.
-- **LEZ**: `getTransactionsByAccount` covers this on the indexer
-  [[22]](#ref-22), though offset paging over a growing set can skip or repeat
-  entries as new transactions land ahead of the offset.
+- **LEZ**: `getTransactionsByAccount` covers this on the indexer, and its FFI
+  exports it as `query_transactions_by_account`
+  [[22]](#ref-22)[[120]](#ref-120), though offset paging over a growing set can
+  skip or repeat entries as new transactions land ahead of the offset.
 
 ### 1.32 Subscribe to new blocks and to events
 
@@ -1534,9 +1609,9 @@ why it appears again under stream resumption below.
   every block in full.
 - **LEZ**: No FFI exposes a subscription. `subscribeToFinalizedBlocks` and
   `subscribeToEvents` both exist on the indexer RPC without an FFI export
-  [[121]](#ref-121), the indexer FFI is request-response only, and the indexer
-  module declares no signals [[120]](#ref-120), so an application follows the
-  chain by polling.
+  [[22]](#ref-22)[[121]](#ref-121), neither the indexer FFI nor `core_ffi` takes
+  a callback, and the indexer module declares no signals [[120]](#ref-120), so
+  an application follows the chain by polling.
 
 ### 1.33 Resume a stream from a known position
 
@@ -1590,29 +1665,30 @@ switching to the range route rather than resuming the stream itself.
   batch-size hint [[84]](#ref-84), better supported than most of the survey; the
   live stream accepts no position, so resuming means switching routes and
   reconciling the overlap.
-- **LEZ**: There is no stream to resume, because no FFI exposes a subscription.
-  Following the chain means repeated `query_last_block` and `query_block_vec`
-  calls [[120]](#ref-120), with the consumer holding its own position
-  throughout.
+- **LEZ**: There is no stream to resume, because no FFI exposes a subscription,
+  and the RPC block subscription takes no arguments and yields a block
+  identifier alone [[22]](#ref-22). Following the chain means repeated
+  `query_last_block` and `query_block_vec` calls [[120]](#ref-120), with the
+  consumer holding its own position throughout.
 
 ### 1.34 Structured errors and a code taxonomy
 
 Returns failures in a machine-readable shape, ideally with a defined code set so
 clients can branch on failure type rather than parsing strings.
 
-| Chain    | Envelope                                                | Code taxonomy                                             |
-| -------- | ------------------------------------------------------- | --------------------------------------------------------- |
-| Ethereum | JSON-RPC 2.0 error object [[43]](#ref-43)               | JSON-RPC codes [[43]](#ref-43)                            |
-| Bitcoin  | JSON-RPC error object [[3]](#ref-3)                     | JSON-RPC codes [[43]](#ref-43)                            |
-| Zcash    | JSON-RPC error object [[122]](#ref-122)                 | Bitcoin-inherited numeric codes [[127]](#ref-127)         |
-| Solana   | JSON-RPC 2.0 error object [[43]](#ref-43)               | JSON-RPC codes [[43]](#ref-43)                            |
-| XRPL     | dedicated error format [[53]](#ref-53)                  | named string codes [[53]](#ref-53)                        |
-| Cosmos   | gRPC status [[54]](#ref-54)                             | gRPC canonical codes [[54]](#ref-54)                      |
-| Stellar  | JSON-RPC 2.0 error object [[43]](#ref-43)               | JSON-RPC codes [[43]](#ref-43)                            |
-| NEAR     | JSON-RPC 2.0 error object [[43]](#ref-43)               | JSON-RPC codes [[43]](#ref-43)                            |
-| Sui      | JSON-RPC and gRPC status [[43]](#ref-43)[[54]](#ref-54) | JSON-RPC and gRPC codes [[43]](#ref-43)[[54]](#ref-54)    |
-| Logos L1 | HTTP status with an error body [[19]](#ref-19)          | [NOT FOUND] as a defined taxonomy                         |
-| LEZ      | JSON-RPC error object [[21]](#ref-21)                   | standard codes only, no application codes [[55]](#ref-55) |
+| Chain    | Envelope                                                | Code taxonomy                                           |
+| -------- | ------------------------------------------------------- | ------------------------------------------------------- |
+| Ethereum | JSON-RPC 2.0 error object [[43]](#ref-43)               | JSON-RPC codes [[43]](#ref-43)                          |
+| Bitcoin  | JSON-RPC error object [[3]](#ref-3)                     | JSON-RPC codes [[43]](#ref-43)                          |
+| Zcash    | JSON-RPC error object [[122]](#ref-122)                 | Bitcoin-inherited numeric codes [[127]](#ref-127)       |
+| Solana   | JSON-RPC 2.0 error object [[43]](#ref-43)               | JSON-RPC codes [[43]](#ref-43)                          |
+| XRPL     | dedicated error format [[53]](#ref-53)                  | named string codes [[53]](#ref-53)                      |
+| Cosmos   | gRPC status [[54]](#ref-54)                             | gRPC canonical codes [[54]](#ref-54)                    |
+| Stellar  | JSON-RPC 2.0 error object [[43]](#ref-43)               | JSON-RPC codes [[43]](#ref-43)                          |
+| NEAR     | JSON-RPC 2.0 error object [[43]](#ref-43)               | JSON-RPC codes [[43]](#ref-43)                          |
+| Sui      | JSON-RPC and gRPC status [[43]](#ref-43)[[54]](#ref-54) | JSON-RPC and gRPC codes [[43]](#ref-43)[[54]](#ref-54)  |
+| Logos L1 | HTTP status with an error body [[19]](#ref-19)          | [NOT FOUND] as a defined taxonomy                       |
+| LEZ      | JSON-RPC error object [[21]](#ref-21)                   | standard codes plus two sequencer codes [[55]](#ref-55) |
 
 **Why it exists.** EIP-1193 shows the wallet-layer extension of the idea,
 defining provider codes on top of JSON-RPC: 4001 User Rejected Request, 4100
@@ -1653,8 +1729,9 @@ as `TransactionError::SignatureFailure` instead of being thrown as a JSON RPC
 API error (-32003)" [[104]](#ref-104). Transport failures and execution outcomes
 are different things, and moving one to the other is a breaking change.
 
-LEZ constructs errors with the standard JSON-RPC `InternalError` code and a
-free-text message, with no application code space, category, or retryability
+LEZ constructs most errors with the standard JSON-RPC `InternalError` or
+`InvalidParams` code, a short name as the message, and free-text detail; the
+sequencer adds two codes of its own, and there is no category or retryability
 signal [[55]](#ref-55).
 
 ## 2. RPC and Transport Types
@@ -1908,12 +1985,19 @@ recommendation about what should be built.
 The Potential gaps notes in section 1 are written against the module and FFI
 boundary rather than the service RPC, because that boundary is what an
 application reaches. A capability present on the LEZ sequencer or indexer RPC
-but absent from every FFI is therefore recorded as a gap. Four indexer methods
-stop at that boundary (`getAccountAtBlock`, `subscribeToFinalizedBlocks`,
-`getSchema`, `checkHealth`), and six sequencer methods have no indexer
-counterpart and no FFI export (`sendTransaction`, `getAccountBalance`,
-`getAccountsNonces`, `getProofsAndRoot`, `getProgramIds`, `getChannelId`). The
-surfaces themselves are inventoried in
+but absent from every FFI is therefore recorded as a gap. Eight indexer entries
+stop at that boundary (`getAccountAtBlock`, `getAccountSummary`,
+`getAccountView`, `getAccountViewAtBlock`, `subscribeToFinalizedBlocks`,
+`subscribeToEvents`, `getSchema`, `checkHealth`). Twelve sequencer methods have
+no indexer counterpart. Of those, `sendTransaction` is exported by the sequencer
+FFI, `getAccountBalance` is relayed for public accounts by the wallet FFI's
+`get_balance`, and `getPublications` reaches an application only filtered to a
+wallet's own keys through the pending-message functions; `getFeeState`,
+`getAccountsNonces`, `getMessagePath`, `getRecoveryBinding`, `getProofsAndRoot`,
+`getProgramIds`, `getChannelId`, and the two cross-zone dead-letter methods have
+no FFI export. Both Logos Core modules are built against LEZ `v0.3.1`, so what
+an application reaches through a module is that release's surface rather than
+the default branch's. The surfaces themselves are inventoried in
 [Appendix: Logos API Surfaces](./logos-api-surfaces.md) [[120]](#ref-120).
 
 ### 4.1 Absent on both targets
@@ -1932,7 +2016,9 @@ surfaces themselves are inventoried in
 
 Simulation is the widest gap: six of the nine surveyed chains execute a
 transaction and return its outcome without committing it, and neither Logos
-target does. Pre-submission checking and read-only calls follow at six of nine.
+target does as a node method; the nearest is the LEZ wallet's local dry run of a
+public transaction [[119]](#ref-119). Pre-submission checking and read-only
+calls follow at six of nine.
 
 Network identification is absent on Logos L1 alone: all nine surveyed chains
 expose it, and LEZ exposes `getChannelId` [[21]](#ref-21).
@@ -1946,9 +2032,9 @@ expose it, and LEZ exposes `getChannelId` [[21]](#ref-21).
 | Get execution effects         | L1 block scoped, no per-transaction effects view [[19]](#ref-19); LEZ absent [[21]](#ref-21)                                                   |
 | Paginate a result set         | LEZ mixes a cursor idiom and an offset idiom in one interface [[22]](#ref-22)                                                                  |
 | Subscribe to new blocks       | Live streams accept no start position on either target; L1 offers a separate bounded range route [[19]](#ref-19)[[84]](#ref-84)[[22]](#ref-22) |
-| Structured errors             | LEZ uses stock JSON-RPC codes with free text, no taxonomy [[55]](#ref-55)                                                                      |
+| Structured errors             | LEZ uses stock JSON-RPC codes plus two sequencer codes, no taxonomy [[55]](#ref-55)                                                            |
 | Query historical transactions | LEZ indexer only, offset paginated [[22]](#ref-22)                                                                                             |
-| Estimate the fee or fee rate  | L1 serves gas-price inputs, not an estimate for given bytes [[19]](#ref-19)                                                                    |
+| Estimate the fee or fee rate  | L1 serves gas-price inputs, not an estimate for given bytes [[19]](#ref-19); LEZ serves base fees and caps [[21]](#ref-21)                     |
 
 ### 4.3 Present and comparable
 
@@ -2020,10 +2106,12 @@ and carries no resume anchor [[81]](#ref-81).
      and `nodes/node/binary/src/api/backend.rs:215`, commit `ecb2cc6`.
      https://github.com/logos-blockchain/logos-blockchain
 021. <a id="ref-21"></a>logos-execution-zone,
-     `lez/sequencer/service/rpc/src/lib.rs`, commit `47eba25`.
+     `lez/sequencer/service/rpc/src/lib.rs:17-22` (error codes) and `:46-168`
+     (methods), commit `3d3bac3e2`.
      https://github.com/logos-blockchain/logos-execution-zone
 022. <a id="ref-22"></a>logos-execution-zone,
-     `lez/indexer/service/rpc/src/lib.rs`, commit `47eba25`.
+     `lez/indexer/service/rpc/src/lib.rs:13-41` (`getSchema` roots) and
+     `:44-124` (methods and subscriptions), commit `3d3bac3e2`.
      https://github.com/logos-blockchain/logos-execution-zone
 023. <a id="ref-23"></a>Ethereum, "JSON-RPC API" documentation.
      https://ethereum.org/en/developers/docs/apis/json-rpc/
@@ -2091,7 +2179,11 @@ and carries no resume anchor [[81]](#ref-81).
 054. <a id="ref-54"></a>gRPC, "Status codes and their use in gRPC".
      https://grpc.io/docs/guides/status-codes/
 055. <a id="ref-55"></a>logos-execution-zone,
-     `lez/indexer/service/src/service.rs:343-349`, commit `47eba25`.
+     `lez/indexer/service/src/service.rs:759-844` (indexer error constructors),
+     `:200-210` and `:274` (an unknown transaction as an empty success and as
+     `InvalidParams`), and `lez/sequencer/service/rpc/src/lib.rs:17-22` with
+     `lez/sequencer/actors/rpc_server/src/actor/service.rs:368-416` (sequencer
+     codes and their mapping), commit `3d3bac3e2`.
      https://github.com/logos-blockchain/logos-execution-zone
 056. <a id="ref-56"></a>Ethereum, "EIP-1193: Ethereum Provider JavaScript API".
      https://eips.ethereum.org/EIPS/eip-1193
@@ -2214,7 +2306,11 @@ and carries no resume anchor [[81]](#ref-81).
 114. <a id="ref-114"></a>Anza, "Remove support for deprecated rpc endpoints",
      agave PR 1809. https://github.com/anza-xyz/agave/pull/1809
 115. <a id="ref-115"></a>logos-execution-zone,
-     `lez/indexer/service/protocol/src/lib.rs:444`, commit `47eba25`.
+     `lez/indexer/service/protocol/src/lib.rs`, commit `3d3bac3e2`: account and
+     actor states at `:100-127`, block and bedrock status at `:171-176`, block
+     body and reverted indices at `:207-213`, public message, its single root
+     call, and its fee declaration at `:252-268`, privacy-preserving message and
+     validity windows at `:323-361`, and indexer status at `:633-647`.
      https://github.com/logos-blockchain/logos-execution-zone
 116. <a id="ref-116"></a>Cosmos SDK, "ADR-019: Protocol Buffer State Encoding".
      https://raw.githubusercontent.com/cosmos/cosmos-sdk/main/docs/architecture/adr-019-protobuf-state-encoding.md
@@ -2233,32 +2329,73 @@ and carries no resume anchor [[81]](#ref-81).
   duplicated [119], and five error variants collapse every internal failure into
   one message string, so the first-party client resorts to substring matching to
   detect a missing channel [119].
-- **LEZ**: Standard JSON-RPC codes plus one ad-hoc constant used at a single
-  call site [119], with the data field always empty; the same not-found
-  condition is signalled as that code in one method and as an empty success
-  elsewhere.
+- **LEZ**: Standard JSON-RPC codes, with the indexer naming the failure in the
+  message (`DBError`, `UnknownTransaction`, `UncoveredEventQuery`) and putting
+  detail in the data field, plus two sequencer codes: `-31900` for a full
+  mempool and `-31901` for a fee reserve below the current fee [[55]](#ref-55).
+  The same not-found condition is signalled differently across methods: an
+  unknown transaction hash is `InvalidParams` from `getEvents` and an empty
+  success from `getTransaction` [[55]](#ref-55).
 
 119. <a id="ref-119"></a>Source read for the per-function gap notes, at commit
-     `ecb2cc6` (logos-blockchain) and `47eba25` (logos-execution-zone). Files
+     `ecb2cc6` (logos-blockchain) and `3d3bac3e2` (logos-execution-zone). Files
      cited include `nodes/node/binary/src/api/openapi.rs`,
      `nodes/node/binary/src/api/errors.rs`, `nodes/node/binary/src/version.rs`,
      `services/api/src/http/mempool.rs`, `services/api/src/http/mantle.rs`,
-     `services/tx-service/src/backend/mod.rs`, `core/src/sdp/mod.rs`,
-     `core/src/mantle/gas.rs`, `lez/sequencer/service/src/service.rs`,
-     `lez/common/src/transaction.rs`, and `lez/wallet/src/poller.rs`.
+     `services/tx-service/src/backend/mod.rs`, `core/src/sdp/mod.rs`, and
+     `core/src/mantle/gas.rs`. LEZ files cited:
+     `lez/sequencer/actors/rpc_server/src/actor/service.rs:46-124` (submission
+     checks and gossip publish), `:137-139` (`checkHealth`), and `:280-288`
+     (`getProgramIds`); `lez/sequencer/actors/executor/src/actor.rs:258-279`
+     (fee screen and mempool push) and `src/protocol.rs:21-26` (gossip origin);
+     `lez/mempool/src/lib.rs:60-86` (push-only handle);
+     `lez/sequencer/core/src/lib.rs:1773-1787` (settlement on a scratch state)
+     and `:2076` (mempool gauge);
+     `lez/sequencer/core/src/committee_discovery.rs:1-60` and `:134-147` with
+     `lez/programs/sequencer_stake/core/src/lib.rs:211-220` (committee);
+     `lez/chain_state/src/apply.rs:145-219`, `:344`, `:435-487`, and `:573-670`
+     (settlement, reverts, gas, fees);
+     `lez/programs/fee/core/src/market.rs:15-56` (gas caps and private costs);
+     `lee/state_machine/src/validated_state_diff/mod.rs:29-37`, `:62-67`, and
+     `:534-571` (state diff, charge, public-part settlement);
+     `lee/state_machine/src/privacy_preserving_transaction/circuit/mod.rs:433-442`
+     (`simulate_public_transaction`); `lez/wallet/src/lib.rs:2094-2175` (dry
+     run), `lez/wallet/src/cli/mod.rs:120` (`--dry-run`) and `:279-294` (health
+     check), `lez/wallet/src/poller.rs:13-60`, and
+     `lez/wallet/src/account_manager.rs:931` (`sign_message`);
+     `lee/state_machine/src/public_transaction/transaction.rs:63`
+     (`check_stateless`); `lez/core_ffi/src/wallet/account.rs:294-345`
+     (`get_balance`), `lez/core_ffi/src/wallet/generic_transaction.rs:468-503`
+     (`poll_transaction_status`),
+     `lez/core_ffi/src/sequencer/api/query.rs:142-160` and `:334-365` (sequencer
+     status and submission), and
+     `lez/core_ffi/src/sequencer_ffi_client.rs:157-187`;
+     `lez/indexer/core/src/block_store.rs:343-346` (finalised stamp) and
+     `lez/indexer/core/src/config.rs:30` (channel identifier);
+     `lez/storage/src/indexer/mod.rs:171-211` (pinned-read replay); and
+     `lez/common/src/block.rs:59-75` (reverted indices and the receipts note).
      https://github.com/logos-blockchain/logos-blockchain
+     https://github.com/logos-blockchain/logos-execution-zone
 120. <a id="ref-120"></a>Appendix: Logos API Surfaces, this repository, which
-     inventories the LEZ indexer FFI, indexer RPC, sequencer RPC, wallet FFI and
-     `lez_core` module, and the Logos L1 C bindings, HTTP routes, and module,
-     each read from source at the commits named there. ./logos-api-surfaces.md
-121. <a id="ref-121"></a>logos-execution-zone, LEZ program events, read on the
-     `dev` default branch at commit `b0cc48d`, after the pinned `47eba25`.
-     `ProgramEvent` and `ProgramOutput.events` at
-     `lee/state_machine/core/src/program/mod.rs`; `getEvents` and
-     `subscribeToEvents` at `lez/indexer/service/rpc/src/lib.rs`; `query_events`
-     at `lez/indexer/ffi/src/api/query.rs`; `EventRecord` and `GetEventsFilter`
-     at `lez/indexer/service/protocol/src/lib.rs`; the capture filter at
-     `lez/indexer/core/src/event_filter.rs`.
+     inventories the LEZ indexer FFI and module, indexer RPC, sequencer RPC,
+     core FFI (wallet and sequencer) and `lez_core` module, and the Logos L1 C
+     bindings, HTTP routes, and module, each read from source at the commits
+     named there. ./logos-api-surfaces.md
+121. <a id="ref-121"></a>logos-execution-zone, LEZ program events, commit
+     `3d3bac3e2`. `ProgramEvent` and `TransactionEvent` at
+     `lee/state_machine/core/src/program/mod.rs:701-720`; events collected from
+     the public part of execution at
+     `lee/state_machine/src/validated_state_diff/mod.rs:534-571`, with the
+     private part's outcome carrying none at
+     `lee/state_machine/core/src/execution_state.rs:110-119`; per-transaction
+     collection at `lez/chain_state/src/apply.rs:184-212` and `:266-280`;
+     `getEvents` and `subscribeToEvents` at
+     `lez/indexer/service/rpc/src/lib.rs:47-48` and `:113-117`; `query_events`
+     at `lez/indexer/ffi/src/api/query.rs:477`; `EventRecord`,
+     `GetEventsFilter`, and `EventSubscriptionFilter` at
+     `lez/indexer/service/protocol/src/lib.rs:672-716`; the capture filter and
+     its empty default at `lez/indexer/core/src/config.rs:83-94` and
+     `lez/indexer/core/src/event_filter.rs:45-57`.
      https://github.com/logos-blockchain/logos-execution-zone
 122. <a id="ref-122"></a>Zcash, "Zcash RPC Docs", generated payment API
      reference for zcashd 6.12.2. https://zcash.github.io/rpc/
