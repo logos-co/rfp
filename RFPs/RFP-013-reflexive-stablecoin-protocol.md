@@ -129,25 +129,40 @@ foundation for DeFi activity on LEZ.
 1. Build the program using the SPEL framework, which generates the IDL and
    client code from the program definition.
 
-2. Provide a Logos mini-app GUI with local build instructions, downloadable
-   assets, and loadable in Logos app (Basecamp) via git repo.
+2. Provide a CLI using the Logos Core headless framework and the core module
+   below. It covers opening positions, depositing and withdrawing collateral,
+   minting, partial and full repayment, closing, listing positions and recovery
+   on both public and private account paths.
 
-3. Provide a CLI that covers core functionality of the program. The CLI may have
-   fewer features than the GUI mini-app but must support all essential
-   operations.
+3. Expose current collateralization ratio, minimum safe ratio, projected
+   before/after outcomes, maximum withdrawable collateral and mintable debt, and
+   the redemption price at which a position reaches the minimum ratio through
+   the core module and CLI. Calculations use the program's arithmetic and
+   rounding and identify the time and chain-state snapshot they describe.
 
-4. Users can view current collateralization ratio, minimum safe ratio, and
-   projected outcomes of operations before executing them.
+4. Expose current redemption rate, redemption price, accrued stability fees, and
+   projected debt and collateralization ratio over a caller-selected horizon
+   through the core module and CLI. Projections state their assumptions,
+   including unchanged redemption and stability fee rates.
 
-5. Users can view current redemption rate, redemption price, and projected debt
-   growth from stability fees.
+5. Provide a Logos C++ core module for program operations and shared client
+   functionality, reusable by the CLI and QML ui modules. It supports public and
+   private account operations, including private funding and output return,
+   position discovery, recovery and the calculations above. It uses the LEZ core
+   module wallet for signing and key access. No separate SDK is required.
 
-6. Provide an SDK that can be used to build Logos modules for interacting with
-   the program. The SDK must support both public account operations and private
-   account operations via the standard deshield-interact-reshield pattern.
-
-7. Failed operations return clear, actionable error messages indicating why the
+6. Failed operations return clear, actionable error messages indicating why the
    operation was rejected.
+
+7. Derive position-owner accounts and nonces deterministically from the user's
+   wallet seed through the wallet. Document the derivation scheme, versioning,
+   discovery algorithm and scan termination rule, including handling of closed
+   positions, unused derivation gaps and interrupted creation. Nonces must not
+   be reused after closure. All positions created through the core module must
+   be recoverable on a fresh install from the seed and chain data alone, without
+   local cached state or a separately backed-up secret. The CLI and mini-app
+   consumers use the same scheme. Include recovery tests with at least 20
+   positions, including closed positions, gaps and interrupted operations.
 
 #### Reliability
 
@@ -188,26 +203,32 @@ foundation for DeFi activity on LEZ.
 3. CI must be green on the default branch.
 
 4. Every hard requirement in Functionality, Usability, Reliability, and
-   Performance has at least one corresponding test.
+   Performance and Privacy has at least one corresponding test.
 
 5. A README documents end-to-end usage: deployment steps, program addresses, and
-   step-by-step instructions for interacting with the program via CLI and
-   mini-app.
+   step-by-step instructions for interacting with the program via CLI, and core
+   module API documentation for UI integrators.
 
 #### + Privacy
 
-1. The mini-app and SDK must support both direct public account interaction and
-   the deshield-interact-reshield pattern for private account interaction. When
-   a user chooses the private account path, the SDK must enforce the complete
-   pattern — the reshield step must not be skippable.
+1. The core module and CLI support public and private account interaction. On
+   the private path, collateral and fees are funded from the user's private
+   account, and minted stablecoin and withdrawn collateral end in a private
+   account of the user. The module must not offer a completion path that leaves
+   these outputs public.
 
-2. When using the private account path, the SDK must validate that the target
-   account for reshielding is a private (shielded) account before submitting the
-   transaction, and reject the operation with an explicit error if it is not.
+2. The module validates that output return targets are private accounts. After
+   interruption, it detects incomplete operations and supports completing them
+   or returning funds to the user's private account. Recovery state must be
+   reconstructible from the seed and chain data.
 
-3. The ephemeral public account created during the deshield step must never be
-   reused across operations. Each protocol interaction from a private account
-   must use a freshly generated account with no prior on-chain history.
+3. On the private path, use one public owner account per position, retained for
+   subsequent operations on that position. Funding and fee-paying accounts must
+   not be shared across positions or with the user's public account activity. No
+   ownership, funding or fee-payment relationship recorded on-chain links these
+   accounts to the user's private account, other positions or public accounts.
+   Document the linkage of operations on the same position and residual amount,
+   timing and node-query correlations; this does not eliminate those inferences.
 
 ### Soft Requirements
 
@@ -236,6 +257,9 @@ The following are explicitly excluded from this RFP.
   [RFP-014](./RFP-014-liquidation-auction-engine.md)
 - Surplus/debt management auctions — addressed by
   [RFP-014](./RFP-014-liquidation-auction-engine.md)
+- The position-management mini-app, specified separately in
+  [RFP-033](./RFP-033-stablecoin-ui.md). The core module and CLI remain in
+  scope.
 - Multi-collateral positions
 - Private state positions (privacy via UX layer only)
 - Governance token design
@@ -247,36 +271,34 @@ architectural choice: public state enables permissionless liquidation, price
 feed integration, and composability without open cryptographic research
 challenges.
 
-User privacy is optionally enforced at the UX layer. The mini-app and SDK
-support both direct public account interaction and private account interaction
-via the deshield-interact-reshield pattern. When users opt to interact from a
-private account, the SDK must enforce the complete pattern as described below.
+The core module supports both public and private account paths. UI consumers use
+its private funding, signing, discovery and output-return capabilities rather
+than implementing a second account lifecycle.
 
 #### Interaction flow
 
-For every protocol operation (lock collateral, mint, repay, withdraw):
-
-1. The user initiates the action from their private account. The SDK deshields
-   to a fresh, single-use public account with no prior on-chain history. The
-   deshield atomically transfers both the operation token and enough native
-   token for gas in a single indivisible action.
-2. The ephemeral account executes the protocol operation.
-3. The ephemeral account shields any outputs back to the user's private account.
-   The account is never reused.
+For each private-path position operation, the module funds the operation and
+fees from a private account, executes the operation using the position's owner
+where required, and returns outputs to a private account. The position owner
+persists for that position only. Funding and fee-payment arrangements must meet
+the Privacy requirements above; the implementation mechanism is left to the
+proposer. Interrupted operations remain recoverable through the same module.
 
 #### What is public (observable on-chain)
 
 - All position state: collateral amounts, debt amounts, collateralization
   ratios.
-- All protocol operations and their amounts.
+- All protocol operations and their amounts, including links between operations
+  on the same position.
 - Price feeds and rate update events.
 
-#### What is private
+#### Privacy boundaries
 
-- Which private account funded any operation.
-- Where withdrawn assets go after reshielding.
-- Any link between multiple protocol interactions by the same user (no on-chain
-  linkability across ephemeral accounts).
+The private path must not record ownership, funding or fee-payment links to the
+user's private account, other positions or public accounts. Public amounts and
+timing may still be correlated, and a configured node may correlate queried
+accounts. Document these residual correlations and their mitigations. Seed
+recovery does not make position state private.
 
 ## Platform Dependencies
 
@@ -361,7 +383,7 @@ Team experienced with:
 - Interest rate modelling and control theory
 - Oracle integration and price feed security
 - Writing and running on-chain tests
-- Front-end development for DeFi applications
+- Logos C++ core module and CLI development
 
 ## Timeline Expectations
 
