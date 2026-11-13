@@ -3,7 +3,7 @@ note: This metadata is for internal programme tracking only. It is not part of t
 id: RFP-012
 title: Curated Lending Vaults
 tier: L
-status: closed
+status: open
 dependencies:
   - id: RFP-008
     reason: The vault layer allocates deposits across an isolated-market lending protocol with Morpho Blue semantics; RFP-008 specifies such a protocol and is an illustrative example.
