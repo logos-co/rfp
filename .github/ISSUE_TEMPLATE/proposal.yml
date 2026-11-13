@@ -98,7 +98,9 @@ body:
         • The payout amount (in USD) upon completion
         • The estimated duration or deadline
 
-        Include an **Audit milestone** if your project handles user funds, implements cryptographic primitives, or requires a security review before mainnet deployment.
+        Include an **Audit milestone** if your project handles user funds, implements cryptographic primitives, or requires a security review before mainnet deployment. An audit or independent security review milestone is required for RFPs with `security_tier: 2`.
+
+        Milestones that deliver a Logos Basecamp module are reviewed against a signed, immutable release identified by its `rootHash` (see [Security and Release Integrity](https://github.com/logos-co/rfp#security-and-release-integrity)).
 
   - type: textarea
     id: milestones
@@ -147,6 +149,17 @@ body:
       required: true
 
   - type: textarea
+    id: release-security
+    attributes:
+      label: Release Signing and Catalog
+      description: |
+        For RFPs that deliver a Logos Basecamp module. Give the GitHub organisation that will host your module catalog and, if you already have it, the `did:jwk:` signer DID (generated with `lgx keygen`). If you do not have the DID yet, it must be declared in the first milestone delivery. See [Security and Release Integrity](https://github.com/logos-co/rfp#security-and-release-integrity).
+      placeholder: |
+        Catalog: https://github.com/acme-labs/acme-logos-modules
+        Signer DID: did:jwk:...
+        Signing: inline (Actions secret) / external (HSM or hardware token)
+
+  - type: textarea
     id: maintenance
     attributes:
       label: Post-Delivery Plan
@@ -175,4 +188,6 @@ body:
         - label: I/We understand this project must be open-sourced under the MIT and Apache 2.0 Licenses unless explicitly approved otherwise.
           required: true
         - label: I/We are prepared to deliver milestone-based outcomes.
+          required: true
+        - label: I/We will follow the Security and Release Integrity requirements for this RFP's security tier, including publishing Basecamp modules only as signed, immutable GitHub releases that are never replaced in place.
           required: true

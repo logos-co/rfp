@@ -4,6 +4,11 @@ title: Project Title
 tier: XS/S/M/L/XL
 status: open/closed
 category: Developer Tooling & Infrastructure / Applications & Integrations / Ecosystem & Community Enablement
+# Security tier, as defined in README "Security and Release Integrity":
+# 0 = no secrets or user data, 1 = user data, 2 = keys or funds (including
+# wallets and AI agents that hold or can move funds). Use n/a only when the
+# RFP delivers no Logos Basecamp module.
+security_tier: 0/1/2/n/a
 dependencies:
   # Hard dependencies only: RFPs, Lambda Prizes (LP), platform
   # features, or R&D items (tracked in logos-co/journeys.logos.co)
@@ -146,6 +151,39 @@ Standard requirements (adapt as needed):
     and choice: the context, the options considered, the option chosen, and the
     rationale and trade-offs. The log is updated as decisions are made and is
     current at each milestone delivery.
+11. Logos Basecamp modules are built with
+    [`logos-module-builder`](https://github.com/logos-co/logos-module-builder)
+    and published to a module catalog forked from
+    [`logos-modules-release-base`](https://github.com/logos-co/logos-modules-release-base),
+    hosted on a GitHub organisation account.
+12. Releases follow
+    [Security and Release Integrity](../README.md#security-and-release-integrity)
+    for this RFP's `security_tier`: every `.lgx` is signed with `lgx sign` by a
+    signer DID declared up front, published as an immutable GitHub release, and
+    never replaced in place. Third-party GitHub Actions are pinned to commit
+    SHAs.
+13. Each milestone delivery includes a release integrity manifest (source commit
+    SHA, catalog URL, package and version, release URL, `rootHash`, SHA-256,
+    built variants, signer DID) and install instructions that give the exact
+    catalog URL, signer DID and `rootHash`.
+14. Build and demo scripts run without `--accept-flake-config`, extra Nix
+    substituters, unpinned remote scripts or reviewer credentials.
+
+#### Security
+
+Reference the tier instead of restating its rules. Keep the item that matches
+`security_tier` and remove the others:
+
+- Tier 1: the README includes a data-handling note: what the module stores or
+  sends, where, and how it is protected.
+- Tier 2: the Tier 2 requirements in
+  [Security and Release Integrity](../README.md#tier-2-requirements) apply: a
+  threat model in the first milestone, approval enforced in the core module, no
+  plaintext keys, spend caps enforced outside any agent, and an audit or
+  independent security review milestone.
+
+Add RFP-specific security requirements here (for example, which methods must
+only be callable by declared modules).
 
 ### Soft Requirements
 
