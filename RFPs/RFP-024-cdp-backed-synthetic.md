@@ -135,10 +135,6 @@ flowchart LR
   DEX that supports it, such as one implementing RFP-004. Its market price may
   differ from the price feed by whatever spread the market clears.
 
-This RFP contains **no atomic swap and no custody of the tracked asset**. A user
-who wants the real asset on its home chain sells sASSET on a DEX and acquires
-the asset elsewhere; a redemption extension is outside the scope of this RFP.
-
 ## Configuration and roles
 
 The program exposes the following as instance configuration, set when an
