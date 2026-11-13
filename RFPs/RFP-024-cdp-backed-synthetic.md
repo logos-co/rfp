@@ -73,10 +73,71 @@ engine. See
 §Oracle-priced over-collateralised synthetics.
 
 The program may be independently deployed and configured by those who choose to
-deploy it, and it targets LEZ testnet 0.4. Redemption of sASSET to the real
-asset on its home chain (for example through an atomic-swap extension using
-RFP-003) is outside the scope of this RFP and does not change the CDP mint
+deploy it. It is written for the LEZ v0.4 actor model, and the team deploys and
+tests it on LEZ testnet 0.4 (see Target platform below). Redemption of sASSET to
+the real asset on its home chain (for example through an atomic-swap extension
+using RFP-003) is outside the scope of this RFP and does not change the CDP mint
 mechanic.
+
+## Target platform: LEZ testnet 0.4 (required)
+
+The program must be written against the LEZ v0.4 actor program model, and the
+team deploys and tests it on LEZ testnet 0.4. Programs written for the v0.2.4
+account-rewriting model or the v0.3 `plan`/`apply` model do not meet this
+requirement. Until public testnet 0.4 endpoints are available, development and
+testing may use the latest v0.4 release candidate on a local chain
+(`v0.4.0-rc3`, tagged 2026-11-11, at the date of this specification); milestone
+acceptance takes place on LEZ testnet 0.4.
+
+The v0.4 model shapes the design as follows. Proposals explain how they handle
+each point.
+
+- **State is per actor.** A program sees only its own actor state on the account
+  a message is delivered to. Each position, the stability pool and each
+  synthetic's configuration are held as this program's actor state. Position and
+  pool state are kept in public accounts, so that any caller can check a
+  position's c-ratio and trigger its liquidation.
+- **Assets on testnet 0.4.** At `v0.4.0-rc3`, the built-in programs provide the
+  native token and bridge-wrapped tokens, but no general token program. The
+  sASSET token logic (mint, burn, transfer) is therefore either implemented by
+  the proposal, in its own program or within the vault program, or built against
+  a token implementation available on testnet 0.4; proposals state which. The
+  same applies to collateral: proposals state which assets they test with on
+  testnet 0.4 (the native token, a wrapped token, or a test token they deploy).
+- **Other programs' state is reached by message.** The vault does not read the
+  price feed's or a token program's data. It obtains prices and balances by
+  messaging the owning program, either as an assertion that fails the
+  transaction if false, or as a read request whose reply it handles in a later
+  message, checking that the reply comes from the actor it asked. Price
+  staleness can be checked against the clock program in the same way.
+- **Program addresses are configuration.** Programs are addressed by their
+  deployed `program_account_id`, which is known only after deployment, and the
+  same binary can be deployed more than once. The price-feed, collateral-token
+  and sASSET-token program addresses are therefore part of the instance
+  configuration (see Configuration and roles), never compile-time constants.
+- **Asset movements.** Collateral held by the vault sits in program-derived
+  accounts (PDAs) and moves through the owning token program, for example
+  `custody_transfer` for the native token. Credits are delivered as async
+  messages: a credit to a private account may be stored until its owner collects
+  it. Mint, burn and liquidation flows must not depend on such a credit landing
+  in the same transaction.
+- **Liquidation is atomic through sync messages.** The stability-pool burn, the
+  debt write-off and the collateral credit to pool depositors run as sync
+  messages within the liquidation transaction.
+- **Fees and reverts.** Every user public transaction carries a fee, and a
+  reverted transaction is included and charged. A caller who triggers a
+  liquidation that reverts (for example because another caller liquidated the
+  position first) pays for it. Proposals document this cost and how the
+  configured liquidation penalty relates to it.
+- **Events.** The program emits events for mint, burn, liquidation, stability
+  pool deposits and withdrawals, and configuration changes, so that off-chain
+  consumers can follow positions without decoding actor state.
+- **Private accounts.** Users may hold sASSET and collateral in private accounts
+  and interact from them through the v0.4 private-execution path. Position, pool
+  and vault state remain in public accounts.
+- **Tooling.** At the date of this specification, SPEL and logos-scaffold do not
+  target the v0.4 actor model. Proposals that rely on either state which
+  v0.4-compatible version they use.
 
 ## Comparison with federated and custody-backed designs
 
@@ -146,9 +207,10 @@ flowchart LR
   any caller can trigger liquidation. The position's debt is absorbed by the
   stability pool (below) and surplus collateral, less the configured penalty, is
   returned to the position owner.
-- **Trading.** sASSET is a standard LEZ token and can be traded on any LEZ DEX,
-  such as one implementing RFP-004. Its market price may differ from the price
-  feed by whatever spread the market clears.
+- **Trading.** sASSET is a fungible token on LEZ (see Target platform) and can
+  be traded on any LEZ DEX that supports it, such as one implementing RFP-004.
+  Its market price may differ from the price feed by whatever spread the market
+  clears.
 
 This RFP contains **no atomic swap and no custody of the tracked asset**. A user
 who wants the real asset on its home chain sells sASSET on a DEX and acquires
@@ -166,6 +228,8 @@ admin authority:
 - price-deviation and staleness guards;
 - any fees (mint, burn, stability or interest) and the account that receives
   them;
+- the deployed addresses of the price-feed, collateral-token and sASSET-token
+  programs the instance uses;
 - the admin and freeze authorities.
 
 No authority holder, fee recipient, price feed or production parameter value is
@@ -197,12 +261,12 @@ cannot.
 
 **Required baseline: a Liquity-style stability pool.** Depositors place sASSET
 in a pool. When a position falls below the threshold, the program burns sASSET
-from the pool against the position's debt in the same transaction and credits
-the seized collateral to pool depositors pro rata. Liquidation then does not
-depend on secondary-market sASSET depth, and the liquidation trigger is a
-function any caller can invoke. Because pool deposits and outstanding sASSET
-debt are both recorded on-chain, the instance can cap issuance relative to pool
-deposits.
+from the pool against the position's debt in the same transaction (through sync
+messages) and credits the seized collateral to pool depositors pro rata.
+Liquidation then does not depend on secondary-market sASSET depth, and the
+liquidation trigger is a function any caller can invoke. Because pool deposits
+and outstanding sASSET debt are both recorded on-chain, the instance can cap
+issuance relative to pool deposits.
 
 Proposals may describe alternative liquidation absorption mechanisms, but must
 explain how the mechanism handles the thin-secondary-market case above.
@@ -218,9 +282,9 @@ software supplied is reference software that third parties may choose to run.
   synthetics. A new synthetic requires a price-feed integration and parameter
   configuration, not a new program. Each instance and each listing still
   requires its own configuration and assessment.
-- **Composable.** sASSET is a standard LEZ token; lending markets, DEXes and
-  other LEZ programs can integrate it without coordinating with the synthetics
-  team.
+- **Composable.** sASSET is a fungible LEZ token with a documented message
+  interface; lending markets, DEXes and other LEZ programs can integrate it
+  without coordinating with the synthetics team.
 - **No atomic-swap interaction.** Mint and burn are LEZ-native operations, with
   no atomic-swap latency, maker discovery or counterparty interaction.
 - **Documented design references.** Existing CDP designs (Synthetix, MakerDAO,
@@ -243,10 +307,10 @@ software supplied is reference software that third parties may choose to run.
   behaviour under manipulation is not: ETH has several independent feeds, while
   a less liquid asset may have fewer feeds and weaker manipulation resistance.
   Each listing depends on the properties of its price feed.
-- **Mint, burn and vault state are public.** The token program and the CDP vault
-  are public state on LEZ. Interacting from a private account requires the
-  deshield-interact-reshield pattern; timing and amounts remain public and may
-  be correlated.
+- **Mint, burn and vault state are public.** Position, pool and vault state are
+  held in public accounts on LEZ. Users can interact from private accounts, but
+  the resulting position changes, timing and amounts are recorded in public
+  state and may be correlated.
 - **Demand for a non-redeemable synthetic.** Users who want the real asset may
   not be served by a debt position that only tracks its price. Proposals should
   include evidence of demand for the synthetics they demonstrate.
@@ -265,9 +329,10 @@ software supplied is reference software that third parties may choose to run.
   collateral volatility, and document the threat model of each collateral asset
   used in testing.
 - **Liquidation not executing.** If liquidation depends on profitable keeper
-  action, positions can become under-collateralised during fast price moves.
-  Mitigation: the stability-pool mechanism above, a liquidation trigger any
-  caller can invoke, and documented MEV considerations.
+  action, positions can become under-collateralised during fast price moves. On
+  LEZ, callers also pay for reverted liquidation attempts. Mitigation: the
+  stability-pool mechanism above, a liquidation trigger any caller can invoke,
+  and documented fee and MEV considerations.
 - **Secondary-market liquidity.** Demand to mint may exist without matching
   secondary-market liquidity for sASSET; tradability depends on LEZ DEX
   liquidity.
@@ -280,6 +345,7 @@ software supplied is reference software that third parties may choose to run.
 - Redemption of sASSET to the real asset on its home chain, including any
   atomic-swap redemption extension.
 - Custody of the tracked asset, or any bridge to its home chain.
+- Versions of the program for LEZ models earlier than v0.4.
 - Mainnet deployment. Mainnet deployment is not part of this RFP: whether, when
   and by whom the software is deployed is a matter for those who deploy it.
 - The identity of persons holding the admin and freeze authorities, and the
@@ -295,9 +361,15 @@ this specification. Specific RFPs and Lambda Prizes are named only as
 illustrative examples; proposals state which implementation they build against
 and how they would absorb an interface change.
 
+- **LEZ v0.4 core programs (available).** The native token, clock and fee
+  programs are part of the LEZ v0.4 core runtime.
+- **Fungible token implementation.** A token implementation on testnet 0.4 for
+  sASSET and for test collateral, or the proposal's own (see Target platform).
 - **Price feeds.** An ASSET/USD price feed on LEZ testnet 0.4 for each
-  demonstrated synthetic. RFP-019 (On-Chain TWAP Oracle) and RFP-020 (RedStone
-  Off-Chain Oracle Adaptor) specify examples of such feeds.
+  demonstrated synthetic, answering the vault's price messages. RFP-019
+  (On-Chain TWAP Oracle) and RFP-020 (RedStone Off-Chain Oracle Adaptor) specify
+  examples of such feeds. If no v0.4 price feed is available, proposals include
+  a test price-feed program for testnet use and say so.
 - **Admin and freeze authority.** Bounded admin and freeze capabilities for the
   configuration above. RFP-001 and RFP-002 specify examples.
 - **Lending-market position accounting (optional).** Proposals may implement CDP
@@ -324,6 +396,10 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [RFP-019 — On-Chain TWAP Oracle](./RFP-019-twap-oracle.md)
 - [RFP-020 — RedStone Off-Chain Oracle Adaptor for LEZ](./RFP-020-redstone-oracle-adaptor.md)
 - [appendix/synthetics-design-space.md](../appendix/synthetics-design-space.md)
+- [Logos Execution Zone repository](https://github.com/logos-blockchain/logos-execution-zone)
+  (`dev` branch and `v0.4.0-rc*` tags): the v0.4 actor program model.
+- [LEZ actor program development book](https://github.com/logos-blockchain/logos-execution-zone/tree/moudy/guide-mdbook-fixes/docs/actor-program-development-book/src)
+  (draft, branch `moudy/guide-mdbook-fixes`; some names lag `dev`).
 - [Synthetix SIP-302 (Pools V3)](https://sips.synthetix.io/sips/sip-302)
   (accessed 2026-05-22): CDP-minting reference for the sASSET design.
 - [Synthetix blog: Hadar release (sXMR ERC-20 and sibling oracle-priced synths, 2020-03-30)](https://blog.synthetix.io/new-synths-update-for-the-upcoming-hadar-release/)
