@@ -56,6 +56,23 @@ body:
     validations:
       required: true
 
+  - type: textarea
+    id: release-integrity
+    attributes:
+      label: Release Integrity Manifest
+      description: |
+        Required when the milestone delivers a Logos Basecamp module. Identify exactly the build delivered: the milestone is approved for this `rootHash`. Copy the values from the release sidecar JSON or `lgx manifest`; reviewers recompute them. Do not replace, delete or re-tag any listed release. See [Security and Release Integrity](https://github.com/logos-co/rfp#security-and-release-integrity).
+      value: |
+        - Security tier:
+        - Source commit (full SHA):
+        - Catalog URL (logos-repo.json):
+        - Signer DID:
+        - Logos Storage CID (if uploaded):
+
+        | Package | Version | Release URL (immutable) | rootHash | SHA-256 of .lgx | Built variants |
+        |---------|---------|-------------------------|----------|-----------------|----------------|
+        |         |         |                         |          |                 |                |
+
   - type: input
     id: payout
     attributes:
@@ -84,5 +101,9 @@ body:
         - label: Deliverables received and match the proposal scope
         - label: Code open-sourced under MIT / Apache 2.0
         - label: CI green on the default branch
+        - label: "Basecamp modules only: `lgx verify` passes and the signer is the declared DID"
+        - label: "Basecamp modules only: rootHash and SHA-256 recomputed and match the manifest"
+        - label: "Basecamp modules only: delivered releases are immutable and hosted on a GitHub organisation"
+        - label: "Security tier requirements met (Tier 1 data-handling note, Tier 2 threat model and controls)"
         - label: Docs / README delivered
         - label: Milestone approved for payout

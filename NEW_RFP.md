@@ -11,6 +11,7 @@ title: Example Title
 tier: XS/S/M/L/XL
 status: open
 category: Applications and Integrations
+security_tier: 0/1/2/n/a
 dependencies:
   - id: RFP-XXX
     reason: short reason this RFP depends on it
@@ -32,6 +33,13 @@ in the body, in the Platform Dependencies section. Soft dependencies
 (nice-to-have, stubbable with a placeholder, or merely better once available)
 are described in the body only. When a dependency is delivered, keep its entry
 for traceability.
+
+The `security_tier` field sets which
+[Security and Release Integrity](/README.md#security-and-release-integrity)
+requirements apply: `0` for no secrets or user data, `1` for user data, `2` for
+keys or funds (including wallets and AI agents that hold or can move funds). Use
+`n/a` only when the RFP delivers no Logos Basecamp module. Reference the tier in
+the RFP instead of restating its rules.
 
 3. Include the frontmatter content on the [README.md](/README.md) file in the
    RFPs table
