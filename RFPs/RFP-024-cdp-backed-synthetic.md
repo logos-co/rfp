@@ -74,10 +74,9 @@ engine. See
 
 The program may be independently deployed and configured by those who choose to
 deploy it. It is written for the LEZ v0.4 actor model, and the team deploys and
-tests it on LEZ testnet 0.4 (see Target platform below). Redemption of sASSET to
-the real asset on its home chain (for example through an atomic-swap extension
-using RFP-003) is outside the scope of this RFP and does not change the CDP mint
-mechanic.
+tests it on LEZ testnet 0.4. Redemption of sASSET to the real asset on its home
+chain (for example through an atomic-swap extension using RFP-003) is outside
+the scope of this RFP and does not change the CDP mint mechanic.
 
 ## Target platform: LEZ testnet 0.4 (required)
 
@@ -86,56 +85,6 @@ team deploys and tests it on LEZ testnet 0.4. Until public testnet 0.4 endpoints
 are available, development and testing may use the latest v0.4 release candidate
 on a local chain (`v0.4.0-rc3`, tagged 2026-11-11, at the date of this
 specification); milestone acceptance takes place on LEZ testnet 0.4.
-
-The v0.4 model shapes the design as follows. Proposals explain how they handle
-each point.
-
-- **State is per actor.** A program sees only its own actor state on the account
-  a message is delivered to. Each position, the stability pool and each
-  synthetic's configuration are held as this program's actor state. Position and
-  pool state are kept in public accounts, so that any caller can check a
-  position's c-ratio and trigger its liquidation.
-- **Assets on testnet 0.4.** At `v0.4.0-rc3`, the built-in programs provide the
-  native token and bridge-wrapped tokens, but no general token program. The
-  sASSET token logic (mint, burn, transfer) is therefore either implemented by
-  the proposal, in its own program or within the vault program, or built against
-  a token implementation available on testnet 0.4; proposals state which. The
-  same applies to collateral: proposals state which assets they test with on
-  testnet 0.4 (the native token, a wrapped token, or a test token they deploy).
-- **Other programs' state is reached by message.** The vault does not read the
-  price feed's or a token program's data. It obtains prices and balances by
-  messaging the owning program, either as an assertion that fails the
-  transaction if false, or as a read request whose reply it handles in a later
-  message, checking that the reply comes from the actor it asked. Price
-  staleness can be checked against the clock program in the same way.
-- **Program addresses are configuration.** Programs are addressed by their
-  deployed `program_account_id`, which is known only after deployment, and the
-  same binary can be deployed more than once. The price-feed, collateral-token
-  and sASSET-token program addresses are therefore part of the instance
-  configuration (see Configuration and roles), never compile-time constants.
-- **Asset movements.** Collateral held by the vault sits in program-derived
-  accounts (PDAs) and moves through the owning token program, for example
-  `custody_transfer` for the native token. Credits are delivered as async
-  messages: a credit to a private account may be stored until its owner collects
-  it. Mint, burn and liquidation flows must not depend on such a credit landing
-  in the same transaction.
-- **Liquidation is atomic through sync messages.** The stability-pool burn, the
-  debt write-off and the collateral credit to pool depositors run as sync
-  messages within the liquidation transaction.
-- **Fees and reverts.** Every user public transaction carries a fee, and a
-  reverted transaction is included and charged. A caller who triggers a
-  liquidation that reverts (for example because another caller liquidated the
-  position first) pays for it. Proposals document this cost and how the
-  configured liquidation penalty relates to it.
-- **Events.** The program emits events for mint, burn, liquidation, stability
-  pool deposits and withdrawals, and configuration changes, so that off-chain
-  consumers can follow positions without decoding actor state.
-- **Private accounts.** Users may hold sASSET and collateral in private accounts
-  and interact from them through the v0.4 private-execution path. Position, pool
-  and vault state remain in public accounts.
-- **Tooling.** At the date of this specification, SPEL and logos-scaffold do not
-  target the v0.4 actor model. Proposals that rely on either state which
-  v0.4-compatible version they use.
 
 ## Comparison with federated and custody-backed designs
 
@@ -205,10 +154,9 @@ flowchart LR
   any caller can trigger liquidation. The position's debt is absorbed by the
   stability pool (below) and surplus collateral, less the configured penalty, is
   returned to the position owner.
-- **Trading.** sASSET is a fungible token on LEZ (see Target platform) and can
-  be traded on any LEZ DEX that supports it, such as one implementing RFP-004.
-  Its market price may differ from the price feed by whatever spread the market
-  clears.
+- **Trading.** sASSET is a fungible token on LEZ and can be traded on any LEZ
+  DEX that supports it, such as one implementing RFP-004. Its market price may
+  differ from the price feed by whatever spread the market clears.
 
 This RFP contains **no atomic swap and no custody of the tracked asset**. A user
 who wants the real asset on its home chain sells sASSET on a DEX and acquires
@@ -259,12 +207,12 @@ cannot.
 
 **Required baseline: a Liquity-style stability pool.** Depositors place sASSET
 in a pool. When a position falls below the threshold, the program burns sASSET
-from the pool against the position's debt in the same transaction (through sync
-messages) and credits the seized collateral to pool depositors pro rata.
-Liquidation then does not depend on secondary-market sASSET depth, and the
-liquidation trigger is a function any caller can invoke. Because pool deposits
-and outstanding sASSET debt are both recorded on-chain, the instance can cap
-issuance relative to pool deposits.
+from the pool against the position's debt in the same transaction and credits
+the seized collateral to pool depositors pro rata. Liquidation then does not
+depend on secondary-market sASSET depth, and the liquidation trigger is a
+function any caller can invoke. Because pool deposits and outstanding sASSET
+debt are both recorded on-chain, the instance can cap issuance relative to pool
+deposits.
 
 Proposals may describe alternative liquidation absorption mechanisms, but must
 explain how the mechanism handles the thin-secondary-market case above.
@@ -362,7 +310,7 @@ and how they would absorb an interface change.
 - **LEZ v0.4 core programs (available).** The native token, clock and fee
   programs are part of the LEZ v0.4 core runtime.
 - **Fungible token implementation.** A token implementation on testnet 0.4 for
-  sASSET and for test collateral, or the proposal's own (see Target platform).
+  sASSET and for test collateral, or the proposal's own; proposals state which.
 - **Price feeds.** An ASSET/USD price feed on LEZ testnet 0.4 for each
   demonstrated synthetic, answering the vault's price messages. RFP-019
   (On-Chain TWAP Oracle) and RFP-020 (RedStone Off-Chain Oracle Adaptor) specify
