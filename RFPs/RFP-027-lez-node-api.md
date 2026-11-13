@@ -16,6 +16,19 @@ dependencies: []
 > no representation as to the legal or regulatory treatment of this
 > specification or any implementation of it in any jurisdiction.
 >
+> This specification may also refer to other RFPs, LPs or their specifications.
+> Such references are made for the purpose of identifying technical
+> requirements, capabilities, dependencies or criteria applicable to a
+> Submission under this RFP, including components that may need to be developed
+> or incorporated as part of that Submission.
+>
+> Such references do not, in themselves, require or direct an Applicant to use,
+> extend, modify or otherwise rely on any previous code, implementation or
+> Submission associated with the referenced RFP, LP or specification. Where such
+> references are made, it is for the Applicant to determine how best to develop
+> or incorporate the relevant components to satisfy the requirements of the
+> current RFP, whether to develop them independently or otherwise.
+>
 > Teams implementing it are solely responsible for (i) assessing the risks and
 > implications of what they build; (ii) obtaining their own professional advice;
 > and (iii) for complying with any legal and regulatory requirements that apply
@@ -40,14 +53,17 @@ dependencies: []
 
 ## 🧭 Overview
 
-Build the node API for LEZ: the set of functions an integrator needs to follow
-the chain, track deposits, confirm transactions, and submit a transaction it has
-already signed, delivered as exported functions on the LEZ node FFI and surfaced
-through
+This RFP invites proposals for the LEZ node API: the set of functions an
+integrator needs to follow the chain, track deposits, confirm transactions, and
+submit a transaction it has already signed, specified as exported functions on
+the LEZ node FFI and surfaced through
 [`lez_indexer_module`](https://github.com/logos-blockchain/lez-indexer-module).
-This is the equivalent of the `eth` namespace on Ethereum's JSON-RPC: it answers
-what happened and what the current state is, and it accepts a signed transaction
-for the network, holding no keys and signing nothing.
+Both are existing Logos-maintained repositories, and this specification is
+designated for integration into them: the work is contributed to
+`logos-execution-zone` and `lez-indexer-module` through their usual review and
+merge process. This is the equivalent of the `eth` namespace on Ethereum's
+JSON-RPC: it answers what happened and what the current state is, and it accepts
+a signed transaction for the network, holding no keys and signing nothing.
 
 The FFI is where the LEZ node surface is bounded. A capability the node holds
 but the FFI does not export cannot reach an application, and adding it to the
@@ -61,12 +77,10 @@ from the same node and submit through it, and none of them operates it. The
 surface therefore separates the functions any wallet calls from the functions
 that operate the node, and each function is granted to callers individually.
 
-Basecamp and Logos Core must remain the first recommended way to build on LEZ,
-on every platform: mobile, desktop and server. There is nonetheless a need for a
-path by which an existing application can add LEZ support without
-re-architecting itself, which secures distribution channels LEZ would not
-otherwise reach. Such an application hosts Logos Core itself and bundles the
-modules it needs.
+Applications on LEZ are built on Basecamp and Logos Core, on mobile, desktop and
+server. An existing application can also add LEZ support without re-architecting
+itself, by hosting Logos Core and bundling the modules it needs, and the node
+API is specified so that it serves that case as well.
 
 The parties that integrate a chain before it is usable in practice are wallets,
 centralised exchanges, custodians, payment gateways, data and price aggregators,
@@ -75,36 +89,34 @@ providers. Of those, the centralised exchange is used as the reference profile
 for the requirements: read chain state, track deposits credited to accounts it
 controls, and confirm that a transaction reached a level of certainty it is
 willing to act on. It is the strictest reader of the set, so a surface that
-satisfies it satisfies the others, and it is the profile whose absence is most
-visible, since a chain no exchange will list is a chain most users cannot reach.
+satisfies it satisfies the others.
 
-This RFP defines the LEZ node API. It is one of five components the Logos stack
-exposes for integration, alongside the LEZ wallet API, the Logos Blockchain node
-API, the Logos Blockchain wallet API, and the Logos Runtime DK, which lets an
-application host Logos Core. Each chain is served by a wallet module and a node
-module, and a wallet reaches its node only through the node API. That holds
-wherever the node runs: in the application, on another device the user owns, or
-in an integrator's infrastructure, the last two reached through Logos Core
-peering. How those fit together, the shapes an integration takes, and what
-embedding a node costs are described in
+This RFP specifies the LEZ node API. It is one of five components the Logos
+stack exposes for integration, alongside the LEZ wallet API, the Logos
+Blockchain node API, the Logos Blockchain wallet API, and the Logos Runtime DK,
+which lets an application host Logos Core. Each chain is served by a wallet
+module and a node module, and a wallet reaches its node only through the node
+API. That holds wherever the node runs: in the application, on another device
+the user owns, or in an integrator's infrastructure, the last two reached
+through Logos Core peering. How those fit together, the shapes an integration
+takes, and what embedding a node costs are described in
 [Appendix: Integrating the Logos Technology Stack](../appendix/integrating-logos-technology-stack.md).
 
 Wallet and key management, transaction construction and signing, the Logos
-Blockchain APIs, and hosting Logos Core in an application are out of scope here
-and will be defined in separate RFPs.
+Blockchain APIs, and hosting Logos Core in an application are separate
+components and are outside the scope of this RFP.
 
 ## 🔥 Why This Matters
 
-LEZ is adopted when existing projects integrate it. To increase the value a
-project sees in integrating LEZ, we need to decrease the upfront cost by
-providing the software they need.
-
-So the requirements below are set by what those integrators already rely on
-elsewhere. Nine established chains were surveyed for that purpose. LEZ does not
-currently meet several of the norms: there are no per-transaction effects; no
-confirmation level; and no subscription reaches the FFI, which is the boundary
-an integrator can actually call. Simulation is the one norm this RFP declines
-rather than fills, for the reason given in the Design Rationale. See
+An integrator adding a chain reaches it through a node API, and expects that API
+to answer the same questions it answers on the chains the integrator already
+supports. The requirements below are therefore drawn from what those integrators
+rely on elsewhere. Nine established chains were surveyed for that purpose. LEZ
+does not currently meet several of the norms: there are no per-transaction
+effects; no confirmation level; and no subscription reaches the FFI, which is
+the boundary an integrator can actually call. Simulation is the one norm this
+RFP declines rather than fills, for the reason given in the Design Rationale.
+See
 [Appendix: Blockchain API and SDK Ecosystem, section 4](../appendix/blockchain-api-sdk-ecosystem.md#4-gap-summary).
 
 Most of the missing capability already exists one layer below the FFI, as the
@@ -116,19 +128,25 @@ invention.
 ### The target is LEZ testnet 0.4
 
 The node API is delivered for LEZ testnet 0.4 (Supportability #1). The readiness
-markers below were read from the LEZ default branch after `v0.4.0-rc1`, and they
-describe the starting point for the work rather than a constraint on what the
-surface may express.
+markers below were read from the LEZ default branch at `334d0fc29`, after
+`v0.4.0-rc3`, and they describe the starting point for the work rather than a
+constraint on what the surface may express. File references below are to that
+commit.
 
 Fees are already in force there. A public transaction declares a payer, a gas
 limit, a tip, and a cap on the fee
-(`lez/indexer/service/protocol/src/lib.rs:252-268`), a privacy-preserving
-transaction pays from a reserve its proof commits to and names where a surplus
-is refunded (`lez/indexer/service/protocol/src/lib.rs:334-346`), and gas is
-metered in two dimensions, execution and storage
-(`lez/programs/fee/core/src/lib.rs:23-28`). Cost is therefore something a caller
-estimates, reports, and budgets against. The fee each transaction paid is
-computed at ingest and then discarded; only a block total survives.
+(`lez/indexer/service/protocol/src/lib.rs:252-268`). A privacy-preserving
+transaction pays in one of two ways: from a reserve its proof commits to, naming
+where a surplus is refunded (`lez/indexer/service/protocol/src/lib.rs:334-346`),
+or through a fee declaration signed by one of its public signers, settled as a
+public transaction's is (`lez/indexer/service/protocol/src/lib.rs:362-363`,
+`lez/chain_state/src/classify.rs:171-183`). Gas is metered in two dimensions,
+execution and storage (`lez/programs/fee/core/src/lib.rs:24-29`), and storage is
+charged on a transaction's serialized size, a privacy-preserving transaction's
+proof being counted at a fixed length (`lez/common/src/transaction.rs:38-57`).
+Cost is therefore something a caller estimates, reports, and budgets against.
+The fee each transaction paid is computed at ingest and then discarded; only a
+block total survives.
 
 [Functionality](#functionality) #5 requires the fee to be reported separately
 from the balance changes, so a caller reads it rather than reconstructing it by
@@ -162,6 +180,19 @@ fee that the caller copies back into the transaction before submitting, which
 makes simulation a construction step rather than a read. Construction is out of
 scope here and belongs to the LEZ wallet API, defined separately.
 [Out of Scope](#out-of-scope) records the exclusion.
+
+The LEZ wallet already works this way. Before it sends a public transaction it
+simulates it locally against the actor states and program loader state it has
+read, measures the gas the run consumed to set the declaration's gas limit, and
+refuses a send whose simulation reverts unless the caller allows it
+(`lez/wallet/src/lib.rs:228-282`, `lez/wallet/src/lib.rs:2286-2296`,
+`lez/wallet/src/lib.rs:2640-2717`). What it needs from a node for that is reads:
+the states the transaction touches, which the account reads below serve, and the
+current fee market, which it prices the declaration against and reads from the
+sequencer's `getFeeState` today (`lez/wallet/src/lib.rs:348-350`).
+[Functionality](#functionality) #59 and #60 require the node to serve the fee
+market, so a wallet simulating on its own side reaches every input it needs
+through the node API.
 
 ### Inspiration from BDK: Bitcoin Development Kit
 
@@ -260,20 +291,22 @@ A privacy-preserving transaction is not opaque in full. A
 `PrivacyPreservingMessage` carries, in plaintext, the deliveries that cross
 between its private execution and public state in either direction, an optional
 public root call, the public nonces it consumes, its validity windows, and its
-fee terms (`lez/indexer/service/protocol/src/lib.rs:298-361`). The node executes
+fee terms (`lez/indexer/service/protocol/src/lib.rs:298-364`). The node executes
 that public part itself
-(`lee/state_machine/src/validated_state_diff/mod.rs:377-402`), so the public
+(`lee/state_machine/src/validated_state_diff/mod.rs:385-410`), so the public
 leg's effects are as readable as a public transaction's, but only from
 execution: the body carries the inputs to the public part, not its post-states.
-The fee reserve is one of those crossings, and it names the address it was paid
-from in the clear (`lez/chain_state/src/classify.rs:65-93`).
+The fee is paid in the clear either way: a fee reserve is one of those
+crossings, and it names the address it was paid from
+(`lez/chain_state/src/classify.rs:113-128`), and a declared fee names a payer
+that signs the transaction.
 
 The private part carries four kinds of encrypted note. Each private action
 carries a `nullifier`, a `commitment`, the commitment set `root` it was proven
 against, and an `encrypted_post_state`; each async message carries a commitment
 and a note; each recovery binding carries a private address and a note; and the
 fee fallback carries a private action of its own
-(`lez/indexer/service/protocol/src/lib.rs:323-392`). A node can report that a
+(`lez/indexer/service/protocol/src/lib.rs:323-395`). A node can report that a
 private action occurred, prove a commitment's membership, and serve every
 ciphertext. What it cannot read is the plaintext those ciphertexts hold: which
 private account an action touched, and the state it now carries, its nonce and
@@ -282,7 +315,7 @@ its actor states, the native balance among them
 
 A public-to-private send sits between the two. It is published as a clear
 message whose envelope names the sender, the receiving private address, and the
-message in plaintext (`lee/state_machine/core/src/program/mod.rs:267-288`), so
+message in plaintext (`lee/state_machine/core/src/program/mod.rs:314-335`), so
 the amount and the receiving address of a public-to-private send are readable,
 while who controls that address and what it holds afterwards are not. A
 private-to-private send is published sealed, and reveals neither.
@@ -313,8 +346,8 @@ they are proven against, which a wallet needs to spend. The publication listing
 and recovery-binding reads under Private message delivery are what a wallet
 needs to receive. The sequencer answers all of these today, and its own RPC
 marks them for removal once the wallet reads from the indexer
-(`lez/sequencer/service/rpc/src/lib.rs:59-60`), while the state the indexer
-already holds carries the data (`lee/state_machine/src/state/mod.rs:464-531`).
+(`lez/sequencer/service/rpc/src/lib.rs:64-65`), while the state the indexer
+already holds carries the data (`lee/state_machine/src/state/mod.rs:363-430`).
 What is new is serving them from the node. #44 requires the oldest-first
 ordering a wallet walking forward from its last processed block relies on to
 decrypt what it can.
@@ -348,7 +381,7 @@ transaction commits the state it decrypted.
 or a received message, is keyed by the nullifier key
 (`lee/state_machine/core/src/nullifier.rs:126-158`). The LEZ wallet follows its
 accounts by computing each one's next nullifier in advance and watching for it
-(`lez/wallet/src/lib.rs:2430-2453`), which a viewing key holder cannot do. Nor
+(`lez/wallet/src/lib.rs:2956-2979`), which a viewing key holder cannot do. Nor
 can the nullifier key be handed out as a weaker credential: a witness holding it
 alone can update a regular private account, and it is the whole authority over a
 private PDA (`lee/state_machine/core/src/circuit_io.rs:290-310`). A viewing key
@@ -408,13 +441,13 @@ account. The **administrative set** is the functions that operate the node:
 starting it, stopping it, and resetting its storage. The **user set** is every
 other function [Functionality](#functionality) defines, which is what a wallet
 or integrator calls. A deployer grants either set, or any single function, to
-the callers it chooses. #77 fixes the assignment and #78 requires each function
+the callers it chooses. #79 fixes the assignment and #80 requires each function
 to be individually grantable.
 
 **The administrative set is closed unless granted.** Enforcement of the access
 policy is off unless the deployer turns it on, and a policy in force may admit a
 caller to every method of the module, so an administrative function cannot rely
-on the policy to protect it. #79 requires the module to refuse an administrative
+on the policy to protect it. #81 requires the module to refuse an administrative
 call itself, on the caller identity, unless the policy grants that caller the
 function by name or the caller is the runtime, its shell, or an operator of that
 runtime. A caller the runtime cannot identify is refused.
@@ -438,7 +471,7 @@ for pruning to be added: EIP-4444's design lesson is that retention should be
 declared rather than discovered through a failed request
 ([Appendix: Blockchain API and SDK Ecosystem, section 1.29](../appendix/blockchain-api-sdk-ecosystem.md#129-read-historical-state-at-a-past-version)).
 
-[Functionality](#functionality) #59 requires the floor to be exposed, and #60
+[Functionality](#functionality) #61 requires the floor to be exposed, and #62
 requires a read below it to be answered as such, distinctly from a read for data
 that never existed.
 
@@ -464,7 +497,7 @@ The markers describe the FFI on the LEZ default branch. `lez_indexer_module` is
 built against LEZ `v0.3.1` (`lez-indexer-module/flake.nix:14`), from before the
 FFI's account read became optional and its account record moved to actor states,
 so a marker of **Ready** means ready in the FFI, and the module reaches it only
-once it is rebuilt against the testnet 0.4 FFI, which #72 requires.
+once it is rebuilt against the testnet 0.4 FFI, which #74 requires.
 
 Every signature below elides a first argument, the indexer handle returned by
 `start_indexer`. See Surface-wide obligations.
@@ -498,7 +531,7 @@ through the status channel.
    a backend failure. **[Ready]**
 2. The returned transaction discriminates public and privacy-preserving bodies,
    exposing for each the fields the wire type carries
-   (`lez/indexer/service/protocol/src/lib.rs:215-392`). A program is deployed by
+   (`lez/indexer/service/protocol/src/lib.rs:215-395`). A program is deployed by
    a public transaction to the program loader rather than by a transaction kind
    of its own. **[Ready]**
 
@@ -512,10 +545,10 @@ recomputed on the caller's behalf.
    public state changed, their pre-state and post-state nonces and actor states,
    the new commitments, the new nullifiers, and the program invoked. The diff is
    the one computed at ingest, when the indexer settles each transaction in turn
-   (`lez/chain_state/src/apply.rs:145-344`), persisted rather than recomputed on
+   (`lez/chain_state/src/apply.rs:147-390`), persisted rather than recomputed on
    read. A charged transaction settles as separate diffs for its fee reserve,
    its action, and its refund, and a diff carries post-states only
-   (`lee/state_machine/src/validated_state_diff/mod.rs:28-37`), so the
+   (`lee/state_machine/src/validated_state_diff/mod.rs:36-45`), so the
    pre-states are captured before each is applied. **\[Computed, not
    persisted\]**
 4. The effects query returns a balance delta per affected account, expressed as
@@ -532,20 +565,23 @@ recomputed on the caller's behalf.
    arithmetic on the remaining deltas is reimplementing the chain's fee rules. A
    public transaction declares a payer, a gas limit, a tip, and a cap on the
    fee; the payer need not be an account the transaction otherwise acts on, but
-   it must sign (`lee/state_machine/src/fees.rs:49-61`). A privacy-preserving
-   transaction pays from a reserve its proof commits to, with any surplus
-   refunded to a target it names. The fee each transaction paid is computed when
-   it settles and is not retained; only the block's total is. A fee-exempt
-   system transaction is reported as exempt rather than as one that paid
-   nothing. **[Computed, not persisted]**
+   it must sign (`lee/state_machine/src/fees.rs:34-52`). A privacy-preserving
+   transaction pays either from a reserve its proof commits to, with any surplus
+   refunded to a target it names, or through a fee declaration signed by one of
+   its public signers, as a public transaction does, and the effects query
+   reports which. The fee each transaction paid is computed when it settles and
+   is not retained; only the block's total is. A fee-exempt system transaction
+   is reported as exempt rather than as one that paid nothing. **\[Computed, not
+   persisted\]**
 6. The gas a transaction consumed is reported alongside the fee, in each
    dimension the chain meters, execution and storage
-   (`lez/programs/fee/core/src/lib.rs:23-28`), so a caller comparing what it
+   (`lez/programs/fee/core/src/lib.rs:24-29`), so a caller comparing what it
    budgeted against what it paid can tell a transaction that ran long from one
    that paid a high price per unit. Both kinds of transaction are metered: a
-   privacy-preserving transaction is charged a fixed verification and storage
-   cost plus the metered execution of its public part
-   (`lez/chain_state/src/apply.rs:458-487`). Only a fee-exempt system
+   privacy-preserving transaction is charged a fixed verification cost, storage
+   on its serialized size with its proof counted at a fixed length, and the
+   metered execution of its public part
+   (`lez/chain_state/src/apply.rs:513-542`). Only a fee-exempt system
    transaction meters nothing, and the API distinguishes it from a transaction
    that consumed zero. **[Computed, not persisted]**
 
@@ -565,7 +601,7 @@ from `from_block` to `to_block`, defaulting to the indexed tip.
    **[Ready]**
 9. Events emitted by the public part of a privacy-preserving transaction are
    indexed as a public transaction's are
-   (`lee/state_machine/src/validated_state_diff/mod.rs:536-571`), and execution
+   (`lee/state_machine/src/validated_state_diff/mod.rs:585-620`), and execution
    inside the proof emits none a node can observe, so the query answers for
    public execution only. **[Ready]**
 
@@ -664,10 +700,10 @@ position, together with the commitment set root they are proven against.
     those proofs are proven against. A commitment or position the set does not
     hold is reported as absent per entry rather than failing the call. This is
     the data the sequencer's `getProofsAndRoot` returns today
-    (`lez/sequencer/service/rpc/src/lib.rs:119-133`), which the wallet reaches
-    the sequencer for (`lez/wallet/src/lib.rs:1169-1184`), and the state the
+    (`lez/sequencer/service/rpc/src/lib.rs:124-138`), which the wallet reaches
+    the sequencer for (`lez/wallet/src/lib.rs:1269-1284`), and the state the
     indexer already holds answers it (`lee/state_machine/src/state/mod.rs:207`,
-    `lee/state_machine/src/state/mod.rs:524-531`). Because the node API is the
+    `lee/state_machine/src/state/mod.rs:423-430`). Because the node API is the
     only surface a consumer reaches, it is required of the node regardless of
     which component holds it. **[Ready, not exposed]**
 19. The proofs and the root returned by one call are consistent with one
@@ -700,7 +736,7 @@ execution succeeded.
     between inclusion and finality, as `BedrockStatus` does with `Safe`, the
     level set carries it rather than collapsing it into either neighbour. The
     indexer today stamps every block it stores `Finalized`
-    (`lez/indexer/core/src/block_store.rs:343`), so the levels short of final
+    (`lez/indexer/core/src/block_store.rs:345`), so the levels short of final
     are not yet observable from it. **[New]**
 21. The per-transaction status query returns the identifier of the block
     containing the transaction, and the L1 position the level was assessed
@@ -712,7 +748,7 @@ execution succeeded.
     (`lez/indexer/service/protocol/src/lib.rs:207-213`), which the indexer RPC
     serves and the FFI block type drops; that outcome is **\[Ready, not
     exposed\]**. The reason is computed as free text when the action fails and
-    then discarded (`lee/state_machine/src/validated_state_diff/mod.rs:61-67`),
+    then discarded (`lee/state_machine/src/validated_state_diff/mod.rs:69-75`),
     so a typed reason is **[Computed, not persisted]**.
 23. A transaction the node does not hold and the pending set does not hold is
     reported distinctly from one the node has simply not seen, once its validity
@@ -770,7 +806,7 @@ Accepts a signed transaction and returns the hash it will be known by.
     that accepts writes, and returns the transaction hash a caller then tracks
     through `query_transaction_status`. The node FFI has no such function. The
     sequencer FFI in `core_ffi` has one, `sequencer_ffi_send_transaction`
-    (`lez/core_ffi/src/sequencer/api/query.rs:334-365`), which is prior art for
+    (`lez/core_ffi/src/sequencer/api/query.rs:408-438`), which is prior art for
     the shape but is the sequencer's own surface rather than the node's.
     **[New]**
 28. A transaction the network declines to accept is reported as a typed failure
@@ -779,7 +815,7 @@ Accepts a signed transaction and returns the hash it will be known by.
     price, and a pending set that is full, separately from a failure to reach
     the accepting component at all. The sequencer RPC already gives the last two
     of those network-side outcomes codes of their own
-    (`lez/sequencer/service/rpc/src/lib.rs:17-22`) and reports the rest as
+    (`lez/sequencer/service/rpc/src/lib.rs:18-23`) and reports the rest as
     invalid parameters with text, while the sequencer FFI reports every failure
     alike. A caller re-prices on an insufficient fee, retries on a full pending
     set or an unreachable component, and does not retry the others. **[New]**
@@ -812,11 +848,11 @@ declined look identical. Absence from both the chain and the pending set is what
 distinguishes them. A charged transaction whose action fails during block
 production is included as reverted, but one that fails settlement is dropped
 without a record: it is logged and omitted from the block
-(`lez/sequencer/core/src/lib.rs:2248-2259`), so no drop is retrievable
+(`lez/sequencer/core/src/lib.rs:1792-1803`), so no drop is retrievable
 afterwards and the pending set is the only surface on which its disappearance is
 visible. The sequencer holds a bounded mempool, fed both by submission and by
 gossip from peer sequencers, but uses its handle only to push
-(`lez/mempool/src/lib.rs:60-86`), leaving a submitted transaction unobservable
+(`lez/mempool/src/lib.rs:66-92`), leaving a submitted transaction unobservable
 until it appears in a block
 ([Appendix: Blockchain API and SDK Ecosystem, section 1.26](../appendix/blockchain-api-sdk-ecosystem.md#126-inspect-the-mempool-or-pending-set)).
 
@@ -962,7 +998,8 @@ or starting at the indexed tip when `from` is absent. Exported today as
 ##### Chain and node metadata
 
 What an integrator needs to know about the node it is talking to: where the
-chain ends, which network this is, and how far back the data goes
+chain ends, which network this is, what the fee market currently charges, and
+how far back the data goes
 ([Appendix: Blockchain API and SDK Ecosystem, sections 1.3 and 1.6](../appendix/blockchain-api-sdk-ecosystem.md#13-identify-the-network-or-chain)).
 
 - **Ethereum**: `eth_blockNumber` and `eth_chainId`.
@@ -1045,7 +1082,7 @@ chain that zone settles to.
 
 54. The call returns the zone identifier the indexer is reading, so an
     application can confirm which zone it is connected to. It is read from the
-    indexer's own channel configuration (`lez/indexer/core/src/config.rs:30`),
+    indexer's own channel configuration (`lez/indexer/core/src/config.rs:37`),
     not from the sequencer's `getChannelId`. **[Ready, not exposed]**
 55. The same call returns the chain identifier of the Logos Blockchain the zone
     settles to. A zone identifier alone does not distinguish the same zone
@@ -1060,7 +1097,7 @@ chain that zone settles to.
     initialisation but served by no L1 route
     ([Appendix: Blockchain API and SDK Ecosystem, section 1.3](../appendix/blockchain-api-sdk-ecosystem.md#13-identify-the-network-or-chain)),
     and the indexer holds only an endpoint, with optional credentials, for its
-    Bedrock connection (`lez/indexer/core/src/config.rs:18-23`), so obtaining it
+    Bedrock connection (`lez/indexer/core/src/config.rs:25-30`), so obtaining it
     is work outside the indexer. A proposal states how it reaches the value.
     **[New]**
 57. Where the chain identifier cannot be obtained, the call reports it as
@@ -1075,12 +1112,33 @@ its image identifier, and, for a builtin, its name.
 58. The FFI exposes the deployed programs, read from the chain state the indexer
     holds rather than from the sequencer's `getProgramIds`, which today returns
     a fixed list
-    (`lez/sequencer/actors/rpc_server/src/actor/service.rs:280-288`). A program
+    (`lez/sequencer/actors/rpc_server/src/actor/service.rs:264-272`). A program
     is an account written through the program loader, and the state resolves an
     account to the image deployed at it
-    (`lee/state_machine/src/state/mod.rs:501-521`). An integrator decoding
+    (`lee/state_machine/src/state/mod.rs:400-420`). An integrator decoding
     account data needs this: each actor state is keyed by the account identifier
     of its program, and decoding it means knowing which program that is.
+    **[New]**
+
+**`query_fee_state() -> PointerResult<FfiFeeState, OperationStatus>`**
+
+Returns the fee market a transaction is priced against: the base fees at a
+stated block, the band the next block's may move within, and the per-block gas
+caps
+([Appendix: Blockchain API and SDK Ecosystem, section 1.17](../appendix/blockchain-api-sdk-ecosystem.md#117-estimate-the-fee-or-fee-rate)).
+
+59. The FFI exposes the execution and storage base fees, the block height they
+    were read at, and the per-block execution and storage gas caps, read from
+    the fee state the indexer's chain state holds
+    (`lez/chain_state/src/apply.rs:332-341`) rather than from the sequencer. The
+    wallet prices every fee declaration and every in-proof reserve against these
+    values, read today from the sequencer's `getFeeState`
+    (`lez/sequencer/service/rpc/src/lib.rs:57-58`), and the node FFI serves none
+    of them. **[Ready, not exposed]**
+60. The same call returns the lowest and highest base fees the next block can
+    open at, in each dimension, as `getFeeState` does, so a caller sets a cap on
+    the fee from the band rather than from a guess. The API documents that the
+    band bounds the next block and is not an estimate for a given transaction.
     **[New]**
 
 **`query_retention_floor() -> PointerResult<FfiRetentionFloor, OperationStatus>`**
@@ -1088,13 +1146,13 @@ its image identifier, and, for a builtin, its name.
 Returns the earliest block the indexer can still answer for, separately for
 account state pinned to a block and for transaction retrieval.
 
-59. The FFI exposes the node's retention floor: the earliest block for which
+61. The FFI exposes the node's retention floor: the earliest block for which
     account state can be read at a pinned block identifier, and the earliest
     block for which a transaction can be retrieved. A deployment that retains
     everything reports genesis and one bounded by Reliability #7 reports a
     moving value, and a caller learns which by asking rather than by discovering
     it through a failed read. **[New]**
-60. A read for data below the retention floor is answered as such, distinctly
+62. A read for data below the retention floor is answered as such, distinctly
     from a read for data that never existed. Asking for a block the indexer
     discarded and asking for one the chain never held are different questions
     with different answers: the first is retried against an archival source and
@@ -1110,18 +1168,18 @@ each at a position in the commitment set. The receiving wallet reads the
 publications, finds those addressed to it, and later consumes them. Among the
 surveyed chains only Zcash, whose shielded payments a recipient finds by
 scanning, has a comparable structure. The sequencer serves it today
-(`lez/sequencer/service/rpc/src/lib.rs:100-117`), and the indexer holds the data
-in its own state (`lee/state_machine/src/state/mod.rs:464-499`).
+(`lez/sequencer/service/rpc/src/lib.rs:105-122`), and the indexer holds the data
+in its own state (`lee/state_machine/src/state/mod.rs:363-398`).
 
 **`query_publications(from_position, limit) -> PointerResult<FfiPublicationPage, OperationStatus>`**
 
 Returns a page of publications in commitment-set order, from a given position.
 
-61. The FFI lists publications in position order from a given position, each
+63. The FFI lists publications in position order from a given position, each
     with its position: for a clear publication its plaintext envelope and its
     recovery note, and for a sealed one its commitment and encrypted note.
     **[Ready, not exposed]**
-62. The listing is bounded and reports whether more entries remain, on the same
+64. The listing is bounded and reports whether more entries remain, on the same
     terms as the other paginated reads, and takes no account identifier, so a
     wallet receiving messages discloses nothing beyond the position it resumes
     from. **[New]**
@@ -1130,10 +1188,10 @@ Returns a page of publications in commitment-set order, from a given position.
 
 Returns the encrypted note bound to a private address, if one is.
 
-63. The FFI returns the recovery note bound to a private address, or an absent
+65. The FFI returns the recovery note bound to a private address, or an absent
     `FfiOption` when none is, exporting what the sequencer's
     `getRecoveryBinding` serves today. **[Ready, not exposed]**
-64. The API documents that this lookup names a private address to the node, and
+66. The API documents that this lookup names a private address to the node, and
     that a consumer which must not disclose its addresses reads the same notes
     from the publication listing or the viewing key walk instead, neither of
     which takes an address. **[New]**
@@ -1157,7 +1215,7 @@ encrypted note the chain carries, account state updates included.
 Returns, block by block in ascending order, every encrypted note the chain
 carries with the public values needed to decrypt and check it.
 
-65. The FFI exposes a walk, ascending by block from a given block, returning for
+67. The FFI exposes a walk, ascending by block from a given block, returning for
     each privacy-preserving transaction its hash, its index in the block, and
     whether its action reverted, and for each encrypted note it carries the
     values a viewing key holder needs to open and check it: for a private
@@ -1166,24 +1224,24 @@ carries with the public values needed to decrypt and check it.
     position in the commitment set; and for a recovery binding, its address and
     note. Proofs, witness sets, and public bodies are omitted; a clear
     publication, whose envelope is plaintext, is read from the publication
-    listing, #61. Every field but the position is already in the stored
-    transaction (`lez/indexer/service/protocol/src/lib.rs:323-392`), and the
+    listing, #63. Every field but the position is already in the stored
+    transaction (`lez/indexer/service/protocol/src/lib.rs:323-395`), and the
     position is in the indexer's publication state, so the work is a compact
     projection of data the indexer holds. **[New]**
-66. The walk covers every encrypted note whatever kind of private account it
+68. The walk covers every encrypted note whatever kind of private account it
     addresses: a regular private account, a private PDA, and a shared private
     account keyed from a group master secret, of either kind. The node needs no
     knowledge of which kind a note belongs to, and the walk does not depend on
     it. **[New]**
-67. The walk takes no viewing key, account identifier, or other value tied to
+69. The walk takes no viewing key, account identifier, or other value tied to
     the consumer's accounts. Every caller asking for the same range receives the
     same result, so the walk discloses to the node the range read and nothing
     else. **[New]**
-68. The walk resumes from a block identifier and hash on the same terms as the
+70. The walk resumes from a block identifier and hash on the same terms as the
     block subscription, #37, and is also delivered as a subscription, so a
     viewing key consumer following the tip neither polls nor misses a block.
     **[New]**
-69. The API documents what a consumer holding a viewing key alone can establish
+71. The API documents what a consumer holding a viewing key alone can establish
     from the walk and what it cannot. It can establish every state of the
     account that a note encrypted to its viewing key carries, and every message
     sealed to it. The circuit encrypts each private action's post-state under
@@ -1216,7 +1274,7 @@ chain interposes a plugin layer between its API and its consumers.
 
 Returns a machine-readable description of the exported surface.
 
-70. The FFI exposes a machine-readable description of its own surface, covering
+72. The FFI exposes a machine-readable description of its own surface, covering
     every exported function, its parameters, its return type, and its error
     codes. The existing `getSchema` describes the block, event record, and event
     filter types rather than the surface, and is not exported
@@ -1225,22 +1283,22 @@ Returns a machine-readable description of the exported surface.
 
 Every function defined above is further bound by the following.
 
-71. Every exported function takes the indexer handle returned by `start_indexer`
+73. Every exported function takes the indexer handle returned by `start_indexer`
     as its first argument, which the signatures above elide, and signals a null
     handle as `OperationStatus::NullPointer` rather than as a not-found result.
     **[Ready]**
-72. Every function above is exposed through `lez_indexer_module` with the same
+74. Every function above is exposed through `lez_indexer_module` with the same
     semantics, including the not-found and error distinction required by
-    Functionality #73. No capability reaching the FFI stops at the module
+    Functionality #75. No capability reaching the FFI stops at the module
     boundary. Today the module wraps eight of the FFI's nine queries, omitting
     `query_events`, and is built against the LEZ `v0.3.1` FFI rather than the
     testnet 0.4 one. **[New]**
-73. The FFI and the module signal not-found, invalid-argument, and backend
+75. The FFI and the module signal not-found, invalid-argument, and backend
     failure as three distinguishable outcomes on every query. The module
     currently flattens not-found and failure into an empty string
     ([Appendix: Logos API Surfaces, section 1](../appendix/logos-api-surfaces.md#1-lez-indexer-ffi)).
     **[New]**
-74. Errors are machine-readable and stable: a caller branches on a value rather
+76. Errors are machine-readable and stable: a caller branches on a value rather
     than on message text, and that value does not change meaning between
     releases. Which values exist is for the implementation to decide; what this
     RFP requires is that two failures a caller would recover from differently
@@ -1250,13 +1308,13 @@ Every function defined above is further bound by the following.
     failures look alike
     ([Appendix: Blockchain API and SDK Ecosystem, section 1.34](../appendix/blockchain-api-sdk-ecosystem.md#134-structured-errors-and-a-code-taxonomy)).
     **[New]**
-75. The distinctions a caller acts on are, at minimum: a request that was
+77. The distinctions a caller acts on are, at minimum: a request that was
     malformed, which the caller fixes; a request for data below the retention
     floor, which the caller sends elsewhere; a request the indexer could not
     serve because it is stalled or lagging, which the caller retries; and a
     backend failure, which the caller retries with backoff. A transient failure
     is distinguishable from a permanent one without parsing text. **[New]**
-76. Every heap-allocating return has a documented matching free function, and
+78. Every heap-allocating return has a documented matching free function, and
     calling it releases every allocation the return holds. The convention is
     established for the returns exported today; the return types this RFP adds
     need theirs. **[Ready, not exposed]**
@@ -1294,40 +1352,40 @@ Stops the node and releases the handle.
 Stops the node and deletes the store of the zone the configuration names,
 without restarting it. Exposed by `lez_indexer_module` only.
 
-77. Every function this RFP defines belongs to exactly one of two sets, and the
-    machine-readable description of #70 states which. The user set holds every
+79. Every function this RFP defines belongs to exactly one of two sets, and the
+    machine-readable description of #72 states which. The user set holds every
     function defined under the headings above. The administrative set holds
     `start_indexer`, `stop_indexer`, and `reset_storage`, together with any
     other function the module exposes that changes how the node runs, such as
     the FFI's `init_logger`. A function added to the surface later is assigned
     to a set when it is added. **[New]**
-78. Each function exposed through `lez_indexer_module` is individually
+80. Each function exposed through `lez_indexer_module` is individually
     grantable. Where the deployer's Logos Core access policy grants a caller a
     list of methods on the module, that caller reaches those methods and no
     others, and the module is built so that such a grant is enforced against it
     rather than refused as unenforceable. **[New]**
-79. An administrative function refuses a call unless the access policy grants
+81. An administrative function refuses a call unless the access policy grants
     the caller that function by name, or the caller is the runtime, its shell,
     or an operator of that runtime. The refusal holds when no access policy is
     in force, when the policy leaves the module open to every caller, when the
     caller is on another runtime, and when the runtime cannot identify the
     caller. **[New]**
-80. A user function requires nothing of a caller beyond admission to the module.
+82. A user function requires nothing of a caller beyond admission to the module.
     No user function requires a caller to register, to name a wallet, or to have
     made an earlier call, and the node holds no state for a caller other than
     the subscriptions that caller opened. **[New]**
-81. A refused call is reported as an outcome distinct from the not-found,
-    invalid-argument, and backend failure outcomes of #73, and has no effect on
+83. A refused call is reported as an outcome distinct from the not-found,
+    invalid-argument, and backend failure outcomes of #75, and has no effect on
     the node. A caller does not retry it. **[New]**
-82. Calls from different callers are served concurrently. No call waits on
+84. Calls from different callers are served concurrently. No call waits on
     another caller's call, page walk, or subscription callback, and a cursor
     issued to one caller is neither advanced nor invalidated by another caller's
     calls. **[New]**
-83. A subscription belongs to the caller that opened it. `unsubscribe` cancels
+85. A subscription belongs to the caller that opened it. `unsubscribe` cancels
     only a subscription the caller itself holds, and one caller's cancellation,
     disconnection, or failing callback neither stops nor delays delivery to any
     other caller. **[New]**
-84. Once the node is stopped, every call from every caller reports the node as
+86. Once the node is stopped, every call from every caller reports the node as
     stopped, distinctly from a backend failure, and each open subscription
     receives a final notification that delivery has ended. **[New]**
 
@@ -1340,8 +1398,9 @@ without restarting it. Exposed by `lez_indexer_module` only.
    at a pinned block, read a batch of accounts, read a block, read a
    transaction, read a transaction's effects, query a transaction's status, list
    an account's transactions with ordering and pagination, follow the chain tip,
-   list publications, and walk the encrypted notes of a block range. The CLI may
-   have fewer features than the FFI but must support all essential operations.
+   read the fee market, list publications, and walk the encrypted notes of a
+   block range. The CLI may have fewer features than the FFI but must support
+   all essential operations.
 3. Provide a worked deposit-tracking example, in the CLI or as a documented
    reference consumer, that follows the chain from a chosen start block, detects
    credits to a supplied set of public accounts, and reports each credit with
@@ -1352,7 +1411,7 @@ without restarting it. Exposed by `lez_indexer_module` only.
    private account holds is not trackable from indexer data without its viewing
    key.
 5. Return clear, actionable error messages for every failure mode, each carrying
-   the machine-readable value required by Functionality #74 alongside the text.
+   the machine-readable value required by Functionality #76 alongside the text.
 6. Document the semantics of every pagination parameter, including the
    exclusivity of the block bound, what a cursor guarantees across ingestion,
    and the behaviour when new data lands during a walk.
@@ -1456,25 +1515,23 @@ the module that links it.
 06. A README documents end-to-end usage: building the FFI and the module that
     links it, the configuration and storage directory `start_indexer` requires,
     and step-by-step instructions for every operation via the CLI.
-07. Submit a
-    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-    for the FFI and module, covering the developer integration journey for
-    reading state, tracking deposits, and confirming transactions.
-08. Submit a
-    [doc packet](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml)
-    for the CLI, covering the core operator journey.
+07. Provide documentation in repo for the FFI and module, covering the developer
+    integration journey for reading state, tracking deposits, and confirming
+    transactions.
+08. Provide documentation in repo for the CLI, covering the core operator
+    journey.
 09. Provide a get started guide that takes a developer from an empty repository
     to a working Logos Core module consuming the indexer FFI, covering linking
     `libindexer_ffi`, including the generated header, reading LEZ state through
     it, and running the result against a devnet. The README required above
-    documents building and operating what this RFP delivers; this documents
+    documents building and operating what this RFP specifies; this documents
     building something else on top of it.
-10. Provide a full API reference for the indexer API, published per version in
-    the shape the Logos Storage module's reference takes at
+10. Provide a full API reference for the indexer API, published in repo per
+    version in the shape the Logos Storage module's reference takes at
     [docs.logos.co](https://docs.logos.co), covering every exported function,
     its parameters, its return type, and its error codes. The reference is
     generated from the machine-readable description required by Functionality
-    #70 rather than maintained by hand, so it cannot drift from the header it
+    #72 rather than maintained by hand, so it cannot drift from the header it
     describes.
 11. Provide a design decision log in repo recording each major design decision
     and choice: the context, the options considered, the option chosen, and the
@@ -1492,12 +1549,13 @@ the module that links it.
    beyond the commitments and nullifiers already published on-chain.
 3. Provide a privacy properties document covering: what a third party reading
    the indexer can learn about a public transaction, about the public leg of a
-   privacy-preserving transaction, including the address its fee was paid from,
-   and about its private leg; what a public-to-private send reveals; which of
-   those boundaries are enforced by encryption and which by the API declining to
-   expose data it holds; what an operator running their own indexer can see that
-   a remote caller cannot; and what a viewing key holder can and cannot learn,
-   for a sole-owned and for a shared private account.
+   privacy-preserving transaction, including the address its fee was paid from
+   under either way of paying it, and about its private leg; what a
+   public-to-private send reveals; which of those boundaries are enforced by
+   encryption and which by the API declining to expose data it holds; what an
+   operator running their own indexer can see that a remote caller cannot; and
+   what a viewing key holder can and cannot learn, for a sole-owned and for a
+   shared private account.
 4. No function discloses one caller's activity to another. Which accounts,
    commitments, and transactions a caller asked about, which subscriptions it
    holds and with what filter, and which caller submitted a transaction are not
@@ -1545,12 +1603,12 @@ If possible.
 The following are explicitly excluded from this RFP:
 
 - **Wallet and key management.** Key handling, derivation, watch-only address
-  derivation, viewing keys, and signing belong to the LEZ wallet API, which has
-  its own RFP. That includes how a viewing key is exported and imported, a
-  view-only mode for the wallet, which LEZ does not have today, and whether a
-  group of controllers should hold a viewing secret of its own rather than a
-  per-account viewing key derived from its master secret. This RFP requires only
-  that the node serve what a viewing key consumer decrypts.
+  derivation, viewing keys, and signing belong to the LEZ wallet API, a separate
+  component outside this RFP. That includes how a viewing key is exported and
+  imported, a view-only mode for the wallet, which LEZ does not have today, and
+  whether a group of controllers should hold a viewing secret of its own rather
+  than a per-account viewing key derived from its master secret. This RFP
+  requires only that the node serve what a viewing key consumer decrypts.
 - **Transaction construction and signing.** Building a transaction and signing
   it run through the wallet path (`core_ffi` and `lez_core`). This RFP requires
   the indexer to accept a signed transaction and relay it, and nothing more: it
@@ -1559,12 +1617,14 @@ The following are explicitly excluded from this RFP:
   unsubmitted transaction to see what it would do belongs to the wallet API, for
   both public and privacy-preserving transactions, for the reason given in the
   Design Rationale. Nothing in this RFP executes a transaction a caller
-  supplies.
+  supplies. The node serves the fee market a caller prices against
+  (Functionality #59 and #60), not a fee for a given transaction.
 - **Hosting Logos Core in an application, and reaching a node on another
-  machine.** The Logos Runtime DK has its own RFP, and a node elsewhere is
-  reached through Logos Core peering. This RFP defines the functions, not how a
-  call to them is carried.
-- **The Logos Blockchain node and wallet APIs.** Each has its own RFP.
+  machine.** The Logos Runtime DK is a separate component outside this RFP, and
+  a node elsewhere is reached through Logos Core peering. This RFP defines the
+  functions, not how a call to them is carried.
+- **The Logos Blockchain node and wallet APIs.** Each is a separate component
+  outside this RFP.
 - **Reaching inside a node.** A consumer reaches a LEZ node only through the API
   defined here. Whatever a node is made of internally, those interfaces are not
   an API this RFP or any other in this set defines. Every read an integrator
@@ -1587,6 +1647,10 @@ The following are explicitly excluded from this RFP:
   A third party sees the amount and receiving address of a public-to-private
   send and nothing after it; a viewing key holder reads the rest through the
   viewing key reads above.
+- **Deploying and operating a node.** Mainnet deployment is not part of this
+  RFP: whether, when, where and by whom a node exposing this API is deployed or
+  operated, which callers a deployment admits, and who holds the administrative
+  set are matters for whoever deploys it.
 
 ## ⚠ Platform Dependencies
 
@@ -1606,14 +1670,14 @@ Access control rests on Logos Core in four places.
 
 - **Caller identities.** A module sees the runtime and named modules today, and
   some call paths carry no identity. A shell identity and an operator identity
-  are in development with the per method grants below. Functionality #79 refuses
+  are in development with the per method grants below. Functionality #81 refuses
   a caller the runtime cannot identify, so the administrative set is reachable
   by a shell or an operator only once those identities exist.
 - **Per method grants.** The access policy admits a caller to a module today.
   Narrowing a caller to a list of methods is in development
   ([logos-liblogos#232](https://github.com/logos-co/logos-liblogos/pull/232),
   [logos-capability-module#37](https://github.com/logos-co/logos-capability-module/pull/37))
-  and is what Functionality #78 depends on. Functionality #79 does not depend on
+  and is what Functionality #80 depends on. Functionality #81 does not depend on
   it: the module's own refusal keeps the administrative set closed meanwhile.
 - **Callers on another runtime.** A wallet on another runtime reaches the node
   through Logos Core peering, which is also in development
@@ -1621,7 +1685,7 @@ Access control rests on Logos Core in four places.
   proposal states how a per method grant is enforced for such a caller where the
   platform does not enforce it.
 - **Events per caller.** A Logos Core module event reaches every subscriber of
-  the module. Functionality #83 and Privacy #4 require delivery per caller, so a
+  the module. Functionality #85 and Privacy #4 require delivery per caller, so a
   proposal states how a subscription is delivered to the caller that opened it
   and to no other.
 
@@ -1651,6 +1715,15 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [LEZ documentation](https://docs.logos.co/lez): the sequencer and indexer
   roles, and the separation of public and private state
 - [Logos Documentation](https://github.com/logos-co/logos-docs)
+
+The Resources listed above, and any third-party material referred to elsewhere
+in this specification, are for informational purposes only and are intended
+solely as guidance regarding tools or other artefacts that may be relevant to
+preparing a Submission under the Program. They may include, or may refer to,
+earlier published specifications, some of which may have received Submissions.
+Logos does not endorse or approve, and makes no representation regarding, any
+Submission or referenced material. It is ultimately the Applicant’s
+responsibility to determine whether, and how, if at all, to use any Resource.
 
 ## ✏️ How to Apply
 
