@@ -11,7 +11,7 @@ dependencies:
   - id: RFP-020
     reason: Price feeds are required for collateral valuation and liquidation triggers (F13); RFP-020 and RFP-019 are illustrative examples.
   - id: LP-0015
-    reason: General cross-program calls via tail calls, used to compose token transfers with subsequent state updates and required by the flash loan model (F14).
+    reason: General cross-program calls, delivered on testnet 0.4 as synchronous messages with replies; used to compose token transfers with state updates, by the flash loan model (F14) and by the state reads other programs rely on (F18).
   - id: LP-0012
     reason: Structured event emission, used by the reference liquidator and risk monitor to observe on-chain state changes.
 ---
@@ -55,8 +55,8 @@ pair defined by five immutable parameters (loan token, collateral token, oracle,
 interest rate model, liquidation LTV). Anyone can create a market from enabled
 parameters; the core protocol is minimal, non-upgradeable, and governance-free
 at the market level. The protocol includes the AdaptiveCurveIRM interest rate
-model, permissionless liquidation, oracle-fed price data, and flash loans via
-the LEZ tail-call model.
+model, permissionless liquidation, oracle-fed price data, and flash loans built
+on LEZ's synchronous cross-program messages.
 
 This RFP supports development of the **software** of a Morpho Blue equivalent on
 LEZ: market creation, supply, borrow, repay, withdraw, liquidation, interest
@@ -67,7 +67,9 @@ admin role holders and governance are outside this RFP's scope and are matters
 for independent deployers or operators. The curation layer (single-asset deposit
 vaults that allocate across multiple markets, vault share tokens, supply and
 borrow caps) is specified separately in
-[RFP-012](./RFP-012-curated-lending-vaults.md).
+[RFP-012](./RFP-012-curated-lending-vaults.md), which also describes a Lending
+Market Interface through which curated vaults can allocate to a conforming
+lending protocol (F19).
 
 ## 🔥 Why This Matters
 
@@ -101,7 +103,9 @@ development deliverables.
     is no proxy, no migration path, and no admin function that can pause the
     program, change core math, or reconfigure a market after creation. Markets,
     once created, are immutable: their five parameters (loan token, collateral
-    token, oracle, IRM, LLTV) cannot be changed.
+    token, oracle, IRM, LLTV) cannot be changed. On testnet 0.4, the program is
+    deployed with the program loader's `immutable` flag set, after which its
+    bytecode cannot be updated.
 
 03. Anyone can create a lending market by specifying the five parameters above.
     The market id is the deterministic hash of those five parameters. Market
@@ -130,9 +134,11 @@ development deliverables.
     immutable LEZ program referenced by each market at creation. Reference:
     [Morpho: Introducing AdaptiveCurveIRM](https://morpho.org/blog/introducing-the-adaptivecurveirm-efficient-and-autonomous/),
     [Morpho docs: IRM](https://docs.morpho.org/get-started/resources/contracts/irm/).
-    The IRM program exposes pure read functions that return supply APY and
-    borrow APR for a given market id; no state mutation is required to query
-    rates.
+    The IRM program answers rate queries (supply APY and borrow APR for a given
+    market id) by replying to the caller, with no state mutation. To avoid a
+    message round trip on every accrual, applicants may also link the same IRM
+    code into the lending program, provided a test shows that both return
+    identical rates.
 
 09. Interest accrual is lazy (computed on interaction), not via a separate crank
     transaction per block.
@@ -198,19 +204,27 @@ development deliverables.
 
 14. **Flash loans (LEZ-native).** A user can borrow assets from any market
     within a single transaction. The protocol's flash-loan entrypoint transfers
-    the requested loan tokens to the borrower and tail-calls a borrower-supplied
-    continuation, handing it an **unforgeable repayment capability** (per
-    LP-0015's capability-protected continuation model). The borrower's
-    continuation must, before the transaction terminates, tail-call back into
-    the lending program's internal `repay_flash` continuation with the
-    capability and the principal plus fee. If the transaction does not complete
-    the chain with full repayment, the entire transaction reverts atomically and
-    no funds leave the market. There is no synchronous reentrancy: control hands
-    off fully at each tail call, so the EVM concepts of CEI ordering and
-    reentrancy locks do not apply. Flash loans are **zero-fee**, matching Morpho
-    Blue's deployed implementation (the deployed `Morpho.sol` collects exactly
-    `assets` on repayment with no premium). Repayment must equal the principal
-    exactly; no fee is charged.
+    the requested loan tokens to the borrower and sends a message to a
+    borrower-supplied callback. Once the callback, and every message it sends,
+    has been processed, the lending program verifies within the same transaction
+    that the principal has been returned to the market. If it has not, the
+    operation fails and the entire transaction reverts, including the transfer
+    to the borrower. On testnet 0.4, messages are processed depth first in the
+    order they are sent, so a check sent after the callback runs after it (see
+    the LEZ flash swap example in Resources).
+
+    The callback may call back into the lending program: the runtime has no
+    re-entrancy guard, and the lending program's state is written before the
+    messages it sends are processed. Applicants must document which operations
+    may run during a flash-loan callback and why accounting stays consistent
+    when they do. A check on the market's token balance alone is not sufficient
+    if the callback can credit the same holding through another operation (for
+    example, a supply to the same market); the design must rule this out or
+    account for it.
+
+    Flash loans are **zero-fee**, matching Morpho Blue's deployed implementation
+    (the deployed `Morpho.sol` collects exactly `assets` on repayment with no
+    premium). Repayment must equal the principal exactly; no fee is charged.
 
 15. **Reference liquidator.** Ship a reference liquidator daemon that
     continuously monitors all markets and executes liquidations when positions
@@ -233,8 +247,30 @@ development deliverables.
     `setAuthorizationWithSig`) so a third party can submit the authorising
     transaction. This delegation surface is what the soft-requirement on-chain
     bundler (Soft Functionality 1) composes against; without it the bundler
-    cannot act on a user's position in a single atomic chain. Liquidation is not
-    gated by authorisation: it remains permissionless per F10.
+    cannot act on a user's position in a single atomic transaction. Liquidation
+    is not gated by authorisation: it remains permissionless per F10.
+
+18. **State reads and replies for other programs.** Other LEZ programs can read
+    market and position state within a transaction. On testnet 0.4 a program
+    cannot return a value to its caller directly: it sends the value back in a
+    message that is processed within the same transaction. The lending program
+    answers read messages for market state and for a position's supply shares,
+    borrow shares, collateral and their values in token units (including
+    interest accrued up to the current block). Each operation that changes a
+    position (supply, withdraw, borrow, repay, collateral deposit and
+    withdrawal, liquidation) also replies to its caller with the assets and
+    shares it moved. A caller can check that a reply comes from the lending
+    program and answers the request it sent.
+
+19. **Lending Market Interface.** The program implements the Lending Market
+    Interface, an open specification of how curated vaults allocate to and read
+    from a lending market, whose intended scope is described in
+    [RFP-012](./RFP-012-curated-lending-vaults.md) (Functionality #44 to #50).
+    Where the specification publishes a conformance test suite, the program's CI
+    runs it. If the specification is not published when work starts, the
+    proposal identifies how adoption would be scheduled (for example, as a
+    separate milestone) and the effect on scope, phasing and pricing. Applicants
+    may comment on the specification while it is open for public comment.
 
 #### Usability
 
@@ -334,18 +370,18 @@ development deliverables.
 
 #### Performance
 
-1. Document the transaction size of each operation (market creation, supply,
-   borrow, repay, withdraw, liquidate, flash loan) on LEZ. LEZ's block size is
-   limited and this budget may change during testnet.
+1. Document the transaction size and execution gas of each operation (market
+   creation, supply, borrow, repay, withdraw, liquidate, flash loan) on LEZ.
+   LEZ's block size and gas limits are bounded and may change during testnet.
 2. The program scales linearly in the number of markets without per-market state
-   polluting per-user-operation compute. The actual per-deployment market count
-   is bounded by LEZ's per-transaction compute budget (see Platform
-   Dependencies, Risks, Compute budget, for the benchmark deliverable). As a
-   reference order of magnitude, Morpho Blue runs 200+ active markets on
-   Ethereum and Base (2026-04); LEZ's per-tx compute envelope will determine how
-   close the singleton can run to that figure. The applicant must report the
-   maximum supported market count after benchmarking, not commit to a fixed
-   figure at proposal time.
+   polluting per-user-operation compute: the gas of an operation on one market
+   does not grow with the number of markets or positions. Any remaining bound on
+   the per-deployment market count comes from LEZ's per-transaction execution
+   gas limit (see Platform Dependencies, Risks, Execution gas, for the benchmark
+   deliverable). As a reference order of magnitude, Morpho Blue runs 200+ active
+   markets on Ethereum and Base (2026-04). The applicant must report the maximum
+   supported market count after benchmarking, not commit to a fixed figure at
+   proposal time.
 
 #### Supportability
 
@@ -420,7 +456,7 @@ If possible.
 
 1. On-chain bundler program: a separate LEZ program that composes approve +
    supply + borrow (and similar multi-step user actions) into one atomic
-   tail-call chain, modelled on Morpho's
+   transaction, modelled on Morpho's
    [`morpho-blue-bundlers`](https://github.com/morpho-org/morpho-blue-bundlers).
    The SDK uses the bundler rather than re-implementing composition off-chain.
 
@@ -510,37 +546,58 @@ phasing and pricing. LEZ runtime compatibility remains required.
    to its programmed rules.
    [LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md)
    describes this capability.
-3. **General cross-program calls via tail calls**, including protected
-   continuations, to compose transfers and state updates and implement F14. This
-   is a LEZ runtime capability described in
+3. **General cross-program calls** to compose transfers and state updates and
+   implement F14 and F18. On testnet 0.4, a program calls another by sending it
+   a synchronous message, processed within the same transaction. Messages are
+   processed depth first, in the order they are sent. The called program returns
+   a value by sending a message back to its caller, and any failure reverts the
+   whole transaction. The runtime puts no fixed limit on the number of messages
+   in a transaction; they are bounded by the transaction's execution gas (see
+   Risks). A program's state is written before the messages it sends are
+   processed, and the runtime has no re-entrancy guard, so a called program can
+   call back into its caller. This is a LEZ runtime capability described in
    [LP-0015](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0015.md).
 4. **Structured event emission** so reference and third-party liquidators and
-   risk monitors can observe on-chain changes without polling every account.
+   risk monitors can observe on-chain changes without polling every account. On
+   testnet 0.4, a program emits events as part of its response to each message.
    This capability is described in
    [LP-0012](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md).
+5. **A token program and development framework compatible with testnet 0.4.** At
+   the time of writing, the LEZ token program
+   ([`lez-programs`](https://github.com/logos-blockchain/lez-programs)) and the
+   [SPEL framework](https://github.com/logos-co/spel) (Usability 1) target LEZ
+   v0.2, and a SPEL port to testnet 0.4 is in progress. Proposals should state
+   how they would proceed if either is not available for testnet 0.4 when work
+   starts.
 
 ### Risks
 
-#### Compute budget
+#### Execution gas
 
-LEZ currently processes one private transaction per block (as of 2026-04).
-Public LEE documentation that pins this down is still pending; once it lands,
-link it from the Resources section. Liquidation is the most compute-intensive
-lending operation: it reads the borrower's position, collateral balance, oracle
-price, interest indices, and market parameters, then writes updated state. On
-Solana, where the per-instruction default is 200,000 compute units and the
-per-transaction maximum is 1.4M compute units (see
-[Solana compute budget](https://solana.com/docs/core/fees/compute-budget)), a
-liquidation typically consumes hundreds of thousands of compute units; the exact
-figure for LEZ depends on the implementation. If LEZ's per-transaction compute
-budget is insufficient, liquidations will fail and the protocol risks
-insolvency.
+On testnet 0.4, every program a public transaction runs draws on one execution
+gas budget (zkVM cycles), set by the transaction's gas limit. That limit cannot
+exceed the protocol maximum (`MAX_GAS_EXEC`, 10,000,000 cycles at LEZ
+`v0.4.0-rc3`), which is also the cap on total execution gas in a block: a
+transaction that uses the full allowance occupies a whole block. Liquidation is
+the most compute-intensive lending operation: it reads the borrower's position,
+collateral balance, oracle price, interest indices, and market parameters, then
+writes updated state. If a liquidation does not fit within the gas limit, or
+needs so much of it that it competes for whole blocks, liquidations will fail or
+be delayed and the protocol risks insolvency.
 
-**Deliverable.** Applicants must benchmark the compute cost of liquidation on
+Private execution is not metered by gas, but it is constrained by block space.
+At `v0.4.0-rc3`, a block's storage budget (`MAX_GAS_STOR`, 1,000,000 bytes) and
+the fixed proof charge of about 223 KB per private transaction allow at most
+four private transactions per block, each carrying at most eight private
+actions. This bounds the throughput of the private account path (Privacy 1 to
+4). These constants may change during testnet.
+
+**Deliverable.** Applicants must benchmark the execution gas of liquidation on
 LEZ testnet 0.4 once the protocol is integrated and include the figures in the
-README. If liquidation does not fit within the per-transaction budget,
-applicants must propose a remediation (for example, a two-phase liquidation via
-tail-call continuation) and implement it within the funded scope.
+README. If liquidation does not fit within the per-transaction limit with
+headroom, applicants must propose a remediation (for example, a two-phase
+liquidation across transactions), explain how it preserves Reliability 5, and
+implement it within the funded scope.
 
 ## 👤 Recommended Team Profile
 
@@ -557,6 +614,9 @@ Team experienced with:
 - Writing and running on-chain tests against a LEZ sequencer (or equivalent
   local-validator workflows from Solana, e.g. Bankrun, Anchor tests)
 - Front-end development for DeFi applications
+
+A track record of operating a lending protocol that holds mainnet TVL on another
+chain is a strong advantage.
 
 ## ⏱ Timeline Expectations
 
@@ -575,6 +635,9 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [Appendix: Lending and Borrowing Ecosystem](../appendix/lending-ecosystem.md):
   ecosystem survey across Ethereum, Solana, BTCFi, and long-tail chains; Morpho
   Blue deep dive
+- [LEZ flash swap example](https://github.com/logos-blockchain/logos-execution-zone/blob/v0.4.0-rc3/lee/state_machine/test_methods/guest/src/bin/flash_swap_initiator.rs):
+  the testnet 0.4 pattern for a transfer out, a callback and a balance check
+  after it, within one transaction (F14)
 
 The Resources listed above, and any third-party material referred to elsewhere
 in this specification, are for informational purposes only and are intended
