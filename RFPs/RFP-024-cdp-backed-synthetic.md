@@ -104,9 +104,7 @@ holds LEZ-side collateral. Examples:
 
 What varies per asset is configuration, not mechanism: price-feed quality and
 redundancy, price volatility (which drives the c-ratio and liquidation
-parameters), and whether a suitable price feed exists at all. Proposals should
-state, for each asset they demonstrate, which price feed they use and how its
-manipulation resistance was assessed.
+parameters), and whether a suitable price feed exists at all.
 
 ## High-level functionality and flow
 
@@ -192,72 +190,55 @@ explain how the mechanism handles the thin-secondary-market case above.
 Liquidation must not depend on any particular operator: any keeper or bot
 software supplied is reference software that third parties may choose to run.
 
-## Pros
+## Design requirements
 
-- **No custody of the tracked asset.** The program never holds the tracked
-  asset; the vault holds only LEZ-side collateral. There is no signer set,
-  multisig or bridge, and no view key is shared, for every listed synthetic.
-- **One engine, many assets.** One CDP program supports a configurable set of
-  synthetics. A new synthetic requires a price-feed integration and parameter
-  configuration, not a new program. Each instance and each listing still
-  requires its own configuration and assessment.
-- **Composable.** sASSET is a fungible LEZ token with a documented message
-  interface; lending markets, DEXes and other LEZ programs can integrate it
-  without coordinating with the synthetics team.
-- **No atomic-swap interaction.** Mint and burn are LEZ-native operations, with
-  no atomic-swap latency, maker discovery or counterparty interaction.
-- **Documented design references.** Existing CDP designs (Synthetix, MakerDAO,
-  Liquity) are publicly documented; the work is adapting those patterns to LEZ.
-
-## Cons
-
-- **No path to the real asset within this RFP.** A user who wants the underlying
-  on its home chain must sell sASSET at the market price and acquire the asset
-  elsewhere. sASSET does not redeem to the underlying.
-- **Soft peg only.** The market price of sASSET can differ from the price feed,
-  and the gap can widen under stress (price-feed staleness, collateral price
-  falls, large unwinds).
-- **Shared debt.** In a V2-style debt pool, all synth holders share aggregate
-  debt; in V3-style per-pool debt, the same model applies within a pool.
-  Proposals must pick a model and document its failure modes. With multiple
-  synthetics in one pool, a sharp move in one asset's price affects every
-  position in that pool.
-- **Price-feed quality varies by asset.** The engine is asset-agnostic but its
-  behaviour under manipulation is not: ETH has several independent feeds, while
-  a less liquid asset may have fewer feeds and weaker manipulation resistance.
-  Each listing depends on the properties of its price feed.
-- **Mint, burn and vault state are public.** Position, pool and vault state are
-  held in public accounts on LEZ. Users can interact from private accounts, but
-  the resulting position changes, timing and amounts are recorded in public
-  state and may be correlated.
-- **Demand for a non-redeemable synthetic.** Users who want the real asset may
-  not be served by a debt position that only tracks its price. Proposals should
-  include evidence of demand for the synthetics they demonstrate.
+1. **One engine, many synthetics.** Adding a synthetic is a configuration change
+   (price feed and parameters), with no change to the program.
+2. **Debt model.** The proposal specifies its debt model (a debt pool shared
+   across synthetics, per-pool debt, or isolated per-position debt) and
+   documents its failure modes, including how a price move in one synthetic
+   affects positions in other synthetics that share its pool.
+3. **Price guards.** The program supports several price feeds per synthetic
+   combined by median, plus price-deviation and staleness guards. Minting is
+   rejected when the price fails a guard; the proposal documents how liquidation
+   behaves in that case.
+4. **Price-feed assessment.** For each demonstrated synthetic, the proposal
+   states which price feed it uses and documents its redundancy and manipulation
+   resistance.
+5. **Collateral.** The program supports per-collateral concentration caps. The
+   proposal documents the threat model of each collateral asset used in testing.
+6. **Liquidation cost.** The proposal documents the fee cost of triggering a
+   liquidation, including reverted attempts (for example when another caller
+   liquidates the position first), relative to the configured liquidation
+   penalty, and the MEV considerations of the liquidation flow.
+7. **Integration interface.** sASSET and the vault expose a documented message
+   interface, so that DEXes, lending markets and other LEZ programs can
+   integrate sASSET without changes to this program.
+8. **User documentation.** User-facing documentation states that:
+   - sASSET does not redeem to the tracked asset, and its market price can
+     diverge from the price feed, particularly under stress;
+   - position, pool and vault state are public on LEZ, and interacting from a
+     private account still records position changes, timing and amounts in
+     public state;
+   - for privacy-coin synthetics (`sXMR`, `sZEC`), sASSET is not itself a
+     private asset.
+9. **Demand.** The proposal includes evidence of demand for the synthetics it
+   demonstrates.
 
 ## Risks
 
 - **Price-feed manipulation.** A manipulated ASSET/USD feed lets an attacker
   mint sASSET cheaply or push existing positions below the liquidation
-  threshold. Mitigation: support median-of-N pricing across feeds,
-  price-deviation guards and staleness checks. The exposure depends on the depth
-  of each asset's feed, so proposals document a feed assessment per demonstrated
-  asset.
+  threshold. Exposure depends on the depth of each asset's feeds (requirements 3
+  and 4).
 - **Collateral price risk.** If a collateral asset loses its peg or is
-  compromised, the collateral backing sASSET loses value. Mitigation: support
-  per-collateral concentration caps and liquidation parameters that account for
-  collateral volatility, and document the threat model of each collateral asset
-  used in testing.
+  compromised, the collateral backing sASSET loses value (requirement 5).
 - **Liquidation not executing.** If liquidation depends on profitable keeper
-  action, positions can become under-collateralised during fast price moves. On
-  LEZ, callers also pay for reverted liquidation attempts. Mitigation: the
-  stability-pool mechanism above, a liquidation trigger any caller can invoke,
-  and documented fee and MEV considerations.
-- **Secondary-market liquidity.** Demand to mint may exist without matching
-  secondary-market liquidity for sASSET; tradability depends on LEZ DEX
-  liquidity.
-- **Privacy expectations (privacy-coin listings).** For `sXMR` and `sZEC`, the
-  tracked asset is a privacy coin, but sASSET mint, burn and vault state are
-  recorded in public on-chain state. Documentation must state this plainly.
+  action, positions can become under-collateralised during fast price moves. The
+  stability pool and a liquidation trigger any caller can invoke address this
+  (requirement 6 covers the caller's cost).
+- **Peg divergence and liquidity.** sASSET's market price can diverge from the
+  price feed, and its tradability depends on LEZ DEX liquidity for sASSET.
 
 ## Out of Scope
 
