@@ -82,12 +82,10 @@ mechanic.
 ## Target platform: LEZ testnet 0.4 (required)
 
 The program must be written against the LEZ v0.4 actor program model, and the
-team deploys and tests it on LEZ testnet 0.4. Programs written for the v0.2.4
-account-rewriting model or the v0.3 `plan`/`apply` model do not meet this
-requirement. Until public testnet 0.4 endpoints are available, development and
-testing may use the latest v0.4 release candidate on a local chain
-(`v0.4.0-rc3`, tagged 2026-11-11, at the date of this specification); milestone
-acceptance takes place on LEZ testnet 0.4.
+team deploys and tests it on LEZ testnet 0.4. Until public testnet 0.4 endpoints
+are available, development and testing may use the latest v0.4 release candidate
+on a local chain (`v0.4.0-rc3`, tagged 2026-11-11, at the date of this
+specification); milestone acceptance takes place on LEZ testnet 0.4.
 
 The v0.4 model shapes the design as follows. Proposals explain how they handle
 each point.
