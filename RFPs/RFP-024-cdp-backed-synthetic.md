@@ -86,29 +86,6 @@ are available, development and testing may use the latest v0.4 release candidate
 on a local chain (`v0.4.0-rc3`, tagged 2026-11-11, at the date of this
 specification); milestone acceptance takes place on LEZ testnet 0.4.
 
-## Comparison with federated and custody-backed designs
-
-Two deployed alternatives for synthetic or wrapped exposure to external assets
-differ from this design in what they hold and what users rely on:
-
-- **Federated-signer middle chain (Thorchain/Serai-style).** A purpose-built
-  chain whose validator set holds external assets in a threshold-signature
-  vault. This supports AMM liquidity and one-step swaps; users rely on the
-  signer set not colluding and on the security of the vault software. Deployed
-  examples have recorded losses (Thorchain's 2026-05-15 TSS vault drain;
-  Wormhole's 2022 bridge loss). For privacy-coin underlyings, threshold custody
-  requires view-key sharing, so signers can see deposit history.
-- **Custodial bridge or real-asset multisig (sBTC, Secret Monero Bridge).** A
-  token backed 1:1 by the real asset held in a federated multisig. Users rely on
-  the signer set for custody and for redemption liveness; for XMR the same
-  view-key disclosure applies.
-
-In the design described here, the program holds only LEZ-side collateral and
-never holds the tracked asset, so there is no signer set, multisig or bridge,
-and no view key is shared. The custody-backed designs and their documented
-reception are surveyed in
-[appendix/synthetics-design-space.md](../appendix/synthetics-design-space.md).
-
 ## Which assets fit this design
 
 Any asset with a usable price feed can be configured as a CDP-backed synthetic.
@@ -312,10 +289,13 @@ and how they would absorb an interface change.
 - **Fungible token implementation.** A token implementation on testnet 0.4 for
   sASSET and for test collateral, or the proposal's own; proposals state which.
 - **Price feeds.** An ASSET/USD price feed on LEZ testnet 0.4 for each
-  demonstrated synthetic, answering the vault's price messages. RFP-019
-  (On-Chain TWAP Oracle) and RFP-020 (RedStone Off-Chain Oracle Adaptor) specify
-  examples of such feeds. If no v0.4 price feed is available, proposals include
-  a test price-feed program for testnet use and say so.
+  demonstrated synthetic, sourced from outside LEZ (for example an adaptor such
+  as the one specified in RFP-020). Price data follows the canonical oracle
+  price data standard specified in RFP-019 (asset identifiers, price,
+  confidence, timestamp, source), obtained from the feed program by message. A
+  TWAP of a LEZ DEX pool trading an sASSET is not an acceptable price source for
+  that sASSET. If no v0.4 price feed is available, proposals include a test
+  price-feed program for testnet use and say so.
 - **Admin and freeze authority.** Bounded admin and freeze capabilities for the
   configuration above. RFP-001 and RFP-002 specify examples.
 - **Lending-market position accounting (optional).** Proposals may implement CDP
