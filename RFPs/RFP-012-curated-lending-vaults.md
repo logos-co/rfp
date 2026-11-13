@@ -3,10 +3,10 @@ note: This metadata is for internal programme tracking only. It is not part of t
 id: RFP-012
 title: Curated Lending Vaults
 tier: L
-status: closed
+status: open
 dependencies:
   - id: RFP-008
-    reason: The vault layer allocates deposits across an isolated-market lending protocol with Morpho Blue semantics; RFP-008 specifies such a protocol and is an illustrative example.
+    reason: The vault layer allocates deposits across isolated-market lending protocols with Morpho Blue semantics that implement the Lending Market Interface the proposal specifies; RFP-008 specifies such a protocol and is an illustrative example.
   - id: LP-0013
     reason: Token transfer authorities are required for the vault program to hold idle balances and issue vault share tokens; LP-0013 is an illustrative example.
 category: Applications & Integrations
@@ -45,13 +45,20 @@ category: Applications & Integrations
 
 ## 🧭 Overview
 
-Build a curated vault layer on top of an isolated-market lending protocol on LEZ
-(the lending protocol, Platform Dependencies #1). Each vault accepts deposits of
-a single loan token, issues transferable vault share tokens (LEZ fungible
-tokens), and allocates deposits across multiple Morpho-style lending markets
-according to a curator-defined strategy. This is the Morpho Vaults V2 equivalent
-for LEZ: a vault layer that abstracts isolated markets into a single deposit
-interface for passive lenders.
+Build a curated vault layer on top of isolated-market lending protocols on LEZ
+(Platform Dependencies #1). Each vault accepts deposits of a single loan token,
+issues transferable vault share tokens (LEZ fungible tokens), and allocates
+deposits across multiple Morpho-style lending markets according to a
+curator-defined strategy. This is the Morpho Vaults V2 equivalent for LEZ: a
+vault layer that abstracts isolated markets into a single deposit interface for
+passive lenders.
+
+The vault layer does not depend on any single lending protocol implementation.
+This RFP asks the proposal to specify a **Lending Market Interface**: what the
+vault's market adapter needs from a lending protocol (Functionality #44 to #50).
+Any implementation that conforms to it can be connected through an adapter, and
+the proposal delivers adapters for two independent implementations, subject to
+their availability on testnet 0.4.
 
 The vault program targets testnet 0.4 (Supportability requirement #1).
 
@@ -63,8 +70,8 @@ yield. On Ethereum, the MetaMorpho vault layer absorbs the majority of the full
 Morpho stack ($11.78B TVL across Blue + vaults by 2026-05, with the Blue core
 itself at ~$4.9B); Coinbase's USDC lending product alone routes multi-billion
 AUM through a single Steakhouse-curated MetaMorpho vault. The vault layer
-extends the lending protocol the proposal builds against, so the applying team
-needs deep familiarity with its internals.
+extends the lending protocols the proposal builds against, so the applying team
+needs deep familiarity with Morpho Blue-style lending internals.
 
 ## 🔥 Why This Matters
 
@@ -122,7 +129,10 @@ in a single governance body.
     to the vault) and report the current value of its positions in the loan
     token.
 09. Allocate and deallocate each return the risk ids the operation affects and
-    the signed change in the adapter's position.
+    the signed change in the adapter's position. On LEZ testnet 0.4, a program
+    returns a value by sending it to its caller in a message within the same
+    transaction (#46); the vault must check that such a reply comes from the
+    enabled adapter it called.
 10. Only the vault that enabled an adapter can call that adapter's allocate and
     deallocate.
 11. Any program that implements the adapter interface can be enabled as an
@@ -136,8 +146,10 @@ in a single governance body.
     balance does not cover them.
 14. There is no ordered supply or withdraw queue: routing is adapter-based,
     consistent with Morpho Vaults V2.
-15. The proposal includes a market adapter for the lending protocol that can
-    allocate to any of its markets, with the market selected on each call.
+15. A market adapter connects the vault to one lending protocol implementation
+    that conforms to the Lending Market Interface (#44 to #50). It can allocate
+    to any of that implementation's markets, with the market selected on each
+    call.
 
 ##### Risk ids and caps
 
@@ -225,13 +237,56 @@ in a single governance body.
 43. A sentinel cannot enable adapters, increase caps, allocate capital, change
     fees, or change any role.
 
+##### Lending Market Interface
+
+44. The proposal specifies a **Lending Market Interface**: the messages a
+    conforming lending protocol accepts, and the replies it sends, so that a
+    market adapter (#15) can allocate to its markets, deallocate from them and
+    value the vault's positions in them. The specification is versioned,
+    published in the repository, and does not depend on the internal account
+    layout of any one implementation.
+45. The interface covers at least:
+    - (a) supplying the loan token to a market on behalf of a given account, and
+      withdrawing from it by asset amount or by supply shares;
+    - (b) reading a position's supply shares and their value in loan-token
+      units, including interest accrued up to the current block;
+    - (c) reading the market state the vault needs for risk ids, caps and
+      routing: market id, loan token, collateral token, total supplied, total
+      borrowed and available liquidity;
+    - (d) the flash-loan entrypoint used for forced deallocation (Reliability
+      #3), if the design relies on one;
+    - (e) how realised bad debt is reflected in the values that (b) returns
+      (Reliability #4);
+    - (f) failure semantics: which conditions make an operation fail, given that
+      any failure reverts the whole transaction.
+46. On LEZ testnet 0.4, a program cannot return a value to its caller directly.
+    The called program sends the value back to its caller in a message that is
+    processed within the same transaction. For each operation in #45, the
+    specification defines the reply a conforming lending protocol sends, its
+    encoding, and how the caller checks that the reply comes from that lending
+    protocol and answers the request it sent.
+47. The specification is published in the repository in the proposal's first
+    milestone, before any market adapter is built against it, and is open to
+    public comment, including from teams implementing lending protocols. Changes
+    after publication are versioned and documented.
+48. The proposal delivers a conformance test suite that any lending protocol
+    implementation can run against itself to test whether it implements the
+    interface, and a mock market that implements the interface for the vault's
+    own tests.
+49. The proposal delivers a market adapter (#15) for each of two independent
+    lending protocol implementations that conform to the interface, subject to
+    their availability on testnet 0.4 (Platform Dependencies #1).
+50. The vault program contains no code specific to any one lending protocol
+    implementation: supporting a further conforming implementation requires only
+    a new adapter.
+
 #### Usability
 
 1. All vault features are exposed through a **core module** (the headless
    business-logic module that the GUI, CLI, and reference services all consume).
-   Where the lending protocol provides a core module, CLI and GUI (as RFP-008
-   specifies), the vault features extend them; otherwise the proposal provides
-   them.
+   Where a lending protocol implementation provides a core module, CLI and GUI
+   (as RFP-008 describes), the vault features extend those of at least one
+   implementation; otherwise the proposal provides them.
 2. The GUI displays per-vault: current APY, total deposits, allocated markets
    with individual utilisation, risk-id caps (absolute and relative) and
    remaining capacity, and the curator's performance fee.
@@ -239,12 +294,12 @@ in a single governance body.
    token, and accrued yield since deposit.
 4. When interacting via a private account, the SDK must handle the atomic
    deshield (deposit token + native gas) as a single indivisible user action,
-   consistent with the RFP-008 privacy pattern.
+   consistent with the privacy pattern described in RFP-008.
 5. When interacting via a private account, before each vault operation, the GUI
    must show the estimated transaction fee and confirm that the user's shielded
    balance covers both the deposit amount and fees within the single deshield
    action.
-6. Vault share tokens must be usable as collateral in the lending protocol's
+6. Vault share tokens must be usable as collateral in a lending protocol's
    markets (subject to an oracle being available for the vault share price).
 
 #### Reliability
@@ -268,9 +323,9 @@ in a single governance body.
    depositors proportionally to their share at the time the loss is realised.
    Bad debt is accounted **on touch**: the vault's exposure to a damaged market
    is repriced when any operation (deposit, withdrawal, reallocation, fee
-   accrual) next reads that market's state, mirroring the lending protocol's
-   lazy-accrual model (as in Morpho Blue). The vault must track and report
-   realised bad debt per market.
+   accrual) next reads that market's state, mirroring the lazy-accrual model of
+   Morpho Blue-style lending protocols. The vault must track and report realised
+   bad debt per market.
 
    This is the same realisation model Morpho uses and it has a known asymmetry:
    under the adapter-based allocation model (Functionality #8 to #21), a
@@ -286,17 +341,27 @@ in a single governance body.
 
 #### Performance
 
-1. Document the transaction size of each vault operation (deposit, withdraw,
-   reallocate) on LEZ. LEZ's block size is limited and this budget may change
-   during testnet.
-2. A vault with up to 10 allocated markets must not exceed LEZ compute limits on
-   any single deposit or withdrawal operation.
+1. Document the transaction size and execution gas of each vault operation
+   (deposit, withdraw, allocate, deallocate, forced deallocation) on LEZ, for
+   each market adapter. LEZ's block size and gas limits are bounded and may
+   change during testnet.
+2. On testnet 0.4, the number of cross-program messages in a transaction is not
+   limited; the binding limit is execution gas. A transaction's gas limit cannot
+   exceed the protocol maximum (`MAX_GAS_EXEC`, 10,000,000 cycles at LEZ
+   `v0.4.0-rc3`), which is also the cap on total execution gas in a block. A
+   deposit or withdrawal on a vault with up to 10 enabled adapters must fit
+   within that maximum, including a withdrawal that deallocates from all of
+   them, and should leave enough headroom to share a block with other
+   transactions. Document the measured worst case.
 
 #### Supportability
 
-1. The vault program is deployed and tested on testnet 0.4.
+1. The vault program and each delivered market adapter are deployed and tested
+   on testnet 0.4.
 2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
-   and are included in CI; CI must be green on the default branch.
+   and are included in CI; CI must be green on the default branch. The
+   conformance test suite (Functionality #48) runs in CI against the mock market
+   and against each targeted lending protocol implementation, where available.
 3. Every hard requirement in Functionality, Usability, Reliability, and
    Performance has at least one corresponding test.
 4. A README addendum documents the vault features: vault creation, curator
@@ -309,23 +374,23 @@ in a single governance body.
    features.
 7. Provide Figma designs or equivalent for all GUI additions to the GUI.
 8. Provide a privacy and anonymisation properties document for the vault layer,
-   extending the lending protocol's own document where one exists, covering:
-   what vault state and operations are visible to observers; what data is
-   protected when the private account path is used for vault interactions; trust
+   extending a lending protocol's own document where one exists, covering: what
+   vault state and operations are visible to observers; what data is protected
+   when the private account path is used for vault interactions; trust
    assumptions, specifying which guarantees are enforced by the on-chain program
    and which depend on correct client behaviour; and what happens if a user
    bypasses the expected interaction path. See
    [RFP-008 — Privacy Architecture](./RFP-008-lending-borrowing-protocol.md#privacy-architecture)
    for the baseline this document must align with.
 9. **Audit programme.** The proposal must include a planned audit programme
-   covering the vault program and the role-permission surface (curator,
-   allocator, sentinel). The proposal must name at least one tier-1 audit firm
-   the applicant intends to engage, include the audit budget as a line item, and
-   include the audit timeline. Audit reports must be published with the codebase
-   before any production deployment of the software. If the lending protocol and
-   the vault layer are implemented by the same team, the audit programmes may be
-   combined in a single engagement; the proposal must make the combined scope
-   explicit.
+   covering the vault program, the market adapters and the role-permission
+   surface (curator, allocator, sentinel). The proposal must name at least one
+   tier-1 audit firm the applicant intends to engage, include the audit budget
+   as a line item, and include the audit timeline. Audit reports must be
+   published with the codebase before any production deployment of the software.
+   If a lending protocol implementation and the vault layer are implemented by
+   the same team, the audit programmes may be combined in a single engagement;
+   the proposal must make the combined scope explicit.
 
 #### + Privacy
 
@@ -366,7 +431,7 @@ If possible.
 - Governance token design and distribution
 - Cross-chain liquidity or bridging
 - Leveraged looping / one-click multiply products
-- Any feature already provided by the lending protocol
+- Any feature already provided by a lending protocol
 - Mainnet deployment. Mainnet deployment is not part of this RFP: whether, when
   and by whom the software is deployed is a matter for those who deploy it.
 - The identity of persons holding the owner, curator, allocator and sentinel
@@ -389,11 +454,17 @@ This RFP is open for proposal submission. Implementation of the vault layer
 depends on the availability, on testnet 0.4, of the following technical
 capabilities:
 
-1. **An isolated-market lending protocol** with Morpho Blue semantics
-   (per-market supply, withdrawal and interest accrual, with market state
-   readable by other programs) that the vault can allocate to through an
-   adapter. [RFP-008](./RFP-008-lending-borrowing-protocol.md) specifies such a
-   protocol and is given as an illustrative example.
+1. **Two independent isolated-market lending protocol implementations** with
+   Morpho Blue semantics (per-market supply, withdrawal and interest accrual,
+   with market state readable by other programs) that implement the Lending
+   Market Interface (Functionality #44 to #50), so that the vault can allocate
+   to them through adapters. Whether and when any lending protocol
+   implementation adopts the interface or becomes available on testnet 0.4 is a
+   matter for the team that builds it. Proposals should schedule the two
+   adapters as separate milestones, each starting once its implementation is
+   available, and should identify this uncertainty and its effect on phasing,
+   scope and pricing. [RFP-008](./RFP-008-lending-borrowing-protocol.md)
+   describes such a protocol and is given as an illustrative example.
 2. **Token transfer authorities**, so that the vault program can hold idle
    balances and issue vault share tokens.
    [LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md)
@@ -416,12 +487,15 @@ Team experienced with:
 - DeFi risk curation and yield optimisation strategies
 - Token standard design (vault share token mechanics)
 - Front-end development for DeFi applications
-- The internals of the lending protocol that the vault layer extends
+- The internals of Morpho Blue-style lending protocols
+- Specifying interfaces that independent implementations conform to, with
+  conformance test suites
 
 ## ⏱ Timeline Expectations
 
-Estimated duration: **12 weeks** (after the capabilities under Platform
-Dependencies are available).
+Estimated duration: **14 weeks** (after the capabilities under Platform
+Dependencies are available; the Lending Market Interface specification in
+Functionality #44 to #48 can start before then).
 
 ## 🌍 Open Source Requirement
 
@@ -436,6 +510,9 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   and [RFP-019 On-Chain TWAP Oracle](./RFP-019-twap-oracle.md): oracle sources
   on LEZ
 - [SPEL framework](https://github.com/logos-co/spel)
+- [LEZ flash swap example](https://github.com/logos-blockchain/logos-execution-zone/blob/v0.4.0-rc3/lee/state_machine/test_methods/guest/src/bin/flash_swap_initiator.rs):
+  an example of sending messages in order on testnet 0.4, reading a balance
+  through a reply, and checking it after a callback within one transaction
 
 The Resources listed above, and any third-party material referred to elsewhere
 in this specification, are for informational purposes only and are intended
