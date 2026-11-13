@@ -92,6 +92,7 @@ Click an RFP to view details. Use the Submit Proposal button to apply.
 | RFP-020 | [RedStone Off-Chain Oracle Adaptor for LEZ](RFPs/RFP-020-redstone-oracle-adaptor.md)        | M    | closed | -                   | Developer Tooling & Infrastructure | Closed                                                                              |
 | RFP-021 | [Trustless Ethereum State Attestation for LEZ](RFPs/RFP-021-ethereum-state-attestation.md)  | M    | open   | 18/11/26            | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
 | RFP-022 | [Privacy-Preserving Wrapped ERC-20 and Ether Bridge for LEZ](RFPs/RFP-022-wrapped-erc20.md) | L    | open   | 18/11/26            | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
+| RFP-027 | [LEZ Node API](RFPs/RFP-027-lez-node-api.md)                                                | L    | open   | -                   | Developer Tooling & Infrastructure | [Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml) |
 
 <!-- RFP_TABLE_END -->
 
