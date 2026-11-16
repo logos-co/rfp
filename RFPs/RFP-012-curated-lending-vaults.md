@@ -291,9 +291,9 @@ in a single governance body.
    remaining capacity, and the curator's performance fee.
 3. The GUI displays per-user: vault share balance, current value in underlying
    token, and accrued yield since deposit.
-4. When interacting via a private account, the SDK must handle the atomic
-   deshield (deposit token + native gas) as a single indivisible user action,
-   consistent with the privacy pattern described in RFP-008.
+4. When interacting via a private account, the core module must handle the
+   atomic deshield (deposit token + native gas) as a single indivisible user
+   action, consistent with the privacy pattern described in RFP-008.
 5. When interacting via a private account, before each vault operation, the GUI
    must show the estimated transaction fee and confirm that the user's shielded
    balance covers both the deposit amount and fees within the single deshield
@@ -362,9 +362,9 @@ in a single governance body.
 4. A README addendum documents the vault features: vault creation, curator
    setup, market allocation, deposit/withdrawal flow, and sentinel
    configuration.
-5. Provide documentation in repo for each new SDK feature (vault creation,
-   deposit/withdraw, market allocation, curator/allocator/sentinel roles),
-   covering the developer integration journey.
+5. Provide documentation in repo for each new core module feature (vault
+   creation, deposit/withdraw, market allocation, curator/allocator/sentinel
+   roles), covering the developer integration journey.
 6. Provide documentation in repo for the CLI additions, covering the vault
    features.
 7. Provide Figma designs or equivalent for all GUI additions to the GUI.
@@ -389,10 +389,10 @@ in a single governance body.
 
 #### + Privacy
 
-1. The GUI and SDK must support both direct public account interaction and the
-   deshield→interact→reshield pattern for private account interaction with
-   vaults. When a user chooses the private account path, the SDK must complete
-   the full deshield→interact→reshield pattern for the operation.
+1. The GUI and core module must support both direct public account interaction
+   and the deshield→interact→reshield pattern for private account interaction
+   with vaults. When a user chooses the private account path, the core module
+   must complete the full deshield→interact→reshield pattern for the operation.
 2. When using the private account path, the GUI must display a pre-confirmation
    summary for each vault operation that clearly identifies what will be visible
    on-chain (deposit/withdrawal amount, vault address, vault share mint/burn,

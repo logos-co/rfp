@@ -272,14 +272,14 @@ development deliverables.
     and client code from the program definition.
 02. **Logos app architecture.** Deliver the user-facing application as two
     composable modules: (a) a **core module** containing all business logic,
-    transaction construction, state querying, and SDK-level operations, with no
-    GUI dependencies; and (b) a **GUI module** in QML + C++ that consumes the
-    core module and is loadable in the Logos app (Basecamp) via the team's own
-    git repo. The core module must be the single source of truth for protocol
-    interaction logic and must be directly reusable by headless consumers (CLI,
-    reference liquidator, reference risk monitor) without any GUI dependency.
-    The two modules must build and ship independently; the GUI must contain no
-    business logic that is not also accessible through the core module.
+    transaction construction and state querying, with no GUI dependencies; and
+    (b) a **GUI module** in QML + C++ that consumes the core module and is
+    loadable in the Logos app (Basecamp) via the team's own git repo. The core
+    module must be the single source of truth for protocol interaction logic and
+    must be directly reusable by headless consumers (CLI, reference liquidator,
+    reference risk monitor) without any GUI dependency. The two modules must
+    build and ship independently; the GUI must contain no business logic that is
+    not also accessible through the core module.
 03. Provide local build instructions and downloadable assets for the GUI,
     loadable in the Logos app (Basecamp) via the team's own git repo.
 04. Provide a CLI that covers core functionality of the program. The CLI
@@ -294,9 +294,10 @@ development deliverables.
     surfaced in both CLI and GUI.
 08. Current supply APY, borrow APR, and utilisation are displayed per market in
     the GUI and CLI.
-09. When interacting via a private account, the SDK must handle the atomic
-    deshield (deposit token + native gas) as a single indivisible user action,
-    so the operation is funded entirely from the user's shielded balance.
+09. When interacting via a private account, the core module must handle the
+    atomic deshield (deposit token + native gas) as a single indivisible user
+    action, so the operation is funded entirely from the user's shielded
+    balance.
 10. When interacting via a private account, before each operation the GUI must
     show the estimated transaction fee and confirm that the user's shielded
     balance covers both the operation amount and fees within the single deshield
@@ -387,7 +388,7 @@ development deliverables.
 05. A README documents end-to-end usage: deployment steps, program addresses,
     and step-by-step instructions for interacting with the program via CLI and
     GUI.
-06. Publish SDK documentation in the team's own repository, covering the
+06. Publish core module documentation in the team's own repository, covering the
     developer integration journey for supply, borrow, repay, withdraw and
     liquidation.
 07. Publish CLI documentation in the team's own repository, covering the core
@@ -415,10 +416,10 @@ development deliverables.
 
 #### + Privacy
 
-1. The GUI and SDK must support both direct public account interaction and the
-   deshield→interact→reshield pattern for private account interaction. When a
-   user chooses the private account path, the SDK must complete the full
-   deshield→interact→reshield pattern for the operation.
+1. The GUI and core module must support both direct public account interaction
+   and the deshield→interact→reshield pattern for private account interaction.
+   When a user chooses the private account path, the core module must complete
+   the full deshield→interact→reshield pattern for the operation.
 2. When using the private account path, the GUI must display a pre-confirmation
    summary for each operation that clearly identifies what will be visible
    on-chain (amounts, asset type, market address, ephemeral intermediary
@@ -426,20 +427,20 @@ development deliverables.
    private account and the destination of re-shielded tokens). The summary must
    explain that public timing and amounts may still allow observers to correlate
    interactions.
-3. When using the private account path, the SDK must validate that the target
-   account for re-shielding is a private (shielded) account before submitting
-   the transaction, and reject the operation with an explicit error if it is
-   not.
+3. When using the private account path, the core module must validate that the
+   target account for re-shielding is a private (shielded) account before
+   submitting the transaction, and reject the operation with an explicit error
+   if it is not.
 4. The ephemeral public account (account A) created during the deshield step
    must never be reused across operations. Each protocol interaction from a
    private account must use a freshly generated account with no prior on-chain
    history. Because LEZ accounts are keypair-derived (Solana-style), generating
    an account with no on-chain history is trivial; preventing reuse, however, is
-   an SDK responsibility. Applicants must document how the SDK enforces
-   single-use (for example, fresh-keypair-per-operation, a deterministic
-   single-use derivation scheme tied to a nonce, or a local registry of consumed
-   ephemeral keys) and how it survives client restarts and multi-device usage
-   without reuse.
+   a core module responsibility. Applicants must document how the core module
+   enforces single-use (for example, fresh-keypair-per-operation, a
+   deterministic single-use derivation scheme tied to a nonce, or a local
+   registry of consumed ephemeral keys) and how it survives client restarts and
+   multi-device usage without reuse.
 
 ### Soft Requirements
 
@@ -451,7 +452,8 @@ If possible.
    supply + borrow (and similar multi-step user actions) into one atomic
    transaction, modelled on Morpho's
    [`morpho-blue-bundlers`](https://github.com/morpho-org/morpho-blue-bundlers).
-   The SDK uses the bundler rather than re-implementing composition off-chain.
+   The core module uses the bundler rather than re-implementing composition
+   off-chain.
 
 ### Out of Scope
 
@@ -504,17 +506,18 @@ accounts) lives in **public (on-chain) state**. This is a deliberate
 architectural choice: public state enables permissionless liquidation, oracle
 integration and cross-program composition.
 
-The private account interaction path is implemented by the GUI and SDK. The GUI
-and SDK must support both direct public account interaction and private account
-interaction via the deshield, interact, reshield pattern: the user acts from a
-private account, the SDK deshields to a fresh single-use public account that
-carries out the operation, and any outputs are reshielded back to the private
-account. When a user opts to interact from a private account, the SDK must
-complete the full deshield-interact-reshield pattern for the operation,
-including atomic funding of gas, so that the operation is funded entirely from
-the user's shielded balance and the ephemeral account carries no prior history.
-Timing and amounts remain public and may be correlated; the pattern does not
-guarantee that separate interactions cannot be linked.
+The private account interaction path is implemented by the GUI and core module.
+The GUI and core module must support both direct public account interaction and
+private account interaction via the deshield, interact, reshield pattern: the
+user acts from a private account, the core module deshields to a fresh
+single-use public account that carries out the operation, and any outputs are
+reshielded back to the private account. When a user opts to interact from a
+private account, the core module must complete the full
+deshield-interact-reshield pattern for the operation, including atomic funding
+of gas, so that the operation is funded entirely from the user's shielded
+balance and the ephemeral account carries no prior history. Timing and amounts
+remain public and may be correlated; the pattern does not guarantee that
+separate interactions cannot be linked.
 
 The full privacy and anonymisation properties (the complete observable-on-chain
 versus protected-data breakdown, trust assumptions, and bypass behaviour) are a
