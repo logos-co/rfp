@@ -71,9 +71,9 @@ programs can integrate like any other token.
 
 Synthetix used this structure to list synthetics for several assets (including
 `sETH`, `sBTC` and `sXMR`) from a single CDP-minting engine, adding each asset
-through a price feed and parameters rather than a new protocol. Liquity
-introduced the stability pool, which absorbs liquidated debt from pre-deposited
-tokens within the liquidation transaction.
+through a price feed and a set of parameters. Liquity introduced the stability
+pool, which absorbs liquidated debt from pre-deposited tokens within the
+liquidation transaction.
 
 ## 🏗 Design Rationale
 
@@ -84,26 +84,24 @@ position's debt and claims the collateral at a discount. For a synthetic that
 tracks a volatile asset and has a thin secondary market, the synthetic the
 liquidator needs can cost more than the discount by the time it is bought. If no
 liquidator acts, the position's debt exceeds its collateral value and the system
-carries bad debt. The faster the tracked asset moves, the narrower the range in
-which keeper liquidation is profitable.
+carries bad debt. This is more likely when the tracked asset moves quickly.
 
-A stability pool removes that dependence: the debt is burned from pre-deposited
-sASSET within the liquidation transaction, and the seized collateral is credited
-to pool depositors. The trigger becomes a call any account can make. Because
-pool deposits and outstanding debt are both on-chain, issuance can be capped
-relative to pool deposits. The stability pool is the required baseline
-(Functionality #12 to #17); proposals may describe an alternative absorption
-mechanism if they show how it handles the case above (Functionality #18).
+With a stability pool, the debt is burned from pre-deposited sASSET within the
+liquidation transaction, and the seized collateral is credited to pool
+depositors. Any account can trigger the liquidation. Because pool deposits and
+outstanding debt are both on-chain, issuance can be capped relative to pool
+deposits. The stability pool is the required baseline (Functionality #12 to
+#17); proposals may describe an alternative absorption mechanism if they show
+how it handles the case above (Functionality #18).
 
 ### One engine, many synthetics
 
-The mint, repay and liquidate logic is the same whichever asset is tracked; what
-varies per synthetic is the price feed, the risk parameters and the stability
-pool. Adding a synthetic is therefore configuration, not a program change
-(Functionality #2). The quality of each synthetic's price feed (redundancy,
-liquidity of the underlying markets, manipulation resistance) is the main
-per-asset risk, which is why feed guards (Functionality #10) and a per-feed
-assessment (Supportability #12) are required.
+The mint, repay and liquidate logic is the same whichever asset is tracked. Each
+synthetic has its own price feed, risk parameters and stability pool, so a
+synthetic is added by configuration (Functionality #2). Much of a synthetic's
+risk comes from its price feed (redundancy, liquidity of the underlying markets,
+manipulation resistance). Functionality #10 sets feed guards and Supportability
+#12 asks for a per-feed assessment.
 
 ## ✅ Scope of Work
 
