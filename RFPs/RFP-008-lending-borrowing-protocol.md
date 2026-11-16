@@ -11,7 +11,7 @@ dependencies:
   - id: RFP-020
     reason: Price feeds are required for collateral valuation and liquidation triggers (F13); RFP-020 and RFP-019 are illustrative examples.
   - id: LP-0015
-    reason: General cross-program calls, delivered on testnet 0.4 as synchronous messages with replies; used to compose token transfers with state updates, by the flash loan model (F14) and by the state reads other programs rely on (F18).
+    reason: General cross-program calls, used to compose token transfers with state updates, for flash loans (F14) and for state reads by other programs (F18).
   - id: LP-0012
     reason: Structured event emission, used by the reference liquidator and risk monitor to observe on-chain state changes.
 ---
@@ -55,8 +55,7 @@ pair defined by five immutable parameters (loan token, collateral token, oracle,
 interest rate model, liquidation LTV). Anyone can create a market from enabled
 parameters; the core protocol is minimal, non-upgradeable, and governance-free
 at the market level. The protocol includes the AdaptiveCurveIRM interest rate
-model, permissionless liquidation, oracle-fed price data, and flash loans built
-on LEZ's synchronous cross-program messages.
+model, permissionless liquidation, oracle-fed price data, and flash loans.
 
 This RFP supports development of the **software** of a Morpho Blue equivalent on
 LEZ: market creation, supply, borrow, repay, withdraw, liquidation, interest
@@ -97,29 +96,23 @@ development deliverables.
     holds all markets in its own state, keyed by market id. There is no
     per-market program deployment. This is what allows F14 (flash loans) to span
     every market in one transaction and what keeps cross-market accounting and
-    gas costs predictable. On LEZ, a program is identified by its account
-    address, and anyone can deploy the same code at another address; each such
-    deployment is a separate program with its own markets and state.
+    gas costs predictable.
 
 02. The core program is **immutable and non-upgradeable** once deployed. There
     is no proxy, no migration path, and no admin function that can pause the
     program, change core math, or reconfigure a market after creation. Markets,
     once created, are immutable: their five parameters (loan token, collateral
-    token, oracle, IRM, LLTV) cannot be changed. On testnet 0.4, a program
-    deployed with the program loader's `immutable` flag set cannot be updated,
-    while one deployed without it can be updated, or later made immutable, by
-    whoever controls its address. The deployment instructions and scripts the
-    team delivers set the flag, and the README explains how anyone can check it
-    for a deployed program.
+    token, oracle, IRM, LLTV) cannot be changed. The deployment instructions and
+    scripts the team delivers deploy the program as immutable, and the README
+    explains how to check that a deployed program is immutable.
 
 03. Anyone can create a lending market by specifying the five parameters above.
-    The market id is the deterministic hash of those five parameters, unique
-    within a deployed lending program. Market creation is permissionless; no
-    admin approval is required. The oracle program is chosen by the market
-    creator and is not gated by the admin authority: the trust model assumes
-    lenders evaluate the oracle before supplying. The GUI must surface the
-    oracle program address per market so lenders can verify it (related to U7,
-    U8).
+    The market id is the deterministic hash of those five parameters. Market
+    creation is permissionless; no admin approval is required. The oracle
+    program is chosen by the market creator and is not gated by the admin
+    authority: the trust model assumes lenders evaluate the oracle before
+    supplying. The GUI must surface the oracle program address per market so
+    lenders can verify it (related to U7, U8).
 
 04. Users can supply the loan token to a specific market. The protocol tracks
     supply shares internally per market per account (no receipt token at the
@@ -215,18 +208,14 @@ development deliverables.
     has been processed, the lending program verifies within the same transaction
     that the principal has been returned to the market. If it has not, the
     operation fails and the entire transaction reverts, including the transfer
-    to the borrower. On testnet 0.4, messages are processed depth first in the
-    order they are sent, so a check sent after the callback runs after it (see
-    the LEZ flash swap example in Resources).
+    to the borrower.
 
-    The callback may call back into the lending program: the runtime has no
-    re-entrancy guard, and the lending program's state is written before the
-    messages it sends are processed. Applicants must document which operations
-    may run during a flash-loan callback and why accounting stays consistent
-    when they do. A check on the market's token balance alone is not sufficient
-    if the callback can credit the same holding through another operation (for
-    example, a supply to the same market); the design must rule this out or
-    account for it.
+    The callback may call back into the lending program. Applicants must
+    document which operations may run during a flash-loan callback and why
+    accounting stays consistent when they do. A check on the market's token
+    balance alone is not sufficient if the callback can credit the same holding
+    through another operation (for example, a supply to the same market); the
+    design must rule this out or account for it.
 
     Flash loans are **zero-fee**, matching Morpho Blue's deployed implementation
     (the deployed `Morpho.sol` collects exactly `assets` on repayment with no
@@ -257,16 +246,14 @@ development deliverables.
     is not gated by authorisation: it remains permissionless per F10.
 
 18. **State reads and replies for other programs.** Other LEZ programs can read
-    market and position state within a transaction. On testnet 0.4 a program
-    cannot return a value to its caller directly: it sends the value back in a
-    message that is processed within the same transaction. The lending program
-    answers read messages for market state and for a position's supply shares,
-    borrow shares, collateral and their values in token units (including
-    interest accrued up to the current block). Each operation that changes a
-    position (supply, withdraw, borrow, repay, collateral deposit and
-    withdrawal, liquidation) also replies to its caller with the assets and
-    shares it moved. A caller can check that a reply comes from the lending
-    program's address and answers the request it sent.
+    market and position state within a transaction. The lending program answers
+    read requests for market state and for a position's supply shares, borrow
+    shares, collateral and their values in token units (including interest
+    accrued up to the current block). Each operation that changes a position
+    (supply, withdraw, borrow, repay, collateral deposit and withdrawal,
+    liquidation) also replies to its caller with the assets and shares it moved.
+    A caller can check that a reply comes from the lending program's address and
+    answers the request it sent.
 
 19. **Lending Market Interface.** The program implements the Lending Market
     Interface, an open specification of how curated vaults allocate to and read
@@ -553,19 +540,10 @@ phasing and pricing. LEZ runtime compatibility remains required.
    [LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md)
    describes this capability.
 3. **General cross-program calls** to compose transfers and state updates and
-   implement F14 and F18. On testnet 0.4, a program calls another by sending it
-   a synchronous message, processed within the same transaction. Messages are
-   processed depth first, in the order they are sent. The called program returns
-   a value by sending a message back to its caller, and any failure reverts the
-   whole transaction. The runtime puts no fixed limit on the number of messages
-   in a transaction; they are bounded by the transaction's execution gas (see
-   Risks). A program's state is written before the messages it sends are
-   processed, and the runtime has no re-entrancy guard, so a called program can
-   call back into its caller. This is a LEZ runtime capability described in
+   implement F14 and F18. This is a LEZ runtime capability described in
    [LP-0015](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0015.md).
 4. **Structured event emission** so reference and third-party liquidators and
-   risk monitors can observe on-chain changes without polling every account. On
-   testnet 0.4, a program emits events as part of its response to each message.
+   risk monitors can observe on-chain changes without polling every account.
    This capability is described in
    [LP-0012](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md).
 5. **A token program and development framework compatible with testnet 0.4.** At
@@ -580,23 +558,14 @@ phasing and pricing. LEZ runtime compatibility remains required.
 
 #### Execution gas
 
-On testnet 0.4, every program a public transaction runs draws on one execution
-gas budget (zkVM cycles), set by the transaction's gas limit. That limit cannot
-exceed the protocol maximum (`MAX_GAS_EXEC`, 10,000,000 cycles at LEZ
-`v0.4.0-rc3`), which is also the cap on total execution gas in a block: a
-transaction that uses the full allowance occupies a whole block. Liquidation is
-the most compute-intensive lending operation: it reads the borrower's position,
-collateral balance, oracle price, interest indices, and market parameters, then
-writes updated state. If a liquidation does not fit within the gas limit, or
-needs so much of it that it competes for whole blocks, liquidations will fail or
-be delayed and the protocol risks insolvency.
-
-Private execution is not metered by gas, but it is constrained by block space.
-At `v0.4.0-rc3`, a block's storage budget (`MAX_GAS_STOR`, 1,000,000 bytes) and
-the fixed proof charge of about 223 KB per private transaction allow at most
-four private transactions per block, each carrying at most eight private
-actions. This bounds the throughput of the private account path (Privacy 1 to
-4). These constants may change during testnet.
+Liquidation is the most compute-intensive lending operation: it reads the
+borrower's position, collateral balance, oracle price, interest indices, and
+market parameters, then writes updated state. If a liquidation does not fit
+within LEZ's per-transaction execution gas limit, or needs so much of it that it
+competes with other transactions for block space, liquidations will fail or be
+delayed and the protocol risks insolvency. The number of private transactions
+that fit in a block is also limited, which bounds the throughput of the private
+account path (Privacy 1 to 4). These limits may change during testnet.
 
 **Deliverable.** Applicants must benchmark the execution gas of liquidation on
 LEZ testnet 0.4 once the protocol is integrated and include the figures in the

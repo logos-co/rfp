@@ -97,10 +97,9 @@ in a single governance body.
 
 ##### Vault program
 
-1. The vault program has no program-level admin or upgrade authority: the
-   deployment instructions and scripts the team delivers set the program
-   loader's `immutable` flag, so a program deployed with them cannot have its
-   code changed, and the account that deployed it holds no role in any vault.
+1. The vault program has no program-level admin or upgrade authority. The
+   deployment instructions and scripts the team delivers deploy it as immutable,
+   and the account that deployed it holds no role in any vault.
 2. Anyone can create a vault by specifying the loan token, a vault name and a
    vault symbol. Vault creation is permissionless.
 3. The account that sends the vault creation transaction is assigned as the
@@ -130,10 +129,9 @@ in a single governance body.
     to the vault) and report the current value of its positions in the loan
     token.
 09. Allocate and deallocate each return the risk ids the operation affects and
-    the signed change in the adapter's position. On LEZ testnet 0.4, a program
-    returns a value by sending it to its caller in a message within the same
-    transaction (#46); the vault must check that such a reply comes from the
-    enabled adapter it called.
+    the signed change in the adapter's position to the vault within the same
+    transaction; the vault checks that each reply comes from the enabled adapter
+    it called.
 10. Only the vault that enabled an adapter can call that adapter's allocate and
     deallocate.
 11. Any program that implements the adapter interface can be enabled as an
@@ -151,9 +149,7 @@ in a single governance body.
     identified by its address, that conforms to the Lending Market Interface
     (#44 to #50). It can allocate to any of that program's markets, with the
     market selected on each call. The lending program's address is fixed when
-    the adapter is set up. Anyone can deploy the same lending code at another
-    address, and each such deployment is a separate program with its own
-    markets, so connecting to another deployment requires another adapter.
+    the adapter is set up.
 
 ##### Risk ids and caps
 
@@ -161,9 +157,8 @@ in a single governance body.
     an adapter, a collateral token or a specific market.
 17. For each allocation, the market adapter (#15) returns three risk ids: one
     for the adapter, one for the market's collateral token, and one for the
-    specific market. The market risk id includes the lending program's address,
-    so markets with the same parameters in different deployments have different
-    risk ids.
+    specific market. The market risk id distinguishes markets that have the same
+    parameters but belong to different lending programs.
 18. For each risk id, the vault tracks the amount currently allocated against
     it.
 19. The absolute cap of a risk id is the maximum amount, in loan-token units,
@@ -265,10 +260,8 @@ in a single governance body.
       (Reliability #4);
     - (f) failure semantics: which conditions make an operation fail, given that
       any failure reverts the whole transaction.
-46. On LEZ testnet 0.4, a program cannot return a value to its caller directly.
-    The called program sends the value back to its caller in a message that is
-    processed within the same transaction. For each operation in #45, the
-    specification defines the reply a conforming lending protocol sends, its
+46. For each operation in #45, the specification defines the reply a conforming
+    lending protocol sends to its caller within the same transaction, its
     encoding, and how the caller checks that the reply comes from the lending
     program's address and answers the request it sent.
 47. The specification is published in the repository in the proposal's first
@@ -351,14 +344,10 @@ in a single governance body.
    (deposit, withdraw, allocate, deallocate, forced deallocation) on LEZ, for
    each market adapter. LEZ's block size and gas limits are bounded and may
    change during testnet.
-2. On testnet 0.4, the number of cross-program messages in a transaction is not
-   limited; the binding limit is execution gas. A transaction's gas limit cannot
-   exceed the protocol maximum (`MAX_GAS_EXEC`, 10,000,000 cycles at LEZ
-   `v0.4.0-rc3`), which is also the cap on total execution gas in a block. A
-   deposit or withdrawal on a vault with up to 10 enabled adapters must fit
-   within that maximum, including a withdrawal that deallocates from all of
-   them, and should leave enough headroom to share a block with other
-   transactions. Document the measured worst case.
+2. A deposit or withdrawal on a vault with up to 10 enabled adapters, including
+   a withdrawal that deallocates from all of them, fits within the maximum
+   execution gas of a single transaction on testnet 0.4 and leaves headroom to
+   share a block with other transactions. Document the measured worst case.
 
 #### Supportability
 
