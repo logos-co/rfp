@@ -97,26 +97,29 @@ development deliverables.
     holds all markets in its own state, keyed by market id. There is no
     per-market program deployment. This is what allows F14 (flash loans) to span
     every market in one transaction and what keeps cross-market accounting and
-    gas costs predictable.
+    gas costs predictable. On LEZ, a program is identified by its account
+    address, and anyone can deploy the same code at another address; each such
+    deployment is a separate program with its own markets and state.
 
 02. The core program is **immutable and non-upgradeable** once deployed. There
     is no proxy, no migration path, and no admin function that can pause the
     program, change core math, or reconfigure a market after creation. Markets,
     once created, are immutable: their five parameters (loan token, collateral
-    token, oracle, IRM, LLTV) cannot be changed. On testnet 0.4, immutability is
-    a property of the program header: a header deployed with the program
-    loader's `immutable` flag set cannot be updated, while a mutable header can
-    be updated, or later frozen, by whoever controls that header account. The
-    deployment instructions and scripts the team delivers set the flag, and the
-    README explains how anyone can check it on a deployed program's header.
+    token, oracle, IRM, LLTV) cannot be changed. On testnet 0.4, a program
+    deployed with the program loader's `immutable` flag set cannot be updated,
+    while one deployed without it can be updated, or later made immutable, by
+    whoever controls its address. The deployment instructions and scripts the
+    team delivers set the flag, and the README explains how anyone can check it
+    for a deployed program.
 
 03. Anyone can create a lending market by specifying the five parameters above.
-    The market id is the deterministic hash of those five parameters. Market
-    creation is permissionless; no admin approval is required. The oracle
-    program is chosen by the market creator and is not gated by the admin
-    authority: the trust model assumes lenders evaluate the oracle before
-    supplying. The GUI must surface the oracle program ID per market so lenders
-    can verify it (related to U7, U8).
+    The market id is the deterministic hash of those five parameters, unique
+    within a deployed lending program. Market creation is permissionless; no
+    admin approval is required. The oracle program is chosen by the market
+    creator and is not gated by the admin authority: the trust model assumes
+    lenders evaluate the oracle before supplying. The GUI must surface the
+    oracle program address per market so lenders can verify it (related to U7,
+    U8).
 
 04. Users can supply the loan token to a specific market. The protocol tracks
     supply shares internally per market per account (no receipt token at the
@@ -263,7 +266,7 @@ development deliverables.
     position (supply, withdraw, borrow, repay, collateral deposit and
     withdrawal, liquidation) also replies to its caller with the assets and
     shares it moved. A caller can check that a reply comes from the lending
-    program and answers the request it sent.
+    program's address and answers the request it sent.
 
 19. **Lending Market Interface.** The program implements the Lending Market
     Interface, an open specification of how curated vaults allocate to and read
