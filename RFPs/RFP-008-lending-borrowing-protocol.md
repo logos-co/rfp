@@ -10,10 +10,6 @@ dependencies:
     reason: Token transfer authorities are required to hold supplied assets and collateral and pay liquidators atomically; LP-0013 describes this capability.
   - id: RFP-020
     reason: Price feeds are required for collateral valuation and liquidation triggers (F13); RFP-020 and RFP-019 are illustrative examples.
-  - id: LP-0015
-    reason: General cross-program calls, used to compose token transfers with state updates, for flash loans (F14) and for state reads by other programs (F18).
-  - id: LP-0012
-    reason: Structured event emission, used by the reference liquidator and risk monitor to observe on-chain state changes.
 ---
 
 # RFP-008 — Lending & Borrowing Protocol
@@ -542,14 +538,7 @@ phasing and pricing. LEZ runtime compatibility remains required.
    to its programmed rules.
    [LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md)
    describes this capability.
-3. **General cross-program calls** to compose transfers and state updates and
-   implement F14 and F18. This is a LEZ runtime capability described in
-   [LP-0015](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0015.md).
-4. **Structured event emission** so reference and third-party liquidators and
-   risk monitors can observe on-chain changes without polling every account.
-   This capability is described in
-   [LP-0012](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0012.md).
-5. **A token program and development framework compatible with testnet 0.4.** At
+3. **A token program and development framework compatible with testnet 0.4.** At
    the time of writing, the LEZ token program
    ([`lez-programs`](https://github.com/logos-blockchain/lez-programs)) and the
    [SPEL framework](https://github.com/logos-co/spel) (Usability 1) target LEZ
