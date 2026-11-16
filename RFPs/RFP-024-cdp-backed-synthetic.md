@@ -8,8 +8,6 @@ category: Applications & Integrations
 dependencies: []
 ---
 
-<!-- Don't forget to add this RFP to the table in README.md (between RFP_TABLE_START / RFP_TABLE_END markers) -->
-
 # RFP-024 — CDP-Backed Synthetic Assets
 
 > **Status:** Draft. This RFP is not yet accepting proposal submissions.
