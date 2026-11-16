@@ -97,9 +97,10 @@ in a single governance body.
 
 ##### Vault program
 
-1. The vault program has no program-level admin or upgrade authority: once
-   deployed, its code cannot be changed, and the account that deployed it holds
-   no role in any vault.
+1. The vault program has no program-level admin or upgrade authority: the
+   deployment instructions and scripts the team delivers set the program
+   loader's `immutable` flag, so a program deployed with them cannot have its
+   code changed, and the account that deployed it holds no role in any vault.
 2. Anyone can create a vault by specifying the loan token, a vault name and a
    vault symbol. Vault creation is permissionless.
 3. The account that sends the vault creation transaction is assigned as the
@@ -146,10 +147,13 @@ in a single governance body.
     balance does not cover them.
 14. There is no ordered supply or withdraw queue: routing is adapter-based,
     consistent with Morpho Vaults V2.
-15. A market adapter connects the vault to one lending protocol implementation
-    that conforms to the Lending Market Interface (#44 to #50). It can allocate
-    to any of that implementation's markets, with the market selected on each
-    call.
+15. A market adapter connects the vault to one deployed lending program,
+    identified by its address, that conforms to the Lending Market Interface
+    (#44 to #50). It can allocate to any of that program's markets, with the
+    market selected on each call. The lending program's address is fixed when
+    the adapter is set up. Anyone can deploy the same lending code at another
+    address, and each such deployment is a separate program with its own
+    markets, so connecting to another deployment requires another adapter.
 
 ##### Risk ids and caps
 
@@ -157,7 +161,9 @@ in a single governance body.
     an adapter, a collateral token or a specific market.
 17. For each allocation, the market adapter (#15) returns three risk ids: one
     for the adapter, one for the market's collateral token, and one for the
-    specific market.
+    specific market. The market risk id includes the lending program's address,
+    so markets with the same parameters in different deployments have different
+    risk ids.
 18. For each risk id, the vault tracks the amount currently allocated against
     it.
 19. The absolute cap of a risk id is the maximum amount, in loan-token units,
@@ -263,8 +269,8 @@ in a single governance body.
     The called program sends the value back to its caller in a message that is
     processed within the same transaction. For each operation in #45, the
     specification defines the reply a conforming lending protocol sends, its
-    encoding, and how the caller checks that the reply comes from that lending
-    protocol and answers the request it sent.
+    encoding, and how the caller checks that the reply comes from the lending
+    program's address and answers the request it sent.
 47. The specification is published in the repository in the proposal's first
     milestone, before any market adapter is built against it, and is open to
     public comment, including from teams implementing lending protocols. Changes
