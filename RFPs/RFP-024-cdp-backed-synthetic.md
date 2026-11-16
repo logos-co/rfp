@@ -49,9 +49,9 @@ tracks the price of another asset, such as `sETH`, `sBTC`, `sXMR` or `sZEC`, as
 reported by a price feed. Burning sASSET repays the position's debt and releases
 its collateral. Positions that fall below their liquidation threshold are
 liquidated against a stability pool of sASSET deposits, in the style of Liquity.
-One program supports several synthetics, each configured with its own price feed
-and risk parameters, and may be independently deployed and configured by those
-who choose to deploy it.
+A single deployment of the program supports several synthetics, each configured
+with its own price feed and risk parameters, and may be independently deployed
+and configured by those who choose to deploy it.
 
 The program is written for the LEZ v0.4 actor model and the team deploys and
 tests it on LEZ testnet 0.4 (Supportability #1). The applying team should have
@@ -107,12 +107,13 @@ manipulation resistance). Functionality #10 sets feed guards and Supportability
 
 ##### Synthetics and positions
 
-1. One instance of the program supports multiple synthetics. Each synthetic is a
-   fungible LEZ token (sASSET) tracking the price of one asset, as reported by
-   the synthetic's configured price feeds.
+1. A single deployment of the program supports multiple synthetics. Each
+   synthetic is a fungible LEZ token (sASSET) tracking the price of one asset,
+   as reported by the synthetic's configured price feeds.
 2. A synthetic is added through the admin authority by configuring its price
-   feeds and parameters (Functionality #19), with no change to the program.
-3. A user opens a position by depositing collateral from the instance's
+   feeds and parameters (Functionality #19), without upgrading or redeploying
+   the program.
+3. A user opens a position by depositing collateral from the deployment's
    collateral allow-list and minting sASSET, provided the position's
    collateralisation ratio (c-ratio) at the current price is at or above the
    synthetic's minimum c-ratio.
@@ -122,7 +123,7 @@ manipulation resistance). Functionality #10 sets feed guards and Supportability
    debt releases all remaining collateral.
 5. Only the position holder can withdraw collateral, mint against a position or
    close it. Anyone can repay debt or add collateral to a position.
-6. Any fees configured for the instance (mint, repay or stability fees) accrue
+6. Any fees configured for the deployment (mint, repay or stability fees) accrue
    to the configured fee recipient. Fees may be set to zero.
 7. The proposal specifies its debt model (debt shared across synthetics, debt
    shared within a pool, or isolated per-position debt) and documents its
@@ -170,20 +171,20 @@ manipulation resistance). Functionality #10 sets feed guards and Supportability
 
 ##### Configuration and roles
 
-19. The following are set when an instance is initialised and, where the
-    instance allows it, changed through its admin authority:
+19. The following are set when a deployment is initialised and, where the
+    deployment allows it, changed through its admin authority:
     - the collateral allow-list and concentration caps;
     - the synthetics, and for each one its price feeds, minimum c-ratio,
       liquidation threshold, liquidation penalty, debt ceiling, issuance cap and
       price guards;
     - any fees and the fee recipient;
-    - the deployed addresses of the price-feed, collateral-token and sASSET
-      token programs the instance uses;
+    - the program account ids of the price-feed, collateral-token and sASSET
+      token programs the deployment uses;
     - the admin and freeze authorities.
 20. No authority holder, fee recipient, price feed or production parameter value
     is hardcoded.
 21. The freeze authority can pause minting and collateral withdrawal, per
-    synthetic or for the whole instance. Repayment, adding collateral,
+    synthetic or for the whole deployment. Repayment, adding collateral,
     liquidation and stability pool withdrawals remain available while paused.
 22. The program emits events for position changes (open, mint, repay, collateral
     changes, close), liquidations, stability pool deposits and withdrawals, and
