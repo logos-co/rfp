@@ -86,7 +86,7 @@ With a stability pool, the debt is burned from pre-deposited sASSET within the
 liquidation transaction, and the seized collateral is credited to pool
 depositors. Any account can trigger the liquidation. Because pool deposits and
 outstanding debt are both on-chain, issuance can be capped relative to pool
-deposits. The stability pool is the required baseline (Functionality #12 to
+deposits. The stability pool is the required baseline (Functionality #11 to
 #17); proposals may describe an alternative absorption mechanism if they show
 how it handles the case above (Functionality #18).
 
@@ -123,8 +123,11 @@ manipulation resistance). Functionality #10 sets feed guards and Supportability
    debt releases all remaining collateral.
 5. Only the position holder can withdraw collateral, mint against a position or
    close it. Anyone can repay debt or add collateral to a position.
-6. Any fees configured for the deployment (mint, repay or stability fees) accrue
-   to the configured fee recipient. Fees may be set to zero.
+6. Any fees configured for the deployment (mint, repay or stability fees) are
+   split between the configured fee recipients in configured shares. A
+   synthetic's stability pool can be one of the recipients, in which case its
+   share is credited to pool depositors pro rata to their deposits. Fees may be
+   set to zero.
 7. The proposal specifies its debt model (debt shared across synthetics, debt
    shared within a pool, or isolated per-position debt) and documents its
    failure modes, including how a price move in one synthetic affects positions
@@ -143,20 +146,24 @@ manipulation resistance). Functionality #10 sets feed guards and Supportability
     age. Mints and collateral withdrawals are rejected when the price fails
     either guard. The proposal specifies and documents how liquidation behaves
     in that case.
-11. A TWAP of a LEZ pool trading an sASSET is not accepted as a price feed for
-    that sASSET.
 
 ##### Liquidation
 
-12. Any account can trigger the liquidation of a position whose c-ratio is below
+11. Any account can trigger the liquidation of a position whose c-ratio is below
     the synthetic's liquidation threshold.
+12. The account that triggers a liquidation receives a compensation made of a
+    liquidation reserve and a share of the position's collateral, as in Liquity.
+    The reserve is a configured amount deposited when the position is opened,
+    held apart from the position's collateral and refunded when the position is
+    closed. The collateral share is a configured percentage of the position's
+    collateral, capped per synthetic.
 13. Each synthetic has a stability pool. Any account can deposit sASSET into it
     and withdraw its deposit, less its share of debt absorbed by liquidations.
 14. On liquidation, the program burns sASSET from the stability pool equal to
-    the position's debt, credits the position's collateral (up to the debt's
-    value plus the configured liquidation penalty) to pool depositors pro rata
-    to their deposits, and returns any remaining collateral to the position
-    holder.
+    the position's debt, credits the position's collateral, less the collateral
+    share of the compensation (Functionality #12) and up to the debt's value
+    plus the configured liquidation penalty, to pool depositors pro rata to
+    their deposits, and returns any remaining collateral to the position holder.
 15. Burning from the pool, writing off the position's debt and crediting the
     collateral happen in the same transaction and succeed or fail together.
 16. The proposal specifies what happens when the stability pool cannot cover a
@@ -167,7 +174,7 @@ manipulation resistance). Functionality #10 sets feed guards and Supportability
     its stability pool deposits. Mints that would exceed it are rejected.
 18. A proposal that uses a liquidation absorption mechanism other than a
     stability pool must show how it handles the thin-secondary-market case in
-    the Design Rationale, and meet Functionality #12, #15 and #16 with it.
+    the Design Rationale, and meet Functionality #11, #12, #15 and #16 with it.
 
 ##### Configuration and roles
 
@@ -175,9 +182,10 @@ manipulation resistance). Functionality #10 sets feed guards and Supportability
     deployment allows it, changed through its admin authority:
     - the collateral allow-list and concentration caps;
     - the synthetics, and for each one its price feeds, minimum c-ratio,
-      liquidation threshold, liquidation penalty, debt ceiling, issuance cap and
+      liquidation threshold, liquidation penalty, liquidation reserve and
+      collateral compensation share and cap, debt ceiling, issuance cap and
       price guards;
-    - any fees and the fee recipient;
+    - any fees, the fee recipients and their shares;
     - the program account ids of the price-feed, collateral-token and sASSET
       token programs the deployment uses;
     - the admin and freeze authorities.
@@ -205,7 +213,7 @@ manipulation resistance). Functionality #10 sets feed guards and Supportability
 6. The GUI displays, for each synthetic: total debt, debt ceiling, issuance cap
    headroom and stability pool deposits.
 7. The GUI displays, for each of the user's stability pool deposits: the current
-   deposit and the collateral gained from liquidations.
+   deposit, the collateral gained from liquidations and any fee income.
 8. sASSET and the program expose a documented message interface, so that DEXes,
    lending markets and other LEZ programs can integrate sASSET without changes
    to this program.
@@ -217,8 +225,9 @@ manipulation resistance). Functionality #10 sets feed guards and Supportability
    which is accounted for separately.
 2. No user operation other than a price change leaves a position below the
    minimum c-ratio.
-3. In each stability pool, the sum of depositors' withdrawable deposits and
-   collateral gains equals the pool's holdings, up to documented rounding.
+3. In each stability pool, the sum of depositors' withdrawable deposits,
+   collateral gains and fee income equals the pool's holdings, up to documented
+   rounding.
 4. Mint, repay and liquidation flows do not depend on a credit to a private
    account being delivered in the same transaction.
 
@@ -259,12 +268,14 @@ manipulation resistance). Functionality #10 sets feed guards and Supportability
 11. Document testnet default values for every configuration parameter and how
     each one affects position safety.
 12. For each synthetic configured on testnet, document its price feeds, their
-    redundancy and their manipulation resistance.
+    redundancy and their manipulation resistance. The deployment documentation
+    states that a TWAP of a LEZ pool trading an sASSET is not suitable as a
+    price feed for that sASSET.
 13. For each collateral asset used in testing, document its threat model.
 14. Document the cost of triggering a liquidation, including reverted attempts
     (for example when another account liquidates the position first), relative
-    to the configured liquidation penalty, and the MEV considerations of the
-    liquidation flow.
+    to the liquidation compensation (Functionality #12), and the MEV
+    considerations of the liquidation flow.
 
 #### + Security
 
@@ -361,6 +372,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   (draft)
 - [Liquity v1 repository](https://github.com/liquity/dev) (stability pool and
   liquidation design)
+- [Appendix: Synthetic Assets Ecosystem](../appendix/synthetics-ecosystem.md)
+  (deployed protocols, fees and liquidation incentives)
 - [Synthetix SIP-302 (Pools V3)](https://sips.synthetix.io/sips/sip-302)
 - [Synthetix: Hadar release synths](https://blog.synthetix.io/new-synths-update-for-the-upcoming-hadar-release/)
 
