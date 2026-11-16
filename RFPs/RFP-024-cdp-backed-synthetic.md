@@ -48,11 +48,10 @@ Users lock collateral in a position and mint a synthetic token (sASSET) that
 tracks the price of another asset, such as `sETH`, `sBTC`, `sXMR` or `sZEC`, as
 reported by a price feed. Burning sASSET repays the position's debt and releases
 its collateral. Positions that fall below their liquidation threshold are
-liquidated against a stability pool of sASSET deposits, in the style of Liquity,
-so that liquidation does not depend on buying sASSET on a secondary market. One
-program supports several synthetics, each configured with its own price feed and
-risk parameters, and may be independently deployed and configured by those who
-choose to deploy it.
+liquidated against a stability pool of sASSET deposits, in the style of Liquity.
+One program supports several synthetics, each configured with its own price feed
+and risk parameters, and may be independently deployed and configured by those
+who choose to deploy it.
 
 The program is written for the LEZ v0.4 actor model and the team deploys and
 tests it on LEZ testnet 0.4 (Supportability #1). The applying team should have
@@ -61,11 +60,10 @@ and with integrating price oracles.
 
 ## 🔥 Why This Matters
 
-A synthetic asset gives LEZ programs price exposure to an asset that does not
-exist on LEZ, without bridging that asset or holding it: the program holds only
-LEZ-side collateral, and the synthetic is a debt position against it. Once
-minted, sASSET is a fungible LEZ token that DEXes, lending markets and other LEZ
-programs can integrate like any other token.
+A synthetic asset gives LEZ programs price exposure to an asset that is not on
+LEZ. The program holds LEZ collateral, and each synthetic is a debt position
+against it. sASSET is a fungible LEZ token that DEXes, lending markets and other
+LEZ programs can integrate.
 
 Synthetix used this structure to list synthetics for several assets (including
 `sETH`, `sBTC` and `sXMR`) from a single CDP-minting engine, adding each asset
@@ -150,8 +148,7 @@ manipulation resistance). Functionality #10 sets feed guards and Supportability
 ##### Liquidation
 
 12. Any account can trigger the liquidation of a position whose c-ratio is below
-    the synthetic's liquidation threshold. Liquidation does not depend on any
-    particular operator.
+    the synthetic's liquidation threshold.
 13. Each synthetic has a stability pool. Any account can deposit sASSET into it
     and withdraw its deposit, less its share of debt absorbed by liquidations.
 14. On liquidation, the program burns sASSET from the stability pool equal to
@@ -219,9 +216,8 @@ manipulation resistance). Functionality #10 sets feed guards and Supportability
    which is accounted for separately.
 2. No user operation other than a price change leaves a position below the
    minimum c-ratio.
-3. Stability pool accounting is exact: the sum of depositors' withdrawable
-   deposits and collateral gains equals the pool's holdings, up to documented
-   rounding.
+3. In each stability pool, the sum of depositors' withdrawable deposits and
+   collateral gains equals the pool's holdings, up to documented rounding.
 4. Mint, repay and liquidation flows do not depend on a credit to a private
    account being delivered in the same transaction.
 
@@ -294,9 +290,8 @@ manipulation resistance). Functionality #10 sets feed guards and Supportability
    c-ratios, price-feed valuation) may be built on an existing LEZ lending
    market, such as one implementing
    [RFP-008](./RFP-008-lending-borrowing-protocol.md), in the style of
-   MakerDAO's Direct Deposit modules, instead of standalone. The stability pool
-   is still required, and the program must still work without the lending
-   market.
+   MakerDAO's Direct Deposit modules. The stability pool remains required, and
+   the program works without the lending market.
 2. **Keeper reference software.** Reference software that third parties may
    choose to run to monitor positions and trigger liquidations.
 3. **Formal verification** of Reliability #1 to #3.
