@@ -103,9 +103,12 @@ development deliverables.
     is no proxy, no migration path, and no admin function that can pause the
     program, change core math, or reconfigure a market after creation. Markets,
     once created, are immutable: their five parameters (loan token, collateral
-    token, oracle, IRM, LLTV) cannot be changed. On testnet 0.4, the program is
-    deployed with the program loader's `immutable` flag set, after which its
-    bytecode cannot be updated.
+    token, oracle, IRM, LLTV) cannot be changed. On testnet 0.4, immutability is
+    a property of the program header: a header deployed with the program
+    loader's `immutable` flag set cannot be updated, while a mutable header can
+    be updated, or later frozen, by whoever controls that header account. The
+    deployment instructions and scripts the team delivers set the flag, and the
+    README explains how anyone can check it on a deployed program's header.
 
 03. Anyone can create a lending market by specifying the five parameters above.
     The market id is the deterministic hash of those five parameters. Market
