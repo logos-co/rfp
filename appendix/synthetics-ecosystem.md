@@ -1,163 +1,136 @@
-# Appendix: Synthetic Assets Ecosystem
+# Appendix: CDP Synthetics Ecosystem
 
 Reference material for
 [RFP-024: CDP-Backed Synthetic Assets](../RFPs/RFP-024-cdp-backed-synthetic.md).
-It surveys on-chain protocols that give synthetic price exposure across Ethereum
-and its L2s, Solana, app-chains and Bitcoin L2s, then covers the price feed, fee
-and liquidation designs relevant to a CDP synthetic protocol.
+It covers protocols that issue several synthetics from one system, the stability
+pool CDPs whose liquidation design RFP-024 uses, and how these protocols price
+assets, charge fees and pay for liquidations.
 
-The survey data was accessed in May 2026. The fee and liquidation data for
-stability pool CDPs, and the second TVL table, were accessed on 2026-11-16.
+Figures were read on 2026-11-16 unless stated otherwise. TVL and peaks are from
+the DefiLlama API (`https://api.llama.fi/protocol/<slug>`); on-chain values were
+read from the protocols' contracts.
 
-## Protocols surveyed
+## Designs
 
-| Protocol      | Ecosystem                             | Design                                  | Metric        | Value              | Date    | Source                                                                                                                          |
-| ------------- | ------------------------------------- | --------------------------------------- | ------------- | ------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Hyperliquid   | Own L1 (USDC bridge on Arbitrum)      | Orderbook perpetuals                    | TVL           | $5.11B             | 2026-05 | [DefiLlama](https://defillama.com/protocol/hyperliquid)                                                                         |
-| Jupiter Perps | Solana                                | LP-pool perpetuals, oracle priced       | JLP pool TVL  | ~$1.3B             | 2026-04 | [Eco](https://eco.com/support/en/articles/15083164-jupiter-perps-fees-leverage-how-jlp-works)                                   |
-| sBTC          | Stacks (Bitcoin L2)                   | 1:1 BTC peg held by threshold signers   | TVL           | $437M (peak $545M) | 2026 Q1 | [Stacks](https://www.stacks.co/blog/q1-2026-snapshot)                                                                           |
-| Drift         | Solana                                | Hybrid orderbook and vAMM perpetuals    | TVL           | $150M to $400M     | 2026    | [Eco](https://eco.com/support/en/articles/15083167-drift-protocol-solana-perpetuals-dex-deep-dive)                              |
-| GMX V2        | Arbitrum, Avalanche, MegaETH, Botanix | LP-pool perpetuals, oracle priced       | TVL           | $203.47M           | 2026-05 | [DefiLlama](https://defillama.com/protocol/gmx-v2-perps)                                                                        |
-| dYdX v4       | dYdX Chain (Cosmos)                   | Orderbook perpetuals                    | Open interest | ~$175M             | 2026    | [Coinbureau](https://coinbureau.com/review/dydx)                                                                                |
-| Ostium        | Arbitrum                              | LP-pool perpetuals, including RWA pairs | Open interest | $213M+             | 2026-04 | [MEXC](https://blog.mexc.com/ostium-airdrop-2026-how-to-farm-points-on-the-rwa-perp-dex-bringing-gold-oil-and-stocks-on-chain/) |
-| Synthetix V3  | Ethereum, Base, Arbitrum              | CDP synthetic tokens and perpetuals     | TVL           | $41.19M            | 2026-05 | [DefiLlama](https://defillama.com/protocol/synthetix-v3)                                                                        |
+| Design           | Who carries a synthetic's risk                                                                  | Liquidation                             | Examples                                            |
+| ---------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------- | --------------------------------------------------- |
+| Debt pool        | All stakers together: each staker's debt is a share of the value of every synthetic outstanding | Per staker, on the staker's own c-ratio | Synthetix V1/V2                                     |
+| Per-position CDP | The borrower: each position's debt is what it minted                                            | Per position, on its own c-ratio        | Liquity, Sky/Maker, Indigo, Youves, Metronome Synth |
 
-Synthetix is the only CDP synthetic token protocol in the survey. The table
-below adds other CDP synthetic protocols listed on DefiLlama, and updates
-Synthetix.
+RFP-024 asks for per-position CDPs.
 
-| Protocol        | Ecosystem                | TVL (2026-11-16)                   | Peak TVL            |
-| --------------- | ------------------------ | ---------------------------------- | ------------------- |
-| Synthetix v1+v2 | Ethereum, Optimism       | ~$0 (last above $1k on 2025-08-08) | $2.97B (2021-02-10) |
-| Synthetix V3    | Ethereum, Arbitrum, Base | ~$0                                | $390M (2024-12-09)  |
-| Mirror          | Terra                    | ~$0 (last above $1k on 2023-01-19) | $2.21B (2021-05-12) |
-| Youves          | Tezos                    | $16.2M                             | $43.7M (2024-03-13) |
-| Metronome Synth | Ethereum, Optimism, Base | $7.9M                              | $33.0M (2025-10-07) |
+## Protocols issuing several synthetics
 
-Haven Protocol (xAssets minted against XHV on its own Monero-fork L1) is not
-listed on DefiLlama. It closed on 2024-12-12 after a range-proof validation flaw
-let at least 1.3 billion XHV be minted illicitly.
+| Protocol        | Chain              | Synthetics                    | Collateral                                | What joins the synthetics                       | Liquidation                                                  | TVL (peak)                   | Status                                                                           |
+| --------------- | ------------------ | ----------------------------- | ----------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------ | ---------------------------- | -------------------------------------------------------------------------------- |
+| Synthetix V1/V2 | Ethereum, Optimism | sUSD, sETH, sBTC and others   | SNX only                                  | One debt pool shared by all stakers             | Flag, then forced liquidation with a penalty paid to stakers | ~$0 ($2.97B, 2021-02-10)     | Legacy: solo staking retired April 2025                                          |
+| Indigo          | Cardano            | iUSD, iBTC, iETH, iSOL        | ADA and whitelisted Cardano native tokens | A stability pool per synthetic                  | Position frozen, then absorbed by the stability pool; 2% fee | $2.28M ($125.6M, 2024-03-12) | Live (V3)                                                                        |
+| Youves          | Tezos              | uUSD, uBTC, uXTZ              | XTZ, tzBTC, USDt, SIRS                    | An engine contract per synthetic and collateral | Partial step-in by a liquidator, 112.5% payout               | $16.2M                       | Live                                                                             |
+| Metronome Synth | Ethereum, OP, Base | msUSD, msETH, msBTC           | USDC, DAI, FRAX, ETH, WBTC, vault tokens  | Cross-margin positions and a shared swap pool   | Partial or full, 18% fee (10% liquidator, 8% protocol)       | $7.89M ($33.0M, 2025-10-07)  | Impaired: about $15.7M unbacked disclosed 2026-07-30, swaps paused, msUSD $0.818 |
+| Mirror          | Terra              | mAssets (equities and others) | UST, aUST, LUNA, MIR, ANC                 | One mint contract for every mAsset              | Discounted auction                                           | $0 ($2.21B, 2021-05-12)      | Dead since 2022                                                                  |
 
-## Synthetix
+Synthetix V2 issued `sETH`, `sBTC` and, from the Hadar release (SIP-49,
+2020-03-30), `sXMR`. `sXMR` has since been removed: it is no longer registered
+in the Synthetix issuer contract. A proposal to add `sZEC` (SIP-119, February
+2021\) was rejected.
 
-Synthetix V1 and V2 used a single debt pool: SNX stakers minted synths (`sUSD`,
-`sBTC`, `sETH` and others) against staked SNX, typically at a c-ratio above
-500%, and shared the debt of all synths between them. Synthetix listed `sETH`,
-`sBTC` and `sXMR` from this one engine, each through a price feed and a set of
-parameters (Hadar release, 2020-03-30). `sXMR` was priced by Chainlink feeds. A
-proposal to add `sZEC` (SIP-119, February 2021) was rejected.
+Metronome's shortfall came from its swap module, which minted and burned
+synthetics at oracle price against a shared pool: about 6,367 msETH and 4.57M
+msUSD were created without adequate collateral, which the DAO attributed to
+oracle latency on Base.
 
-V3 replaced the single pool with pools that back specific markets and accept
-several collateral types. SIP-302 describes it: "The Vault Module creates vaults
-of each collateral type per pool, similar to a CDP (MakerDAO, Liquity), where
-accounts can delegate their staked collateral to pools by opening staking
-positions and then mint and burn snxUSD, backed by their collateral." Stakers
-choose which markets their pool backs, so they choose which debt they carry.
+## Stability pool CDPs
 
-In December 2025 Synthetix moved V3 back to Ethereum, with Base as its growth
-target, and began winding down its Arbitrum perpetuals. In May 2026 governance
-committed all trading fee revenue to SNX and sUSD buybacks.
+These issue a single USD stablecoin rather than several synthetics, but use the
+stability pool liquidation that RFP-024 requires.
 
-## Price feeds
+| Protocol                   | Chain    | Collateral                   | Stability pool and liquidation                                               | TVL (peak)                   |
+| -------------------------- | -------- | ---------------------------- | ---------------------------------------------------------------------------- | ---------------------------- |
+| Liquity V1 (LUSD)          | Ethereum | ETH                          | Stability pool, then redistribution to other positions; minimum c-ratio 110% | $130.3M ($4.52B, 2021-05-11) |
+| Liquity V2 (BOLD)          | Ethereum | ETH, wstETH, rETH            | A stability pool per collateral, 5% penalty; redistribution fallback         | $70.7M ($180.0M, 2025-10-07) |
+| Felix (feUSD)              | HyperEVM | HYPE, UBTC, kHYPE            | Liquity V2 design, 5% penalty                                                | $17.8M ($294.1M, 2025-07-14) |
+| Mezo (MUSD)                | Mezo     | BTC                          | Stability pool; minimum c-ratio 110%                                         | $1.10M (MUSD supply $18.86M) |
+| Sky/Maker (for comparison) | Ethereum | Several, per collateral type | No stability pool: Dutch auction of the collateral                           | $3.76B ($19.82B, 2021-12-01) |
 
-Every oracle-priced protocol in the survey uses Chainlink Data Streams, Pyth, or
-both:
+## Price feeds and staleness
 
-- **Chainlink Data Streams:** pull-based signed price reports. Used by GMX V2
-  (only source), Synthetix V3 (one input) and Ostium (crypto pairs).
-- **Pyth:** pull-based oracle. Used by Drift (primary), Jupiter Perps (one of
-  three feeds) and Synthetix V3 (one input).
-- **Edge by Chaos Labs:** used by Jupiter Perps as one of its three feeds.
-- **Custom aggregator:** Ostium aggregates licensed exchange data for gold, oil,
-  forex and equities.
+Protocols that issue several synthetics price every asset, collateral and
+synthetic alike, against one quote currency (USD, or UST for Mirror), with one
+feed per asset. The c-ratio uses the ratio of the two USD prices.
 
-Aggregation across feeds:
+| Protocol     | Staleness rule                                                                                                                          |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Synthetix V2 | Rates older than 25 hours (`rateStalePeriod`), or flagged or circuit-broken, block issuance                                             |
+| Mirror       | Prices expire after 60 seconds; operations fail on an expired price                                                                     |
+| Liquity V1   | 4 hour timeout per oracle; Chainlink treated as broken on a jump over 50% between rounds; Tellor as fallback; otherwise last good price |
+| Liquity V2   | Staleness threshold per feed (24 hours for ETH/USD); on failure the branch shuts down and uses the last good price                      |
+| Sky/Maker    | Prices pass through a 1 hour delay (OSM) before use                                                                                     |
 
-- Synthetix V3's Oracle Manager lets each market combine feeds, for example the
-  minimum of Chainlink, Pyth and a Uniswap TWAP.
-- Jupiter Perps aggregates three feeds, so the protocol can fall back if one
-  deteriorates.
-- Drift configures a fallback per market.
-- GMX V2 and Synthetix V3 settle orders against the next oracle update after the
-  order is submitted, so the executor cannot pick a stale price.
+In each multi-synthetic protocol, the protocol's own unit of account is fixed at
+1 rather than read from a feed: sUSD in Synthetix, UST in Mirror and msUSD in
+Metronome (1.0 on chain while it traded at $0.818). A depeg of that unit never
+reaches the c-ratio check.
 
-## Fees and incentives
+## Fees and liquidation incentives
 
-### Pool-backed protocols
+| Protocol        | Borrower pays                                                                     | Liquidation caller receives                                                                                                  | Stability pool or backers receive                                                                              | Protocol revenue goes to                                   |
+| --------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Liquity V1      | One-off fee of 0.5% to 5%, rising with redemptions; no interest                   | 200 LUSD reserved when the position opens, plus 0.5% of its collateral                                                       | Liquidated collateral at a discount (about 10% at the 110% minimum c-ratio)                                    | LQTY stakers                                               |
+| Liquity V2      | Interest at a rate the borrower sets; upfront fee of 7 days' average interest     | 0.0375 WETH reserved when the position opens (refunded on close), plus the lesser of 0.5% of the collateral or 2 units of it | Liquidated collateral with a 5% penalty; 75% of interest                                                       | The other 25% of interest, to DEX liquidity incentives     |
+| Mezo            | 1% to 5% a year, fixed at opening; 0.1% issuance fee                              | 200 MUSD gas compensation plus 0.5% (Liquity V1 style)                                                                       | Liquidated collateral                                                                                          | [DATA NEEDED]                                              |
+| Sky/Maker       | Stability fee per collateral type (ETH-A 10.50% a year on chain)                  | Flat DAI tip plus a chip proportional to the vault's debt                                                                    | No stability pool; penalty per collateral type                                                                 | Savings rates first, then SKY buybacks and staking rewards |
+| Synthetix V2    | No interest; exchange fees between synthetics (35 bps for sETH and sBTC on L1)    | 10 SNX for flagging an account and 20 SNX for liquidating it (L1)                                                            | Penalty SNX shared among stakers: 30% forced, 20% self per SIP-148; 60% and 50%, with 180 day escrow, on chain | Stakers                                                    |
+| Indigo          | Mint fee 0.1% (API) or 0.5% (docs); algorithmic interest                          | [DATA NEEDED]                                                                                                                | Liquidated collateral (2% liquidation fee, recipient [DATA NEEDED])                                            | [DATA NEEDED]                                              |
+| Youves          | Mint fee 1.5625% (uUSD, uBTC) or 0.3906% (uXTZ); liability spread about 1% a year | Payout of 112.5% or 110%                                                                                                     | No stability pool                                                                                              | [DATA NEEDED]                                              |
+| Metronome Synth | Swap fee 0.45% (0.55% on Ethereum)                                                | 10% liquidation fee                                                                                                          | n/a                                                                                                            | 8% liquidation fee and swap fees                           |
 
-| Protocol      | Who backs positions | Backers' fee share      | Other fee destination                 |
-| ------------- | ------------------- | ----------------------- | ------------------------------------- |
-| Jupiter Perps | JLP pool            | 75% of platform fees    | Protocol, remaining 25%               |
-| GMX V2        | GM and GLV pools    | 60% to 70% of fees      | [DATA NEEDED]                         |
-| Synthetix V3  | Staked debt pools   | A share of trading fees | SNX and sUSD buybacks (from May 2026) |
-| Hyperliquid   | HLP vault           | A share of fees         | [DATA NEEDED]                         |
+Liquity V2 redistribution (when the stability pool cannot cover a position)
+takes a penalty of up to 10% on the WETH branch and 20% on the staked ETH
+branches. Its WETH reserve "does not count as Trove's collateral": it backs no
+debt and is left out of the c-ratio. The Liquity V2 README gives the stability
+pool's share of interest as "72%, final value TBD"; the deployed constant
+(`SP_YIELD_SPLIT`) is 75%.
 
-In each of these, backers also absorb losses when the positions they back win.
-Hyperliquid's HLP vault performs liquidations as well as making markets.
+In pool-backed perpetuals exchanges, the pool that backs positions takes a fixed
+share of fees: 63% at GMX V2 and 75% at Jupiter Perps.
 
-### Stability pool CDPs
+## Failure and survival
 
-These issue a USD stablecoin, not a synthetic, but use the stability pool and
-liquidation design that RFP-024 requires.
+Across 50 CDP and debt-pool protocols surveyed, 20 had ended, halted or dropped
+their CDP product by 2026-11-16 (by the survey's own status labels). Patterns
+seen in the failures:
 
-| Protocol            | Ecosystem | TVL (2026-11-16) | Peak TVL            |
-| ------------------- | --------- | ---------------- | ------------------- |
-| Liquity V1 (LUSD)   | Ethereum  | $130.3M          | $4.52B (2021-05-11) |
-| Liquity V2 (BOLD)   | Ethereum  | $70.7M           | $180M (2025-10-07)  |
-| Sky Lending (Maker) | Ethereum  | $3.76B           | $19.8B (2021-12-01) |
+- **Collateral from the protocol's own ecosystem.** Mirror (UST and LUNA
+  collateral), Kujira USK (leverage held by the Kujira Foundation) and Iron
+  Finance (TITAN). Synthetix governance cut the target c-ratio from 800% to 350%
+  to 400% as SNX fell.
+- **Oracle-priced minting outside the liquidation path.** Metronome's swap
+  module in July 2026.
+- **Complex or upgradeable peripheral contracts.** Abracadabra, Prisma and Raft
+  lost funds through contracts around the core.
 
-| Protocol     | Borrower pays                                          | Liquidation caller receives                                                                                                       | Stability pool or backers receive                                                    | Protocol revenue goes to                   |
-| ------------ | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------ |
-| Liquity V1   | 0.5% one-time borrowing fee                            | 200 LUSD reserved when the position opens, plus 0.5% of the position's collateral                                                 | Liquidated collateral at a discount (about 10% at the 110% minimum c-ratio)          | LQTY stakers                               |
-| Liquity V2   | Upfront fee, then interest at a rate the borrower sets | 0.0375 WETH reserved when the position opens (refunded on close), plus the lesser of 0.5% of the collateral or 2 collateral units | Liquidated collateral (penalty at most 10%), plus a fixed share of interest          | Remainder of interest to DEX LP incentives |
-| Sky/MakerDAO | Stability fee (variable, set by governance)            | Flat DAI tip plus a chip proportional to the vault's debt (Liquidations 2.0)                                                      | No stability pool; collateral is sold by Dutch auction                               | Surplus buffer, MKR buy-and-burn           |
-| Synthetix v2 | [DATA NEEDED]                                          | Flat SNX reward for flagging an account (10 SNX on L1, 1 on L2) and for liquidating it (20 SNX on L1, 2 on L2)                    | Penalty SNX (30% forced, 20% self-liquidation) shared among stakers, 12-month escrow | Stakers                                    |
-
-Notes:
-
-- Liquity V2's share of interest paid to the stability pool is given as "72%,
-  final value TBD" in the BOLD README and as 75% in the
-  [Liquidation & Auction Ecosystem appendix](./appendix-liquidation-auction-ecosystem.md).
-- In Liquity V2 the WETH reserve "does not count as Trove's collateral": it
-  backs no debt and is left out of the c-ratio.
-- Liquity V2 uses separate penalties for stability pool offsets and for
-  redistribution, with
-  `LIQUIDATION_PENALTY_SP <= LIQUIDATION_PENALTY_REDISTRIBUTION <= 10%`.
-- Metronome Synth and Youves fee schedules: [DATA NEEDED].
-
-The
-[Liquidation & Auction Ecosystem appendix](./appendix-liquidation-auction-ecosystem.md)
-and the
-[Reflexive Stablecoin Ecosystem appendix](./appendix-reflexive-stablecoin-ecosystem.md)
-cover these mechanisms in more detail.
+Among survivors, Liquity V1 and V2 combine an immutable core, few collateral
+types and redemption at face value. Hard redemption at par mostly held tighter
+pegs than softer anchors on 2026-11-16 (LUSD $1.003, BOLD $0.9985; msUSD
+$0.818), with exceptions such as Gravita (GRAI $0.4057 despite redemption).
 
 ## References
 
-Survey (accessed May 2026):
-
-- [DefiLlama: Synthetix V3](https://defillama.com/protocol/synthetix-v3)
-- [DefiLlama: Synthetix v1+v2](https://defillama.com/protocol/synthetix-v1+v2)
-- [Synthetix: What is Synthetix V3](https://blog.synthetix.io/what-is-synthetix-v3/)
-- [Synthetix V3 oracle documentation](https://docs.synthetix.io/synthetix-protocol/the-synthetix-protocol/oracles)
-- [The Defiant: Synthetix to pivot V3 perps from Arbitrum to Base](https://thedefiant.io/news/defi/synthetix-to-pivot-v3-perps-from-arbitrum-to-base)
-- [Synthetix sXMR token (Etherscan)](https://etherscan.io/token/0x5299d6F7472DCc137D7f3C4BcfBBB514BaBF341A)
-- [SIP-119: Add ZEC crypto Synth](https://sips.synthetix.io/sips/sip-119)
-- [SIP-302: Pools V3](https://sips.synthetix.io/sips/sip-302)
-- [Synthetix: New Synths update for the upcoming Hadar release](https://blog.synthetix.io/new-synths-update-for-the-upcoming-hadar-release/)
-- [DefiLlama: Hyperliquid](https://defillama.com/protocol/hyperliquid)
-- [DefiLlama: GMX V2 Perps](https://defillama.com/protocol/gmx-v2-perps)
-- [Eco: Jupiter Perps fees, leverage and JLP](https://eco.com/support/en/articles/15083164-jupiter-perps-fees-leverage-how-jlp-works)
-- [Jupiter support: fees](https://support.jup.ag/hc/en-us/articles/18735045234588-Fees)
-- [Eco: Drift Protocol deep dive](https://eco.com/support/en/articles/15083167-drift-protocol-solana-perpetuals-dex-deep-dive)
-- [Coinbureau: dYdX review](https://coinbureau.com/review/dydx)
-- [MEXC: Ostium](https://blog.mexc.com/ostium-airdrop-2026-how-to-farm-points-on-the-rwa-perp-dex-bringing-gold-oil-and-stocks-on-chain/)
-- [Stacks: Q1 2026 snapshot](https://www.stacks.co/blog/q1-2026-snapshot)
-- [Haven Protocol: Project Closure Announcement (2024-12-12)](https://havenprotocol.org/2024/12/12/project-closure-announcement/)
-
-Fees, liquidation and CDP TVL (accessed 2026-11-16):
-
 - [DefiLlama protocol API](https://api.llama.fi/protocols)
+- [Liquity V1 repository](https://github.com/liquity/dev) and
+  [borrowing FAQ](https://docs.liquity.org/liquity-v1/faq/borrowing.md)
 - [Liquity V2 (BOLD) README](https://github.com/liquity/bold/blob/main/README.md)
-- [Liquity v1 repository](https://github.com/liquity/dev)
+  and [FAQ](https://docs.liquity.org/v2-faq/borrowing-and-liquidations.md)
+- [Mezo fees](https://mezo.org/docs/users/borrow/fees.md)
+- [Felix documentation](https://usefelix.gitbook.io/docs/lending-products/quickstart/faq.md)
+- [Sky collateral liquidation](https://developers.skyeco.com/protocol/vaults/collateral-liquidation/)
 - [SIP-148: Upgrade Liquidation Mechanism](https://sips.synthetix.io/sips/sip-148/)
-- [Metronome Synth documentation](https://docs.metronome.io/metronome-synth/metronome-synth-protocol.md)
+- [SIP-49: Add new synths for Hadar release](https://sips.synthetix.io/sips/sip-49/)
+- [SIP-119: Add ZEC crypto Synth](https://sips.synthetix.io/sips/sip-119/)
+- [SIP-302: Pools V3](https://sips.synthetix.io/sips/sip-302/)
+- [Indigo V3 documentation](https://docs.indigoprotocol.io/readme/indigo-protocol-v3.md)
+- [Youves collateral management](https://docs.youves.com/syntheticAssets/stableTokens/collateralManagement/Collateral-Management-Details)
+- [Metronome revenue model](https://docs.metronome.io/metronome-synth/metronome-revenue-model)
+- [Metronome DAO oracle shortfall (Crypto Briefing)](https://cryptobriefing.com/metronome-dao-16m-oracle-shortfall/)
+- [GMX fees](https://docs.gmx.io/docs/trading/fees/)
+- [Jupiter Perps fees and JLP (Eco)](https://eco.com/support/en/articles/15083164-jupiter-perps-fees-leverage-how-jlp-works)

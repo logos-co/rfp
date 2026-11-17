@@ -65,11 +65,13 @@ LEZ. The program holds LEZ collateral, and each synthetic is a debt position
 against it. sASSET is a fungible LEZ token that DEXes, lending markets and other
 LEZ programs can integrate.
 
-Synthetix used this structure to list synthetics for several assets (including
-`sETH`, `sBTC` and `sXMR`) from a single CDP-minting engine, adding each asset
-through a price feed and a set of parameters. Liquity introduced the stability
-pool, which absorbs liquidated debt from pre-deposited tokens within the
-liquidation transaction.
+Several protocols issue synthetics for many assets from one system. Synthetix V2
+issued `sETH`, `sBTC` and `sXMR` from one debt pool shared by all its stakers;
+Indigo and Youves issue several synthetics from per-position CDPs. Liquity
+introduced the stability pool, which absorbs liquidated debt from pre-deposited
+tokens within the liquidation transaction. The
+[CDP Synthetics Ecosystem appendix](../appendix/synthetics-ecosystem.md)
+compares these protocols.
 
 ## 🏗 Design Rationale
 
@@ -372,7 +374,7 @@ All code must be released under the **MIT+Apache2.0 dual License**.
   (draft)
 - [Liquity v1 repository](https://github.com/liquity/dev) (stability pool and
   liquidation design)
-- [Appendix: Synthetic Assets Ecosystem](../appendix/synthetics-ecosystem.md)
+- [Appendix: CDP Synthetics Ecosystem](../appendix/synthetics-ecosystem.md)
   (deployed protocols, fees and liquidation incentives)
 - [Synthetix SIP-302 (Pools V3)](https://sips.synthetix.io/sips/sip-302)
 - [Synthetix: Hadar release synths](https://blog.synthetix.io/new-synths-update-for-the-upcoming-hadar-release/)
