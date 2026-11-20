@@ -6,20 +6,25 @@ status: closed
 dependencies:
   - id: RFP-020
     reason: Provides the external price feed required for market price and redemption rate computation (F2, F6, R3).
-  - id: LP-0013
-    reason: Token transfer-authority primitives are required to custody collateral and to mint and burn the stablecoin via the LEZ Token Program (F5).
+  - id: LEZ-token-program
+    reason: Requires a token program compatible with the LEZ testnet 0.4 actor model, with messages for collateral custody, minting and burning authorised by stablecoin-controlled PDAs (F5).
   - id: RFP-001
     reason: Provides the standardised admin authority library that gates parameter updates (stability fee, controller gains, safety ratios) per Reliability R4.
   - id: RFP-002
     reason: Provides the standardised freeze authority used for the emergency circuit breaker per Reliability R5.
-  - id: LP-0015
-    reason: General cross-program calls via tail calls, used to compose collateral transfers with subsequent position state updates.
+  - id: LEZ-actor-messaging
+    reason: Synchronous and asynchronous actor messages compose collateral transfers and position updates, with authenticated internal messages and explicit PDA authority.
   - id: LEZ-clock
     reason: Platform feature. Rate computation and stability fee accrual require elapsed time between interactions. Delivered via the LEZ clock program.
 category: Applications & Integrations
 ---
 
 # RFP-013 — Reflexive Stablecoin Protocol
+
+> **Combined proposals.** Proposals covering both this RFP and
+> [RFP-033](./RFP-033-stablecoin-ui.md), its position-management interface, will
+> be given preference. The UI is a separate scope, not a soft requirement of
+> this RFP.
 
 > **Note.** This specification describes an outcome that may benefit the Logos
 > ecosystem. It is a proposal rather than an instruction. Its requirements
@@ -57,6 +62,9 @@ Build a non-pegged, reflexive stablecoin protocol for the Logos Execution Zone
 autonomous feedback controller to adjust a floating redemption price,
 incentivizing market participants to stabilize the token without requiring
 active governance intervention.
+
+The stablecoin LEZ program is delivered for LEZ testnet 0.4 (Supportability
+requirement #1).
 
 This design — pioneered by [RAI / Reflexer Finance](https://reflexer.finance/) —
 produces a stablecoin that trades governance for mathematics: the system
@@ -116,18 +124,30 @@ foundation for DeFi activity on LEZ.
    ratio below the liquidation threshold. Read-only queries are always
    permitted.
 
-5. The stablecoin must be a standard fungible token on LEZ, transferable and
-   composable with other protocols. The protocol handles minting and burning via
-   integration with the LEZ Token Program.
+5. The stablecoin must be a fungible token on LEZ, transferable and composable
+   with other protocols. Minting, burning and collateral custody use messages to
+   the token program from PDAs the stablecoin program controls.
 
 6. The protocol reads market prices from a configurable price feed. The
    interface requires price data with staleness detection; the specific
-   implementation is flexible.
+   implementation is flexible. The feed exposes read or assertion messages
+   compatible with the LEZ 0.4 actor model.
+
+7. The program answers read requests or assertions for position and protocol
+   state from other programs, so RFP-014 and other integrators compose without
+   reading its state directly. Replies are authenticated against the expected
+   actor.
+
+8. Token, price-feed and clock program addresses are configured for each
+   deployment rather than hardcoded. PDAs derive from the stablecoin program
+   deployment address and documented seeds.
 
 #### Usability
 
-1. Build the program using the SPEL framework, which generates the IDL and
-   client code from the program definition.
+1. Build the program for the LEZ 0.4 actor model. Use the SPEL framework to
+   generate the IDL and client code if it supports that model at delivery;
+   otherwise publish an equivalent IDL covering each message, its permitted
+   senders, its target actor, the state types and events.
 
 2. Provide a CLI using the Logos Core headless framework and the core module
    below. It covers opening positions, depositing and withdrawing collateral,
@@ -145,24 +165,30 @@ foundation for DeFi activity on LEZ.
    through the core module and CLI. Projections state their assumptions,
    including unchanged redemption and stability fee rates.
 
-5. Provide a Logos C++ core module for program operations and shared client
+5. Provide a Logos core module for program operations and shared client
    functionality, reusable by the CLI and QML ui modules. It supports public and
    private account operations, including private funding and output return,
    position discovery, recovery and the calculations above. It uses the LEZ core
    module wallet for signing and key access. No separate SDK is required.
 
-6. Failed operations return clear, actionable error messages indicating why the
-   operation was rejected.
+6. The core module and CLI simulate each operation before submission and do not
+   submit an operation that simulation rejects. Simulation does not guarantee
+   success if state changes before inclusion. Failed operations, including
+   reverted transactions that were included and charged, return clear,
+   actionable error messages indicating why the operation was rejected.
 
 7. Derive position-owner accounts and nonces deterministically from the user's
-   wallet seed through the wallet. Document the derivation scheme, versioning,
-   discovery algorithm and scan termination rule, including handling of closed
-   positions, unused derivation gaps and interrupted creation. Nonces must not
-   be reused after closure. All positions created through the core module must
-   be recoverable on a fresh install from the seed and chain data alone, without
-   local cached state or a separately backed-up secret. The CLI and mini-app
-   consumers use the same scheme. Include recovery tests with at least 20
-   positions, including closed positions, gaps and interrupted operations.
+   wallet seed through the wallet, taking the stablecoin program's deployed
+   address as an input. Document how the deployment address and configuration
+   are rediscovered from chain data during seed recovery. Document the
+   derivation scheme, versioning, discovery algorithm and scan termination rule,
+   including handling of closed positions, unused derivation gaps and
+   interrupted creation. Nonces must not be reused after closure. All positions
+   created through the core module must be recoverable on a fresh install from
+   the seed and chain data alone, without local cached state or a separately
+   backed-up secret. The CLI consumer uses the same scheme. Include recovery
+   tests with at least 20 positions, including closed positions, gaps and
+   interrupted operations.
 
 #### Reliability
 
@@ -184,18 +210,20 @@ foundation for DeFi activity on LEZ.
 
 #### Performance
 
-1. Position operations and rate updates must fit within LEZ transaction compute
-   limits with headroom for network conditions.
+1. Position operations and rate updates must fit within the LEZ testnet 0.4
+   transaction gas limit with headroom for network conditions. Document the gas
+   cost of each operation. Measurements are taken on LEZ testnet 0.4.
 
-2. The protocol supports thousands of concurrent positions without exceeding
-   compute limits on any operation.
+2. The protocol supports thousands of concurrent positions without exceeding the
+   LEZ testnet 0.4 transaction gas limit on any operation.
 
 3. Rate updates complete within a small number of blocks. Position operations
    complete within one block.
 
 #### Supportability
 
-1. The program is deployed and tested on LEZ devnet/testnet.
+1. The stablecoin LEZ program is delivered for LEZ testnet 0.4: it is deployed
+   and tested on LEZ testnet 0.4.
 
 2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
    with `RISC0_DEV_MODE=0` and are included in CI.
@@ -206,8 +234,8 @@ foundation for DeFi activity on LEZ.
    Performance and Privacy has at least one corresponding test.
 
 5. A README documents end-to-end usage: deployment steps, program addresses, and
-   step-by-step instructions for interacting with the program via CLI, and core
-   module API documentation for UI integrators.
+   step-by-step CLI instructions. The core module's API is documented for UI
+   integrators.
 
 #### + Privacy
 
@@ -217,10 +245,12 @@ foundation for DeFi activity on LEZ.
    account of the user. The module must not offer a completion path that leaves
    these outputs public.
 
-2. The module validates that output return targets are private accounts. After
-   interruption, it detects incomplete operations and supports completing them
-   or returning funds to the user's private account. Recovery state must be
-   reconstructible from the seed and chain data.
+2. The module validates that output return targets are private accounts. Outputs
+   delivered to a private account as stored messages are collected by the
+   module, including after interruption. After interruption, it detects
+   incomplete operations and supports completing them or returning funds to the
+   user's private account. Recovery state must be reconstructible from the seed
+   and chain data.
 
 3. On the private path, use one public owner account per position, retained for
    subsequent operations on that position. Funding and fee-paying accounts must
@@ -257,9 +287,7 @@ The following are explicitly excluded from this RFP.
   [RFP-014](./RFP-014-liquidation-auction-engine.md)
 - Surplus/debt management auctions — addressed by
   [RFP-014](./RFP-014-liquidation-auction-engine.md)
-- The position-management mini-app, specified separately in
-  [RFP-033](./RFP-033-stablecoin-ui.md). The core module and CLI remain in
-  scope.
+- The position-management mini-app. The core module and CLI remain in scope.
 - Multi-collateral positions
 - Private state positions (privacy via UX layer only)
 - Governance token design
@@ -315,13 +343,14 @@ reliability (R3) depends on this.
 adaptor) delivers external price feeds; [RFP-019](./RFP-019-twap-oracle.md)
 (on-chain TWAP oracle) is an alternative once a DEX is live.
 
-#### Token authorities (LP-0013)
+#### Token program for LEZ testnet 0.4
 
-The stablecoin program is a token custodian: it holds locked collateral per
-position and mints and burns the stablecoin via the LEZ Token Program (F5). This
-requires the transfer-authority primitives in
-[LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md),
-currently **open**.
+A token program compatible with the LEZ 0.4 actor model must provide messages
+for transfers, collateral custody, minting and burning, with authority granted
+by PDAs controlled by the stablecoin program. A pre-0.4 transfer-authority
+implementation alone does not satisfy this dependency. Proposals must identify
+the token implementation, its deployed address and supported message interface,
+and account for any required port before end-to-end acceptance.
 
 #### Authority libraries (RFP-001, RFP-002)
 
@@ -331,26 +360,28 @@ libraries in [RFP-001](./RFP-001-admin-authority-lib.md) and
 [RFP-002](./RFP-002-freeze-authority-lib.md). Both RFPs are closed (candidate
 picked) and the libraries are in development.
 
-### Resolved dependencies
+The price-feed and authority interfaces must support LEZ 0.4 actor messaging.
+Proposals must identify the implementations and interface versions they use;
+pre-0.4 SPEL extensions cannot be assumed compatible without adaptation.
 
-These primitives were once blockers but are now delivered on LEZ, so they no
-longer gate this RFP. They remain in the frontmatter `dependencies` index for
-traceability.
+### Runtime dependencies
 
 #### On-chain clock / timestamp
 
-Rate computation and stability fee accrual require knowing how much time has
-elapsed between interactions. The LEZ clock program now maintains on-chain
-timestamp accounts that any program can read, so this is **delivered**.
+Rate computation and stability fee accrual require elapsed time. Obtain or
+validate timestamps through messages to the configured LEZ clock actor, not by
+reading another program's state. Proposals must document the clock message
+interface used, including timestamp assertions where applicable.
 
-#### General cross-program calls (LP-0015)
+#### Actor messaging
 
-A stablecoin operation like "lock collateral and mint" needs to: (1) call the
-token program to transfer collateral into the position, then (2) continue
-executing to update position state and mint stablecoins. General cross-program
-calls via tail calls let step 2 run in a protected continuation after step 1.
-[LP-0015](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0015.md)
-is **closed**, delivered by the LEZ team as part of the core runtime.
+Operations such as locking collateral and minting compose synchronous and
+asynchronous messages instead of tail calls. Internal-only messages must check
+`from_own_program()`; external replies must be authenticated against the
+expected actor. Synchronous calls requiring PDA authority carry the appropriate
+seed grants; asynchronous messages must not assume that grant is propagated.
+Clients handle deferred credits and collect stored messages before reporting
+private-path output delivery as complete.
 
 #### Event emission (LP-0012)
 
@@ -383,7 +414,7 @@ Team experienced with:
 - Interest rate modelling and control theory
 - Oracle integration and price feed security
 - Writing and running on-chain tests
-- Logos C++ core module and CLI development
+- Logos core module and CLI development
 
 ## Timeline Expectations
 

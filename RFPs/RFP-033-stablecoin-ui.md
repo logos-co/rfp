@@ -6,14 +6,15 @@ status: draft
 category: Applications & Integrations
 dependencies:
   - id: RFP-013
-    reason: Provides the stablecoin program, core module and CLI, including shared position operations, private account handling and seed recovery; final integration requires versions compatible with the mainnet-equivalent LEZ release targeted by this interface.
+    reason: Provides the stablecoin program, core module and CLI, including shared position operations, private account handling and seed recovery; final integration requires versions delivered for LEZ testnet 0.4.
 ---
 
 # RFP-033 — Reflexive Stablecoin Position Management UI
 
 > **Combined proposals.** Proposals covering both this RFP and the separate
-> liquidation and auction UI RFP will be given preference. Each scope is
-> evaluated separately.
+> liquidation and auction UI RFP over
+> [RFP-014](./RFP-014-liquidation-auction-engine.md) will be given preference.
+> Each scope is evaluated separately.
 
 > **Note.** This specification describes an outcome that may benefit the Logos
 > ecosystem. It is a proposal rather than an instruction. Its requirements
@@ -52,7 +53,8 @@ a user opens a collateralised position, mints the stablecoin against it,
 monitors its health, adjusts it, and closes it. The RFP-013 program and its
 Logos core module and CLI are specified in RFP-013, including the client-side
 private account path, position discovery, recovery and shared calculations. This
-RFP covers the mini-app and its integration with those capabilities.
+RFP covers the mini-app and its integration with those capabilities. The
+mini-app is delivered for LEZ testnet 0.4 (Supportability requirement #1).
 
 Two things make this more than a form over the program's instructions. First, a
 position's health moves even when nothing else does: debt is valued at the
@@ -64,14 +66,27 @@ from a private account and returning its output to one. A position is a
 long-lived account, so this is harder than for a one-shot swap, and the
 interface must get it right by default.
 
-A separate RFP covers the liquidation and auction interface over
-[RFP-014](./RFP-014-liquidation-auction-engine.md), including manual liquidation
-and auction participation alongside automated liquidators. Those screens are
-outside this RFP. Proposals should state whether the team intends to apply for
-both UI scopes and how they would share components and design.
+The interface serves these users:
+
+- **First-time borrower:** opens a single position, mints conservatively and
+  checks it rarely. Relies on previews, projections and warnings to stay clear
+  of the minimum ratio.
+- **Active position manager:** runs many positions (see Performance #2) and
+  adjusts collateral and debt as the redemption price and fees move.
+- **Privacy-first user:** uses the private path for every operation and needs to
+  understand what remains observable (Usability #8).
+- **CLI power user:** manages the same positions from the RFP-013 CLI and the
+  mini-app (Usability #3).
+
+Liquidators, keepers and auction bidders are served by
+[RFP-014](./RFP-014-liquidation-auction-engine.md) and a separate RFP for the
+liquidation and auction interface, which covers manual liquidation and auction
+participation alongside automated liquidators. Those screens are outside this
+RFP. Proposals should state whether the team intends to apply for both UI scopes
+and how they would share components and design.
 
 A team likely to succeed has shipped interfaces for CDP or lending protocols,
-has built QML ui modules with C++ core modules, and can reason about what client
+has built QML ui modules with core modules, and can reason about what client
 behaviour leaks on a public chain.
 
 ## 🔥 Why This Matters
@@ -130,10 +145,10 @@ let users inspect these effects when opening, adjusting or closing a position.
 
 #### Usability
 
-01. Reuse the RFP-013 C++ core module for position operations, discovery,
-    previews, projections, the private account path and recovery. Shared
-    functionality belongs in that module and is not reimplemented in the UI. All
-    off-chain software described here must be implemented as Logos modules.
+01. Reuse the RFP-013 core module for position operations, discovery, previews,
+    projections, the private account path and recovery. Shared functionality
+    belongs in that module and is not reimplemented in the UI. All off-chain
+    software described here must be implemented as Logos modules.
 02. Provide a Logos mini-app QML GUI (Logos ui module) covering every
     Functionality requirement.
 03. Integrate with the same core module and wallet configuration as RFP-013's
@@ -167,7 +182,9 @@ let users inspect these effects when opening, adjusting or closing a position.
     while they run, and the user can see the state of each operation in flight.
 10. Failed operations return clear, actionable error messages that name the
     constraint that was violated (minimum ratio, frozen protocol, stale price
-    feed, insufficient balance, and so on).
+    feed, insufficient balance, and so on). Use the core module to simulate
+    operations before submission. Distinguish successful execution from an
+    included, fee-charged revert and report the latter as a failure.
 11. The user can change the LEZ sequencer or node the interface connects to.
 12. Signing goes through the LEZ core module wallet (see Platform Dependencies,
     "Wallet"). The interface holds no key material of its own beyond what the
@@ -180,6 +197,8 @@ let users inspect these effects when opening, adjusting or closing a position.
    intermediate public account. On restart, the interface detects the incomplete
    operation through the RFP-013 core module and either completes it or returns
    the funds to the user's private account, and shows the user which it did.
+   Stored messages delivering private outputs are collected through the core
+   module, including after restart. Inclusion alone is not completion.
 2. Displayed position and protocol values are derived from on-chain state using
    the same fixed-point arithmetic as the program, and are refreshed after every
    operation and at a regular interval stated in the proposal. The proposal must
@@ -202,19 +221,17 @@ let users inspect these effects when opening, adjusting or closing a position.
    measure and document, with real proving, the end-to-end time of each position
    operation on the public and the private paths, from confirmation to the
    position view reflecting the result. Figures produced in development mode
-   will not be accepted.
+   will not be accepted. Measurements are taken on LEZ testnet 0.4.
 2. Listing the user's positions and recovering them from seed (Functionality #4,
    #5) complete in a time the proposal states and the delivery measures, for a
    user with at least 20 positions.
 
 #### Supportability
 
-01. Deliver and test the interface with compatible RFP-013 program and core
-    module versions on a mainnet-equivalent LEZ release, accounting for the
-    breaking changes expected in 0.5.0. The proposal must identify the target
-    release and compatibility assumptions; the final test report must record the
-    exact versions used. Testing only against 0.4 is insufficient. This
-    requirement does not require mainnet deployment.
+01. The mini-app is delivered for LEZ testnet 0.4: it is deployed and tested on
+    LEZ testnet 0.4 with RFP-013 program and core module versions delivered for
+    the same release. The final test report records the exact versions used.
+    This requirement does not require mainnet deployment.
 02. End-to-end tests of every Functionality requirement, on both paths, run
     against a LEZ sequencer (standalone mode) with the RFP-013 program deployed,
     and are included in CI.
@@ -231,11 +248,13 @@ let users inspect these effects when opening, adjusting or closing a position.
 08. Provide Figma designs or equivalent for all mini-app screens and states,
     including warning, frozen, stale-feed and in-progress states. Include a
     prototype review before implementation and a usability-test-and-revision
-    checkpoint before final acceptance. Proposals must state the participant
-    profile, number of participants and iteration rounds, tasks, and measurable
-    acceptance criteria. Test opening a position, interpreting liquidation risk,
-    repaying and closing, and recovering from seed. Deliver findings, revisions
-    and a retest of failed tasks; record unresolved issues and their impact.
+    checkpoint before final acceptance. Participants include first-time
+    borrowers and active position managers (see Overview). Proposals must state
+    the number of participants per user type, iteration rounds, tasks, and
+    measurable acceptance criteria. Test opening a position, interpreting
+    liquidation risk, repaying and closing, and recovering from seed. Deliver
+    findings, revisions and a retest of failed tasks; record unresolved issues
+    and their impact.
 09. Provide a privacy properties document covering what each operation reveals
     on-chain on each path, what the configured node learns from the interface's
     queries, which guarantees depend on correct client behaviour, and what
@@ -362,18 +381,18 @@ must identify any missing upstream capability and its delivery impact.
 
 #### Upstream compatibility and schedule
 
-Final end-to-end acceptance depends on compatible versions of the RFP-013
-program and core module on the target LEZ release. Proposals must identify
-interface assumptions and how breaking changes would affect scope and schedule.
-Designs and integration may begin against a local sequencer, but do not replace
-validation on the target release.
+Final end-to-end acceptance depends on RFP-013 program and core module versions
+delivered for LEZ testnet 0.4. Proposals must identify interface assumptions and
+how breaking changes would affect scope and schedule. Designs and integration
+may begin against a local sequencer, but do not replace validation on LEZ
+testnet 0.4.
 
 ## 👤 Recommended Team Profile
 
 Team experienced with:
 
 - Interfaces for CDP, lending or other leveraged DeFi protocols
-- QML ui module and C++ core module integration
+- QML ui module and core module integration
 - Product design for financial risk (presenting liquidation risk, previews,
   confirmation flows)
 - Wallet integration and client-side transaction construction
@@ -382,9 +401,9 @@ Team experienced with:
 ## ⏱ Timeline Expectations
 
 Estimated duration: **8–12 weeks**, excluding time spent waiting for the RFP-013
-program and core module to be available on the target LEZ release. Proposals
-must include the design review, usability testing and revision checkpoints
-within their schedule.
+program and core module to be available on LEZ testnet 0.4. Proposals must
+include the design review, usability testing and revision checkpoints within
+their schedule.
 
 ## 🌍 Open Source Requirement
 
