@@ -53,6 +53,9 @@ account or to a private account. When claimed to a private account, the
 destination and all subsequent token movements are hidden from on-chain
 observers.
 
+The vesting LEZ program is delivered for LEZ testnet 0.4 (Supportability
+requirement #1).
+
 Token vesting is a prerequisite for credible token launches. Every protocol that
 issues a token must lock some allocation for founders, early contributors, or
 ecosystem reserves. The scale of this market is substantial: Tokenomist
@@ -257,16 +260,13 @@ distribution platforms) may be included but is not required.
 
 1. A single claim completes within one LEZ transaction.
 2. Document the compute unit (CU) cost of each operation: create schedule,
-   claim, cancel, signal milestone, transfer beneficiary. Note the LEZ testnet
-   version against which measurements were taken, as the per-transaction compute
-   budget may change.
+   claim, cancel, signal milestone, transfer beneficiary. Measurements are taken
+   on LEZ testnet 0.4.
 
 #### Supportability
 
-Proposals must include separate milestones for testnet 0.2, testnet 0.3, and
-mainnet deployment.
-
-1. The vesting program is deployed and tested on LEZ testnet 0.2.
+1. The vesting LEZ program is delivered for LEZ testnet 0.4: it is deployed and
+   tested on LEZ testnet 0.4.
 2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
    and are included in CI. CI must be green on the default branch.
 3. Every hard requirement in Functionality, Usability, Reliability, and
@@ -274,8 +274,6 @@ mainnet deployment.
 4. A README documents end-to-end usage: deployment steps, program addresses, and
    step-by-step instructions for creating a schedule, claiming, and cancelling
    via CLI and mini-app.
-5. The program is updated and verified on LEZ testnet 0.3.
-6. The program is deployed to LEZ mainnet.
 
 #### + Privacy
 
