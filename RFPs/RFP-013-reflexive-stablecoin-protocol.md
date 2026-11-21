@@ -1,21 +1,22 @@
 ---
+note: This metadata is for internal programme tracking only. It is not part of this specification and does not form part of its requirements.
 id: RFP-013
 title: Reflexive Stablecoin Protocol
 tier: XL
 status: closed
 dependencies:
   - id: RFP-020
-    reason: Provides the external price feed required for market price and redemption rate computation (F2, F6, R3).
+    reason: External price feeds are required for market price and redemption rate computation (F2, F6, R3); RFP-020 is an illustrative example.
   - id: LP-0013
-    reason: Token transfer-authority primitives are required to custody collateral and to mint and burn the stablecoin via the LEZ Token Program (F5).
+    reason: Token transfer authorities are required for the program to hold locked collateral and to mint and burn the stablecoin via the LEZ Token Program (F5); LP-0013 is an illustrative example.
   - id: RFP-001
-    reason: Provides the standardised admin authority library that gates parameter updates (stability fee, controller gains, safety ratios) per Reliability R4.
+    reason: An admin authority capability is required to gate parameter updates (stability fee, controller gains, safety ratios) per R4 and F7; RFP-001 describes such a capability and is an illustrative example.
   - id: RFP-002
-    reason: Provides the standardised freeze authority used for the emergency circuit breaker per Reliability R5.
+    reason: A freeze authority capability is required for the emergency circuit breaker per R5 and F7; RFP-002 describes such a capability and is an illustrative example.
   - id: LP-0015
-    reason: General cross-program calls via tail calls, used to compose collateral transfers with subsequent position state updates.
+    reason: General cross-program calls via tail calls, used to compose collateral transfers with subsequent position state updates; available in the LEZ core runtime.
   - id: LEZ-clock
-    reason: Platform feature. Rate computation and stability fee accrual require elapsed time between interactions. Delivered via the LEZ clock program.
+    reason: Platform feature. Rate computation and stability fee accrual require elapsed time between interactions; available via the LEZ clock program.
 category: Applications & Integrations
 ---
 
@@ -30,9 +31,9 @@ category: Applications & Integrations
 >
 > Teams implementing it are solely responsible for (i) assessing the risks and
 > implications of what they build; (ii) obtaining their own professional advice;
-> and (iii) for complying with any legal and regulatory requirements that apply
-> to them. Software developed under the Program is published and maintained by
-> its developers, not by Logos.
+> and (iii) complying with any legal and regulatory requirements that apply to
+> them. Software developed under the Program is published and maintained by its
+> developers, not by Logos.
 >
 > Anyone who chooses to deploy, host, operate or use software developed under
 > the Program, whether or not they were awarded a grant under the Program, does
@@ -47,51 +48,57 @@ category: Applications & Integrations
 > does so as principal, in their own name, and is solely responsible for
 > assessing its regulatory treatment, including any licensing, registration,
 > sanctions or anti-money laundering obligations that may apply to them. Logos
-> does not make any representation, provides any advice or assumes any
+> does not make any representation, provide any advice or assume any
 > responsibility in respect of any such determination or compliance.
 
 ## Overview
 
 Build a non-pegged, reflexive stablecoin protocol for the Logos Execution Zone
 (LEZ). The stablecoin is backed by a reference token collateral and uses an
-autonomous feedback controller to adjust a floating redemption price,
-incentivizing market participants to stabilize the token without requiring
-active governance intervention.
+autonomous feedback controller to adjust a floating redemption price. The
+program may be independently deployed and configured by those who choose to
+deploy it (F7).
 
-This design — pioneered by [RAI / Reflexer Finance](https://reflexer.finance/) —
-produces a stablecoin that trades governance for mathematics: the system
-self-corrects via economic incentives rather than policy decisions. For a survey
-of the stablecoin ecosystem and the design rationale behind this approach, see
-the
+The program targets LEZ testnet 0.4 (Supportability requirement #1).
+
+The design follows the model deployed by
+[RAI / Reflexer Finance](https://reflexer.finance/) on Ethereum, in which a
+controller computes the redemption rate from market data instead of the rate
+being set by governance votes. For a survey of the stablecoin ecosystem and the
+design rationale behind this approach, see the
 [companion appendix](../appendix/appendix-reflexive-stablecoin-ecosystem.md).
 Users lock collateral and mint stablecoins against it. The protocol continuously
 adjusts a redemption rate based on the deviation between market price and
 redemption price. When market price exceeds redemption price, the rate goes
-negative, causing redemption price to drift down and reducing demand. When
-market price is below redemption price, the rate goes positive, causing
-redemption price to drift up and increasing demand. This creates a
-self-stabilizing feedback loop.
+negative and the redemption price drifts down. When market price is below
+redemption price, the rate goes positive and the redemption price drifts up. The
+redemption price, in turn, changes the incentive for market participants to
+mint, repay or hold the token.
 
 The protocol follows the RAI design with these key components: collateralized
 debt positions (SAFEs) that track collateral, normalized debt, and accumulated
 rates; a redemption price that drifts based on a computed redemption rate;
 stability fees that accrue continuously via rate accumulation; and a feedback
-loop that stabilizes the token mathematically rather than through governance
-intervention.
+controller that sets the redemption rate from market data rather than by
+governance decision.
 
 ## Why This Matters
 
-The Logos ecosystem needs a credibly neutral settlement asset that reduces trust
-assumptions. Traditional stablecoins are either centralized (USDC),
-governance-heavy (DAI), or under-collateralized and fragile (failed algorithmic
-coins). This protocol provides a fourth option: reflexive, non-pegged, and
-over-collateralized.
+Stablecoin designs differ in how their value is referenced and who adjusts their
+parameters. Fiat-backed stablecoins such as USDC rely on reserves held by an
+issuer. CDP stablecoins such as Sky/MakerDAO's DAI are minted against
+collateral, with stability fees, collateral types and debt ceilings set by token
+governance votes. In the reflexive model used by RAI, and by its fork HAI on
+Optimism, a feedback controller computes the redemption rate from the deviation
+between market price and redemption price, and the parameters left to an admin
+authority are limited (see the
+[companion appendix](../appendix/appendix-reflexive-stablecoin-ecosystem.md)).
 
-Stablecoins enable lending, trading, and payments without the volatility of
-native assets. For the private economy, this offers a stable unit of account
-without requiring users to trust an issuer or governance body. Other protocols
-can build on this stable asset as a risk-off collateral asset, establishing a
-foundation for DeFi activity on LEZ.
+This RFP specifies that model as a LEZ program. The stablecoin it issues is a
+standard fungible LEZ token (F5), so other LEZ programs can accept it as they
+would any other token. Position state is public; users may interact from a
+private account through the deshield-interact-reshield pattern (see Privacy
+Architecture).
 
 ## Scope of Work
 
@@ -110,7 +117,8 @@ foundation for DeFi activity on LEZ.
    intervals with permissionless triggers.
 
 3. Debt accrues interest continuously via a stability fee mechanism. The fee
-   rate is governance-adjustable but applies uniformly to all positions.
+   rate is adjustable through the admin authority (F7, R4) and applies uniformly
+   to all positions.
 
 4. Positions cannot be modified in ways that would push their collateralization
    ratio below the liquidation threshold. Read-only queries are always
@@ -122,7 +130,15 @@ foundation for DeFi activity on LEZ.
 
 6. The protocol reads market prices from a configurable price feed. The
    interface requires price data with staleness detection; the specific
-   implementation is flexible.
+   implementation is flexible, and the price feed used is a configuration choice
+   of the instance (F7).
+
+7. The admin authority (stability fee, controller gains, safety ratios; R4) and
+   the freeze authority (emergency circuit breaker; R5) of each instance, its
+   price feed (F6), and its parameter values are set when the instance is
+   initialised. The program contains no hardcoded authority holder and no
+   hardcoded production parameter values; these are configuration choices of
+   whoever initialises the instance.
 
 #### Usability
 
@@ -130,7 +146,7 @@ foundation for DeFi activity on LEZ.
    client code from the program definition.
 
 2. Provide a Logos mini-app GUI with local build instructions, downloadable
-   assets, and loadable in Logos app (Basecamp) via git repo.
+   assets, and loadable in Logos app (Basecamp) via the team's own git repo.
 
 3. Provide a CLI that covers core functionality of the program. The CLI may have
    fewer features than the GUI mini-app but must support all essential
@@ -163,9 +179,10 @@ foundation for DeFi activity on LEZ.
    positions remain operational but new debt generation may be restricted.
 
 4. Parameter updates (stability fee, controller gains, safety ratios) are gated
-   through admin authority.
+   through an admin authority (F7).
 
-5. Emergency circuit breaker functionality is available via freeze authority.
+5. Emergency circuit breaker functionality is available via a freeze authority
+   (F7).
 
 #### Performance
 
@@ -180,7 +197,7 @@ foundation for DeFi activity on LEZ.
 
 #### Supportability
 
-1. The program is deployed and tested on LEZ devnet/testnet.
+1. The team deploys and tests the program on LEZ testnet 0.4.
 
 2. End-to-end integration tests run against a LEZ sequencer (standalone mode)
    with `RISC0_DEV_MODE=0` and are included in CI.
@@ -198,8 +215,8 @@ foundation for DeFi activity on LEZ.
 
 1. The mini-app and SDK must support both direct public account interaction and
    the deshield-interact-reshield pattern for private account interaction. When
-   a user chooses the private account path, the SDK must enforce the complete
-   pattern — the reshield step must not be skippable.
+   a user chooses the private account path, the SDK must complete the full
+   deshield-interact-reshield pattern for the operation.
 
 2. When using the private account path, the SDK must validate that the target
    account for reshielding is a private (shielded) account before submitting the
@@ -217,9 +234,10 @@ If possible.
 
 1. Multi-oracle redundancy for price feeds, with fallback when primary is stale.
 
-2. Formal verification of critical invariants: a position with collateralization
-   ratio above the minimum cannot be liquidated; total stablecoin supply equals
-   total debt across all positions.
+2. Formal verification of critical invariants, with the verification reports
+   published alongside the codebase: a position with collateralization ratio
+   above the minimum cannot be liquidated; total stablecoin supply equals total
+   debt across all positions.
 
 #### Usability
 
@@ -232,13 +250,19 @@ If possible.
 
 The following are explicitly excluded from this RFP.
 
-- Liquidation mechanism — addressed by
-  [RFP-014](./RFP-014-liquidation-auction-engine.md)
-- Surplus/debt management auctions — addressed by
-  [RFP-014](./RFP-014-liquidation-auction-engine.md)
+- Liquidation mechanism (specified separately in
+  [RFP-014](./RFP-014-liquidation-auction-engine.md))
+- Surplus and debt management auctions (specified separately in
+  [RFP-014](./RFP-014-liquidation-auction-engine.md))
 - Multi-collateral positions
 - Private state positions (privacy via UX layer only)
 - Governance token design
+- Mainnet deployment. Mainnet deployment is not part of this RFP: whether, when
+  and by whom the software is deployed is a matter for those who deploy it.
+- The identity of persons holding the admin and freeze authorities, and the
+  exercise of those authorities, including the choice of price feeds and
+  parameter values, in any deployment, are matters for the relevant independent
+  deployer or operator and are outside the scope of this RFP.
 
 ### Privacy Architecture
 
@@ -250,7 +274,7 @@ challenges.
 User privacy is optionally enforced at the UX layer. The mini-app and SDK
 support both direct public account interaction and private account interaction
 via the deshield-interact-reshield pattern. When users opt to interact from a
-private account, the SDK must enforce the complete pattern as described below.
+private account, the SDK must complete the full pattern as described below.
 
 #### Interaction flow
 
@@ -271,85 +295,59 @@ For every protocol operation (lock collateral, mint, repay, withdraw):
 - All protocol operations and their amounts.
 - Price feeds and rate update events.
 
-#### What is private
+#### What is not recorded in public on-chain state
 
-- Which private account funded any operation.
-- Where withdrawn assets go after reshielding.
-- Any link between multiple protocol interactions by the same user (no on-chain
-  linkability across ephemeral accounts).
+- The private account that funded an operation.
+- The destination of withdrawn assets after reshielding.
+- Any association between the ephemeral accounts used by the same private
+  account. Timing and amounts of operations remain public and may still be
+  correlated.
 
 ## Platform Dependencies
 
-### Hard blockers
+Implementation of the stablecoin program depends on the availability, on testnet
+0.4, of the following technical capabilities:
 
-These must be available on LEZ before this RFP can open.
+1. **External price feeds** for market price and redemption rate computation.
+   Every hard requirement related to rate adjustment (F2) and reliability (R3)
+   depends on this. The price feed used is a configuration choice of the
+   instance (F6, F7). [RFP-020](./RFP-020-redstone-oracle-adaptor.md) and
+   [RFP-019](./RFP-019-twap-oracle.md) are illustrative examples.
+2. **Token transfer authorities**, so that the program can hold locked
+   collateral per position and mint and burn the stablecoin via the LEZ Token
+   Program according to its programmed rules (F5).
+   [LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md)
+   is an illustrative example.
+3. **Admin and freeze authority capabilities**, used to gate parameter updates
+   and to provide the emergency circuit breaker (R4, R5, F7). These capabilities
+   are described in [RFP-001](./RFP-001-admin-authority-lib.md) and
+   [RFP-002](./RFP-002-freeze-authority-lib.md), which are illustrative
+   examples.
 
-#### Price feed
+The following capabilities are already available in the LEZ core runtime:
 
-The protocol requires external price feeds for market price and redemption rate
-computation. Every hard requirement related to rate adjustment (F2) and
-reliability (R3) depends on this.
-[RFP-020](./RFP-020-redstone-oracle-adaptor.md) (RedStone off-chain oracle
-adaptor) delivers external price feeds; [RFP-019](./RFP-019-twap-oracle.md)
-(on-chain TWAP oracle) is an alternative once a DEX is live.
+- **An on-chain clock**, so that rate computation and stability fee accrual can
+  read the time elapsed between interactions from the timestamp accounts
+  maintained by the LEZ clock program.
+- **General cross-program calls via tail calls**, so that an operation such as
+  "lock collateral and mint" can call the token program to transfer collateral
+  into the position and then continue, in a protected continuation, to update
+  position state and mint stablecoins
+  ([LP-0015](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0015.md)).
+- **Structured event emission**, so that off-chain services can observe
+  positions and rate updates without polling every account
+  ([LP-0012](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)).
 
-#### Token authorities (LP-0013)
+Liquidation is outside the scope of this RFP. The positions this protocol
+creates are liquidated by a separate liquidation and auction program;
+[RFP-014](./RFP-014-liquidation-auction-engine.md) specifies such a program,
+with a host CDP interface, and is an illustrative example. Until a liquidation
+program is integrated, the protocol may use a placeholder liquidation path that
+satisfies its functionality requirements. This capability is not listed in the
+frontmatter, since RFP-014 lists this RFP as its host CDP example.
 
-The stablecoin program is a token custodian: it holds locked collateral per
-position and mints and burns the stablecoin via the LEZ Token Program (F5). This
-requires the transfer-authority primitives in
-[LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md),
-currently **open**.
-
-#### Authority libraries (RFP-001, RFP-002)
-
-Parameter updates are gated through an admin authority (R4) and the emergency
-circuit breaker uses a freeze authority (R5). These come from the standardised
-libraries in [RFP-001](./RFP-001-admin-authority-lib.md) and
-[RFP-002](./RFP-002-freeze-authority-lib.md). Both RFPs are closed (candidate
-picked) and the libraries are in development.
-
-### Resolved dependencies
-
-These primitives were once blockers but are now delivered on LEZ, so they no
-longer gate this RFP. They remain in the frontmatter `dependencies` index for
-traceability.
-
-#### On-chain clock / timestamp
-
-Rate computation and stability fee accrual require knowing how much time has
-elapsed between interactions. The LEZ clock program now maintains on-chain
-timestamp accounts that any program can read, so this is **delivered**.
-
-#### General cross-program calls (LP-0015)
-
-A stablecoin operation like "lock collateral and mint" needs to: (1) call the
-token program to transfer collateral into the position, then (2) continue
-executing to update position state and mint stablecoins. General cross-program
-calls via tail calls let step 2 run in a protected continuation after step 1.
-[LP-0015](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0015.md)
-is **closed**, delivered by the LEZ team as part of the core runtime.
-
-#### Event emission (LP-0012)
-
-Off-chain services observe positions and rate updates through structured events
-rather than polling every account.
-[LP-0012](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)
-is **closed**.
-
-### Soft blockers
-
-Desirable but the RFP can open without them.
-
-#### Liquidation engine (RFP-014)
-
-A full liquidation and auction engine is delivered by
-[RFP-014](./RFP-014-liquidation-auction-engine.md), which liquidates the
-positions this protocol creates. The stablecoin is more robust once RFP-014 is
-live, but it can ship with a placeholder liquidation path that satisfies its
-functionality requirements and integrate RFP-014 once available. It is therefore
-a soft dependency rather than a frontmatter entry (also avoiding a hard cycle,
-since RFP-014 depends on this RFP for the positions it liquidates).
+Proposals must state which implementation of each capability they will build
+against, and how a change to that implementation's interface would be absorbed.
 
 ## Recommended Team Profile
 
@@ -379,6 +377,15 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [RFP-008 — Lending & Borrowing](./RFP-008-lending-borrowing-protocol.md)
 - [RFP-014 — Liquidation & Auction Engine](./RFP-014-liquidation-auction-engine.md)
 - [Appendix: Reflexive Stablecoin Ecosystem](../appendix/appendix-reflexive-stablecoin-ecosystem.md)
+
+The Resources listed above, and any third-party material referred to elsewhere
+in this specification, are for informational purposes only and are intended
+solely as guidance regarding tools or other artefacts that may be relevant to
+preparing a Submission under the Program. They may include, or may refer to,
+earlier published specifications, some of which may have received Submissions.
+Logos does not endorse or approve, and makes no representation regarding, any
+Submission or referenced material. It is ultimately the Applicant’s
+responsibility to determine whether, and how, if at all, to use any Resource.
 
 ## How to Apply
 
