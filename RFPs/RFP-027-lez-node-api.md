@@ -2,7 +2,7 @@
 id: RFP-027
 title: LEZ Node API
 tier: L
-status: open
+status: internal
 category: Developer Tooling & Infrastructure
 dependencies: []
 ---
