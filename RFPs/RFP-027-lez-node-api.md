@@ -2259,27 +2259,6 @@ Access control and the contract rest on Logos Core in several places.
   how a subscription is delivered to the caller that opened it and to no other,
   and how the module learns that a caller has gone.
 
-## 👤 Recommended Team Profile
-
-This specification is designated for integration into `logos-execution-zone` and
-`lez-indexer-module`, so the work sits with people who know both well:
-
-- Rust, and designing a stable C FFI with explicit ownership of allocations
-- The LEZ indexer, sequencer, and chain state, and the privacy model of
-  privacy-preserving transactions
-- Logos Core modules, their contracts, and access policies
-- Peer-to-peer networking with libp2p and gossipsub
-- Production node software: storage growth, concurrency, and observability
-
-## ⏱ Timeline Expectations
-
-Estimated duration: **24–30 weeks**. Most of the read surface is exposure of
-what the indexer and the sequencer service already hold. Most of the time goes
-to what is new: bringing the indexer and the sequencer service together as one
-node that follows the head and joins the peer-to-peer network in either mode,
-the persisted effects, transaction status across node modes, the pending set,
-subscriptions with resume, access control, and the module contract.
-
 ## 🌍 Open Source Requirement
 
 All code must be released under the **MIT+Apache2.0 dual License**.
