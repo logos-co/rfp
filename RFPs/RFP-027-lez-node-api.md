@@ -422,91 +422,35 @@ to serve the fee market, and [#96](#f-96) lets every read answer at the head, so
 a wallet simulating on its own side reaches every input it needs, at the state
 it is building on, through the node API.
 
-### Inspiration from BDK: Bitcoin Development Kit
+### Precedents for the wallet and node split
 
-The [Bitcoin Development Kit](https://bitcoindevkit.org) is the closest
-precedent for the split this RFP sits on one side of: a wallet that holds the
-keys, and a chain client that holds none. Everything below was read at `bdk-ffi`
-`3.1.0-alpha.0`.
+Bitcoin and Ethereum both draw the line this RFP sits on one side of: a wallet
+that holds the keys, and a node that holds none and serves the chain.
 
-BDK is what a wallet developer uses instead of writing wallet logic against a
-node. It is layered. At the bottom sits
-[`rust-bitcoin`](https://github.com/rust-bitcoin/rust-bitcoin), types and
-consensus encoding only: it is `no_std` and contains no networking. Above it,
-[`bdk_wallet`](https://github.com/bitcoindevkit/bdk_wallet) holds the wallet
-proper, descriptors, key derivation, coin selection, transaction building and
-signing, and the wallet's own view of the chain. Beside it sit four
-interchangeable chain clients, each a separate crate: `bdk_esplora` for HTTP,
-`bdk_electrum` for Electrum servers, `bdk_bitcoind_rpc` for Bitcoin Core's
-JSON-RPC, and `bdk_kyoto` for P2P compact block filters.
+**Bitcoin: BDK.** The [Bitcoin Development Kit](https://bitcoindevkit.org) keeps
+the wallet, `bdk_wallet`, with descriptors, key derivation, coin selection, and
+transaction building and signing, apart from four interchangeable chain clients
+for Esplora, Electrum, Bitcoin Core's JSON-RPC, and compact block filters. The
+wallet performs no network I/O: the integrator fetches chain data with a client
+and applies it to the wallet, so the same wallet works against any of them (read
+at `bdk-ffi` `3.1.0-alpha.0` and the BDK crates it depends on).
 
-[`bdk-ffi`](https://github.com/bitcoindevkit/bdk-ffi) then wraps the wallet and
-those clients for consumers that are not writing Rust. It is its own crate,
-depending on the wallet crate and re-exposing it across a UniFFI boundary rather
-than re-exporting it, and the Kotlin, Swift and Python packages are generated
-against it. A Kotlin consumer never sees Rust: it adds one dependency,
-`bdk-android`, whose entire Kotlin source tree is a build artefact regenerated
-from the FFI crate.
+**Ethereum: Geth and viem.** A Geth node serves the `eth` JSON-RPC namespace:
+reads of chain state, gas estimation, and `eth_sendRawTransaction` for a
+transaction signed elsewhere. [viem](https://viem.sh), the most downloaded
+Ethereum library on npm (42,475,870 downloads from 23 October to 21 November
+2026, against 20,757,782 for ethers), keeps a public client, which reads from a
+node over HTTP, WebSocket, or an injected provider, apart from a wallet client
+and its local accounts, which hold the keys and sign. A transaction is signed in
+the library and handed to the node raw.
 
-That arrangement answers two questions about the split between a wallet and a
-node: how the pieces are packaged, and how the wallet and a client relate to
-each other at runtime.
-
-The first is packaging. Wallet and chain access ship as one crate, one UniFFI
-namespace, and one native library: `lib.rs` declares `mod wallet` beside
-`mod esplora`, `mod electrum`, and `mod kyoto`, then calls
-`uniffi::setup_scaffolding!("bdk")` once. Those modules organise the Rust source
-rather than the exposed surface, and they collapse at the FFI boundary: the
-Android test that exercises `Wallet` and `EsploraClient` together imports
-nothing from BDK at all, because both arrive in one flat package. What separates
-the wallet functions from each client's functions is the object they hang off,
-not a namespace. Every export is a method on a type and none is a free function,
-so `Wallet` carries the wallet operations and `EsploraClient` the chain reads,
-and a caller disambiguates by naming the object. The cost of the single artefact
-is that no Cargo feature gates those backends, so every consumer links all three
-whether it uses one or not.
-
-The second is control flow, which is what keeps those four clients
-interchangeable. The wallet holds no client and performs no network I/O. It
-exposes no method returning a network error, and chain data reaches it through
-one door: the consumer calls an `apply_*` method with data the consumer fetched.
-Sync is three steps the integrator writes, not one call the wallet makes:
-
-```
-wallet.start_full_scan()   -> FullScanRequest   (a value)
-client.full_scan(request)  -> Update            (a value)
-wallet.apply_update(update)
-```
-
-The seam is a pair of plain values rather than a trait the wallet defines and a
-client implements. The dependency direction never inverts: the chain modules
-import `Update` from the wallet's types, and the wallet imports nothing from
-them. That is what lets three transports as different as HTTP, Electrum, and P2P
-compact block filters sit behind one import without the wallet knowing which is
-in use, and it survives projection onto Kotlin and Swift, which a trait does not
-do cleanly.
-
-The Rust-native path is a different shape again, so one client interface does
-not serve every consumer. Where the HTTP and Electrum clients use the request
-and apply pair above, `bdk_bitcoind_rpc` talks to a node over JSON-RPC through a
-long-lived `Emitter` the consumer drives as a pull loop: the wallet's checkpoint
-and unconfirmed set are injected once at construction, `next_block()` is called
-until it returns nothing, and each block is applied individually with
-`apply_block_connected_to`. There is no request to build. The emitter holds the
-reorg state and the mempool snapshot, so that state sits in the client rather
-than the wallet. Two transports against the same wallet therefore present two
-different consumer flows, and the wallet accommodates both only because it
-exposes several `apply_*` entry points rather than one.
-
-Two consequences for the node API. A wallet reaches its node only through the
-node API, and the node API is an interface more than one module can implement,
-as four clients sit behind one BDK wallet. The functions below are therefore
-specified by what they answer, whichever component holds the data today, and
-nothing in them assumes where the node runs. And because the three-step sequence
-is verbose enough that integrators tend to wrap it themselves, a convenience
-that performs a sync against a supplied node is worth offering rather than
-leaving every consumer to write it: the `lez_core` module ships one. That
-convenience belongs to the LEZ wallet API.
+**What carries over.** A wallet reaches its node only through the node API, so
+the functions below are specified by what they answer, not by where the node
+runs or which component holds the data
+([Assumption A1](#a1-each-chain-has-a-wallet-module-and-a-node-module)). And a
+convenience that syncs a wallet against a node, which BDK leaves to its
+integrators and the `lez_core` module ships today, belongs to the LEZ wallet
+API, not to this one.
 
 ### What a node can answer about a privacy-preserving transaction
 
