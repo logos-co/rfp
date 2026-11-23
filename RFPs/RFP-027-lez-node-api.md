@@ -660,15 +660,19 @@ distinctly from a read for data that never existed.
 #### Functionality
 
 Each requirement carries a readiness marker describing its starting point in the
-current LEZ codebase. **Ready** means the capability is already exported by the
-node FFI and only a specification, test, or documentation obligation remains.
-**Ready, not exposed** means it exists in the node service, RPC, or store, or
-the sequencer service serves or computes it from state the node also holds, but
-the node FFI does not export it, so the work is exposure. **Computed, not
-persisted** means the node derives the data during ingestion but neither stores
-nor exposes it, so the work is persistence plus exposure. **New** means the
-capability does not exist today, whether or not the data it would serve does. A
-requirement whose behaviour depends on the node's mode says so. The markers
+current LEZ codebase:
+
+- **Ready**: the node FFI already exports the capability, and only a
+  specification, test, or documentation obligation remains.
+- **Ready, not exposed**: the capability exists in the node service, RPC, or
+  store, or the sequencer service serves or computes it from state the node also
+  holds, but the node FFI does not export it. The work is exposure.
+- **Computed, not persisted**: the node derives the data during ingestion but
+  neither stores nor exposes it. The work is persistence plus exposure.
+- **New**: the capability does not exist today, whether or not the data it would
+  serve does.
+
+A requirement whose behaviour depends on the node's mode says so. The markers
 indicate effort, not priority: every hard requirement is required regardless of
 its marker. When not already implemented, the function signatures below should
 be seen as suggestions; the description of functionality underneath is the
