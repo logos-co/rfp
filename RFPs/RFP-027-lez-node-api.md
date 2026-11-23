@@ -343,11 +343,11 @@ invention.
 
 ### The target is LEZ testnet 0.4
 
-The node API is delivered for LEZ testnet 0.4 (Supportability [#1](#sup-1)). The
-readiness markers below were read from the LEZ `dev` branch at `dcbd318f0`,
-after `v0.4.0-rc3`, from which testnet 0.4 is to be cut, and they describe the
-starting point for the work rather than a constraint on what the surface may
-express. File references below are to that commit.
+The node API is delivered for LEZ testnet 0.4 (Supportability [#1](#sup-1)).
+Testnet 0.4 is to be released from the LEZ `dev` branch, so the readiness
+markers and file references below were read at commit `dcbd318f0` on that
+branch, which is newer than the `v0.4.0-rc3` tag. The markers describe the
+starting point for the work, not a limit on what the API may express.
 
 Fees are already in force there. A public transaction declares a payer, a gas
 limit, a tip, and a cap on the fee
@@ -381,15 +381,17 @@ expected to offer it
 ([Appendix: Blockchain API and SDK Ecosystem, section 1.15](../appendix/blockchain-api-sdk-ecosystem.md#115-simulate-transaction-execution)).
 On LEZ that shape does not fit.
 
-A privacy-preserving transaction is executed by the wallet, which runs the
-program locally over notes only it can decrypt and submits a proof that the
-execution was correct. The proof is an input to the transaction rather than a
-result of executing it, so a node holds neither the witness material nor the
-plaintext a simulation would need, and there is nothing for the node to simulate
-before the wallet has already done the work. Zcash does not simulate its
-shielded leg, for the same reason. It does not simulate its transparent leg
-either, though nothing there prevents it, so it is no precedent for the public
-half.
+The private part of a privacy-preserving transaction is executed by the wallet,
+which runs the program locally over notes only it can decrypt. That execution
+produces a proof that it was correct, and the proof travels inside the
+transaction the wallet submits to the chain. A node verifies the proof but never
+runs the private execution itself, and holds neither the witness material nor
+the plaintext it takes, so it cannot simulate that part; and by the time a
+transaction reaches a node, the wallet has already done the execution a
+simulation would repeat. The node executes only the public part. Zcash does not
+simulate its shielded leg, for the same reason. It does not simulate its
+transparent leg either, though nothing there prevents it, so it is no precedent
+for the public half.
 
 Public execution could be simulated by the node, but siting it there would split
 one capability across two components and answer against the node's state rather
