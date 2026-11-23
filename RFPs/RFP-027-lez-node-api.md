@@ -729,14 +729,16 @@ through the status channel.
    wire type drops a privacy-preserving transaction's program image claims
    (`lez/indexer/service/protocol/src/convert.rs:599-602`), so a transaction
    carrying any cannot be reproduced from what is returned. **[New]**
-4. <a id="f-4"></a>The API defines what a hash naming more than one transaction
-   returns. The fee transaction that closes each block carries no nonce or block
-   identifier (`lez/common/src/transaction.rs:355-395`), so in a run of blocks
-   with no revenue and the same producer it repeats byte for byte, and the index
-   from hash to block keeps only the latest
-   (`lez/storage/src/indexer/write_atomic.rs:40-46`). Every read by hash states
-   which transaction it answers for, and a transaction is also addressable by
-   its block identifier and its index in the block. **[New]**
+4. <a id="f-4"></a>Two transactions can share a hash, and a read by hash says
+   which one it returns. Every block ends with a fee transaction that carries no
+   nonce and no block identifier (`lez/common/src/transaction.rs:355-395`), so
+   when consecutive blocks have the same producer and no fee revenue, their fee
+   transactions are identical byte for byte and have the same hash. The node's
+   index from transaction hash to block keeps only the latest of them
+   (`lez/storage/src/indexer/write_atomic.rs:40-46`). A read by hash therefore
+   states the block of the transaction it answers for, and every transaction is
+   also readable by its block identifier and its index in that block, which no
+   other transaction shares. **[New]**
 
 **`query_transaction_effects(hash) -> PointerResult<FfiOption<FfiStateDiff>, OperationStatus>`**
 
