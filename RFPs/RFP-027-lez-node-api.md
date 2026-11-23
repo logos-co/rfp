@@ -53,17 +53,33 @@ dependencies: []
 
 ## 🧭 Overview
 
-This RFP invites proposals for the LEZ node API: the set of functions an
-integrator needs to follow the chain, track deposits, confirm transactions, and
-submit a transaction it has already signed, specified as exported functions on
-the LEZ node FFI and surfaced through
+This RFP specifies the LEZ node API: the set of functions an integrator needs to
+follow the chain, track deposits, confirm transactions, and submit a transaction
+it has already signed, specified as exported functions on the LEZ node FFI and
+surfaced through
 [`lez_indexer_module`](https://github.com/logos-blockchain/lez-indexer-module).
-Both are existing Logos-maintained repositories, and this specification is
-designated for integration into them: the work is contributed to
-`logos-execution-zone` and `lez-indexer-module` through their usual review and
-merge process. This is the equivalent of the `eth` namespace on Ethereum's
-JSON-RPC: it answers what happened and what the current state is, and it accepts
-a signed transaction for the network, holding no keys and signing nothing.
+It is the equivalent of the `eth` namespace on Ethereum's JSON-RPC: it answers
+what happened and what the current state is, and it accepts a signed transaction
+for the network, holding no keys and signing nothing.
+
+The requirements are drawn from research into how established chains serve their
+integrators and from common practice across the blockchain ecosystem (see
+[Why This Matters](#-why-this-matters) and the appendices). The document serves
+two purposes:
+
+- **For integrators**, it sets out what the LEZ node API is expected to provide
+  before the software is ready, so that they can plan against it and give
+  feedback early.
+- **For the LEZ maintainers**, it is the basis for implementing the API, and for
+  raising any requirement they consider ill-founded or impractical before it is
+  built.
+
+This RFP is not an open call for external proposals. The work is to be carried
+out by the LEZ maintainers. Both `logos-execution-zone` and `lez-indexer-module`
+are existing Logos-maintained repositories, and this specification is designated
+for integration into them through their usual review and merge process. Once the
+API is implemented, its reference documentation supersedes this document for
+integrators.
 
 ### Target architecture
 
@@ -2200,8 +2216,8 @@ Most capabilities required above are already present on the indexer RPC and
 unexported, already computed by the indexer and discarded, or derivable from
 data the indexer store already holds. The exceptions are what the target
 architecture needs of a node that today's indexer is not. Closing them on the
-LEZ side is part of the work (see Target architecture), and each is listed so a
-proposal can plan and cost it.
+LEZ side is part of the work (see Target architecture), and each is listed so
+the work can be planned and costed.
 
 - **Peer-to-peer participation in every mode.** A node relays a submission
   (Functionality #37), observes the pending set (#43), and reports its peers
@@ -2216,8 +2232,9 @@ proposal can plan and cost it.
   separate services, each with its own RPC, the indexer holding the history and
   the sequencer the head. A node in either mode serves the API defined here from
   both. A sequencer's pending set is also only pushed to today
-  (`lez/mempool/src/lib.rs:66-92`), so listing it is work in the sequencer. A
-  proposal states how it brings the two together.
+  (`lez/mempool/src/lib.rs:66-92`), so listing it is work in the sequencer. The
+  design decision log (Supportability #11) records how the two are brought
+  together.
 - **The head.** The indexer reads blocks only once they are final on L1
   (`lez/chain_state/src/zone_indexer.rs:54-86`) and has no path for undoing a
   block. Reads at the head (#96), the head subscription (#50), and the status
@@ -2249,15 +2266,15 @@ Access control and the contract rest on Logos Core in several places.
   through Logos Core peering, which is also in development
   ([logos-liblogos#230](https://github.com/logos-co/logos-liblogos/pull/230)),
   and which identifies each peered runtime by its own keys. Serving many users'
-  runtimes from one node through peering is still in design. A proposal states
-  how a per method grant is enforced for such a caller where the platform does
-  not enforce it.
+  runtimes from one node through peering is still in design. The documentation
+  states how a per method grant is enforced for such a caller where the platform
+  does not enforce it.
 - **Events and lifecycle per caller.** A Logos Core module event reaches every
   subscriber of the module, and a module is not told when a caller goes away.
   Functionality #110 and Privacy #4 require delivery per caller and #110
-  requires a disconnected caller's subscriptions to end, so a proposal states
-  how a subscription is delivered to the caller that opened it and to no other,
-  and how the module learns that a caller has gone.
+  requires a disconnected caller's subscriptions to end, so the documentation
+  states how a subscription is delivered to the caller that opened it and to no
+  other, and how the module learns that a caller has gone.
 
 ## 🌍 Open Source Requirement
 
@@ -2298,11 +2315,8 @@ Logos does not endorse or approve, and makes no representation regarding, any
 Submission or referenced material. It is ultimately the Applicant’s
 responsibility to determine whether, and how, if at all, to use any Resource.
 
-## ✏️ How to Apply
+## 💬 Feedback
 
-👉 Submit a proposal using the Issue form:
-
-**[Submit Proposal](https://github.com/logos-co/rfp/issues/new?template=proposal.yml)**
-
-We typically respond within **14 days**. For clarification questions, please use
-**Discussions**.
+This RFP is not open for proposals. Integrators with questions about the API it
+describes, or with needs it does not meet, are invited to raise them in the
+repository's **Discussions**.
