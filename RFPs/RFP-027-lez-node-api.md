@@ -53,13 +53,13 @@ dependencies: []
 
 ## 🧭 Overview
 
-This RFP specifies the LEZ node API: the set of functions an integrator needs to
-follow the chain, track deposits, confirm transactions, and submit a transaction
-it has already signed, specified as exported functions on the LEZ node FFI and
-surfaced through the LEZ node module. It is the equivalent of the `eth`
-namespace on Ethereum's JSON-RPC: it answers what happened and what the current
-state is, and it accepts a signed transaction for the network, holding no keys
-and signing nothing.
+This RFP specifies the LEZ node API, the API the LEZ node module is expected to
+expose: the set of functions an integrator needs to follow the chain, track
+deposits, confirm transactions, and submit a transaction it has already signed.
+Each is written against the node FFI function that backs it. It is the
+equivalent of the `eth` namespace on Ethereum's JSON-RPC: it answers what
+happened and what the current state is, and it accepts a signed transaction for
+the network, holding no keys and signing nothing.
 
 The requirements are drawn from research into how established chains serve their
 integrators and from common practice across the blockchain ecosystem (see
@@ -220,19 +220,18 @@ status ([#29](#f-29)), the head subscription ([#50](#f-50)), the chain tip
 ([#71](#f-71)), the fee state ([#79](#f-79) and [#80](#f-80)), and the recovery
 binding lookup ([#87](#f-87)). **Status:** open.
 
-#### A9. The API is the node module's contract, reached locally or through peering
+#### A9. The API defined here is the LEZ node module's API
 
-The LEZ node API is the LEZ node module's contract, published in the Logos Core
-contract format, and a caller reaches it in the same runtime or on another
-through Logos Core peering, under Logos Core's caller identity and access
-policy.
+The API this RFP defines is the API the LEZ node module is expected to expose,
+and, as the new Logos Core architecture has every module do, it comes with a
+CDDL schema describing it.
 
-That format is a CDDL schema in the target, and modules publish LIDL contracts
-today ([#94](#f-94)). Callers use clients generated from the contract, and
-peering carries calls and events alike. The module serves the node through the
-node FFI, so the requirements below are stated on FFI functions, and a
-capability reaches an application only when the FFI and the module both carry it
-([#99](#f-99)). See
+Callers use clients generated from that schema, whether they run in the same
+runtime as the node or reach it from another through Logos Core peering. Modules
+publish LIDL contracts today, and the module publishes this API in whichever
+format Logos Core supports when it ships ([#94](#f-94)). The requirements below
+are written against the node FFI functions that back each module method, and a
+capability reaches a caller only once the module carries it ([#99](#f-99)). See
 [Appendix: Logos API Surfaces](../appendix/logos-api-surfaces.md) for the
 as-built inventory of every layer.
 
@@ -243,9 +242,9 @@ Supportability [#9](#sup-9) and [#10](#sup-10). **Status:** open.
 
 ### Who calls it, and for what
 
-One LEZ node serves several independent wallets at once. Wallets belonging to
-different users, in different applications or on other Logos Core runtimes, read
-from the same node and submit through it, and none of them operates it. The
+One LEZ node may serve several independent wallets at once. Wallets belonging to
+different users, in different applications or on other Logos Core runtimes, can
+read from the same node and submit through it, none of them operating it. The
 surface therefore separates the functions any wallet calls from the functions
 that operate the node, and each function is granted to callers individually.
 
