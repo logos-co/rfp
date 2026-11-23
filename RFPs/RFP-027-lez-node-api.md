@@ -265,6 +265,14 @@ The node's configuration names one channel today
 that nodes for different zones can share a storage directory
 (`lez/indexer/core/src/lib.rs:108-110`).
 
+How this assumption fits Logos Core is unclear at this stage. Logos Core runs
+one instance of each kind of module, so in Basecamp today an application that
+supports several zones has to restart the LEZ node module to move from one zone
+to another. Running a node per zone would need Logos Core to run several
+instances of the node module, one per zone; otherwise one node serves several
+zones, and this assumption is invalidated. A clear plan for this is required
+(Supportability [#12](#sup-12)).
+
 **Basis:** the node's configuration and store today. **Rests on it:** the
 network identity ([#72](#f-72)), storage reset, which removes the store of the
 zone the configuration names, and every read, none of which takes a zone. **If
@@ -2242,6 +2250,12 @@ below means the node's FFI crate and the module that links it.
     major design decision and choice: the context, the options considered, the
     option chosen, and the rationale and trade-offs. The log is updated as
     decisions are made and is current at each milestone delivery.
+12. <a id="sup-12"></a>Provide a plan, agreed with the Logos Core maintainers
+    and recorded in the design decision log, for how an application uses several
+    zones while Logos Core runs one instance of each kind of module: whether
+    through several instances of the node module, one per zone, or through one
+    node serving several zones, and what an application sees, and for how long,
+    when it moves between zones.
 
 #### + Privacy
 
@@ -2455,6 +2469,11 @@ Access control and the contract rest on Logos Core in several places.
   contract, its description at run time, clients generated from it, and the
   contract hash peering compares are in the draft Logos Core specification, and
   [#94](#f-94) follows whichever has landed.
+- **One instance per module.** Logos Core runs one instance of each kind of
+  module, while a node follows one zone
+  ([Assumption A10](#a10-each-lez-node-follows-one-zone)), so an application
+  using several zones restarts the node module to move between them today.
+  Supportability [#12](#sup-12) asks for the plan.
 - **A dependency needed in one mode.** A node in sequencer mode needs a Logos
   Blockchain wallet module to inscribe with, and a node outside it does not
   ([Assumption A2](#a2-a-sequencer-is-a-lez-node-in-sequencer-mode)). The module
