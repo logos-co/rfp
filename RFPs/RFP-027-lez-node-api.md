@@ -80,72 +80,144 @@ and this specification is designated for integration into them through their
 usual review and merge process. Once the API is implemented, its reference
 documentation supersedes this document for integrators.
 
-### Target architecture
+### Assumptions
 
-This RFP assumes the target architecture described in
-[Integrate Logos into your application](https://docs.logos.co/build-an-app/integrate-logos),
-parts of which are still planned.
+The requirements rest on the assumptions below about where the LEZ node is
+heading. They are drawn from
+[Integrate Logos into your application](https://docs.logos.co/build-an-app/integrate-logos)
+and from the LEZ code at `dcbd318f0`, and parts of the target they describe are
+still planned. Each is for the LEZ maintainers to confirm or invalidate. An
+assumption that is invalidated reopens the requirements that rest on it; the
+rest stand.
 
-- **Each chain is served by a wallet module and a node module.** The wallet
-  module holds keys, derives, signs, and proves, and runs where the keys are.
-  The node module follows the chain, serves its state, and relays the
-  transactions wallets produce. A wallet reaches its node only through the node
-  API, which this RFP defines for LEZ. Everything on the wallet side belongs to
-  the LEZ wallet API, a separate component outside this RFP. Today `lez_core`
-  combines the LEZ wallet with a direct connection to a sequencer; in the
-  target, the wallet reaches the chain through the LEZ node module alone.
-- **Every LEZ node is a peer on the LEZ network.** It connects to other LEZ
-  nodes peer to peer, validates every transaction before relaying it, follows
-  the LEZ chain, and keeps the state of every public account and of the
-  commitment set, which is what lets it validate and serve this API. Following
-  the chain, serving its history, and sequencing are all functions of this one
-  node, whatever services carry them today.
-- **Every node holds a head as well as a final chain.** A LEZ block reaches
-  other nodes through the Logos Blockchain: a sequencer inscribes it in an L1
-  block, and it is final once that L1 block is irreversible, about an hour after
-  inscription on testnet today. A node reads each inscription as soon as it
-  lands, so it holds a head, which an L1 reorganisation or a competing
-  inscription can still replace, beside a final chain, which nothing replaces.
-  Reads choose which of the two they answer against (#96), and a transaction's
-  status moves through being received, inscribed, and finalised (#29). The
-  sequencer service already keeps both tiers
-  (`lez/chain_state/src/chain.rs:1-3`), while the node today reads only to
-  finality (`lez/chain_state/src/zone_indexer.rs:54-86`). No propagation of LEZ
-  blocks over the LEZ peer-to-peer network exists at the commit read, and none
-  is planned that this RFP could find: sequencers learn of each other's blocks
-  through the L1 alone, gossip carrying transactions and approvals
-  (`lez/sequencer/actors/gossip/src/lib.rs:4-6`). Whether it will be added, and
-  so whether a node can learn of a block before its inscription, is to be
-  confirmed.
-- **A sequencer is a LEZ node in sequencer mode.** It serves the same API, and
-  also holds the pending set it builds blocks from, produces blocks, and
-  inscribes them with a Logos Blockchain wallet. This RFP defines every function
-  once. Where a function or an outcome is available only in sequencer mode, or
-  means something different there, the requirement says so, and a node outside
-  sequencer mode reports it as not available in its mode (#98).
-- **LEZ nodes talk to each other peer to peer.** Relaying a submitted
-  transaction to the nodes that sequence, gossiping it, and whatever block
-  propagation the network carries run over the LEZ peer-to-peer network. The
-  protocol between nodes is not part of this API (see
-  [Out of Scope](#out-of-scope)); what a caller can learn about the node's place
-  in that network, such as how many peers it has, is (#83).
-- **The API is the module's contract.** In the target, every Logos module
-  publishes its contract as a CDDL schema, and so does the LEZ node module
-  (#94). Modules publish LIDL contracts today. Callers use clients generated
-  from the contract. The same contract serves a caller in the same runtime and
-  one on another device or in an integrator's infrastructure, reached through
-  Logos Core peering, which carries calls and events alike. The module serves
-  the node through the node FFI, so the requirements below are stated on FFI
-  functions, and a capability reaches an application only when the FFI and the
-  module both carry it (#99). See
-  [Appendix: Logos API Surfaces](../appendix/logos-api-surfaces.md) for the
-  as-built inventory of every layer.
+#### A1. Each chain has a wallet module and a node module
 
-Today the node and the sequencer run as separate services, and the node joins no
-peer-to-peer network. Bringing the node to the shape above, a peer on the LEZ
-network in either mode, is part of the work this RFP asks for, as far as the API
-defined here needs it. Platform Dependencies records what else the target needs
-that does not exist yet.
+The wallet module holds keys, derives, signs, and proves, and runs where the
+keys are. The node module follows the chain, serves its state, and relays the
+transactions wallets produce. A wallet reaches its node only through the node
+API, which this RFP defines for LEZ, and everything on the wallet side belongs
+to the LEZ wallet API, a separate component outside this RFP. Today `lez_core`
+combines the LEZ wallet with a direct connection to a sequencer; in the target,
+the wallet reaches the chain through the LEZ node module alone.
+
+**Basis:** the integration guide. **Rests on it:** the split between this RFP
+and the LEZ wallet API throughout, the simulation rationale, and Out of Scope.
+**Status:** to be confirmed.
+
+#### A2. Following the chain, serving its history, and sequencing are one node
+
+They are all functions of one LEZ node, whatever services carry them today.
+Today the node and the sequencer run as separate services, each with its own
+RPC, and the node joins no peer-to-peer network. Bringing them to the shape this
+RFP assumes, one node that serves the API defined here in either mode, is part
+of the work as far as that API needs it, and Platform Dependencies lists what
+that takes.
+
+**Basis:** the integration guide, which draws a single LEZ node. **Rests on
+it:** every requirement that a node answers in both modes, and Platform
+Dependencies. **Status:** to be confirmed.
+
+#### A3. Every node validates what it relays and keeps the state it validates against
+
+Every LEZ node validates a transaction before relaying it, and keeps the state
+of every public account and of the commitment set, which is what lets it
+validate and serve this API for any account rather than for some.
+
+**Basis:** the gossip actor's validation of each transaction it receives, and
+the state the node holds today. **Rests on it:** validation at submission (#38
+and #39), and every read of account state, membership proofs, and publications
+(#14 to #28, #85 to #88). **Status:** to be confirmed, including whether every
+node validates or only some.
+
+#### A4. A sequencer is a LEZ node in sequencer mode
+
+It serves the same API, and also holds the pending set it builds blocks from,
+produces blocks, and inscribes them with a Logos Blockchain wallet. This RFP
+defines every function once. Where a function or an outcome is available only in
+sequencer mode, or means something different there, the requirement says so, and
+a node outside sequencer mode reports it as not available in its mode (#98).
+
+**Basis:** the integration guide. **Rests on it:** the node's mode in status
+(#35), admission and relay (#37 to #39), the pending set (#42), the produced
+level (#29), and availability by mode (#98). **Status:** to be confirmed.
+
+#### A5. LEZ nodes talk to each other peer to peer, outside this API
+
+Relaying a submitted transaction to the nodes that sequence, gossiping it, and
+whatever block propagation the network carries run over the LEZ peer-to-peer
+network. The protocol between nodes is not part of this API (see
+[Out of Scope](#out-of-scope)); what a caller can learn about the node's place
+in that network, such as how many peers it has, is (#83 and #84).
+
+**Basis:** the integration guide, and the sequencer's gossip today. **Rests on
+it:** relay (#37 and #39), the observed pending set (#43), and the peer reads
+(#83 and #84). **Status:** to be confirmed.
+
+#### A6. A node outside sequencer mode sees pending transactions on gossip
+
+Transactions sequencers gossip travel on a peer-to-peer topic per zone, which
+any node following the zone can subscribe to. A node outside sequencer mode
+therefore serves, as its pending set, the transactions it has observed there and
+not yet seen inscribed, so that a wallet on the user's own node can still
+abandon a proof that a pending transaction invalidates.
+
+**Basis:** the transaction topic of the gossip actor today
+(`lez/sequencer/actors/gossip/src/actor.rs:338-340`). **Rests on it:** the
+pending set outside sequencer mode (#42 and #43) and the received level (#29).
+**Status:** to be confirmed.
+
+#### A7. LEZ blocks reach other nodes through the Logos Blockchain alone
+
+A sequencer inscribes a LEZ block in an L1 block, and the block is final once
+that L1 block is irreversible, about an hour after inscription on testnet today.
+Sequencers learn of each other's blocks through the L1 alone, gossip carrying
+transactions and approvals (`lez/sequencer/actors/gossip/src/lib.rs:4-6`). No
+propagation of LEZ blocks over the LEZ peer-to-peer network exists at the commit
+read, and none is planned that this RFP could find, so a node learns of a block
+when its inscription lands on L1 and no earlier.
+
+**Basis:** the code at the commit read, and the absence of any plan found.
+**Rests on it:** the status levels (#29) and the head subscription (#50).
+**Status:** undetermined. Whether LEZ block propagation over peer to peer will
+be added, and so whether a node can learn of a block before its inscription, is
+to be confirmed; a level is added to #29 if so.
+
+#### A8. Every node holds a head as well as a final chain, and reads default to the head
+
+A node reads each inscription as soon as it lands, so it holds a head, which an
+L1 reorganisation or a competing inscription can still replace, beside a final
+chain, which nothing replaces. Reads choose which of the two they answer
+against, and default to the head, as the sequencer service answers today; a
+transaction's status moves through being received, inscribed, and finalised. The
+sequencer service already keeps both tiers (`lez/chain_state/src/chain.rs:1-3`),
+while the node today reads only to finality
+(`lez/chain_state/src/zone_indexer.rs:54-86`).
+
+**Basis:** the sequencer service's head and final tiers, and a finality delay
+too long for a wallet to build against the final chain alone. **Rests on it:**
+the read level (#96), the tips every read reports (#97), status (#29), the head
+subscription (#50), the chain tip (#71), the fee state (#79 and #80), and the
+recovery binding lookup (#87). **Status:** to be confirmed, including the
+default level.
+
+#### A9. The API is the node module's contract, reached locally or through peering
+
+In the target, every Logos module publishes its contract as a CDDL schema, and
+so does the LEZ node module (#94); modules publish LIDL contracts today. Callers
+use clients generated from the contract. The same contract serves a caller in
+the same runtime and one on another device or in an integrator's infrastructure,
+reached through Logos Core peering, which carries calls and events alike, and
+Logos Core's caller identity and access policy decide who may call what. The
+module serves the node through the node FFI, so the requirements below are
+stated on FFI functions, and a capability reaches an application only when the
+FFI and the module both carry it (#99). See
+[Appendix: Logos API Surfaces](../appendix/logos-api-surfaces.md) for the
+as-built inventory of every layer.
+
+**Basis:** the integration guide and the draft Logos Core specification. **Rests
+on it:** the module contract (#94), module parity (#99), access control and
+concurrent callers (#104 to #111), and Supportability 09 and 10. **Status:** to
+be confirmed.
 
 ### Who calls it, and for what
 
@@ -2142,7 +2214,7 @@ The following are explicitly excluded from this RFP:
   and their messages are not part of this API. This API is what a wallet or
   application calls on one node, and it reports the node's connectivity
   (Functionality #83, #84) rather than exposing the protocol. That the node
-  takes part in the network is part of the work (see Target architecture).
+  takes part in the network is part of the work (see Assumption A2).
 - **Operating sequencer mode.** The reads and actions specific to running a
   sequencer, such as its committee, approvals, slashing, and cross-zone dead
   letters, are not part of this API. A node in sequencer mode serves the API
@@ -2211,8 +2283,8 @@ Most capabilities required above are already present on the node RPC and
 unexported, already computed by the node and discarded, or derivable from data
 the node's store already holds. The exceptions are what the target architecture
 needs that the node does not provide today. Closing them on the LEZ side is part
-of the work (see Target architecture), and each is listed so the work can be
-planned and costed.
+of the work (see Assumption A2), and each is listed so the work can be planned
+and costed.
 
 - **Peer-to-peer participation in every mode.** A node relays a submission
   (Functionality #37), observes the pending set (#43), and reports its peers
