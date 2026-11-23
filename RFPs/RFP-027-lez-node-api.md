@@ -386,8 +386,8 @@ which runs the program locally over notes only it can decrypt. That execution
 produces a proof that it was correct, and the proof travels inside the
 transaction the wallet submits to the chain. A node verifies the proof but never
 runs the private execution itself, and holds neither the witness material nor
-the plaintext it takes, so it cannot simulate that part; and by the time a
-transaction reaches a node, the wallet has already done the execution a
+the decrypted notes it runs over, so it cannot simulate that part; and by the
+time a transaction reaches a node, the wallet has already done the execution a
 simulation would repeat. The node executes only the public part. Zcash does not
 simulate its shielded leg, for the same reason. It does not simulate its
 transparent leg either, though nothing there prevents it, so it is no precedent
@@ -454,10 +454,10 @@ API, not to this one.
 
 ### What a node can answer about a privacy-preserving transaction
 
-**The constraint.** A public account's state lives in the replicated state
-machine, so a node holds its plaintext. A private account's state exists
-on-chain only as a commitment, and its plaintext travels inside the transaction
-encrypted to the account's viewing key. A node holds no viewing keys.
+**The constraint.** A public account's state is held in the clear by every node,
+as part of the state it validates against. A private account's state is on chain
+only as a commitment; the state itself travels inside the transaction encrypted,
+and only the account's viewing key decrypts it. A node holds no viewing keys.
 
 A privacy-preserving transaction is not opaque in full. A
 `PrivacyPreservingMessage` carries, in plaintext, the deliveries that cross
@@ -484,9 +484,9 @@ message (`lez/indexer/service/protocol/src/lib.rs:392`,
 `lez/indexer/service/protocol/src/lib.rs:432-435`,
 `lee/state_machine/core/src/circuit_io.rs:292-295`). A node can report that a
 private action occurred, prove a commitment's membership, and serve every
-ciphertext. What it cannot read is the plaintext those ciphertexts hold: which
-private account an action touched, and the state it now carries, its nonce and
-its actor states, the native balance among them
+ciphertext. What it cannot read is what those ciphertexts hold: which private
+account an action touched, and the state it now carries, its nonce and its actor
+states, the native balance among them
 (`lez/indexer/service/protocol/src/lib.rs:100-127`).
 
 A send to a private account sits between the two. A public-to-private send is
@@ -2205,8 +2205,8 @@ below means the node's FFI crate and the module that links it.
 
 #### + Privacy
 
-1. <a id="priv-1"></a>No function added by this RFP returns plaintext private
-   state or a viewing key, or any value from which either can be recovered
+1. <a id="priv-1"></a>No function added by this RFP returns private state in the
+   clear, or a viewing key, or any value from which either can be recovered
    without the viewing key, and no function accepts a viewing key, a nullifier
    key, or a decrypted note. Private post-states remain readable only by the
    viewing key holder, who decrypts them on its own side.
