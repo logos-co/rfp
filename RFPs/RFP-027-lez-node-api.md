@@ -908,6 +908,21 @@ Reading account state, at the tip and at a past block, singly and in batches
   already imported into that node's wallet. There is no shielded read a party
   without a key can make.
 
+**What an account is.** An account identifier can name any account, a program's
+included: a program is an account written through the program loader, and its
+image sits in that account's actor state at the program loader
+(`lee/state_machine/src/state/mod.rs:405-430`). An account holds a nonce and one
+actor state per program that has written to it, keyed by that program's account
+identifier (`lez/indexer/service/protocol/src/lib.rs:100-110`). A read of one
+program's actor state on an account, `query_account_view` below, is how a caller
+reads the native balance (the actor state at the native token program), a
+balance held through another program, or a program's image (the actor state at
+the program loader). It is also the safe way to read any one of them: anyone can
+write actor states of any size onto any account
+(`lez/indexer/service/protocol/src/lib.rs:136-146`), so a read of the whole
+account can be inflated by a third party, as Ethereum's `eth_getStorageAt` reads
+one storage slot rather than an account's whole storage.
+
 Every read in this section answers at the head or on the final chain, as the
 caller chooses ([#99](#f-99)).
 
