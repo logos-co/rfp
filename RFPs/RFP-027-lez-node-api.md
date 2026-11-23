@@ -685,9 +685,12 @@ The markers describe the FFI on the LEZ `dev` branch, so a marker of **Ready**
 means ready in the FFI. On its default branch, the Logos Core module that wraps
 the FFI today is built against LEZ `v0.3.1`, from before the FFI's account read
 became optional and its account record moved to actor states. A release branch
-building it against `v0.4.0-rc1` exists but is not merged, and has no tag. A
-capability ready in the FFI therefore reaches the node module only once the
-module is built against the testnet 0.4 FFI, which [#101](#f-101) requires.
+building it against `v0.4.0-rc1` exists but is not merged, and has no tag.
+`v0.4.0-rc2` and `v0.4.0-rc3` exist too, and all three predate transaction
+receipts, so where a requirement's marker differs at those tags, the requirement
+gives both. A capability ready in the FFI therefore reaches the node module only
+once the module is built against the testnet 0.4 FFI, which [#101](#f-101)
+requires.
 
 Every signature below elides a first argument, the node handle returned by
 `start_node`. See Surface-wide obligations.
@@ -729,16 +732,32 @@ through the status channel.
    wire type drops a privacy-preserving transaction's program image claims
    (`lez/indexer/service/protocol/src/convert.rs:599-602`), so a transaction
    carrying any cannot be reproduced from what is returned. **[New]**
-4. <a id="f-4"></a>Two transactions can share a hash, and a read by hash says
-   which one it returns. Every block ends with a fee transaction that carries no
-   nonce and no block identifier (`lez/common/src/transaction.rs:355-395`), so
-   when consecutive blocks have the same producer and no fee revenue, their fee
-   transactions are identical byte for byte and have the same hash. The node's
-   index from transaction hash to block keeps only the latest of them
-   (`lez/storage/src/indexer/write_atomic.rs:40-46`). A read by hash therefore
-   states the block of the transaction it answers for, and every transaction is
-   also readable by its block identifier and its index in that block, which no
-   other transaction shares. **[New]**
+4. <a id="f-4"></a>**Problem: two transactions can share a hash.** Every block
+   ends with a fee transaction that carries no nonce and no block identifier
+   (`lez/common/src/transaction.rs:355-395`), so when consecutive blocks have
+   the same producer and no fee revenue, their fee transactions are identical
+   byte for byte and have the same hash. The node's index from transaction hash
+   to block keeps only the latest of them
+   (`lez/storage/src/indexer/write_atomic.rs:40-46`), and the transaction a read
+   by hash returns carries no block identifier, so such a read is ambiguous. The
+   LEZ maintainers choose one of the following, and the API documents the
+   guarantee that results:
+   - **A. Make the fee transaction unique.** The fee transaction carries its
+     block identifier, as the clock transaction that closes each block already
+     does (`lez/common/src/transaction.rs:267-283`), so a hash names one
+     transaction everywhere. This changes what a block contains, so it lands
+     before testnet 0.4 is frozen.
+   - **B. Keep system transactions out of hash lookups.** Transactions the
+     sequencer injects, the fee and clock transactions among them, are served
+     only as part of their block. A read by hash answers for user transactions,
+     which their nonces and nullifiers keep unique.
+   - **C. Answer every read by hash with its block.** A read by hash returns the
+     block identifier and index of the transaction it found, and every
+     transaction is readable by its block identifier and index, which no other
+     shares. A hash can still name more than one transaction.
+   - **D. Index every occurrence.** The index keeps every block a hash appears
+     in, and a read by hash returns each match with its block, for the caller to
+     choose. **[New]**
 
 **`query_transaction_effects(hash) -> PointerResult<FfiOption<FfiStateDiff>, OperationStatus>`**
 
@@ -790,10 +809,11 @@ recomputed on the caller's behalf.
    `MIN_PRIVATE_REFUND` or there is nowhere to send it, kept as tip
    (`lez/chain_state/src/apply.rs:575-592`), and the query reports which and
    where. The base fee, tip, and refund each transaction paid are in its receipt
-   **[Ready]**; the account charged, which way a privacy-preserving transaction
-   paid, and the fate of its surplus are computed when it settles and then
-   discarded **[Computed, not persisted]**. A fee-exempt system transaction is
-   reported as exempt rather than as one that paid nothing.
+   (**[Ready]**; **[Computed, not persisted]** at `v0.4.0-rc1` to `rc3`, which
+   predate receipts); the account charged, which way a privacy-preserving
+   transaction paid, and the fate of its surplus are computed when it settles
+   and then discarded **[Computed, not persisted]**. A fee-exempt system
+   transaction is reported as exempt rather than as one that paid nothing.
 8. <a id="f-8"></a>The gas a transaction consumed is reported alongside the fee,
    in each dimension the chain meters, execution and storage
    (`lez/programs/fee/core/src/lib.rs:24-29`), so a caller comparing what it
@@ -806,7 +826,8 @@ recomputed on the caller's behalf.
    dimensions, and records a fee-exempt transaction as all zeros
    (`lez/common/src/block.rs:59-95`); the API reports exemption as such rather
    than as a transaction that consumed zero, which a charged transaction never
-   does, since it always meters storage. **[Ready]**
+   does, since it always meters storage. **[Ready]**; **\[Computed, not
+   persisted\]** at `v0.4.0-rc1` to `rc3`, which predate receipts.
 
 **`query_transaction_receipt(hash) -> PointerResult<FfiTransactionReceiptOpt, OperationStatus>`**
 
@@ -818,7 +839,9 @@ applied, and the gas, base fee, tip, and refund it was charged.
     (`lez/indexer/service/rpc/src/lib.rs:100-105`,
     `lez/indexer/ffi/src/api/query.rs:359-407`). The wallet already reads a
     finished transaction's outcome this way, from the sequencer service today
-    (`lez/sequencer/service/rpc/src/lib.rs:92-97`). **[Ready]**
+    (`lez/sequencer/service/rpc/src/lib.rs:92-97`). **[Ready]**; **[New]** at
+    `v0.4.0-rc1` to `rc3`, where neither the receipt query nor
+    `getTransactionReceipt` exists.
 10. <a id="f-10"></a>A transaction the chain records without a receipt, the fee
     and clock transactions that close each block
     (`lez/common/src/block.rs:100-105`), is reported as having none, distinctly
@@ -1073,8 +1096,10 @@ execution succeeded.
     executed. A charged transaction whose action fails is included in its block
     and keeps its fee, and its receipt records the failure
     (`lez/common/src/block.rs:79-84`), which the FFI block type and
-    `query_transaction_receipt` carry; that outcome is **[Ready]**. The reason
-    is computed as free text when the action fails and then discarded
+    `query_transaction_receipt` carry; that outcome is **[Ready]**, and
+    **[Ready, not exposed]** at `v0.4.0-rc1` to `rc3`, whose block keeps a list
+    of reverted transactions that the FFI block type drops. The reason is
+    computed as free text when the action fails and then discarded
     (`lee/state_machine/src/validated_state_diff/mod.rs:66-72`), so a typed
     reason is **[Computed, not persisted]**.
 
@@ -1509,7 +1534,10 @@ and its bedrock status.
     one that only paid its fee. The stored block, the node RPC, and the FFI
     block type already carry them
     (`lez/indexer/service/protocol/src/lib.rs:207-252`,
-    `lez/indexer/ffi/src/api/types/block.rs:10-45`). **[Ready]**
+    `lez/indexer/ffi/src/api/types/block.rs:10-45`). **[Ready]**; at
+    `v0.4.0-rc1` to `rc3`, which predate receipts, whether an action applied is
+    **[Ready, not exposed]** and its gas and fee are **\[Computed, not
+    persisted\]**.
 
 **`query_block_by_hash(hash) -> PointerResult<FfiBlockOpt, OperationStatus>`**
 
@@ -1914,9 +1942,9 @@ Every function defined above is further bound by the following.
      with the same semantics, including the not-found and error distinction
      required by Functionality [#102](#f-102). No capability reaching the FFI
      stops at the module boundary. The module that wraps the FFI today carries
-     eight of its ten queries, omitting `query_events` and
-     `query_transaction_receipt`, and is built against the LEZ `v0.3.1` FFI
-     rather than the testnet 0.4 one. **[New]**
+     eight of its queries, omitting `query_events`, and at `dev`, where the FFI
+     has ten, `query_transaction_receipt` as well; it is built against the LEZ
+     `v0.3.1` FFI rather than the testnet 0.4 one. **[New]**
 102. <a id="f-102"></a>The FFI and the module signal not-found,
      invalid-argument, and backend failure as three distinguishable outcomes on
      every query. The module currently flattens not-found and failure into an
