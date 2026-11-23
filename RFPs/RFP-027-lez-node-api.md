@@ -679,11 +679,12 @@ be seen as suggestions; the description of functionality underneath is the
 requirement.
 
 The markers describe the FFI on the LEZ `dev` branch, so a marker of **Ready**
-means ready in the FFI. The Logos Core module that wraps the FFI today is built
-against LEZ `v0.3.1`, from before the FFI's account read became optional and its
-account record moved to actor states, so a capability ready in the FFI reaches
-the node module only once the module is built against the testnet 0.4 FFI, which
-[#99](#f-99) requires.
+means ready in the FFI. On its default branch, the Logos Core module that wraps
+the FFI today is built against LEZ `v0.3.1`, from before the FFI's account read
+became optional and its account record moved to actor states. A release branch
+building it against `v0.4.0-rc1` exists but is not merged, and has no tag. A
+capability ready in the FFI therefore reaches the node module only once the
+module is built against the testnet 0.4 FFI, which [#99](#f-99) requires.
 
 Every signature below elides a first argument, the node handle returned by
 `start_node`. See Surface-wide obligations.
