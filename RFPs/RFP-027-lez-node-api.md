@@ -101,8 +101,13 @@ component outside this RFP. The node module follows the chain, serves its state,
 and relays the transactions wallets produce. Today `lez_core` combines the LEZ
 wallet with a direct connection to a sequencer.
 
-**Basis:** the integration guide. **Rests on it:** the split between this RFP
-and the LEZ wallet API throughout, the simulation rationale, and Out of Scope.
+**Basis:** a wallet and the node it uses can run on separate devices, and be run
+by separate parties
+([Who uses it, and how it is deployed](#who-uses-it-and-how-it-is-deployed)),
+which works only if the wallet reaches its node through the node API alone; the
+integration guide draws the split that way. **Rests on it:** the split between
+this RFP and the LEZ wallet API throughout, the simulation rationale, and Out of
+Scope.
 
 #### A2. A sequencer is a LEZ node in sequencer mode
 
