@@ -56,11 +56,10 @@ dependencies: []
 This RFP specifies the LEZ node API: the set of functions an integrator needs to
 follow the chain, track deposits, confirm transactions, and submit a transaction
 it has already signed, specified as exported functions on the LEZ node FFI and
-surfaced through
-[`lez_indexer_module`](https://github.com/logos-blockchain/lez-indexer-module).
-It is the equivalent of the `eth` namespace on Ethereum's JSON-RPC: it answers
-what happened and what the current state is, and it accepts a signed transaction
-for the network, holding no keys and signing nothing.
+surfaced through the LEZ node module. It is the equivalent of the `eth`
+namespace on Ethereum's JSON-RPC: it answers what happened and what the current
+state is, and it accepts a signed transaction for the network, holding no keys
+and signing nothing.
 
 The requirements are drawn from research into how established chains serve their
 integrators and from common practice across the blockchain ecosystem (see
@@ -75,11 +74,11 @@ two purposes:
   built.
 
 This RFP is not an open call for external proposals. The work is to be carried
-out by the LEZ maintainers. Both `logos-execution-zone` and `lez-indexer-module`
-are existing Logos-maintained repositories, and this specification is designated
-for integration into them through their usual review and merge process. Once the
-API is implemented, its reference documentation supersedes this document for
-integrators.
+out by the LEZ maintainers and contributed to the Logos-maintained repositories
+of the LEZ node and its Logos Core module, `logos-execution-zone` among them,
+and this specification is designated for integration into them through their
+usual review and merge process. Once the API is implemented, its reference
+documentation supersedes this document for integrators.
 
 ### Target architecture
 
@@ -94,14 +93,13 @@ parts of which are still planned.
   API, which this RFP defines for LEZ. Everything on the wallet side belongs to
   the LEZ wallet API, a separate component outside this RFP. Today `lez_core`
   combines the LEZ wallet with a direct connection to a sequencer; in the
-  target, `lez_indexer_module` is the LEZ node module, and the wallet reaches
-  the chain through it alone.
+  target, the wallet reaches the chain through the LEZ node module alone.
 - **Every LEZ node is a peer on the LEZ network.** It connects to other LEZ
   nodes peer to peer, validates every transaction before relaying it, follows
   the LEZ chain, and keeps the state of every public account and of the
-  commitment set, which is what lets it validate and serve this API. What runs
-  today as a separate indexer is the part of such a node that follows the chain,
-  and this RFP does not treat it as a component of its own.
+  commitment set, which is what lets it validate and serve this API. Following
+  the chain, serving its history, and sequencing are all functions of this one
+  node, whatever services carry them today.
 - **Every node holds a head as well as a final chain.** A LEZ block reaches
   other nodes through the Logos Blockchain: a sequencer inscribes it in an L1
   block, and it is final once that L1 block is irreversible, about an hour after
@@ -111,7 +109,7 @@ parts of which are still planned.
   Reads choose which of the two they answer against (#96), and a transaction's
   status moves through being received, inscribed, and finalised (#29). The
   sequencer service already keeps both tiers
-  (`lez/chain_state/src/chain.rs:1-3`), while today's indexer reads only to
+  (`lez/chain_state/src/chain.rs:1-3`), while the node today reads only to
   finality (`lez/chain_state/src/zone_indexer.rs:54-86`). No propagation of LEZ
   blocks over the LEZ peer-to-peer network exists at the commit read, and none
   is planned that this RFP could find: sequencers learn of each other's blocks
@@ -132,22 +130,22 @@ parts of which are still planned.
   [Out of Scope](#out-of-scope)); what a caller can learn about the node's place
   in that network, such as how many peers it has, is (#83).
 - **The API is the module's contract.** In the target, every Logos module
-  publishes its contract as a CDDL schema, and so does `lez_indexer_module`
+  publishes its contract as a CDDL schema, and so does the LEZ node module
   (#94). Modules publish LIDL contracts today. Callers use clients generated
   from the contract. The same contract serves a caller in the same runtime and
   one on another device or in an integrator's infrastructure, reached through
   Logos Core peering, which carries calls and events alike. The module serves
-  the node through the indexer FFI, so the requirements below are stated on FFI
+  the node through the node FFI, so the requirements below are stated on FFI
   functions, and a capability reaches an application only when the FFI and the
   module both carry it (#99). See
   [Appendix: Logos API Surfaces](../appendix/logos-api-surfaces.md) for the
   as-built inventory of every layer.
 
-Today the indexer and the sequencer run as separate services, and the indexer
-joins no peer-to-peer network. Bringing the node to the shape above, a peer on
-the LEZ network in either mode, is part of the work this RFP asks for, as far as
-the API defined here needs it. Platform Dependencies records what else the
-target needs that does not exist yet.
+Today the node and the sequencer run as separate services, and the node joins no
+peer-to-peer network. Bringing the node to the shape above, a peer on the LEZ
+network in either mode, is part of the work this RFP asks for, as far as the API
+defined here needs it. Platform Dependencies records what else the target needs
+that does not exist yet.
 
 ### Who calls it, and for what
 
@@ -443,13 +441,12 @@ than on the capability. #26 and #27 require the membership proofs and the root
 they are proven against, which a wallet needs to spend. The publication listing
 and recovery-binding reads under Private message delivery are what a wallet
 needs to receive. The sequencer service answers all of these today, and its own
-RPC marks them for removal once the wallet reads from the indexer
-(`lez/sequencer/service/rpc/src/lib.rs:64-65`), while the state the indexer
-already holds carries the data (`lee/state_machine/src/state/mod.rs:357-438`).
-What is new is serving them from the node. #62 requires the oldest-first
-ordering a wallet walking forward from its last processed block relies on.
-Recognising which of what it reads belongs to it, and decrypting it, is the
-wallet's.
+RPC marks them for removal once the wallet reads from the node
+(`lez/sequencer/service/rpc/src/lib.rs:64-65`), while the state the node already
+holds carries the data (`lee/state_machine/src/state/mod.rs:357-438`). What is
+new is serving them from the node. #62 requires the oldest-first ordering a
+wallet walking forward from its last processed block relies on. Recognising
+which of what it reads belongs to it, and decrypting it, is the wallet's.
 
 ### Serving what a viewing key opens
 
@@ -526,10 +523,9 @@ that caller the function by name or the caller is the runtime, its shell, or an
 operator of that runtime. A caller the runtime cannot identify is refused.
 
 **The boundary is the module, not the FFI.** A caller identity exists only on a
-call that arrives through Logos Core. Whoever links `libindexer_ffi` and holds
-the handle is the node's host and can call every exported function, so the
-requirements below bind `lez_indexer_module`, which is the surface a wallet
-reaches.
+call that arrives through Logos Core. Whoever links the node FFI library and
+holds the handle is the node's host and can call every exported function, so the
+requirements below bind the node module, which is the surface a wallet reaches.
 
 **Callers are no finer than Logos Core makes them.** Two wallets in two modules,
 two UI plugins, or two runtimes are two callers. Two wallets behind one calling
@@ -567,28 +563,27 @@ from a read for data that never existed.
 Each requirement carries a readiness marker describing its starting point in the
 current LEZ codebase. **Ready** means the capability is already exported by the
 node FFI and only a specification, test, or documentation obligation remains.
-**Ready, not exposed** means it exists in the indexer service, RPC, or store, or
-the sequencer service serves or computes it from state the indexer also holds,
-but the node FFI does not export it, so the work is exposure. **Computed, not
-persisted** means the indexer derives the data during ingestion but neither
-stores nor exposes it, so the work is persistence plus exposure. **New** means
-the capability does not exist today, whether or not the data it would serve
-does. A requirement whose behaviour depends on the node's mode says so. The
-markers indicate effort, not priority: every hard requirement is required
-regardless of its marker. When not already implemented, the function signatures
-below should be seen as suggestions; the description of functionality underneath
-is the requirement.
+**Ready, not exposed** means it exists in the node service, RPC, or store, or
+the sequencer service serves or computes it from state the node also holds, but
+the node FFI does not export it, so the work is exposure. **Computed, not
+persisted** means the node derives the data during ingestion but neither stores
+nor exposes it, so the work is persistence plus exposure. **New** means the
+capability does not exist today, whether or not the data it would serve does. A
+requirement whose behaviour depends on the node's mode says so. The markers
+indicate effort, not priority: every hard requirement is required regardless of
+its marker. When not already implemented, the function signatures below should
+be seen as suggestions; the description of functionality underneath is the
+requirement.
 
-The markers describe the FFI on the LEZ `dev` branch. `lez_indexer_module` is
-built against LEZ `v0.3.1` (`lez-indexer-module/flake.nix:14`), from before the
-FFI's account read became optional and its account record moved to actor states,
-so a marker of **Ready** means ready in the FFI, and the module reaches it only
-once it is rebuilt against the testnet 0.4 FFI, which #99 requires. An unmerged
-`release/0.4.0` branch of the module targets `v0.4.0-rc1` and maps an account
-the node has never seen to an empty one, which #15 rules out.
+The markers describe the FFI on the LEZ `dev` branch, so a marker of **Ready**
+means ready in the FFI. The Logos Core module that wraps the FFI today is built
+against LEZ `v0.3.1`, from before the FFI's account read became optional and its
+account record moved to actor states, so a capability ready in the FFI reaches
+the node module only once the module is built against the testnet 0.4 FFI, which
+#99 requires.
 
-Every signature below elides a first argument, the indexer handle returned by
-`start_indexer`. See Surface-wide obligations.
+Every signature below elides a first argument, the node handle returned by
+`start_node`. See Surface-wide obligations.
 
 ##### Transaction effects
 
@@ -709,7 +704,7 @@ recomputed on the caller's behalf.
 Returns the receipt the block records for a transaction: whether its action
 applied, and the gas, base fee, tip, and refund it was charged.
 
-09. The FFI returns a transaction's receipt, exporting what the indexer RPC's
+09. The FFI returns a transaction's receipt, exporting what the node RPC's
     `getTransactionReceipt` serves
     (`lez/indexer/service/rpc/src/lib.rs:100-105`,
     `lez/indexer/ffi/src/api/query.rs:359-407`). The wallet already reads a
@@ -738,7 +733,7 @@ from `from_block` to `to_block`, defaulting to the indexed tip.
     below the retention floor is; and a point lookup for a hash no indexed
     transaction carries as not found. Each returns `InvalidArgument` today
     (`lez/indexer/ffi/src/api/query.rs:553-633`). The query also bounds the size
-    of its response, as the indexer RPC does at 8 MiB
+    of its response, as the node RPC does at 8 MiB
     (`lez/indexer/service/src/service.rs:28`), and reports a result past the
     bound as too large rather than truncating it. **[New]**
 13. Events emitted by the public part of a privacy-preserving transaction are
@@ -789,7 +784,7 @@ to a block.
 
 16. The FFI exposes a read of one program's actor state on an account, with the
     account's nonce, at the tip or at a pinned block, exporting the existing
-    `getAccountView` and `getAccountViewAtBlock` indexer RPC methods
+    `getAccountView` and `getAccountViewAtBlock` node RPC methods
     (`lez/indexer/service/rpc/src/lib.rs:83-91`). Nothing bounds how many actor
     states an account holds or how large each is, and any party can write its
     own onto any account (`lez/indexer/service/protocol/src/lib.rs:136-146`), so
@@ -803,9 +798,9 @@ rather than its bytes.
 
 17. The FFI exposes an account summary: the nonce, the native balance, and the
     size of each actor state rather than its bytes, exporting the existing
-    `getAccountSummary` indexer RPC method, so a caller learns which programs
-    hold state on an account in a response whose size follows their count.
-    **[Ready, not exposed]**
+    `getAccountSummary` node RPC method, so a caller learns which programs hold
+    state on an account in a response whose size follows their count. **\[Ready,
+    not exposed\]**
 18. An identifier the state holds no record for returns an absent `FfiOption`,
     on the same terms as the account read (#15). The RPC method returns a
     default summary for it today (`lez/indexer/service/src/service.rs:151-161`),
@@ -840,7 +835,7 @@ Returns the account record as it stood at a given block, rather than at the tip.
 
 21. The FFI exposes an account read pinned to a block identifier, returning the
     account record as it stood at that block, on the same terms as the read at
-    the tip. This exports the existing `getAccountAtBlock` indexer RPC method
+    the tip. This exports the existing `getAccountAtBlock` node RPC method
     ([Appendix: Logos API Surfaces, section 2](../appendix/logos-api-surfaces.md#2-lez-indexer-rpc)).
     **[Ready, not exposed]**
 22. The pinned read returns the hash of the block it answered against, and the
@@ -890,7 +885,7 @@ position, together with the commitment set root they are proven against.
     the data the sequencer service's `getProofsAndRoot` returns today
     (`lez/sequencer/service/rpc/src/lib.rs:131-145`), which the wallet reaches
     the sequencer for (`lez/wallet/src/lib.rs:1310-1325`), and the state the
-    indexer already holds answers it (`lee/state_machine/src/state/mod.rs:206`,
+    node already holds answers it (`lee/state_machine/src/state/mod.rs:206`,
     `lee/state_machine/src/state/mod.rs:431-438`). **[Ready, not exposed]**
 27. The proofs and the root returned by one call are consistent with one
     another: every proof verifies against the returned root, as those
@@ -940,7 +935,7 @@ execution succeeded.
     `Finalized` (`lez/common/src/block.rs:118-121`) the node sets only as
     `Pending` and `Finalized` today, and the mapping is documented. Before a
     transaction is finalised its level can move back as well as forward, and the
-    API documents when. The indexer reads blocks only once final
+    API documents when. The node reads blocks only once final
     (`lez/chain_state/src/zone_indexer.rs:54-86`) and stamps every block it
     stores `Finalized` (`lez/indexer/core/src/block_store.rs:362`); the
     sequencer service already follows inscriptions at the L1 tip and folds them
@@ -951,7 +946,7 @@ execution succeeded.
 
 30. The per-transaction status query returns the identifier and hash of the
     block containing the transaction and the transaction's index in it, which
-    the indexer store already resolves from the transaction hash
+    the node's store already resolves from the transaction hash
     (`lez/indexer/core/src/block_store.rs:161-163`) **[Ready, not exposed]**,
     and the L1 block the level was assessed against, so a caller can tell how
     current the answer is. The store already records the L1 slot of the
@@ -1199,7 +1194,7 @@ resuming from a position the consumer already processed.
 
 48. The FFI exposes a subscription to finalised blocks that notifies a
     registered consumer of each block as it becomes final, exporting the
-    existing `subscribeToFinalizedBlocks` indexer RPC method. The consumer is
+    existing `subscribeToFinalizedBlocks` node RPC method. The consumer is
     notified through a callback rather than by polling, and reads a block it is
     told of through `query_block_by_hash`. **[Ready, not exposed]**
 49. Each notification carries the block's height and its hash together, so a
@@ -1244,14 +1239,14 @@ Registers a consumer that is called with each new event record matching a
 filter, optionally resuming from a position the consumer already processed.
 
 54. The FFI exposes a subscription to program events, exporting the existing
-    `subscribeToEvents` indexer RPC method
+    `subscribeToEvents` node RPC method
     (`lez/indexer/service/rpc/src/lib.rs:48-49`) with the filter it takes by
     transaction, program, and selector, and delivering each record in the shape
     `query_events` returns. Cancellation, and delivery to the caller that opened
     the subscription alone, are on the same terms as the block subscription.
-    Today the subscription stops at the indexer RPC, so no application can
-    follow a program's events. A filter the node's event filter does not persist
-    is refused at subscription, as the RPC refuses it
+    Today the subscription stops at the node RPC, so no application can follow a
+    program's events. A filter the node's event filter does not persist is
+    refused at subscription, as the RPC refuses it
     (`lez/indexer/service/src/service.rs:80-87`), rather than accepted and left
     silent. **[Ready, not exposed]**
 55. The event subscription resumes from a block identifier and hash on the same
@@ -1363,7 +1358,7 @@ Ethereum, `getVersion` on Solana, `getnetworkinfo` on Bitcoin and Zcash.
     enough build identity to tell two builds of the same version apart. An
     integrator that hits a defect can then say which build produced it, and one
     that knows a build is bad can route around it. Neither the FFI's
-    `query_status` nor the indexer RPC's `checkHealth`, which the FFI does not
+    `query_status` nor the node RPC's `checkHealth`, which the FFI does not
     export, reports a version
     ([Appendix: Logos API Surfaces, section 2](../appendix/logos-api-surfaces.md#2-lez-indexer-rpc)).
     **[New]**
@@ -1384,8 +1379,8 @@ and its bedrock status.
     the body carries every transaction in the block. **[Ready]**
 68. The returned body carries each user transaction's receipt, so a consumer
     reading a block can tell a transaction that took effect from one that only
-    paid its fee. The stored block, the indexer RPC, and the FFI block type
-    already carry them (`lez/indexer/service/protocol/src/lib.rs:207-252`,
+    paid its fee. The stored block, the node RPC, and the FFI block type already
+    carry them (`lez/indexer/service/protocol/src/lib.rs:207-252`,
     `lez/indexer/ffi/src/api/types/block.rs:10-45`). **[Ready]**
 
 **`query_block_by_hash(hash) -> PointerResult<FfiBlockOpt, OperationStatus>`**
@@ -1439,7 +1434,7 @@ that zone settles to.
     would agree with whatever an operator typed rather than with the chain the
     node is settling to. The Logos Blockchain node serves it, read off the
     genesis inscription, at `GET /chain/id` (`logos-blockchain`
-    `nodes/api-common/src/paths.rs:11`), and the indexer already builds a client
+    `nodes/api-common/src/paths.rs:11`), and the node already builds a client
     for its L1 node (`lez/indexer/core/src/lib.rs:112-115`), so the node reads
     it from there. **[New]**
 75. Where the chain identifier cannot be obtained, because the L1 node is
@@ -1543,7 +1538,7 @@ state pinned to a block and for transaction retrieval.
     than the rest, as Soft #4 allows, the call reports retention per scope
     rather than one floor that is wrong for part of the data. **[New]**
 82. A read for data below the retention floor is answered as such, distinctly
-    from a read for data that never existed. Asking for a block the indexer
+    from a read for data that never existed. Asking for a block the node
     discarded and asking for one the chain never held are different questions
     with different answers: the first is retried against an archival source and
     the second is not. A caller learns which without a second call to the
@@ -1594,9 +1589,8 @@ and at the sender's choice for a private one, or as a sealed publication. The
 receiving wallet reads the publications, finds those addressed to it, and later
 consumes them. Among the surveyed chains only Zcash, whose shielded payments a
 recipient finds by scanning, has a comparable structure. The sequencer service
-serves it today (`lez/sequencer/service/rpc/src/lib.rs:112-129`), and the
-indexer holds the data in its own state
-(`lee/state_machine/src/state/mod.rs:357-406`).
+serves it today (`lez/sequencer/service/rpc/src/lib.rs:112-129`), and the node
+holds the data in its own state (`lee/state_machine/src/state/mod.rs:357-406`).
 
 **`query_publications(from_position, limit) -> PointerResult<FfiPublicationPage, OperationStatus>`**
 
@@ -1708,28 +1702,28 @@ chain interposes a plugin layer between its API and its consumers.
 What a caller generates its client from, and what Logos Core peering checks both
 sides agree on.
 
-94. `lez_indexer_module` publishes its contract in the Logos Core contract
+94. The LEZ node module publishes its contract in the Logos Core contract
     format, covering every method and event the module exposes: its parameters,
     its return type, its error values, the set it belongs to (#104), and the
     node modes it is available in (#98). That format is a CDDL schema in the
-    target and LIDL today, which the module already publishes, derived from its
-    header (`lez-indexer-module/README.md:66`). Where the format carries no
-    field for the set or the mode per method, the contract expresses them
-    another way the documentation states, such as separate user and
-    administrative interfaces. The module describes its contract at run time,
-    and each release documents which FFI function serves each module method. The
-    existing `getSchema` describes the block, event record, and event filter
-    types rather than the surface, and is not exported
+    target and LIDL today, which the module wrapping the FFI already publishes,
+    derived from its header. Where the format carries no field for the set or
+    the mode per method, the contract expresses them another way the
+    documentation states, such as separate user and administrative interfaces.
+    The module describes its contract at run time, and each release documents
+    which FFI function serves each module method. The existing `getSchema`
+    describes the block, event record, and event filter types rather than the
+    surface, and is not exported
     ([Appendix: Logos API Surfaces, section 2](../appendix/logos-api-surfaces.md#2-lez-indexer-rpc)).
     **[New]**
 
 Every function defined above is further bound by the following.
 
-095. Every FFI function that takes the indexer handle returned by
-     `start_indexer`, as its first argument the signatures above elide, signals
-     a null handle as `OperationStatus::NullPointer` rather than as a not-found
-     result. Every query exported today does so except `query_status`, which #36
-     addresses. **[Ready]**
+095. Every FFI function that takes the node handle returned by `start_node`, as
+     its first argument the signatures above elide, signals a null handle as
+     `OperationStatus::NullPointer` rather than as a not-found result. Every
+     query exported today does so except `query_status`, which #36 addresses.
+     **[Ready]**
 096. Every read of chain state takes a level, head or final, and answers against
      it. The head is every block the node has seen inscribed, final or not, and,
      in sequencer mode, the blocks it produced and has not yet seen inscribed;
@@ -1749,12 +1743,13 @@ Every function defined above is further bound by the following.
      from not found, invalid argument, backend failure, and refusal (#100,
      #108), so a caller learns to call a node in sequencer mode rather than
      retrying this one. **[New]**
-099. Every function above is exposed through `lez_indexer_module` with the same
+099. Every function above is exposed through the node module with the same
      semantics, including the not-found and error distinction required by
      Functionality #100. No capability reaching the FFI stops at the module
-     boundary. Today the module wraps eight of the FFI's ten queries, omitting
-     `query_events` and `query_transaction_receipt`, and is built against the
-     LEZ `v0.3.1` FFI rather than the testnet 0.4 one. **[New]**
+     boundary. The module that wraps the FFI today carries eight of its ten
+     queries, omitting `query_events` and `query_transaction_receipt`, and is
+     built against the LEZ `v0.3.1` FFI rather than the testnet 0.4 one.
+     **[New]**
 100. The FFI and the module signal not-found, invalid-argument, and backend
      failure as three distinguishable outcomes on every query. The module
      currently flattens not-found and failure into an empty string
@@ -1764,7 +1759,7 @@ Every function defined above is further bound by the following.
      than on message text, and that value does not change meaning between
      releases. Which values exist is for the implementation to decide; what this
      RFP requires is that two failures a caller would recover from differently
-     never arrive as the same value. The indexer RPC returns the stock JSON-RPC
+     never arrive as the same value. The node RPC returns the stock JSON-RPC
      `InternalError` code with free text for most failures, typing only an
      invalid event range, and the FFI's status type has five values, so most
      failures look alike
@@ -1800,33 +1795,33 @@ node.
   reach one node through lightwalletd, which exposes reads and transaction
   submission and no administrative call.
 
-**`start_indexer(runtime, config_path, storage_dir) -> PointerResult<IndexerServiceFFI, OperationStatus>`**
+**`start_node(runtime, config_path, storage_dir) -> PointerResult<NodeHandle, OperationStatus>`**
 
 Starts the node against a configuration and a storage directory and returns the
 handle every other function takes. It is the one function that takes no handle.
 
-**`stop_indexer() -> OperationStatus`**
+**`stop_node() -> OperationStatus`**
 
 Stops the node and releases the handle.
 
 **`reset_storage(config_path)`**
 
 Stops the node and deletes the store of the zone the configuration names,
-without restarting it. Exposed by `lez_indexer_module` only.
+without restarting it. Exposed by the node module only.
 
 104. Every function this RFP defines belongs to exactly one of two sets, and the
      contract of #94 states which. The user set holds every function defined
      under the headings above but `query_peers`. The administrative set holds
-     `start_indexer`, `stop_indexer`, and `reset_storage`, together with any
-     other function the module exposes that changes how the node runs, such as
-     the FFI's `init_logger` were the module to expose it, and `query_peers`,
-     which discloses other operators' network addresses (#84). A function added
-     to the surface later is assigned to a set when it is added. **[New]**
-105. Each function exposed through `lez_indexer_module` is individually
-     grantable. Where the deployer's Logos Core access policy grants a caller a
-     list of methods on the module, that caller reaches those methods and no
-     others, and the module is built so that such a grant is enforced against it
-     rather than refused as unenforceable. **[New]**
+     `start_node`, `stop_node`, and `reset_storage`, together with any other
+     function the module exposes that changes how the node runs, such as the
+     FFI's `init_logger` were the module to expose it, and `query_peers`, which
+     discloses other operators' network addresses (#84). A function added to the
+     surface later is assigned to a set when it is added. **[New]**
+105. Each function exposed through the node module is individually grantable.
+     Where the deployer's Logos Core access policy grants a caller a list of
+     methods on the module, that caller reaches those methods and no others, and
+     the module is built so that such a grant is enforced against it rather than
+     refused as unenforceable. **[New]**
 106. An administrative function refuses a call unless the caller is the host
      runtime, an operator of that runtime, or a caller the node's own
      configuration names as an administrator of it. The module decides this
@@ -1854,9 +1849,9 @@ without restarting it. Exposed by `lez_indexer_module` only.
      only once that bound is reached. The module runs with Logos Core's
      concurrent dispatch, where a module dispatches one call at a time by
      default (`logos-module-builder` `docs/configuration.md`, `concurrency`),
-     and the module sets nothing today (`lez-indexer-module/metadata.json`). A
-     cursor issued to one caller is neither advanced nor invalidated by another
-     caller's calls. **[New]**
+     and the module wrapping the FFI sets nothing today. A cursor issued to one
+     caller is neither advanced nor invalidated by another caller's calls.
+     **[New]**
 110. A subscription belongs to the caller that opened it, and is named by a
      handle no other caller can guess, so callers the runtime cannot tell apart,
      which arrive as one unknown caller, still cannot cancel or read one
@@ -1872,9 +1867,9 @@ without restarting it. Exposed by `lez_indexer_module` only.
 
 #### Usability
 
-1. Provide a Logos module surface (`lez_indexer_module`) covering every function
-   in Functionality, usable to build Logos modules for reading LEZ state,
-   following the chain, and tracking deposits.
+1. Provide the LEZ node module, covering every function in Functionality, usable
+   to build Logos modules for reading LEZ state, following the chain, and
+   tracking deposits.
 2. Provide a CLI that covers core functionality: read an account at current and
    at a pinned block, read a batch of accounts, read a block, read a
    transaction, read a transaction's effects, receipt, and status, read an
@@ -1977,11 +1972,11 @@ without restarting it. Exposed by `lez_indexer_module` only.
 
 #### Supportability
 
-This RFP states its requirements on the FFI, and `lez_indexer_module` is what
-exposes them to Logos Core under its contract: the module links `libindexer_ffi`
-and includes the generated `indexer_ffi.h`, so the two ship together and a
+This RFP states its requirements on the node FFI, and the LEZ node module is
+what exposes them to Logos Core under its contract: the module links the FFI
+library and includes its generated header, so the two ship together and a
 function reaches an application only when both carry it. "The FFI and module"
-below means the Rust crate at `lez/indexer/ffi/` and the module that links it.
+below means the node's FFI crate and the module that links it.
 
 01. The FFI and module are delivered for LEZ testnet 0.4: both are built and
     tested against a LEZ devnet and against LEZ testnet 0.4.
@@ -1989,7 +1984,7 @@ below means the Rust crate at `lez/indexer/ffi/` and the module that links it.
     Blockchain node and LEZ nodes, at least one in sequencer mode and one
     outside it, with the node module loaded in a Logos Core runtime and called
     through it. The repository's `docker-compose.yml` assembles a dev Bedrock
-    node, a sequencer committee, and the RPC indexer service today, without the
+    node, a sequencer committee, and the node's RPC service today, without the
     FFI, the module, or a Logos Core runtime, and LEZ's own CI runs a Bedrock
     node with its test fixtures rather than the compose file. The tests of the
     module and its access control drive a Logos Core runtime with several
@@ -1998,8 +1993,8 @@ below means the Rust crate at `lez/indexer/ffi/` and the module that links it.
     tested in each mode, including a call that is not available in a node's mode
     (Functionality #98).
 03. CI builds and tests the FFI and the module, and must be green on the default
-    branch of `logos-execution-zone` and of `lez-indexer-module`, which has no
-    build or test workflow today.
+    branch of every repository the work lands in. The module that wraps the FFI
+    today has no build or test workflow.
 04. Every hard requirement in Functionality, Usability, Reliability, and
     Performance has at least one corresponding test.
 05. Tests cover, at minimum: a read of an identifier the state holds no record
@@ -2022,20 +2017,20 @@ below means the Rust crate at `lez/indexer/ffi/` and the module that links it.
     force and with a policy that leaves the module open; and two callers holding
     subscriptions when one of them cancels.
 06. A README documents end-to-end usage: building the FFI and the module that
-    links it, the configuration and storage directory `start_indexer` requires,
-    and step-by-step instructions for every operation via the CLI.
+    links it, the configuration and storage directory `start_node` requires, and
+    step-by-step instructions for every operation via the CLI.
 07. Provide documentation in repo for the FFI and module, covering the developer
     integration journey for reading state, tracking deposits, and confirming
     transactions.
 08. Provide documentation in repo for the CLI, covering the core operator
     journey.
 09. Provide a get started guide that takes a developer from an empty repository
-    to a working Logos Core module calling `lez_indexer_module`, covering the
+    to a working Logos Core module calling the LEZ node module, covering the
     client generated from the module's contract, reading LEZ state through it,
     following the chain, and running the result against a devnet, with the node
     in the same runtime and reached through peering. A module calls another
     through its contract rather than linking its library, so the guide does not
-    link `libindexer_ffi`. The README required above documents building and
+    link the node FFI library. The README required above documents building and
     operating what this RFP specifies; this documents building something else on
     top of it.
 10. Provide a full API reference for the node API, published per version as the
@@ -2191,7 +2186,7 @@ The following are explicitly excluded from this RFP:
   deployment admits, and which functions it grants them, is decided in the
   deployer's Logos Core access policy.
 - **Extending the program event system.** Events exist from program execution
-  through indexer capture to the indexer RPC's `getEvents` and
+  through capture by the node to the node RPC's `getEvents` and
   `subscribeToEvents`. The FFI exports `query_events` and the module does not,
   and the subscription stops at the RPC. This RFP requires both to reach
   applications (Functionality #11 to #13, #54, #55, #99) and does not change
@@ -2212,30 +2207,30 @@ The following are explicitly excluded from this RFP:
 
 ## ⚠ Platform Dependencies
 
-Most capabilities required above are already present on the indexer RPC and
-unexported, already computed by the indexer and discarded, or derivable from
-data the indexer store already holds. The exceptions are what the target
-architecture needs of a node that today's indexer is not. Closing them on the
-LEZ side is part of the work (see Target architecture), and each is listed so
-the work can be planned and costed.
+Most capabilities required above are already present on the node RPC and
+unexported, already computed by the node and discarded, or derivable from data
+the node's store already holds. The exceptions are what the target architecture
+needs that the node does not provide today. Closing them on the LEZ side is part
+of the work (see Target architecture), and each is listed so the work can be
+planned and costed.
 
 - **Peer-to-peer participation in every mode.** A node relays a submission
   (Functionality #37), observes the pending set (#43), and reports its peers
   (#83) over the LEZ peer-to-peer network. Today only the sequencer joins that
   network: transaction gossip runs on a topic per zone in the sequencer's gossip
-  actor (`lez/sequencer/actors/gossip/src/actor.rs:338-340`), and the indexer
-  joins no peer-to-peer network at all. The sequencer service can already run
-  without sequencing, as the read-only sequencer the wallet embeds
+  actor (`lez/sequencer/actors/gossip/src/actor.rs:338-340`), and the node joins
+  no peer-to-peer network at all. The sequencer service can already run without
+  sequencing, as the read-only sequencer the wallet embeds
   (`lez/core_ffi/src/sequencer/service.rs`), following the head and joining
   gossip, which is the closest thing today to a node outside sequencer mode.
-- **One node in both modes.** The indexer and the sequencer run today as
-  separate services, each with its own RPC, the indexer holding the history and
-  the sequencer the head. A node in either mode serves the API defined here from
+- **One node in both modes.** The node and the sequencer run today as separate
+  services, each with its own RPC, the node holding the history and the
+  sequencer the head. A node in either mode serves the API defined here from
   both. A sequencer's pending set is also only pushed to today
   (`lez/mempool/src/lib.rs:66-92`), so listing it is work in the sequencer. The
   design decision log (Supportability #11) records how the two are brought
   together.
-- **The head.** The indexer reads blocks only once they are final on L1
+- **The head.** The node reads blocks only once they are final on L1
   (`lez/chain_state/src/zone_indexer.rs:54-86`) and has no path for undoing a
   block. Reads at the head (#96), the head subscription (#50), and the status
   levels short of final (#29) need the node to follow inscriptions at the L1 tip
@@ -2285,25 +2280,31 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [Appendix: Integrating the Logos Technology Stack](../appendix/integrating-logos-technology-stack.md):
   the components the stack exposes, the shapes an integration takes, the
   measured size of the node libraries, and what the stack has not yet settled
+
 - [Integrate Logos into your application](https://docs.logos.co/build-an-app/integrate-logos):
   the target architecture this RFP assumes, with wallet and node modules,
   peering, and module contracts
+
 - [Appendix: Logos API Surfaces](../appendix/logos-api-surfaces.md): as-built
-  inventory of the LEZ indexer FFI, RPC, and module, the sequencer RPC and FFI,
+  inventory of the LEZ node FFI, RPC, and module, the sequencer RPC and FFI,
   `core_ffi` and the `lez_core` module, and the L1 bindings, routes, and module
+
 - [Appendix: Blockchain API and SDK Ecosystem](../appendix/blockchain-api-sdk-ecosystem.md):
   34 API functions across nine established chains, with transports, SDK
   languages, response shapes, and per-function gap notes for LEZ
+
 - [logos-execution-zone](https://github.com/logos-blockchain/logos-execution-zone):
-  the LEZ sequencer, indexer, and wallet
+  the LEZ node, sequencer, and wallet
+
 - [`logos-execution-zone-module`](https://github.com/logos-blockchain/logos-execution-zone-module):
   `lez_core` Logos Core module
-- [lez-indexer-module](https://github.com/logos-blockchain/lez-indexer-module):
-  the Logos Core module wrapping the indexer FFI
+
 - [Logos glossary](https://docs.logos.co/get-started/glossary): zone, channel,
   Bedrock, Basecamp, module, viewing key, and note
-- [LEZ documentation](https://docs.logos.co/lez): the sequencer and indexer
-  roles, and the separation of public and private state
+
+- [LEZ documentation](https://docs.logos.co/lez): the sequencer and node roles,
+  and the separation of public and private state
+
 - [Logos Documentation](https://github.com/logos-co/logos-docs)
 
 The Resources listed above, and any third-party material referred to elsewhere
