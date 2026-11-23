@@ -1,17 +1,19 @@
 ---
-id: RFP-028
+id: RFP-033
 title: Reflexive Stablecoin Position Management UI
 tier: M
 status: draft
 category: Applications & Integrations
 dependencies:
   - id: RFP-013
-    reason: Provides the stablecoin LEZ program and its Logos core module that this interface operates; the UI has nothing to drive until RFP-013 is deployed on LEZ testnet 0.4.
+    reason: Provides the stablecoin program, core module and CLI, including shared position operations, private account handling and seed recovery; final integration requires versions compatible with the mainnet-equivalent LEZ release targeted by this interface.
 ---
 
-<!-- Don't forget to add this RFP to the table in README.md (between RFP_TABLE_START / RFP_TABLE_END markers) -->
+# RFP-033 — Reflexive Stablecoin Position Management UI
 
-# RFP-028 — Reflexive Stablecoin Position Management UI
+> **Combined proposals.** Proposals covering both this RFP and the separate
+> liquidation and auction UI RFP will be given preference. Each scope is
+> evaluated separately.
 
 > **Note.** This specification describes an outcome that may benefit the Logos
 > ecosystem. It is a proposal rather than an instruction. Its requirements
@@ -48,8 +50,9 @@ Build the user-facing interface for the reflexive stablecoin of
 [RFP-013](./RFP-013-reflexive-stablecoin-protocol.md): a Logos mini-app in which
 a user opens a collateralised position, mints the stablecoin against it,
 monitors its health, adjusts it, and closes it. The RFP-013 program and its
-Logos core module are being built separately and do not include this interface,
-the CLI, or the client-side private account path. This RFP covers those.
+Logos core module and CLI are specified in RFP-013, including the client-side
+private account path, position discovery, recovery and shared calculations. This
+RFP covers the mini-app and its integration with those capabilities.
 
 Two things make this more than a form over the program's instructions. First, a
 position's health moves even when nothing else does: debt is valued at the
@@ -61,37 +64,32 @@ from a private account and returning its output to one. A position is a
 long-lived account, so this is harder than for a one-shot swap, and the
 interface must get it right by default.
 
-A separate RFP will cover the liquidation and auction interface over
-[RFP-014](./RFP-014-liquidation-auction-engine.md). The two are kept apart so
-each can be evaluated on its own, but Logos would prefer one team to deliver
-both, so that the vault and auction surfaces share one design and one set of
-components. Proposals should state whether the team intends to apply for both.
-
-The LEZ program this interface operates is delivered for LEZ testnet 0.4, and
-this interface is delivered and tested against that deployment (Supportability
-#1).
+A separate RFP covers the liquidation and auction interface over
+[RFP-014](./RFP-014-liquidation-auction-engine.md), including manual liquidation
+and auction participation alongside automated liquidators. Those screens are
+outside this RFP. Proposals should state whether the team intends to apply for
+both UI scopes and how they would share components and design.
 
 A team likely to succeed has shipped interfaces for CDP or lending protocols,
-has built desktop applications in Qt/QML or a comparable native toolkit, and can
-reason about what client behaviour leaks on a public chain.
+has built QML ui modules with C++ core modules, and can reason about what client
+behaviour leaks on a public chain.
 
 ## 🔥 Why This Matters
 
-A stablecoin that only a CLI user can mint has no users. The RFP-013 protocol
-gives LEZ a stable unit of account that does not depend on an issuer, but people
-reach it through an interface. In a CDP, a user who misreads how close their
-position is to liquidation, or how fast its debt grows, loses collateral.
+A position's collateralisation ratio can change even when its collateral price
+does not. In an **illustrative example** in
+[Reflexer's FAQ](https://docs.reflexer.finance/faq#how-does-rai-workbehave),
+RAI's redemption price rises from $5 to $5.20 while ETH remains at $1,000 after
+an earlier price increase. These are hypothetical values used to explain the
+mechanism, not observed market data or proposed prices, pegs or parameters for
+RFP-013.
 
-RAI-style stablecoins are harder to read than a fixed-peg CDP. The target price
-is not 1.00 and changes over time, and the liquidation threshold moves with it.
-An interface that presents these mechanics plainly is a precondition for the
-stablecoin being used at all, and for it then becoming collateral and liquidity
-for the DEX ([RFP-004](./RFP-004-privacy-preserving-dex.md)) and lending
-([RFP-008](./RFP-008-lending-borrowing-protocol.md)) protocols.
-
-The protocol keeps positions public so liquidation stays permissionless. Whether
-a user's position can be traced back to their private balance therefore depends
-on how the client funds, signs, and returns each operation.
+With collateral and debt quantities held constant, a higher redemption price
+increases the value of the debt relative to the collateral. Stability fees can
+also increase the debt over time. The interface therefore needs to distinguish
+market price from redemption price, show accrued fees, and explain how these
+changes affect the position's distance to liquidation. Previews and projections
+let users inspect these effects when opening, adjusting or closing a position.
 
 ## ✅ Scope of Work
 
@@ -100,12 +98,13 @@ on how the client funds, signs, and returns each operation.
 #### Functionality
 
 1. Open a position: choose the collateral amount and, optionally, an amount of
-   stablecoin to mint in the same flow, and see the resulting collateralisation
-   ratio against the protocol minimum before confirming.
+   stablecoin to mint in the same flow, within the maximum the protocol allows
+   for that collateral, and see the resulting collateralisation ratio against
+   the protocol minimum before confirming.
 2. Manage a position: deposit collateral, withdraw collateral, mint, repay
-   partially, repay in full, and close. Each action shows the maximum amount
-   that can be withdrawn or minted while keeping the position at or above the
-   minimum collateralisation ratio.
+   partially, repay in full, and close. The withdraw and mint actions show their
+   respective maximum amounts while keeping the position at or above the minimum
+   collateralisation ratio.
 3. Repaying in full and closing must succeed as one user action, even though the
    stability fee keeps accruing between the moment the amount is computed and
    the moment the transaction is included, which on the private path can be
@@ -118,35 +117,36 @@ on how the client funds, signs, and returns each operation.
    ratio, and distance to the minimum ratio.
 5. Recover all of the user's positions from the user's wallet seed alone on a
    fresh install, with no locally cached state and no separately backed-up
-   secret. Losing the key that controls a position means losing its collateral,
-   so this applies to every account the interface creates to own a position.
+   secret, using the derivation and discovery capabilities of the RFP-013 core
+   module. This covers every position created through that module on either
+   path, including positions created through its CLI.
 6. Show protocol state: market price, redemption price, redemption rate (also as
    an annualised figure), stability fee rate, minimum collateralisation ratio,
    the age of the last price-feed update, and whether the protocol is frozen.
-7. When the protocol is frozen, actions that the program blocks while frozen
-   (opening, minting, withdrawing) are disabled with an explanation, and actions
-   that remain allowed (depositing, repaying, closing) stay available. When the
-   price feed is stale, minting is disabled with an explanation.
-8. Support both a public account path and a private account path for every
-   position operation, per the Privacy requirements below.
+7. When the protocol is frozen or the price feed is stale, actions the program
+   rejects in that state are disabled with an explanation, and the rest stay
+   available. Where an action is unavailable because a step it depends on is
+   blocked, the interface says so.
 
 #### Usability
 
-01. Build all client functionality (position discovery, previews and
-    projections, the private account path, recovery) in a Logos core module,
-    reusing the RFP-013 core module for program calls, so that other Logos ui
-    modules and the CLI can use it. All off-chain software described here must
-    be implemented as Logos modules.
+01. Reuse the RFP-013 C++ core module for position operations, discovery,
+    previews, projections, the private account path and recovery. Shared
+    functionality belongs in that module and is not reimplemented in the UI. All
+    off-chain software described here must be implemented as Logos modules.
 02. Provide a Logos mini-app QML GUI (Logos ui module) covering every
     Functionality requirement.
-03. Provide a CLI that uses the Logos core headless framework and covers the
-    position operations in Functionality #1 to #5. The CLI may have fewer views
-    than the mini-app.
+03. Integrate with the same core module and wallet configuration as RFP-013's
+    Logos Core headless CLI. Positions created or changed through either
+    interface must be discoverable and manageable through the other. A separate
+    CLI is not a deliverable of this RFP.
 04. Before every operation, show a before/after preview: collateral, debt,
     collateralisation ratio, the redemption price at which the position would
-    reach the minimum ratio, and the estimated transaction fee. Values shown in
-    the preview must match the on-chain result up to the program's documented
-    rounding.
+    reach the minimum ratio, and the estimated transaction fee. Compute the
+    preview for a stated time and chain-state snapshot using the program's
+    documented arithmetic and rounding. Explain that fees and redemption price
+    may change before inclusion. After completion, the position view must match
+    the resulting chain state.
 05. For each position, show how its health changes over time if nothing else
     changes: at the current redemption rate and stability fee, the projected
     collateralisation ratio over a user-selectable horizon, and the time until
@@ -157,10 +157,11 @@ on how the client funds, signs, and returns each operation.
     and the margin between them. Warn the user before confirming an operation
     that leaves the position within a configurable margin of the minimum, with a
     documented default.
-07. The private account path is pre-selected for every operation. Choosing the
-    public path requires an explicit action.
+07. Support both public and private account paths for every position operation.
+    The private path is pre-selected; choosing the public path requires an
+    explicit action.
 08. Before a user first opens a position on the private path, the interface
-    states what remains observable (see Privacy #4), in plain language.
+    states what remains observable (see Supportability #9), in plain language.
 09. Operations that require client-side proving are treated as long-running
     background operations with visible progress. The interface stays usable
     while they run, and the user can see the state of each operation in flight.
@@ -168,31 +169,37 @@ on how the client funds, signs, and returns each operation.
     constraint that was violated (minimum ratio, frozen protocol, stale price
     feed, insufficient balance, and so on).
 11. The user can change the LEZ sequencer or node the interface connects to.
-12. Signing and account selection go through the Logos wallet and its approval
-    flow (see Platform Dependencies, "Wallet"). The interface holds no key
-    material of its own beyond what the wallet exposes for the private account
-    path.
+12. Signing goes through the LEZ core module wallet (see Platform Dependencies,
+    "Wallet"). The interface holds no key material of its own beyond what the
+    wallet exposes for the private account path.
 
 #### Reliability
 
 1. An operation on the private path that is interrupted at any step (closed
    application, lost connection, rejected transaction) never strands funds in an
    intermediate public account. On restart, the interface detects the incomplete
-   operation and either completes it or returns the funds to the user's private
-   account, and shows the user which it did.
+   operation through the RFP-013 core module and either completes it or returns
+   the funds to the user's private account, and shows the user which it did.
 2. Displayed position and protocol values are derived from on-chain state using
    the same fixed-point arithmetic as the program, and are refreshed after every
-   operation and at a regular interval.
+   operation and at a regular interval stated in the proposal. The proposal must
+   justify the interval and describe how stale or unavailable data is indicated
+   to the user.
 3. No mandatory external services: beyond the user's configured LEZ sequencer
    and node, the interface depends on no third-party service. Any optional
    service is disclosed, can be disabled, and the interface stays fully
-   functional without it. No analytics unless strictly opt-in.
+   functional without it. The interface sends no user account, position or
+   balance data to any party other than the configured sequencer and node,
+   including through optional services. Analytics require explicit opt-in and
+   must exclude those data.
 4. A rejected or failed transaction leaves the interface's view of the position
    consistent with chain state.
 
 #### Performance
 
-1. Measure and document, with real proving, the end-to-end time of each position
+1. Proposals must state end-to-end latency targets for each position operation
+   on both paths, identifying hardware and network assumptions. At delivery,
+   measure and document, with real proving, the end-to-end time of each position
    operation on the public and the private paths, from confirmation to the
    position view reflecting the result. Figures produced in development mode
    will not be accepted.
@@ -202,7 +209,12 @@ on how the client funds, signs, and returns each operation.
 
 #### Supportability
 
-01. Delivered and tested against the RFP-013 program on LEZ testnet 0.4.
+01. Deliver and test the interface with compatible RFP-013 program and core
+    module versions on a mainnet-equivalent LEZ release, accounting for the
+    breaking changes expected in 0.5.0. The proposal must identify the target
+    release and compatibility assumptions; the final test report must record the
+    exact versions used. Testing only against 0.4 is insufficient. This
+    requirement does not require mainnet deployment.
 02. End-to-end tests of every Functionality requirement, on both paths, run
     against a LEZ sequencer (standalone mode) with the RFP-013 program deployed,
     and are included in CI.
@@ -211,16 +223,27 @@ on how the client funds, signs, and returns each operation.
 04. CI must be green on the default branch.
 05. Every hard requirement in Functionality, Usability, Reliability and Privacy
     has at least one corresponding test.
-06. A README documents installing the mini-app in Basecamp, connecting to
-    testnet, and each user flow, with step-by-step instructions for the CLI.
-07. Provide documentation in repo for the core module, covering the developer
-    integration journey.
+06. A README documents installing the mini-app in Basecamp, connecting to the
+    target network, and each user flow, with links to RFP-013 CLI instructions
+    and examples of using the same positions across the CLI and mini-app.
+07. Document the mini-app integration with the RFP-013 core module in repo,
+    referencing its API documentation and recording required versions.
 08. Provide Figma designs or equivalent for all mini-app screens and states,
-    including warning, frozen, stale-feed and in-progress states.
+    including warning, frozen, stale-feed and in-progress states. Include a
+    prototype review before implementation and a usability-test-and-revision
+    checkpoint before final acceptance. Proposals must state the participant
+    profile, number of participants and iteration rounds, tasks, and measurable
+    acceptance criteria. Test opening a position, interpreting liquidation risk,
+    repaying and closing, and recovering from seed. Deliver findings, revisions
+    and a retest of failed tasks; record unresolved issues and their impact.
 09. Provide a privacy properties document covering what each operation reveals
     on-chain on each path, what the configured node learns from the interface's
     queries, which guarantees depend on correct client behaviour, and what
-    happens if a user bypasses the interface.
+    happens if a user bypasses the interface. Cover linkage of operations on one
+    position, amount and timing correlation between private funding, the
+    operation and the return to a private account, and inference from queried
+    account sets. For each residual correlation, state why it remains and how
+    the design reduces it.
 10. Publish the resulting modules in a module catalog of the team's own, built
     from the
     [Logos module catalog template](https://github.com/logos-co/logos-modules-release-base),
@@ -235,31 +258,24 @@ on how the client funds, signs, and returns each operation.
 
 #### + Privacy
 
-1. On the private path, collateral and gas are funded from the user's private
-   account and every output (minted stablecoin, withdrawn collateral) is
-   returned to a private account of the user. The return step cannot be skipped,
-   and the interface rejects a return target that is not a private account.
-2. The public account that owns a position on the private path is used for that
-   position only. No on-chain data links it to the user's private account, to
-   the owner of any other position of the same user, or to the user's public
-   accounts.
-3. Each deshield transfers the operation token and the gas for the operation in
-   one action, so the account is never funded from a second, linkable source.
-4. Proposals must document every correlation the design leaves observable,
-   including at least: that all operations on one position are linkable to each
-   other through the position; amount and timing correlation between a deshield
-   and the operation it funds, and between an operation and its return to a
-   private account; and what the configured node can infer from the set of
-   accounts the interface queries. For each, state why it remains and what the
-   design does to reduce it.
-5. The interface sends no user account, position or balance data to any party
-   other than the user's configured LEZ sequencer and node.
+1. On the private path, collateral and fees are funded from the user's private
+   account, and minted stablecoin and withdrawn collateral end in a private
+   account of the user. The interface must not offer a completion path that
+   leaves these outputs public.
+2. On the private path, a public owner account is used for that position only.
+   Accounts used to fund or pay fees for that position must not be shared with
+   other positions or the user's public account activity.
+3. On the private path, no ownership, funding or fee-payment relationship links
+   those accounts on-chain to the user's private account, other positions or
+   public accounts. Residual inference from public amounts, timing and node
+   queries must be documented under Supportability #9; this requirement does not
+   claim to eliminate those correlations.
 
 ### Soft Requirements
 
 1. History per position (collateral, debt and ratio over time) and protocol
-   history (market price, redemption price, redemption rate), sourced without a
-   mandatory third-party service.
+   history (market price, redemption price, redemption rate), built from LEZ
+   node data without a mandatory third-party service.
 2. Options that reduce timing correlation on the private path, such as delaying
    the return to a private account, with the trade-off shown to the user.
 3. Once the RFP-014 engine is integrated with RFP-013, show a position that has
@@ -270,6 +286,20 @@ on how the client funds, signs, and returns each operation.
 5. Notify the user, while the mini-app is running, when a position crosses the
    warning margin of Usability #6.
 
+### Out of Scope
+
+- Changes to the on-chain RFP-013 program. Proposals must identify any program
+  change needed to meet a UI requirement, including full repayment and closure,
+  and explain the resulting dependency and delivery impact.
+- Reimplementation of the core module, CLI, private account path, discovery,
+  recovery or shared calculations specified in RFP-013.
+- Liquidation and auction screens, including manual liquidation and bidding;
+  these belong to the separate UI RFP over RFP-014.
+- Keeper bots and automated liquidation services.
+- Notifications while the mini-app is closed. In-app warnings remain in scope;
+  notifications while it is running are Soft Requirement #5.
+- Mainnet deployment or operation of a hosted service.
+
 ## ⚠ Platform Dependencies
 
 ### Hard dependencies
@@ -279,9 +309,9 @@ on how the client funds, signs, and returns each operation.
 This interface operates the RFP-013 program and calls it through the RFP-013
 Logos core module. The program is implemented in
 [logos-blockchain/lez-programs](https://github.com/logos-blockchain/lez-programs)
-(`programs/stablecoin`, design in `docs/stablecoin/README.md`), and its core
-module operations are being completed there. Neither is deployed on a public
-testnet at the time of writing. The program's interface relevant to this RFP:
+(`programs/stablecoin`, design in `docs/stablecoin/README.md`). RFP-013 owns the
+core module and CLI, including shared calculations, private account operations
+and seed recovery. The program's interface relevant to this RFP:
 
 - Positions are public accounts addressed by `(owner, nonce)`, each with its own
   collateral vault. Every later operation on a position must be signed by its
@@ -291,8 +321,7 @@ testnet at the time of writing. The program's interface relevant to this RFP:
 - Collateralisation is checked against the redemption price, not the market
   price. The price feed is used by the controller and as a staleness gate on
   minting.
-- Repayment burns an exact amount and rejects overpayment, which is why
-  Functionality #3 is stated as it is.
+- Repayment burns an exact amount and rejects overpayment.
 
 This RFP does not include changes to the RFP-013 program. Where a requirement
 here cannot be met with the program as delivered, the proposal must identify it.
@@ -306,9 +335,9 @@ is the LEZ core module
 ([logos-execution-zone-module](https://github.com/logos-blockchain/logos-execution-zone-module)),
 which Basecamp shares across mini-apps.
 [LP-0021](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0021.md)
-(open) specifies a Wallet Provider SDK with account selection and approval
-prompts. The interface should use it once available, and proposals should state
-how they move to it.
+specifies a Wallet Provider SDK with account selection and approval prompts. The
+interface should use it once available, and proposals should state how they move
+to it.
 
 #### Price feed
 
@@ -319,34 +348,32 @@ integrate a feed of its own.
 
 #### History
 
-The RFP-013 program does not currently emit events, and there is no
-program-level LEZ indexer yet. Soft Requirement #1 may therefore need an indexer
-of the team's own, built as a Logos module, or reconstruction from transaction
-history over RPC. Proposals should state which.
+If history is included, it must be built from LEZ node data without a mandatory
+third-party service.
 
 ### Risks
 
-#### The private path has no implementation yet
+#### Private account integration
 
-RFP-013 assigns the private account path to the client, and the RFP-013 core
-module operations under review accept public signers only. This RFP is the first
-implementation of that path for a long-lived position, where the owner account
-cannot be discarded after one operation as it can for a swap. Proposals should
-treat Functionality #5 and Privacy #2 as the core design problem and address
-them first.
+Position-owner accounts persist across operations. The interface must use the
+RFP-013 core module's derivation, discovery and private account operations
+consistently, including after interruption or a fresh installation. Proposals
+must identify any missing upstream capability and its delivery impact.
 
-#### Upstream schedule
+#### Upstream compatibility and schedule
 
-The interface cannot be tested end to end until the RFP-013 program and core
-module are deployed on LEZ testnet 0.4. A phased proposal is welcome, with
-designs and the core module developed against a local sequencer first.
+Final end-to-end acceptance depends on compatible versions of the RFP-013
+program and core module on the target LEZ release. Proposals must identify
+interface assumptions and how breaking changes would affect scope and schedule.
+Designs and integration may begin against a local sequencer, but do not replace
+validation on the target release.
 
 ## 👤 Recommended Team Profile
 
 Team experienced with:
 
 - Interfaces for CDP, lending or other leveraged DeFi protocols
-- Qt/QML or comparable native desktop UI development
+- QML ui module and C++ core module integration
 - Product design for financial risk (presenting liquidation risk, previews,
   confirmation flows)
 - Wallet integration and client-side transaction construction
@@ -355,7 +382,9 @@ Team experienced with:
 ## ⏱ Timeline Expectations
 
 Estimated duration: **8–12 weeks**, excluding time spent waiting for the RFP-013
-deployment on LEZ testnet 0.4.
+program and core module to be available on the target LEZ release. Proposals
+must include the design review, usability testing and revision checkpoints
+within their schedule.
 
 ## 🌍 Open Source Requirement
 
@@ -363,8 +392,8 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 
 ## Resources
 
-- [RFP-013 — Reflexive Stablecoin Protocol](./RFP-013-reflexive-stablecoin-protocol.md)
-- [RFP-014 — Liquidation & Auction Engine](./RFP-014-liquidation-auction-engine.md)
+- [RFP-013: Reflexive Stablecoin Protocol](./RFP-013-reflexive-stablecoin-protocol.md)
+- [RFP-014: Liquidation & Auction Engine](./RFP-014-liquidation-auction-engine.md)
 - [RFP-013 program design](https://github.com/logos-blockchain/lez-programs/blob/main/docs/stablecoin/README.md)
 - [logos-blockchain/lez-programs](https://github.com/logos-blockchain/lez-programs):
   the RFP-013 program and core module, and the DEX mini-app (`apps/amm`), a
