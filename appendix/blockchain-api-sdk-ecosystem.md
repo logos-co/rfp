@@ -1867,6 +1867,19 @@ what such a removal cost its integrators.
 
 No transport migration was found for Ethereum, Cosmos, NEAR, Solana, or XRPL.
 
+### 2.4 Per-call logging and metrics
+
+How an operator ties a call to a caller for debugging depends on whether the
+node knows its callers. Bitcoin Core authenticates RPC users (`-rpcauth`), and
+with `-debug=rpc` logs every call with its method, the authenticated user, and
+the request identifier, adding the caller's address when `-logips` is set
+[[135]](#ref-135). Geth has no users on its JSON-RPC: at debug level it logs
+each served call with its method, request identifier, and duration
+[[136]](#ref-136), and with metrics enabled it counts requests, successes, and
+failures and keeps serving-time histograms per method, not per caller
+[[137]](#ref-137). Where a hosted provider accounts per API key, it does so in a
+gateway in front of the node rather than in the node.
+
 ## 3. SDK Languages
 
 ### 3.1 Which languages each ecosystem publishes
@@ -2431,3 +2444,13 @@ and carries no resume anchor [[81]](#ref-81).
 134. <a id="ref-134"></a>npm, download counts API, last month for `viem` and
      `ethers`, read on 22 November 2026.
      https://api.npmjs.org/downloads/point/last-month/viem
+135. <a id="ref-135"></a>Bitcoin Core, "src/rpc/request.cpp" at `19128e8b7755`,
+     `JSONRPCRequest::parse`, lines 241-247.
+     https://github.com/bitcoin/bitcoin/blob/19128e8b7755/src/rpc/request.cpp#L241-L247
+136. <a id="ref-136"></a>go-ethereum, "rpc/handler.go" at `2a2cbe3b4ec2`,
+     `handleCallMsg`, lines 521-545.
+     https://github.com/ethereum/go-ethereum/blob/2a2cbe3b4ec2/rpc/handler.go#L521-L545
+137. <a id="ref-137"></a>go-ethereum, "rpc/metrics.go" at `2a2cbe3b4ec2`, the
+     `rpc/requests`, `rpc/success`, `rpc/failure`, and `rpc/duration/<method>`
+     metrics.
+     https://github.com/ethereum/go-ethereum/blob/2a2cbe3b4ec2/rpc/metrics.go

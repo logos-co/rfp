@@ -129,13 +129,13 @@ dependency needed in one mode only, and how a node configured for sequencer mode
 reports a wallet module that is absent, is open. This RFP defines every function
 once. Where a function or an outcome is available only in sequencer mode, or
 means something different there, the requirement says so, and a node outside
-sequencer mode reports it as not available in its mode ([#98](#f-98)).
+sequencer mode reports it as not available in its mode ([#100](#f-100)).
 
 **Basis:** the integration guide, which has a LEZ node acting as a sequencer
 also use a Logos Blockchain wallet. **Rests on it:** the node's mode in status
 ([#35](#f-35)), admission and relay ([#37](#f-37) to [#39](#f-39)), the pending
 set ([#42](#f-42)), the produced level ([#29](#f-29)), and availability by mode
-([#98](#f-98)).
+([#100](#f-100)).
 
 #### A3. Following the chain, serving its history, and sequencing are one node
 
@@ -162,8 +162,8 @@ rather than for some.
 **Basis:** the gossip actor's validation of each transaction it receives, and
 the state the node holds today. **Rests on it:** validation at submission
 ([#38](#f-38) and [#39](#f-39)), and every read of account state, membership
-proofs, and publications ([#14](#f-14) to [#28](#f-28), [#85](#f-85) to
-[#88](#f-88)).
+proofs, and publications ([#14](#f-14) to [#28](#f-28), [#87](#f-87) to
+[#90](#f-90)).
 
 #### A5. LEZ nodes talk to each other over a p2p protocol outside this API
 
@@ -229,10 +229,10 @@ the node today reads only to finality
 
 **Basis:** the sequencer service's head and final tiers, and a finality delay
 too long for a wallet to build against the final chain alone. **Rests on it:**
-the read level ([#96](#f-96)), the tips every read reports ([#97](#f-97)),
+the read level ([#98](#f-98)), the tips every read reports ([#99](#f-99)),
 status ([#29](#f-29)), the head subscription ([#50](#f-50)), the chain tip
 ([#71](#f-71)), the fee state ([#79](#f-79) and [#80](#f-80)), and the recovery
-binding lookup ([#87](#f-87)).
+binding lookup ([#89](#f-89)).
 
 #### A9. The API defined here is the LEZ node module's API
 
@@ -243,15 +243,15 @@ CDDL schema describing it.
 Callers use clients generated from that schema, whether they run in the same
 runtime as the node or reach it from another through Logos Core peering. Modules
 publish LIDL contracts today, and the module publishes this API in whichever
-format Logos Core supports when it ships ([#94](#f-94)). The requirements below
+format Logos Core supports when it ships ([#96](#f-96)). The requirements below
 are written against the node FFI functions that back each module method, and a
-capability reaches a caller only once the module carries it ([#99](#f-99)). See
-[Appendix: Logos API Surfaces](../appendix/logos-api-surfaces.md) for the
+capability reaches a caller only once the module carries it ([#101](#f-101)).
+See [Appendix: Logos API Surfaces](../appendix/logos-api-surfaces.md) for the
 as-built inventory of every layer.
 
 **Basis:** the integration guide and the draft Logos Core specification. **Rests
-on it:** the module contract ([#94](#f-94)), module parity ([#99](#f-99)),
-access control and concurrent callers ([#104](#f-104) to [#111](#f-111)), and
+on it:** the module contract ([#96](#f-96)), module parity ([#101](#f-101)),
+access control and concurrent callers ([#106](#f-106) to [#113](#f-113)), and
 Supportability [#9](#sup-9) and [#10](#sup-10).
 
 #### A10. Each LEZ node follows one zone
@@ -418,7 +418,7 @@ the states the transaction touches, which the account reads below serve, and the
 current fee market, which it prices the declaration against and reads from the
 sequencer service's `getFeeState` today (`lez/wallet/src/lib.rs:363-365`).
 [Functionality](#functionality) [#79](#f-79) and [#80](#f-80) require the node
-to serve the fee market, and [#96](#f-96) lets every read answer at the head, so
+to serve the fee market, and [#98](#f-98) lets every read answer at the head, so
 a wallet simulating on its own side reaches every input it needs, at the state
 it is building on, through the node API.
 
@@ -602,14 +602,17 @@ requirements below bind the node module, which is the surface a wallet reaches.
 **Callers are no finer than Logos Core makes them.** Two wallets in two modules,
 two UI plugins, or two runtimes are two callers. Two wallets behind one calling
 module are one caller, and the node cannot tell them apart. Because the node
-keeps nothing per wallet, it does not need to. [Out of Scope](#out-of-scope)
-records that the node issues no credentials of its own.
+keeps nothing per wallet, it does not need to. Sessions and user identity are
+Logos Core's: a paired runtime or the holder of a token arrives as the caller
+identity Logos Core attaches to the call, and the node reports, meters, and logs
+against that identity rather than issuing credentials of its own
+([Out of Scope](#out-of-scope)).
 
 ### Function categories
 
 Every function belongs to one of three categories, and a deployer grants a
 category, or any single function in it, to the callers it chooses
-([#104](#f-104) and [#105](#f-105)).
+([#106](#f-106) and [#107](#f-107)).
 
 - **User**: every function a wallet or an integrator calls to read the chain,
   follow it, and submit a transaction, and to learn whether the node is healthy
@@ -627,7 +630,7 @@ category, or any single function in it, to the callers it chooses
 **Operations and administrative functions are closed unless granted.**
 Enforcement of the access policy is off unless the deployer turns it on, and a
 policy in force may admit a caller to every method of the module, so neither
-category can rely on the policy to protect it. [#106](#f-106) requires the
+category can rely on the policy to protect it. [#108](#f-108) requires the
 module to refuse such a call itself, on the caller identity, unless the caller
 is the host runtime, an operator of that runtime, or a caller the node's
 configuration names for that category.
@@ -684,7 +687,7 @@ the FFI today is built against LEZ `v0.3.1`, from before the FFI's account read
 became optional and its account record moved to actor states. A release branch
 building it against `v0.4.0-rc1` exists but is not merged, and has no tag. A
 capability ready in the FFI therefore reaches the node module only once the
-module is built against the testnet 0.4 FFI, which [#99](#f-99) requires.
+module is built against the testnet 0.4 FFI, which [#101](#f-101) requires.
 
 Every signature below elides a first argument, the node handle returned by
 `start_node`. See Surface-wide obligations.
@@ -831,7 +834,7 @@ from `from_block` to `to_block`, defaulting to the indexed tip.
     and data payload **[Ready]**, and its index among the transaction's events,
     so a consumer deduplicates and resumes by event **[New]**.
 12. <a id="f-12"></a>A request the query cannot answer is reported as the
-    outcome [#100](#f-100) and [#102](#f-102) define for its case rather than as
+    outcome [#102](#f-102) and [#104](#f-104) define for its case rather than as
     an empty result: a range spanning more than `MAX_EVENT_QUERY_BLOCK_SPAN`
     blocks, or inverted, as an invalid argument; a bound past the indexed tip as
     the lagging case; a range outside the node's event-filter history as data
@@ -866,7 +869,7 @@ Reading account state, at the tip and at a past block, singly and in batches
   without a key can make.
 
 Every read in this section answers at the head or on the final chain, as the
-caller chooses ([#96](#f-96)).
+caller chooses ([#98](#f-98)).
 
 **`query_account(account_id) -> PointerResult<FfiOption<FfiAccount>, OperationStatus>`**
 
@@ -1031,7 +1034,7 @@ execution succeeded.
       observes ([#42](#f-42)), having been submitted through this node or seen
       on the LEZ peer-to-peer network;
     - **produced**, in sequencer mode only: in a block this node produced and
-      has not yet seen inscribed ([#98](#f-98));
+      has not yet seen inscribed ([#100](#f-100));
     - **inscribed**: in a LEZ block carried by an L1 block that is not yet
       final, which an L1 reorganisation or a competing inscription can still
       replace, returning the transaction to received or dropping it;
@@ -1572,7 +1575,7 @@ Returns the protocol parameters a transaction is built against, with the block
 they were read at.
 
 76. <a id="f-76"></a>The FFI returns the chain parameters a caller needs before
-    it builds and proves a transaction, at the level read ([#96](#f-96)): the
+    it builds and proves a transaction, at the level read ([#98](#f-98)): the
     largest transaction a block accepts, which is the channel's maximum block
     size (`lez/programs/sequencer_stake/core/src/lib.rs:238-252`,
     `lez/sequencer/core/src/lib.rs:2490`); the per-block execution and storage
@@ -1635,7 +1638,7 @@ caps
     bounds the next block and is not an estimate for a given transaction.
     **[Ready, not exposed]**
 
-The fee state is read at the level the caller chooses ([#96](#f-96)), and a
+The fee state is read at the level the caller chooses ([#98](#f-98)), and a
 wallet pricing a transaction reads it at the head, as the sequencer service
 quotes it today. A base fee can move by up to an eighth between blocks
 (`lez/programs/fee/core/src/market.rs:16`), so a band read on the final chain,
@@ -1705,8 +1708,38 @@ peer.
     addresses, and, for each connected peer, its identifier, address, direction,
     the time it connected, and, where known, whether it is in sequencer mode. A
     peer's address is another operator's network identity, so the function is in
-    the operations category ([#104](#f-104)), as Geth keeps `admin_peers` off
+    the operations category ([#106](#f-106)), as Geth keeps `admin_peers` off
     its public endpoints. **[New]**
+
+##### Operating the node
+
+What an operator watches to keep a node healthy and to answer a user who reports
+a failed call
+([Appendix: Blockchain API and SDK Ecosystem, section 2.4](../appendix/blockchain-api-sdk-ecosystem.md#24-per-call-logging-and-metrics)).
+
+- **Geth**: request, success, and failure counts and serving-time histograms per
+  method; each served call logged at debug level with its request identifier.
+- **Bitcoin**: with `-debug=rpc`, each call logged with its method, the
+  authenticated user, and its request identifier.
+
+**`query_metrics() -> PointerResult<FfiNodeMetrics, OperationStatus>`**
+
+Returns the node's call metrics, per method.
+
+85. <a id="f-85"></a>The FFI reports, for each function of the user category,
+    how many calls it served, how many succeeded and failed by outcome
+    ([#102](#f-102), [#104](#f-104)), and the distribution of their serving
+    times, together with the number of open subscriptions, as Geth reports per
+    method. It is in the operations category ([#106](#f-106)). The node keeps no
+    figures per caller: who called what is in Logos Core's call audit records.
+    **[New]**
+86. <a id="f-86"></a>The node logs each call, when the operator turns it on,
+    with its method, its outcome, its serving time, the caller identity Logos
+    Core attached to it, and the identifier Logos Core gives the call, so an
+    operator can find a call a user reports. It is off by default (Privacy
+    [#5](#priv-5)), the operator chooses whether caller identities are recorded,
+    and the documentation states what each setting records. Bitcoin Core's
+    `-debug=rpc` is the precedent. **[New]**
 
 ##### Private message delivery
 
@@ -1724,7 +1757,7 @@ holds the data in its own state (`lee/state_machine/src/state/mod.rs:357-406`).
 
 Returns a page of publications in commitment-set order, from a given position.
 
-85. <a id="f-85"></a>The FFI lists publications in position order from a given
+87. <a id="f-87"></a>The FFI lists publications in position order from a given
     position, each with its position: for a clear publication its plaintext
     envelope, and for a sealed one its commitment and encrypted note. Each page
     also carries, once, the recovery note bound to each destination of a clear
@@ -1732,7 +1765,7 @@ Returns a page of publications in commitment-set order, from a given position.
     (`lee/state_machine/src/state/mod.rs:178-181`,
     `lee/state_machine/src/state/mod.rs:383-406`) and the sequencer service's
     `getPublications` returns them. **[Ready, not exposed]**
-86. <a id="f-86"></a>The listing is bounded and reports whether more entries
+88. <a id="f-88"></a>The listing is bounded and reports whether more entries
     remain, on the same terms as the other paginated reads, and takes no account
     identifier, so a wallet receiving messages discloses nothing beyond the
     position it resumes from. **[New]**
@@ -1741,15 +1774,15 @@ Returns a page of publications in commitment-set order, from a given position.
 
 Returns the encrypted note bound to a private address, if one is.
 
-87. <a id="f-87"></a>The FFI returns the recovery note bound to a private
+89. <a id="f-89"></a>The FFI returns the recovery note bound to a private
     address, or an absent `FfiOption` when none is, at the level read
-    ([#96](#f-96)), exporting what the sequencer service's `getRecoveryBinding`
+    ([#98](#f-98)), exporting what the sequencer service's `getRecoveryBinding`
     serves today from its head. A wallet building a transaction reads it at the
     head: it checks whether each address it would bind is bound already, a
     duplicate binding making the transaction invalid, and whether the
     destination of a clear send is bound, a clear send to an unbound one being
     refused (`lez/wallet/src/lib.rs:1474-1520`). **[Ready, not exposed]**
-88. <a id="f-88"></a>The API documents that this lookup names a private address
+90. <a id="f-90"></a>The API documents that this lookup names a private address
     to the node: the caller's own, or, when a sender checks a destination before
     a clear send, the address of the account it is about to pay. A consumer
     reading its own notes without disclosing its addresses reads them from the
@@ -1779,7 +1812,7 @@ carries with the public values needed to decrypt and check it.
 
 Delivers the same walk as new blocks arrive.
 
-89. <a id="f-89"></a>The FFI exposes a walk, ascending by block from a given
+91. <a id="f-91"></a>The FFI exposes a walk, ascending by block from a given
     block, returning for each privacy-preserving transaction its hash, its index
     in the block, and whether its action applied, and for each encrypted note it
     carries the values a scanner needs to open and check it: for a private
@@ -1788,25 +1821,25 @@ Delivers the same walk as new blocks arrive.
     for a sealed async message, its commitment, note, and position; and for a
     recovery binding, its address and note. Proofs, witness sets, and public
     bodies are omitted; a clear publication, whose envelope is plaintext, is
-    read from the publication listing, [#85](#f-85). The notes are in the stored
+    read from the publication listing, [#87](#f-87). The notes are in the stored
     transaction (`lez/indexer/service/protocol/src/lib.rs:362-441`), whether an
     action applied is in the block's receipts, and the positions are in the
     state's commitment set and publications, so the work is a compact projection
     of data the node holds. **[New]**
-90. <a id="f-90"></a>The walk covers every encrypted note whatever kind of
+92. <a id="f-92"></a>The walk covers every encrypted note whatever kind of
     private account it addresses: a regular private account, a private PDA, and
     a shared private account keyed from a group master secret, of either kind.
     The node needs no knowledge of which kind a note belongs to, and the walk
     does not depend on it. **[New]**
-91. <a id="f-91"></a>The walk takes no viewing key, account identifier, or other
+93. <a id="f-93"></a>The walk takes no viewing key, account identifier, or other
     value tied to the consumer's accounts. Every caller asking for the same
     range receives the same result, so the walk discloses to the node the range
     read and nothing else. **[New]**
-92. <a id="f-92"></a>The walk resumes from a block identifier and hash on the
+94. <a id="f-94"></a>The walk resumes from a block identifier and hash on the
     same terms as the block subscription, [#52](#f-52), and is also delivered as
     a subscription, so a viewing key consumer following the tip neither polls
     nor misses a block. **[New]**
-93. <a id="f-93"></a>The API documents what the walk serves for each kind of
+95. <a id="f-95"></a>The API documents what the walk serves for each kind of
     note, and that it serves every encrypted note in the range, whichever
     account it addresses. What a viewing key holder can and cannot establish
     from it is documented with the LEZ wallet API, which does the scanning.
@@ -1832,10 +1865,10 @@ chain interposes a plugin layer between its API and its consumers.
 What a caller generates its client from, and what Logos Core peering checks both
 sides agree on.
 
-94. <a id="f-94"></a>The LEZ node module publishes its contract in the Logos
+96. <a id="f-96"></a>The LEZ node module publishes its contract in the Logos
     Core contract format, covering every method and event the module exposes:
     its parameters, its return type, its error values, the category it belongs
-    to ([#104](#f-104)), and the node modes it is available in ([#98](#f-98)).
+    to ([#106](#f-106)), and the node modes it is available in ([#100](#f-100)).
     That format is a CDDL schema in the target and LIDL today, which the module
     wrapping the FFI already publishes, derived from its header. Where the
     format carries no field for the category or the mode per method, the
@@ -1849,12 +1882,12 @@ sides agree on.
 
 Every function defined above is further bound by the following.
 
-095. <a id="f-95"></a>Every FFI function that takes the node handle returned by
+097. <a id="f-97"></a>Every FFI function that takes the node handle returned by
      `start_node`, as its first argument the signatures above elide, signals a
      null handle as `OperationStatus::NullPointer` rather than as a not-found
      result. Every query exported today does so except `query_status`, which
      [#36](#f-36) addresses. **[Ready]**
-096. <a id="f-96"></a>Every read of chain state takes a level, head or final,
+098. <a id="f-98"></a>Every read of chain state takes a level, head or final,
      and answers against it. The head is every block the node has seen
      inscribed, final or not, and, in sequencer mode, the blocks it produced and
      has not yet seen inscribed; the final chain is the blocks inscribed in L1
@@ -1864,31 +1897,31 @@ Every function defined above is further bound by the following.
      `lez/sequencer/core/src/lib.rs:1956`). Each answer names the level and the
      block, with its hash, it was served at, because an answer at the head can
      be overtaken when the head is replaced. **[New]**
-097. <a id="f-97"></a>Every read reports the tips it was served against: the
+099. <a id="f-99"></a>Every read reports the tips it was served against: the
      identifier and hash of the last block at the head and on the final chain
      when it answered. A caller detects a stalled or lagging node from any
      response, not only from the status query. No return type carries them
      today. **[New]**
-098. <a id="f-98"></a>Every function is available on every node unless the
-     contract ([#94](#f-94)) marks it, or one of its outcomes, for sequencer
+100. <a id="f-100"></a>Every function is available on every node unless the
+     contract ([#96](#f-96)) marks it, or one of its outcomes, for sequencer
      mode. A node outside sequencer mode answers such a call as not available in
      its mode, an outcome distinct from not found, invalid argument, backend
-     failure, and refusal ([#100](#f-100), [#108](#f-108)), so a caller learns
+     failure, and refusal ([#102](#f-102), [#110](#f-110)), so a caller learns
      to call a node in sequencer mode rather than retrying this one. **[New]**
-099. <a id="f-99"></a>Every function above is exposed through the node module
+101. <a id="f-101"></a>Every function above is exposed through the node module
      with the same semantics, including the not-found and error distinction
-     required by Functionality [#100](#f-100). No capability reaching the FFI
+     required by Functionality [#102](#f-102). No capability reaching the FFI
      stops at the module boundary. The module that wraps the FFI today carries
      eight of its ten queries, omitting `query_events` and
      `query_transaction_receipt`, and is built against the LEZ `v0.3.1` FFI
      rather than the testnet 0.4 one. **[New]**
-100. <a id="f-100"></a>The FFI and the module signal not-found,
+102. <a id="f-102"></a>The FFI and the module signal not-found,
      invalid-argument, and backend failure as three distinguishable outcomes on
      every query. The module currently flattens not-found and failure into an
      empty string
      ([Appendix: Logos API Surfaces, section 1](../appendix/logos-api-surfaces.md#1-lez-indexer-ffi)).
      **[New]**
-101. <a id="f-101"></a>Errors are machine-readable and stable: a caller branches
+103. <a id="f-103"></a>Errors are machine-readable and stable: a caller branches
      on a value rather than on message text, and that value does not change
      meaning between releases. Which values exist is for the implementation to
      decide; what this RFP requires is that two failures a caller would recover
@@ -1898,14 +1931,14 @@ Every function defined above is further bound by the following.
      values, so most failures look alike
      ([Appendix: Blockchain API and SDK Ecosystem, section 1.34](../appendix/blockchain-api-sdk-ecosystem.md#134-structured-errors-and-a-code-taxonomy)).
      **[New]**
-102. <a id="f-102"></a>The distinctions a caller acts on are, at minimum: a
+104. <a id="f-104"></a>The distinctions a caller acts on are, at minimum: a
      request that was malformed, which the caller fixes; a request for data
      below the retention floor, which the caller sends elsewhere; a request the
      node could not serve because it is stalled or lagging, which the caller
      retries; and a backend failure, which the caller retries with backoff. A
      transient failure is distinguishable from a permanent one without parsing
      text. **[New]**
-103. <a id="f-103"></a>Every heap-allocating return has a documented matching
+105. <a id="f-105"></a>Every heap-allocating return has a documented matching
      free function, and calling it releases every allocation the return holds.
      The returns exported today have theirs **[Ready]**; the return types this
      RFP adds need theirs **[New]**.
@@ -1943,23 +1976,23 @@ Stops the node and releases the handle.
 Stops the node and deletes the store of the zone the configuration names,
 without restarting it. Exposed by the node module only.
 
-104. <a id="f-104"></a>Every function this RFP defines belongs to exactly one of
+106. <a id="f-106"></a>Every function this RFP defines belongs to exactly one of
      the three categories of [Function categories](#function-categories), and
-     the contract of [#94](#f-94) states which. The user category holds every
+     the contract of [#96](#f-96) states which. The user category holds every
      function defined under the headings above but `query_peers`. The operations
      category holds `query_peers` ([#84](#f-84)), and any function the module
      exposes that reports how the node runs in more detail than its status does,
-     such as metrics. The administrative category holds `start_node`,
-     `stop_node`, and `reset_storage`, together with any other function the
-     module exposes that changes how the node runs, such as the FFI's
-     `init_logger` were the module to expose it. A function added to the surface
-     later is assigned to a category when it is added. **[New]**
-105. <a id="f-105"></a>Each function exposed through the node module is
+     such as `query_metrics` ([#85](#f-85)). The administrative category holds
+     `start_node`, `stop_node`, and `reset_storage`, together with any other
+     function the module exposes that changes how the node runs, such as the
+     FFI's `init_logger` were the module to expose it. A function added to the
+     surface later is assigned to a category when it is added. **[New]**
+107. <a id="f-107"></a>Each function exposed through the node module is
      individually grantable. Where the deployer's Logos Core access policy
      grants a caller a list of methods on the module, that caller reaches those
      methods and no others, and the module is built so that such a grant is
      enforced against it rather than refused as unenforceable. **[New]**
-106. <a id="f-106"></a>An operations or administrative function refuses a call
+108. <a id="f-108"></a>An operations or administrative function refuses a call
      unless the caller is the host runtime, an operator of that runtime, or a
      caller the node's own configuration names for that category. The module
      decides this itself, from the caller identity Logos Core gives it: it
@@ -1972,17 +2005,17 @@ without restarting it. Exposed by the node module only.
      operator kind it does not yet emit, so until it does the documentation
      states which callers can start, stop, and reset the node, and a node can be
      configured to start on load. **[New]**
-107. <a id="f-107"></a>A user function requires nothing of a caller beyond
+109. <a id="f-109"></a>A user function requires nothing of a caller beyond
      admission to the module. No user function requires a caller to register, to
      name a wallet, or to have made an earlier call, and the node holds no state
      for a caller other than the subscriptions that caller opened. A cursor
      carries the position it resumes from, so a walk part way through holds
      nothing on the node. **[New]**
-108. <a id="f-108"></a>A refused call is reported as an outcome distinct from
+110. <a id="f-110"></a>A refused call is reported as an outcome distinct from
      the not-found, invalid-argument, and backend failure outcomes of
-     [#100](#f-100), and has no effect on the node. A caller does not retry it.
+     [#102](#f-102), and has no effect on the node. A caller does not retry it.
      **[New]**
-109. <a id="f-109"></a>Calls from different callers are served concurrently, up
+111. <a id="f-111"></a>Calls from different callers are served concurrently, up
      to a documented bound on calls in flight, and a slow call from one caller
      delays another's only once that bound is reached. The module runs with
      Logos Core's concurrent dispatch, where a module dispatches one call at a
@@ -1990,7 +2023,7 @@ without restarting it. Exposed by the node module only.
      `concurrency`), and the module wrapping the FFI sets nothing today. A
      cursor issued to one caller is neither advanced nor invalidated by another
      caller's calls. **[New]**
-110. <a id="f-110"></a>A subscription belongs to the caller that opened it, and
+112. <a id="f-112"></a>A subscription belongs to the caller that opened it, and
      is named by a handle no other caller can guess, so callers the runtime
      cannot tell apart, which arrive as one unknown caller, still cannot cancel
      or read one another's subscriptions. `unsubscribe` cancels only a
@@ -1998,7 +2031,7 @@ without restarting it. Exposed by the node module only.
      when it disconnects, and one caller's cancellation, disconnection, or
      failing callback neither stops nor delays delivery to any other caller.
      **[New]**
-111. <a id="f-111"></a>Once the node is stopped, every call reaching the module
+113. <a id="f-113"></a>Once the node is stopped, every call reaching the module
      from every caller reports the node as stopped, distinctly from a backend
      failure, and each open subscription receives a final notification that
      delivery has ended. The FFI handle is released on stop, so this is the
@@ -2016,7 +2049,7 @@ without restarting it. Exposed by the node module only.
    pagination, follow the head and the final chain, follow a program's events,
    read the node's status, mode, and peer count, read the chain parameters and
    the fee market, list the pending set, list publications, and walk the
-   encrypted notes of a block range. Every read takes the level of [#96](#f-96).
+   encrypted notes of a block range. Every read takes the level of [#98](#f-98).
    The CLI may have fewer features than the FFI but must support all essential
    operations.
 3. <a id="use-3"></a>Provide a worked deposit-tracking example, in the CLI or as
@@ -2031,7 +2064,7 @@ without restarting it. Exposed by the node module only.
    without its viewing key.
 5. <a id="use-5"></a>Return clear, actionable error messages for every failure
    mode, each carrying the machine-readable value required by Functionality
-   [#101](#f-101) alongside the text.
+   [#103](#f-103) alongside the text.
 6. <a id="use-6"></a>Document the semantics of every pagination parameter,
    including the exclusivity of the block bound, what a cursor guarantees across
    ingestion, and the behaviour when new data lands during a walk.
@@ -2042,7 +2075,7 @@ without restarting it. Exposed by the node module only.
    integrator's infrastructure serving its users' wallets, and a node an
    operator offers as a service. Each grants the user category to wallets, the
    operations category to the operator's monitoring, and the administrative
-   category to no caller beyond those Functionality [#106](#f-106) admits.
+   category to no caller beyond those Functionality [#108](#f-108) admits.
 8. <a id="use-8"></a>Document how a deployer grants a caller a single function
    or a subset of the user category, such as the reads without
    `submit_transaction`.
@@ -2070,7 +2103,7 @@ without restarting it. Exposed by the node module only.
    with its last processed block identifier and hash receives every block after
    that position, with no gap and no assumption that the consumer was connected.
 5. <a id="rel-5"></a>A stalled or lagging node is detectable from any read,
-   through the tips every response carries (Functionality [#97](#f-97)).
+   through the tips every response carries (Functionality [#99](#f-99)).
 6. <a id="rel-6"></a>A stalled node is reported as stalled by the status surface
    rather than serving stale reads silently.
 7. <a id="rel-7"></a>The growth of history is bounded by something the
@@ -2146,7 +2179,7 @@ below means the node's FFI crate and the module that links it.
     several callers, as `logos-capability-module` drives its module through
     `logosctl` in doctests. Every function and outcome whose behaviour differs
     by mode is tested in each mode, including a call that is not available in a
-    node's mode (Functionality [#98](#f-98)).
+    node's mode (Functionality [#100](#f-100)).
 03. <a id="sup-3"></a>CI builds and tests the FFI and the module, and must be
     green on the default branch of every repository the work lands in. The
     module that wraps the FFI today has no build or test workflow.
@@ -2195,7 +2228,7 @@ below means the node's FFI crate and the module that links it.
     [API reference](https://logos-co.github.io/logos-storage-module/latest/api_reference.html),
     covering every module method and event, its parameters, its return type, its
     error values, its set, and the node modes it is available in. The reference
-    is generated from the module contract required by Functionality [#94](#f-94)
+    is generated from the module contract required by Functionality [#96](#f-96)
     rather than maintained by hand, so it cannot drift from the surface it
     describes.
 11. <a id="sup-11"></a>Provide a design decision log in repo recording each
@@ -2235,7 +2268,8 @@ below means the node's FFI crate and the module that links it.
    transaction are not readable by any other caller through this surface.
 5. <a id="priv-5"></a>The node keeps no record tying a caller identity to what
    that caller read or submitted beyond what serving the call requires. Any
-   logging that does so is off by default. This binds the node; what Logos Core
+   logging that does so is off by default, and the operator turns it on as
+   Functionality [#86](#f-86) defines. This binds the node; what Logos Core
    records of each access decision is covered under Privacy [#6](#priv-6).
 6. <a id="priv-6"></a>The privacy properties document states what the operator
    of a node shared by several wallets learns about each of them from its calls:
@@ -2278,7 +2312,7 @@ If possible.
    declares.
 6. <a id="soft-6"></a>A read of the commitment set that names no commitment: its
    frontier at a given block, with each commitment the viewing key walk
-   (Functionality [#89](#f-89)) lists carrying its position, so a wallet keeps
+   (Functionality [#91](#f-91)) lists carrying its position, so a wallet keeps
    its own membership witnesses up to date and spends without naming to the node
    the commitments it holds, as a Zcash light client does from the tree state.
    Functionality [#26](#f-26) names them (Functionality [#28](#f-28)).
@@ -2340,7 +2374,7 @@ The following are explicitly excluded from this RFP:
 - **Hosting Logos Core in an application, and reaching a node on another
   machine.** The Logos Core host libraries are a separate component outside this
   RFP, and a node elsewhere is reached through Logos Core peering, which carries
-  the module's contract ([#94](#f-94)). This RFP defines the functions, not how
+  the module's contract ([#96](#f-96)). This RFP defines the functions, not how
   a call to them is carried.
 - **The Logos Blockchain node and wallet APIs.** Each is a separate component
   outside this RFP.
@@ -2366,7 +2400,7 @@ The following are explicitly excluded from this RFP:
   `subscribeToEvents`. The FFI exports `query_events` and the module does not,
   and the subscription stops at the RPC. This RFP requires both to reach
   applications (Functionality [#11](#f-11) to [#13](#f-13), [#54](#f-54),
-  [#55](#f-55), [#99](#f-99)) and does not change what an event is or which
+  [#55](#f-55), [#101](#f-101)) and does not change what an event is or which
   events are captured. The other requirements neither depend on events nor
   duplicate them, for two reasons: events do not cover execution inside a proof,
   and their availability depends on how an operator configured the event filter.
@@ -2410,7 +2444,7 @@ and each is listed so the work can be planned and costed.
   brought together.
 - **The head.** The node reads blocks only once they are final on L1
   (`lez/chain_state/src/zone_indexer.rs:54-86`) and has no path for undoing a
-  block. Reads at the head ([#96](#f-96)), the head subscription ([#50](#f-50)),
+  block. Reads at the head ([#98](#f-98)), the head subscription ([#50](#f-50)),
   and the status levels short of final ([#29](#f-29)) need the node to follow
   inscriptions at the L1 tip and to handle a replaced head, as the sequencer
   service does (`lez/chain_state/src/chain.rs:1-3`).
@@ -2420,12 +2454,20 @@ Access control and the contract rest on Logos Core in several places.
 - **The contract format.** Modules publish LIDL contracts today. A CDDL
   contract, its description at run time, clients generated from it, and the
   contract hash peering compares are in the draft Logos Core specification, and
-  [#94](#f-94) follows whichever has landed.
+  [#96](#f-96) follows whichever has landed.
 - **One instance per module.** Logos Core runs one instance of each kind of
   module, while a node follows one zone
   ([Assumption A10](#a10-each-lez-node-follows-one-zone)), so an application
   using several zones restarts the node module to move between them today.
   Supportability [#12](#sup-12) asks for the plan.
+- **Call identifiers.** Logos Core gives each transport request an identifier
+  the callee echoes (`logos-lips` draft `spec-module-transport.md:330-332`),
+  records an authority decision identifier, and keeps call audit records naming
+  the caller (`spec-module-capability-authority.md:494-495`, `:786-830`). The
+  node issues no correlation identifier of its own and logs against those
+  ([#86](#f-86)), so it needs Logos Core to give a module the identifier of the
+  call it is serving, and the caller a value it can quote to an operator, which
+  the draft specifications do not yet state.
 - **A dependency needed in one mode.** A node in sequencer mode needs a Logos
   Blockchain wallet module to inscribe with, and a node outside it does not
   ([Assumption A2](#a2-a-sequencer-is-a-lez-node-in-sequencer-mode)). The module
@@ -2436,15 +2478,15 @@ Access control and the contract rest on Logos Core in several places.
   module, a derived caller, an operator, or an unknown caller (`logos-protocol`
   `cpp/logos_module_impl.h:223-283`), and only host, module, and unknown are
   emitted today. A call authorised by an operator token over a plain connection
-  arrives as unknown. Functionality [#106](#f-106) admits the host, an operator,
+  arrives as unknown. Functionality [#108](#f-108) admits the host, an operator,
   and the callers the node's configuration names, so who can operate the node
   from elsewhere waits on operator identities.
 - **Per method grants.** The access policy admits a caller to a module today.
   Narrowing a caller to a list of methods is in development
   ([logos-liblogos#232](https://github.com/logos-co/logos-liblogos/pull/232),
   [logos-capability-module#37](https://github.com/logos-co/logos-capability-module/pull/37))
-  and is what Functionality [#105](#f-105) depends on. Functionality
-  [#106](#f-106) does not depend on it, deciding on the caller identity and the
+  and is what Functionality [#107](#f-107) depends on. Functionality
+  [#108](#f-108) does not depend on it, deciding on the caller identity and the
   node's own configuration instead.
 - **Callers on another runtime.** A wallet on another runtime reaches the node
   through Logos Core peering, which is also in development
@@ -2455,8 +2497,8 @@ Access control and the contract rest on Logos Core in several places.
   does not enforce it.
 - **Events and lifecycle per caller.** A Logos Core module event reaches every
   subscriber of the module, and a module is not told when a caller goes away.
-  Functionality [#110](#f-110) and Privacy [#4](#priv-4) require delivery per
-  caller and [#110](#f-110) requires a disconnected caller's subscriptions to
+  Functionality [#112](#f-112) and Privacy [#4](#priv-4) require delivery per
+  caller and [#112](#f-112) requires a disconnected caller's subscriptions to
   end, so the documentation states how a subscription is delivered to the caller
   that opened it and to no other, and how the module learns that a caller has
   gone.
