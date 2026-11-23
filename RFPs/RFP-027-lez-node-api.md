@@ -438,11 +438,12 @@ at `bdk-ffi` `3.1.0-alpha.0` and the BDK crates it depends on).
 **Ethereum: Geth and viem.** A Geth node serves the `eth` JSON-RPC namespace:
 reads of chain state, gas estimation, and `eth_sendRawTransaction` for a
 transaction signed elsewhere. [viem](https://viem.sh), the most downloaded
-Ethereum library on npm (42,475,870 downloads from 23 October to 21 November
-2026, against 20,757,782 for ethers), keeps a public client, which reads from a
-node over HTTP, WebSocket, or an injected provider, apart from a wallet client
-and its local accounts, which hold the keys and sign. A transaction is signed in
-the library and handed to the node raw.
+Ethereum library on npm
+([Appendix: Blockchain API and SDK Ecosystem, section 3.3](../appendix/blockchain-api-sdk-ecosystem.md#33-deprecations)),
+keeps a public client, which reads from a node over HTTP, WebSocket, or an
+injected provider, apart from a wallet client and its local accounts, which hold
+the keys and sign. A transaction is signed in the library and handed to the node
+raw.
 
 **What carries over.** A wallet reaches its node only through the node API, so
 the functions below are specified by what they answer, not by where the node

@@ -1969,7 +1969,9 @@ Rust SDK that "does not support JSON RPC" alongside a legacy one that does
 
 Ethereum's web3.js "was archived on March 4, 2025", with the documentation
 advising users to "consider using alternative libraries like ethers.js or viem
-for new projects" [[67]](#ref-67).
+for new projects" [[67]](#ref-67). Of those two, viem is now the more widely
+used: the npm registry counted 42,475,870 downloads of viem from 23 October to
+21 November 2026, against 20,757,782 for ethers [[134]](#ref-134).
 
 Solana renamed rather than deprecated: the 2.x line of `@solana/web3.js` became
 `@solana/kit` [[73]](#ref-73), and the earlier v1 line, wallet adapter, and
@@ -2426,3 +2428,6 @@ and carries no resume anchor [[81]](#ref-81).
 133. <a id="ref-133"></a>Zcash, "librustzcash: pczt/README.md", the Partially
      Created Zcash Transaction format.
      https://raw.githubusercontent.com/zcash/librustzcash/main/pczt/README.md
+134. <a id="ref-134"></a>npm, download counts API, last month for `viem` and
+     `ethers`, read on 22 November 2026.
+     https://api.npmjs.org/downloads/point/last-month/viem
