@@ -86,9 +86,9 @@ The requirements rest on the assumptions below about where the LEZ node is
 heading, drawn from
 [Integrate Logos into your application](https://docs.logos.co/build-an-app/integrate-logos)
 and from the LEZ code at `dcbd318f0`. Each opens with the assumption itself,
-followed by what it is based on and the requirements that rest on it. Every
-assumption is open until the LEZ maintainers confirm or invalidate it, and one
-that is invalidated reopens the requirements that rest on it.
+followed by what it is based on and the requirements that rest on it. Each is
+for the LEZ maintainers to confirm or invalidate, and one that is invalidated
+reopens the requirements that rest on it.
 
 #### A1. Each chain has a wallet module and a node module
 
@@ -103,9 +103,36 @@ wallet with a direct connection to a sequencer.
 
 **Basis:** the integration guide. **Rests on it:** the split between this RFP
 and the LEZ wallet API throughout, the simulation rationale, and Out of Scope.
-**Status:** open.
 
-#### A2. Following the chain, serving its history, and sequencing are one node
+#### A2. A sequencer is a LEZ node in sequencer mode
+
+A LEZ node runs in one of two modes, in sequencer mode or outside it, and a
+sequencer is a LEZ node in sequencer mode. It serves the same API as any other
+node.
+
+In that mode it also holds the pending set it builds blocks from, produces
+blocks, and inscribes them on the Logos Blockchain.
+
+The mode decides what the node depends on. In either mode a LEZ node depends on
+a Logos Blockchain node, from which it reads the inscriptions it follows. In
+sequencer mode it also depends on a Logos Blockchain wallet module, which holds
+the L1 keys it inscribes blocks with; outside sequencer mode that module is not
+needed. Logos Core's module builder documents optional dependencies, loaded with
+a module when installed and never required (`logos-module-builder`
+`docs/configuration.md`, `optional_dependencies`), but whether that serves a
+dependency needed in one mode only, and how a node configured for sequencer mode
+reports a wallet module that is absent, is open. This RFP defines every function
+once. Where a function or an outcome is available only in sequencer mode, or
+means something different there, the requirement says so, and a node outside
+sequencer mode reports it as not available in its mode ([#98](#f-98)).
+
+**Basis:** the integration guide, which has a LEZ node acting as a sequencer
+also use a Logos Blockchain wallet. **Rests on it:** the node's mode in status
+([#35](#f-35)), admission and relay ([#37](#f-37) to [#39](#f-39)), the pending
+set ([#42](#f-42)), the produced level ([#29](#f-29)), and availability by mode
+([#98](#f-98)).
+
+#### A3. Following the chain, serving its history, and sequencing are one node
 
 Following the chain, serving its history, and sequencing are functions of one
 LEZ node, which serves the API defined here in either mode.
@@ -117,9 +144,9 @@ that takes.
 
 **Basis:** the integration guide, which draws a single LEZ node. **Rests on
 it:** every requirement that a node answers in both modes, and Platform
-Dependencies. **Status:** open.
+Dependencies.
 
-#### A3. Every node validates what it relays and keeps the state it validates against
+#### A4. Every node validates what it relays and keeps the state it validates against
 
 Every LEZ node validates a transaction before relaying it, and keeps the state
 of every public account and of the commitment set.
@@ -131,24 +158,7 @@ rather than for some.
 the state the node holds today. **Rests on it:** validation at submission
 ([#38](#f-38) and [#39](#f-39)), and every read of account state, membership
 proofs, and publications ([#14](#f-14) to [#28](#f-28), [#85](#f-85) to
-[#88](#f-88)). **Status:** open.
-
-#### A4. A sequencer is a LEZ node in sequencer mode
-
-A sequencer is a LEZ node running in sequencer mode, and serves the same API as
-any other node.
-
-In that mode it also holds the pending set it builds blocks from, produces
-blocks, and inscribes them with a Logos Blockchain wallet. This RFP defines
-every function once. Where a function or an outcome is available only in
-sequencer mode, or means something different there, the requirement says so, and
-a node outside sequencer mode reports it as not available in its mode
-([#98](#f-98)).
-
-**Basis:** the integration guide. **Rests on it:** the node's mode in status
-([#35](#f-35)), admission and relay ([#37](#f-37) to [#39](#f-39)), the pending
-set ([#42](#f-42)), the produced level ([#29](#f-29)), and availability by mode
-([#98](#f-98)). **Status:** open.
+[#88](#f-88)).
 
 #### A5. LEZ nodes talk to each other over a p2p protocol outside this API
 
@@ -162,8 +172,7 @@ about the node's place in it, such as how many peers it has, is part of this API
 
 **Basis:** the integration guide, and the sequencer's gossip today. **Rests on
 it:** relay ([#37](#f-37) and [#39](#f-39)), the observed pending set
-([#43](#f-43)), and the peer reads ([#83](#f-83) and [#84](#f-84)). **Status:**
-open.
+([#43](#f-43)), and the peer reads ([#83](#f-83) and [#84](#f-84)).
 
 #### A6. A node outside sequencer mode sees pending transactions on gossip
 
@@ -178,7 +187,7 @@ can still abandon a proof that a pending transaction invalidates.
 **Basis:** the transaction topic of the gossip actor today
 (`lez/sequencer/actors/gossip/src/actor.rs:338-340`). **Rests on it:** the
 pending set outside sequencer mode ([#42](#f-42) and [#43](#f-43)) and the
-received level ([#29](#f-29)). **Status:** open.
+received level ([#29](#f-29)).
 
 #### A7. LEZ blocks are not propagated over the LEZ p2p protocol
 
@@ -198,7 +207,7 @@ today.
 ([#50](#f-50)), and the head of
 [Assumption A8](#a8-every-node-holds-a-head-as-well-as-a-final-chain-and-reads-default-to-the-head).
 **If invalidated:** a node learns of a block before its inscription, and
-[#29](#f-29) gains a level for that. **Status:** open.
+[#29](#f-29) gains a level for that.
 
 #### A8. Every node holds a head as well as a final chain, and reads default to the head
 
@@ -218,7 +227,7 @@ too long for a wallet to build against the final chain alone. **Rests on it:**
 the read level ([#96](#f-96)), the tips every read reports ([#97](#f-97)),
 status ([#29](#f-29)), the head subscription ([#50](#f-50)), the chain tip
 ([#71](#f-71)), the fee state ([#79](#f-79) and [#80](#f-80)), and the recovery
-binding lookup ([#87](#f-87)). **Status:** open.
+binding lookup ([#87](#f-87)).
 
 #### A9. The API defined here is the LEZ node module's API
 
@@ -238,46 +247,66 @@ as-built inventory of every layer.
 **Basis:** the integration guide and the draft Logos Core specification. **Rests
 on it:** the module contract ([#94](#f-94)), module parity ([#99](#f-99)),
 access control and concurrent callers ([#104](#f-104) to [#111](#f-111)), and
-Supportability [#9](#sup-9) and [#10](#sup-10). **Status:** open.
+Supportability [#9](#sup-9) and [#10](#sup-10).
 
-### Who calls it, and for what
+#### A10. Each LEZ node follows one zone
 
-One LEZ node may serve several independent wallets at once. Wallets belonging to
-different users, in different applications or on other Logos Core runtimes, can
-read from the same node and submit through it, none of them operating it. The
-surface therefore separates the functions any wallet calls from the functions
-that operate the node, and each function is granted to callers individually.
+Each LEZ node follows a single zone, the one its configuration names, and every
+function answers for that zone alone. A deployment that serves several zones
+runs a node for each.
 
-Applications on LEZ are built on Basecamp and Logos Core, on mobile, desktop and
-server. An existing application can also add LEZ support without re-architecting
-itself, by hosting Logos Core and bundling the modules it needs, and the node
-API is specified so that it serves that case as well.
+The node's configuration names one channel today
+(`lez/indexer/core/src/config.rs:37`), and its store is namespaced by channel so
+that nodes for different zones can share a storage directory
+(`lez/indexer/core/src/lib.rs:108-110`).
 
-The parties that integrate a chain before it is usable in practice are wallets,
-centralised exchanges, custodians, payment gateways, data and price aggregators,
-node and RPC providers, fiat on and off ramps, bridges, and tax and accounting
-providers. Of those, the centralised exchange is used as the reference profile
-for reading and confirming: read chain state, track deposits credited to
-accounts it controls, and confirm that a transaction reached a level of
-certainty it is willing to act on. It is the strictest reader of the set. The
-wallet is the reference profile for what an exchange never asks: the membership
-proofs it spends with, the pending set it checks while proving, and the
-publications and encrypted notes it receives through.
+**Basis:** the node's configuration and store today. **Rests on it:** the
+network identity ([#72](#f-72)), storage reset, which removes the store of the
+zone the configuration names, and every read, none of which takes a zone. **If
+invalidated:** every read takes the zone it answers for, and the network
+identity lists the zones the node follows.
 
-The scope is therefore the node's reads of chain state, at the head and on the
-final chain, its balances and chain parameters, transaction effects and status,
-the pending set, subscriptions, the reads a wallet spends and receives through,
-submission of a signed transaction, the node's connectivity on the LEZ
-peer-to-peer network, and control over who may call which function. The LEZ node
-API is one of the components the Logos stack exposes for integration, alongside
-the LEZ wallet API, the Logos Blockchain node and wallet APIs, and the Logos
-Core host libraries, which let an application host Logos Core. The shapes an
+### Who uses it, and how it is deployed
+
+**Integrators.** The integration guide names three kinds of integrator, and this
+API serves all three:
+
+- developers building applications as Logos modules, run in Basecamp or with
+  `logosctl`;
+- integrators adding LEZ to their own product or infrastructure, such as an
+  exchange, a custodian, or an existing application, by hosting Logos Core;
+- node operators offering access to their LEZ nodes as a service, paid or not.
+
+**Deployments.** A wallet module and the node it uses can be run:
+
+- by the same user on the same machine, in one runtime or on one device;
+- by the same user on separate machines: a wallet on a phone or a desktop using
+  the user's own node on a desktop, a home server, or a VPS;
+- within the same infrastructure: a custodian or an exchange running both
+  wallets and nodes, its users reaching them through its own interface;
+- by separate parties: the mobile wallet of company A using a LEZ node run by
+  RPC provider B.
+
+The API is the same in every case. What changes is who calls a node, how many
+callers it serves, and what its operator learns about them. A node therefore
+scales with its callers and the accounts they follow
+([Performance #8](#perf-8)), sorts its functions into categories a deployer
+grants separately ([Function categories](#function-categories)), and documents
+what its operator can see ([Privacy #6](#priv-6)). Pairing a wallet's runtime
+with a remote node, and enrolling and authenticating its callers, are delivered
+by Logos Core and are outside this RFP.
+
+**Reference users.** The requirements are written against two. An exchange reads
+chain state, tracks deposits to accounts it controls, and waits for a
+transaction to reach a level it is willing to act on. A wallet also needs what
+an exchange never asks for: the proofs it spends with, the pending set it checks
+while proving, and the publications and encrypted notes it receives through.
+
+Wallet and key management, transaction construction and signing, the protocol
+between LEZ nodes, the Logos Blockchain APIs, and hosting Logos Core in an
+application are separate components outside the scope of this RFP. The shapes an
 integration takes and what embedding a node costs are described in
 [Appendix: Integrating the Logos Technology Stack](../appendix/integrating-logos-technology-stack.md).
-
-Wallet and key management, transaction construction and signing, communication
-between LEZ nodes, the Logos Blockchain APIs, and hosting Logos Core in an
-application are separate components and are outside the scope of this RFP.
 
 ## 🔥 Why This Matters
 
@@ -601,21 +630,9 @@ may reach it, and its per method form narrows a caller to a list of methods
 [logos-capability-module#37](https://github.com/logos-co/logos-capability-module/pull/37)).
 Logos Core defines no user or administrator class.
 
-This RFP therefore proposes two sets of functions rather than two kinds of
-account. The **administrative set** is the functions that operate the node:
-starting it, stopping it, and resetting its storage. The **user set** is every
-other function [Functionality](#functionality) defines, which is what a wallet
-or integrator calls. A deployer grants either set, or any single function, to
-the callers it chooses. [#104](#f-104) fixes the assignment and [#105](#f-105)
-requires each function to be individually grantable.
-
-**The administrative set is closed unless granted.** Enforcement of the access
-policy is off unless the deployer turns it on, and a policy in force may admit a
-caller to every method of the module, so an administrative function cannot rely
-on the policy to protect it. [#106](#f-106) requires the module to refuse an
-administrative call itself, on the caller identity, unless the policy grants
-that caller the function by name or the caller is the runtime, its shell, or an
-operator of that runtime. A caller the runtime cannot identify is refused.
+This RFP therefore sorts the node's functions into categories rather than
+defining kinds of account; [Function categories](#function-categories) below
+sets them out.
 
 **The boundary is the module, not the FFI.** A caller identity exists only on a
 call that arrives through Logos Core. Whoever links the node FFI library and
@@ -627,6 +644,33 @@ two UI plugins, or two runtimes are two callers. Two wallets behind one calling
 module are one caller, and the node cannot tell them apart. Because the node
 keeps nothing per wallet, it does not need to. [Out of Scope](#out-of-scope)
 records that the node issues no credentials of its own.
+
+### Function categories
+
+Every function belongs to one of three categories, and a deployer grants a
+category, or any single function in it, to the callers it chooses
+([#104](#f-104) and [#105](#f-105)).
+
+- **User**: every function a wallet or an integrator calls to read the chain,
+  follow it, and submit a transaction, and to learn whether the node is healthy
+  and connected, through its status, version, and peer count. Every deployment
+  grants it to the wallets the node serves.
+- **Operations**: functions that observe how the node runs in more detail than a
+  user needs, or that disclose what an operator would not show its users, such
+  as the peer list with other operators' addresses ([#84](#f-84)) and any
+  metrics or diagnostics the module exposes. They change nothing, and a deployer
+  grants them to its own monitoring.
+- **Administrative**: functions that change how the node runs: starting and
+  stopping it, resetting its storage, and changing its configuration or its
+  logging. They are for the node's operator alone.
+
+**Operations and administrative functions are closed unless granted.**
+Enforcement of the access policy is off unless the deployer turns it on, and a
+policy in force may admit a caller to every method of the module, so neither
+category can rely on the policy to protect it. [#106](#f-106) requires the
+module to refuse such a call itself, on the caller identity, unless the caller
+is the host runtime, an operator of that runtime, or a caller the node's
+configuration names for that category.
 
 ### Retention is bounded and reported
 
@@ -1683,7 +1727,7 @@ Returns how many LEZ peers the node is connected to.
 83. <a id="f-83"></a>The FFI reports how many LEZ peers the node is connected
     to, inbound and outbound, and how many of them are in sequencer mode where a
     peer makes that known, so a caller can tell a node that can relay and
-    observe from one that cannot. It belongs to the user set. The sequencer's
+    observe from one that cannot. It is in the user category. The sequencer's
     gossip actor already tracks the peers it is connected to
     (`lez/sequencer/actors/gossip/src/actor.rs:82-86`). **[New]**
 
@@ -1695,9 +1739,9 @@ peer.
 84. <a id="f-84"></a>The FFI returns the node's peer identifier and listening
     addresses, and, for each connected peer, its identifier, address, direction,
     the time it connected, and, where known, whether it is in sequencer mode. A
-    peer's address is another operator's network identity, so the function
-    belongs to the administrative set ([#104](#f-104)), as Geth keeps
-    `admin_peers` off its public endpoints. **[New]**
+    peer's address is another operator's network identity, so the function is in
+    the operations category ([#104](#f-104)), as Geth keeps `admin_peers` off
+    its public endpoints. **[New]**
 
 ##### Private message delivery
 
@@ -1825,16 +1869,16 @@ sides agree on.
 
 94. <a id="f-94"></a>The LEZ node module publishes its contract in the Logos
     Core contract format, covering every method and event the module exposes:
-    its parameters, its return type, its error values, the set it belongs to
-    ([#104](#f-104)), and the node modes it is available in ([#98](#f-98)). That
-    format is a CDDL schema in the target and LIDL today, which the module
+    its parameters, its return type, its error values, the category it belongs
+    to ([#104](#f-104)), and the node modes it is available in ([#98](#f-98)).
+    That format is a CDDL schema in the target and LIDL today, which the module
     wrapping the FFI already publishes, derived from its header. Where the
-    format carries no field for the set or the mode per method, the contract
-    expresses them another way the documentation states, such as separate user
-    and administrative interfaces. The module describes its contract at run
-    time, and each release documents which FFI function serves each module
-    method. The existing `getSchema` describes the block, event record, and
-    event filter types rather than the surface, and is not exported
+    format carries no field for the category or the mode per method, the
+    contract expresses them another way the documentation states, such as
+    separate user and administrative interfaces. The module describes its
+    contract at run time, and each release documents which FFI function serves
+    each module method. The existing `getSchema` describes the block, event
+    record, and event filter types rather than the surface, and is not exported
     ([Appendix: Logos API Surfaces, section 2](../appendix/logos-api-surfaces.md#2-lez-indexer-rpc)).
     **[New]**
 
@@ -1935,22 +1979,24 @@ Stops the node and deletes the store of the zone the configuration names,
 without restarting it. Exposed by the node module only.
 
 104. <a id="f-104"></a>Every function this RFP defines belongs to exactly one of
-     two sets, and the contract of [#94](#f-94) states which. The user set holds
-     every function defined under the headings above but `query_peers`. The
-     administrative set holds `start_node`, `stop_node`, and `reset_storage`,
-     together with any other function the module exposes that changes how the
-     node runs, such as the FFI's `init_logger` were the module to expose it,
-     and `query_peers`, which discloses other operators' network addresses
-     ([#84](#f-84)). A function added to the surface later is assigned to a set
-     when it is added. **[New]**
+     the three categories of [Function categories](#function-categories), and
+     the contract of [#94](#f-94) states which. The user category holds every
+     function defined under the headings above but `query_peers`. The operations
+     category holds `query_peers` ([#84](#f-84)), and any function the module
+     exposes that reports how the node runs in more detail than its status does,
+     such as metrics. The administrative category holds `start_node`,
+     `stop_node`, and `reset_storage`, together with any other function the
+     module exposes that changes how the node runs, such as the FFI's
+     `init_logger` were the module to expose it. A function added to the surface
+     later is assigned to a category when it is added. **[New]**
 105. <a id="f-105"></a>Each function exposed through the node module is
      individually grantable. Where the deployer's Logos Core access policy
      grants a caller a list of methods on the module, that caller reaches those
      methods and no others, and the module is built so that such a grant is
      enforced against it rather than refused as unenforceable. **[New]**
-106. <a id="f-106"></a>An administrative function refuses a call unless the
-     caller is the host runtime, an operator of that runtime, or a caller the
-     node's own configuration names as an administrator of it. The module
+106. <a id="f-106"></a>An operations or administrative function refuses a call
+     unless the caller is the host runtime, an operator of that runtime, or a
+     caller the node's own configuration names for that category. The module
      decides this itself, from the caller identity Logos Core gives it: it
      cannot see which grant admitted a call, since grants are enforced before
      the module runs and the caller document carries only a kind, a name, and an
@@ -2024,12 +2070,17 @@ without restarting it. Exposed by the node module only.
 6. <a id="use-6"></a>Document the semantics of every pagination parameter,
    including the exclusivity of the block bound, what a cursor guarantees across
    ingestion, and the behaviour when new data lands during a walk.
-7. <a id="use-7"></a>Provide a reference Logos Core access policy for a node
-   serving wallets on its own runtime and for a node serving wallets on other
-   runtimes. Each grants the user set to wallets, and the administrative set to
-   no caller beyond those Functionality [#106](#f-106) admits.
+7. <a id="use-7"></a>Provide a reference Logos Core access policy for each kind
+   of deployment in
+   [Who uses it, and how it is deployed](#who-uses-it-and-how-it-is-deployed): a
+   user's own node, on the same machine as the wallet or another, a node in an
+   integrator's infrastructure serving its users' wallets, and a node an
+   operator offers as a service. Each grants the user category to wallets, the
+   operations category to the operator's monitoring, and the administrative
+   category to no caller beyond those Functionality [#106](#f-106) admits.
 8. <a id="use-8"></a>Document how a deployer grants a caller a single function
-   or a subset of the user set, such as the reads without `submit_transaction`.
+   or a subset of the user category, such as the reads without
+   `submit_transaction`.
 9. <a id="use-9"></a>Document the head and the final chain for a caller: what
    each level guarantees, how long a block takes to become final on testnet, how
    a read at the head reports that the head was replaced, and which level a
@@ -2095,13 +2146,19 @@ without restarting it. Exposed by the node module only.
    rate and transaction density.
 5. <a id="perf-5"></a>Benchmarks are reproducible from the test suite and run
    against a LEZ devnet or testnet node.
-6. <a id="perf-6"></a>Document the latency of the user set under concurrent
+6. <a id="perf-6"></a>Document the latency of the user category under concurrent
    callers, measured against a stated number of callers and open subscriptions,
    alongside the single caller figures.
 7. <a id="perf-7"></a>Document the size of the viewing key walk against the full
    blocks it is drawn from, in bytes per block and per encrypted note, and the
    time the node takes to serve a stated number of blocks of it, so a consumer
    restoring from a viewing key knows what fetching the walk from genesis costs.
+8. <a id="perf-8"></a>Document how one node scales with the deployments it
+   serves, from a user's own node to one an integrator or an operator runs for
+   many users: the callers, open subscriptions, and calls per second it sustains
+   on stated hardware, and how its cost grows with the number of accounts its
+   callers read and follow. Where a figure falls short of a node serving many
+   users, the documentation says so.
 
 #### Supportability
 
@@ -2146,9 +2203,10 @@ below means the node's FFI crate and the module that links it.
     transaction among them; a submission to a node in sequencer mode and to one
     outside it, and to one with no peers; a subscription resumed from a stored
     position across a disconnection, and one resumed from a position whose hash
-    does not match; an administrative call from a caller holding no grant, with
-    no access policy in force and with a policy that leaves the module open; and
-    two callers holding subscriptions when one of them cancels.
+    does not match; an administrative call and an operations call from a caller
+    holding no grant, with no access policy in force and with a policy that
+    leaves the module open; and two callers holding subscriptions when one of
+    them cancels.
 06. <a id="sup-6"></a>A README documents end-to-end usage: building the FFI and
     the module that links it, the configuration and storage directory
     `start_node` requires, and step-by-step instructions for every operation via
@@ -2282,7 +2340,7 @@ The following are explicitly excluded from this RFP:
   application calls on one node, and it reports the node's connectivity
   (Functionality [#83](#f-83), [#84](#f-84)) rather than exposing the protocol.
   That the node takes part in the network is part of the work (see
-  [Assumption A2](#a2-following-the-chain-serving-its-history-and-sequencing-are-one-node)).
+  [Assumption A3](#a3-following-the-chain-serving-its-history-and-sequencing-are-one-node)).
 - **Operating sequencer mode.** The reads and actions specific to running a
   sequencer, such as its committee, approvals, slashing, and cross-zone dead
   letters, are not part of this API. A node in sequencer mode serves the API
@@ -2320,6 +2378,12 @@ The following are explicitly excluded from this RFP:
   an API this RFP or any other in this set defines. Every read an integrator
   needs is required of the node above, whichever part of it holds the data
   today.
+- **Pairing, enrolment, and authentication of callers.** Pairing a wallet's
+  runtime with a node on another machine, enrolling the runtimes of many users,
+  and token based access are delivered by the Logos Core framework. This RFP
+  relies on the caller identity Logos Core gives each call, and sorts the node's
+  functions into the categories a deployer grants
+  ([Function categories](#function-categories)).
 - **Identifying wallets or users.** The node identifies a caller as Logos Core
   does and no finer. It issues no API keys, keeps no user accounts, and applies
   no quota or billing per user; the per-call and per-caller resource bounds of
@@ -2344,7 +2408,7 @@ The following are explicitly excluded from this RFP:
 - **Deploying and operating a node.** Mainnet deployment is not part of this
   RFP: whether, when, where and by whom a node exposing this API is deployed or
   operated, which callers a deployment admits, and who holds the administrative
-  set are matters for whoever deploys it.
+  category are matters for whoever deploys it.
 
 ## ⚠ Platform Dependencies
 
@@ -2353,7 +2417,7 @@ unexported, already computed by the node and discarded, or derivable from data
 the node's store already holds. The exceptions are what the target architecture
 needs that the node does not provide today. Closing them on the LEZ side is part
 of the work (see
-[Assumption A2](#a2-following-the-chain-serving-its-history-and-sequencing-are-one-node)),
+[Assumption A3](#a3-following-the-chain-serving-its-history-and-sequencing-are-one-node)),
 and each is listed so the work can be planned and costed.
 
 - **Peer-to-peer participation in every mode.** A node relays a submission
@@ -2386,6 +2450,12 @@ Access control and the contract rest on Logos Core in several places.
   contract, its description at run time, clients generated from it, and the
   contract hash peering compares are in the draft Logos Core specification, and
   [#94](#f-94) follows whichever has landed.
+- **A dependency needed in one mode.** A node in sequencer mode needs a Logos
+  Blockchain wallet module to inscribe with, and a node outside it does not
+  ([Assumption A2](#a2-a-sequencer-is-a-lez-node-in-sequencer-mode)). The module
+  builder's `optional_dependencies` loads a module when it is installed and
+  never requires it; whether a node can rely on it to bring the wallet module up
+  for sequencer mode alone is to be settled with Logos Core.
 - **Caller identities.** The caller document a module receives names a host, a
   module, a derived caller, an operator, or an unknown caller (`logos-protocol`
   `cpp/logos_module_impl.h:223-283`), and only host, module, and unknown are
