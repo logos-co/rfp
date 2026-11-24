@@ -1222,16 +1222,19 @@ execution succeeded.
     serves it. The cost is that a caller submitting through a sequencer learns
     its transaction is in a block only once that block is inscribed.
 
-    The API documents how the levels map onto `BedrockStatus`, whose `Pending`,
-    `Safe`, and `Finalized` (`lez/common/src/block.rs:118-121`) the node sets
-    only as `Pending` and `Finalized` today. Before a transaction is finalised
-    its level can move back as well as forward, and the API documents when. The
-    node reads blocks only once final
-    (`lez/chain_state/src/zone_indexer.rs:54-86`) and stamps every block it
-    stores `Finalized` (`lez/indexer/core/src/block_store.rs:362`); the
-    sequencer service already follows inscriptions at the L1 tip and folds them
-    into its head (`lez/chain_state/src/chain.rs:1-3`). No level comes before
-    inscription, since a node learns of a block only from its inscription
+    Every block the API returns already carries its L1 status, `bedrock_status`,
+    one of `Pending`, `Safe`, and `Finalized`
+    (`lez/indexer/ffi/src/api/types/block.rs:17`, `:123-128`), though no block
+    is set `Safe` today. A transaction's level agrees with the status of the
+    block holding it: inscribed while that block is `Pending` or `Safe`, and
+    finalised once it is `Finalized`. Before a transaction is finalised its
+    level can move back as well as forward, and the API documents when. The node
+    reads blocks only once final (`lez/chain_state/src/zone_indexer.rs:54-86`)
+    and stamps every block it stores `Finalized`
+    (`lez/indexer/core/src/block_store.rs:362`); the sequencer service already
+    follows inscriptions at the L1 tip and folds them into its head
+    (`lez/chain_state/src/chain.rs:1-3`). No level comes before inscription,
+    since a node learns of a block only from its inscription
     ([Assumption A7](#a7-lez-blocks-are-not-propagated-over-the-lez-p2p-protocol)).
     Whether a node can also see an inscription while it is still in the L1
     mempool is open, and a level is added if it can. **[New]**
