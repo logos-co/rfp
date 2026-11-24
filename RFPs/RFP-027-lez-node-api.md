@@ -135,8 +135,7 @@ sequencer mode reports it as not available in its mode ([#101](#f-101)).
 **Basis:** the integration guide, which has a LEZ node acting as a sequencer
 also use a Logos Blockchain wallet. **Rests on it:** the node's mode in status
 ([#45](#f-45)), admission and relay ([#47](#f-47) to [#49](#f-49)), the pending
-set ([#52](#f-52)), the produced level ([#39](#f-39)), and availability by mode
-([#101](#f-101)).
+set ([#52](#f-52)), and availability by mode ([#101](#f-101)).
 
 #### A3. Following the chain, serving its history, and sequencing are one node
 
@@ -1203,31 +1202,22 @@ execution succeeded.
     - **received**: the transaction is in the pending set the node holds or
       observes ([#52](#f-52)), having been submitted through this node or seen
       on the LEZ peer-to-peer network;
-    - **produced**, in sequencer mode only: in a block this node produced and
-      has not yet seen inscribed ([#101](#f-101));
-    - **inscribed**: in a LEZ block carried by an L1 block that is not yet
-      final, which an L1 reorganisation or a competing inscription can still
-      replace, returning the transaction to received or dropping it;
-    - **finalised**: inscribed in an L1 block that is final, so a caller acting
-      on it is acting on a settled result. This is not a statement about how
-      much of the chain the node has processed;
+    - **pending** (`BedrockStatus::Pending`): in a LEZ block carried by an L1
+      block that is not yet final, which an L1 reorganisation or a competing
+      inscription can still replace, returning the transaction to received or
+      dropping it;
+    - **finalized** (`BedrockStatus::Finalized`): in a LEZ block carried by an
+      L1 block that is final, so a caller acting on it is acting on a settled
+      result. This is not a statement about how much of the chain the node has
+      processed;
     - **dropped**, on the terms of [#42](#f-42).
 
-    **Open question: drop the produced level.** Only a node in sequencer mode
-    reports it, only for the blocks it produced itself, and only until it sees
-    them inscribed, so the same transaction reads as produced on one node and as
-    received on every other. Dropping it takes a transaction from received to
-    inscribed on every node, and keeps the head to inscribed blocks in both
-    modes ([#60](#f-60), [#99](#f-99)), so a read answers alike whichever node
-    serves it. The cost is that a caller submitting through a sequencer learns
-    its transaction is in a block only once that block is inscribed.
-
-    Inscribed corresponds to the LEZ `BedrockStatus` `Pending`, and finalised to
-    `Finalized` (`lez/common/src/block.rs:118-121`); `Safe` is never set today
-    and has no level. Before a transaction is finalised its level can move back
-    as well as forward, and the API documents when. The node reads blocks only
-    once final (`lez/chain_state/src/zone_indexer.rs:54-86`) and stamps every
-    block it stores `Finalized` (`lez/indexer/core/src/block_store.rs:362`); the
+    `pending` and `finalized` are the LEZ `BedrockStatus` values of the same
+    names (`lez/common/src/block.rs:118-121`); its `Safe` is never set today and
+    has no level. Before a transaction is finalized its level can move back as
+    well as forward, and the API documents when. The node reads blocks only once
+    final (`lez/chain_state/src/zone_indexer.rs:54-86`) and stamps every block
+    it stores `Finalized` (`lez/indexer/core/src/block_store.rs:362`); the
     sequencer service already follows inscriptions at the L1 tip and folds them
     into its head (`lez/chain_state/src/chain.rs:1-3`). No level comes before
     inscription, since a node learns of a block only from its inscription
@@ -1508,12 +1498,11 @@ resuming from a position the consumer already processed.
     once the head can be replaced; the pair already exists as `BlockMeta`
     (`lez/common/src/block.rs:11-14`). **[New]**
 60. <a id="f-60"></a>The API exposes a subscription to the head, notifying a
-    consumer of each block as it enters the head, inscribed or, in sequencer
-    mode, produced; of each head block that is replaced, with the block that
-    replaces it; and of each head block as it becomes final. The sequencer
-    service already folds each L1 update into its head as an extension or a
-    conflict with the blocks it orphans
-    (`lez/sequencer/core/src/lib.rs:350-358`). **[New]**
+    consumer of each block as it enters the head on inscription; of each head
+    block that is replaced, with the block that replaces it; and of each head
+    block as it becomes final. The sequencer service already folds each L1
+    update into its head as an extension or a conflict with the blocks it
+    orphans (`lez/sequencer/core/src/lib.rs:350-358`). **[New]**
 61. <a id="f-61"></a>A notification that cannot be delivered, because the
     consumer is not keeping up, ends the subscription with a final notice
     carrying the last position delivered, so the consumer resumes from it
@@ -1974,8 +1963,7 @@ Every function defined above is further bound by the following.
      [#46](#f-46) addresses. **[Ready]**
 099. <a id="f-99"></a>Every read of chain state takes a level, head or final,
      and answers against it. The head is every block the node has seen
-     inscribed, final or not, and, in sequencer mode, the blocks it produced and
-     has not yet seen inscribed; the final chain is the blocks inscribed in L1
+     inscribed, final or not; the final chain is the blocks inscribed in L1
      blocks that are final. A caller that omits the level reads the head, as the
      sequencer service answers today
      (`lez/sequencer/actors/executor/src/actor.rs:542-553`,
