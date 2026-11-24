@@ -1128,8 +1128,8 @@ Delivers the same walk as new blocks arrive.
 35. <a id="f-35"></a>The API documents what the walk serves for each kind of
     note, and that it serves every encrypted note in the range, whichever
     account it addresses. What a viewing key holder can and cannot establish
-    from it is documented with the LEZ wallet API, which does the scanning.
-    **[New]**
+    from it belongs in the LEZ wallet API's documentation, since the wallet does
+    the scanning. **[New]**
 
 ##### Commitment membership proofs
 
@@ -1222,11 +1222,11 @@ execution succeeded.
     serves it. The cost is that a caller submitting through a sequencer learns
     its transaction is in a block only once that block is inscribed.
 
-    The levels map onto `BedrockStatus`, whose `Pending`, `Safe`, and
-    `Finalized` (`lez/common/src/block.rs:118-121`) the node sets only as
-    `Pending` and `Finalized` today, and the mapping is documented. Before a
-    transaction is finalised its level can move back as well as forward, and the
-    API documents when. The node reads blocks only once final
+    The API documents how the levels map onto `BedrockStatus`, whose `Pending`,
+    `Safe`, and `Finalized` (`lez/common/src/block.rs:118-121`) the node sets
+    only as `Pending` and `Finalized` today. Before a transaction is finalised
+    its level can move back as well as forward, and the API documents when. The
+    node reads blocks only once final
     (`lez/chain_state/src/zone_indexer.rs:54-86`) and stamps every block it
     stores `Finalized` (`lez/indexer/core/src/block_store.rs:362`); the
     sequencer service already follows inscriptions at the L1 tip and folds them
@@ -1614,9 +1614,10 @@ indexed tip and an oldest-first walk at the retention floor. Exported today as
 `query_block_vec`, which descends only.
 
 70. <a id="f-70"></a>The query returns at most `limit` blocks, descending from
-    `from`, or from the indexed tip when `from` is absent. **[Ready]**
-71. <a id="f-71"></a>The bound is documented as exclusive in both directions.
-    The store already implements it that way when descending, from
+    `from`, or from the tip at the level read ([#99](#f-99)) when `from` is
+    absent. **[Ready]**
+71. <a id="f-71"></a>The API documents the bound as exclusive in both
+    directions. The store already implements it that way when descending, from
     `before_id.saturating_sub(1)`
     (`lez/storage/src/indexer/read_multiple.rs:11-12`) **[Ready]**; ascending is
     new with [#72](#f-72) **[New]**.
@@ -2342,7 +2343,7 @@ below means the node's FFI crate and the module that links it.
    which of those boundaries are enforced by encryption and which by the API
    declining to expose data it holds; and what an operator running their own
    node can see that a remote caller cannot. What a viewing key holder can learn
-   is documented with the LEZ wallet API.
+   belongs in the LEZ wallet API's documentation.
 4. <a id="priv-4"></a>No function discloses one caller's activity to another.
    Which accounts, commitments, and transactions a caller asked about, which
    subscriptions it holds and with what filter, and which caller submitted a
