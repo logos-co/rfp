@@ -1222,19 +1222,15 @@ execution succeeded.
     serves it. The cost is that a caller submitting through a sequencer learns
     its transaction is in a block only once that block is inscribed.
 
-    Every block the API returns already carries its L1 status, `bedrock_status`,
-    one of `Pending`, `Safe`, and `Finalized`
-    (`lez/indexer/ffi/src/api/types/block.rs:17`, `:123-128`), though no block
-    is set `Safe` today. A transaction's level agrees with the status of the
-    block holding it: inscribed while that block is `Pending` or `Safe`, and
-    finalised once it is `Finalized`. Before a transaction is finalised its
-    level can move back as well as forward, and the API documents when. The node
-    reads blocks only once final (`lez/chain_state/src/zone_indexer.rs:54-86`)
-    and stamps every block it stores `Finalized`
-    (`lez/indexer/core/src/block_store.rs:362`); the sequencer service already
-    follows inscriptions at the L1 tip and folds them into its head
-    (`lez/chain_state/src/chain.rs:1-3`). No level comes before inscription,
-    since a node learns of a block only from its inscription
+    Inscribed corresponds to the LEZ `BedrockStatus` `Pending`, and finalised to
+    `Finalized` (`lez/common/src/block.rs:118-121`); `Safe` is never set today
+    and has no level. Before a transaction is finalised its level can move back
+    as well as forward, and the API documents when. The node reads blocks only
+    once final (`lez/chain_state/src/zone_indexer.rs:54-86`) and stamps every
+    block it stores `Finalized` (`lez/indexer/core/src/block_store.rs:362`); the
+    sequencer service already follows inscriptions at the L1 tip and folds them
+    into its head (`lez/chain_state/src/chain.rs:1-3`). No level comes before
+    inscription, since a node learns of a block only from its inscription
     ([Assumption A7](#a7-lez-blocks-are-not-propagated-over-the-lez-p2p-protocol)).
     Whether a node can also see an inscription while it is still in the L1
     mempool is open, and a level is added if it can. **[New]**
@@ -1310,7 +1306,7 @@ Returns the node's own ingestion state as a JSON document: `state`,
 
 ##### Transaction submission
 
-Handing a signed transaction to the network
+Handing a public or privacy-preserving transaction to the network
 ([Appendix: Blockchain API and SDK Ecosystem, section 1.21](../appendix/blockchain-api-sdk-ecosystem.md#121-broadcast-a-signed-transaction)).
 
 - **Ethereum**: `eth_sendRawTransaction`.
@@ -1330,17 +1326,21 @@ constructs, signs, or executes a transaction.
 
 **`submit_transaction(transaction) -> PointerResult<FfiBytes32, OperationStatus>`**
 
-Accepts a signed transaction and returns the hash it will be known by.
+Accepts a public or privacy-preserving transaction and returns the hash it will
+be known by.
 
-47. <a id="f-47"></a>The API accepts a signed transaction and returns the
+47. <a id="f-47"></a>The API accepts a transaction of either kind, a public
+    transaction signed by its signers or a privacy-preserving transaction
+    carrying its proof (`lez/common/src/transaction.rs:20-23`), and returns the
     transaction hash a caller then tracks through `query_transaction_status`. A
-    node in sequencer mode admits the transaction to its own pending set; any
-    other node relays it over the LEZ peer-to-peer network to the nodes that
-    sequence, which is not part of this API. The node FFI has no such function.
-    The sequencer service's FFI in `core_ffi` has one,
+    node in sequencer mode admits the transaction to its own pending set, as the
+    sequencer service does today through its RPC's `sendTransaction`
+    (`lez/sequencer/service/rpc/src/lib.rs:52-53`) and its FFI's
     `sequencer_ffi_send_transaction`
-    (`lez/core_ffi/src/sequencer/api/query.rs:408-438`), which is prior art for
-    the shape. **[New]**
+    (`lez/core_ffi/src/sequencer/api/query.rs:408-438`), both taking either
+    kind. **[Ready, not exposed]** Any other node relays it over the LEZ
+    peer-to-peer network to the nodes that sequence, which is not part of this
+    API; no node outside sequencer mode submits today. **[New]**
 48. <a id="f-48"></a>Every node validates a transaction before it admits or
     relays it, against its head state, as the sequencer service screens fees
     against its head today
