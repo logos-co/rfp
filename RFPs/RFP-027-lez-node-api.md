@@ -254,7 +254,7 @@ as-built inventory of every layer.
 **Basis:** the integration guide and the draft Logos Core specification. **Rests
 on it:** the module contract ([#97](#f-97)), module parity ([#102](#f-102)),
 access control and concurrent callers ([#107](#f-107) to [#114](#f-114)), and
-Supportability [#10](#sup-9) and [#11](#sup-10).
+Supportability [#9](#sup-9) and [#10](#sup-10).
 
 #### A10. Each LEZ node follows one zone
 
@@ -273,7 +273,7 @@ supports several zones has to restart the LEZ node module to move from one zone
 to another. Running a node per zone would need Logos Core to run several
 instances of the node module, one per zone; otherwise one node serves several
 zones, and this assumption is invalidated. A clear plan for this is required
-(Supportability [#13](#sup-12)).
+(Supportability [#12](#sup-12)).
 
 **Basis:** the node's configuration and store today. **Rests on it:** the
 network identity ([#73](#f-73)), storage reset, which removes the store of the
@@ -2501,7 +2501,7 @@ and each is listed so the work can be planned and costed.
   sequencer the head. A node in either mode serves the API defined here from
   both. A sequencer's pending set is also only pushed to today
   (`lez/mempool/src/lib.rs:66-92`), so listing it is work in the sequencer. The
-  design decision log (Supportability [#12](#sup-11)) records how the two are
+  design decision log (Supportability [#11](#sup-11)) records how the two are
   brought together.
 - **The head.** The node reads blocks only once they are final on L1
   (`lez/chain_state/src/zone_indexer.rs:54-86`) and has no path for undoing a
@@ -2520,7 +2520,7 @@ Access control and the contract rest on Logos Core in several places.
   module, while a node follows one zone
   ([Assumption A10](#a10-each-lez-node-follows-one-zone)), so an application
   using several zones restarts the node module to move between them today.
-  Supportability [#13](#sup-12) asks for the plan.
+  Supportability [#12](#sup-12) asks for the plan.
 - **Call identifiers.** Logos Core gives each transport request an identifier
   the callee echoes (`logos-lips` draft `spec-module-transport.md:330-332`),
   records an authority decision identifier, and keeps call audit records naming
