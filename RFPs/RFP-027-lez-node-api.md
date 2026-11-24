@@ -658,6 +658,16 @@ distinctly from a read for data that never existed.
 
 ## ✅ Scope of Work
 
+The key words MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT,
+RECOMMENDED, NOT RECOMMENDED, MAY, and OPTIONAL in this document are to be
+interpreted as described in BCP 14
+([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119),
+[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)) when, and only when, they
+appear in all capitals, as shown here. Hard requirements are stated with MUST or
+MUST NOT, and soft requirements with SHOULD; text outside the requirement lists,
+such as rationale, descriptions of the current code, and citations, is
+informative.
+
 ### Hard Requirements
 
 #### Functionality
@@ -719,15 +729,15 @@ Returns the transaction carrying the given hash, as stored in the block that
 holds it, together with its effects ([#5](#f-5) to [#9](#f-9)). Absence is
 signalled structurally, through `FfiOption`, and not through the status channel.
 
-1. <a id="f-1"></a>The query returns the stored transaction for a known hash and
-   an absent `FfiOption` for a hash no indexed block holds, keeping the two
+1. <a id="f-1"></a>The query MUST return the stored transaction for a known hash
+   and an absent `FfiOption` for a hash no indexed block holds, keeping the two
    distinct from a backend failure. **[Ready]**
-2. <a id="f-2"></a>The returned transaction discriminates public and
+2. <a id="f-2"></a>The returned transaction MUST discriminate public and
    privacy-preserving bodies, exposing for each the fields the wire type carries
    (`lez/indexer/service/protocol/src/lib.rs:254-441`). A program is deployed by
    a public transaction to the program loader rather than by a transaction kind
    of its own. **[Ready]**
-3. <a id="f-3"></a>The returned transaction carries every field of the
+3. <a id="f-3"></a>The returned transaction MUST carry every field of the
    transaction as the chain holds it, so a caller can recompute its hash. The
    wire type drops a privacy-preserving transaction's program image claims
    (`lez/indexer/service/protocol/src/convert.rs:599-602`), so a transaction
@@ -740,8 +750,8 @@ signalled structurally, through `FfiOption`, and not through the status channel.
    to block keeps only the latest of them
    (`lez/storage/src/indexer/write_atomic.rs:40-46`), and the transaction a read
    by hash returns carries no block identifier, so such a read is ambiguous. The
-   LEZ maintainers choose one of the following, and the API documents the
-   guarantee that results:
+   LEZ maintainers MUST choose one of the following, and the API documentation
+   MUST state the guarantee that results:
    - **A. Make the fee transaction unique.** The fee transaction carries its
      block identifier, as the clock transaction that closes each block already
      does (`lez/common/src/transaction.rs:267-283`), so a hash names one
@@ -763,11 +773,11 @@ signalled structurally, through `FfiOption`, and not through the status channel.
 rather than recomputed on the caller's behalf, as Solana's `getTransaction`,
 XRPL's `tx`, and Sui's `sui_getTransactionBlock` return effects with the
 transaction rather than from a call of their own. If returning effects with
-every transaction read proves a performance bottleneck, they may instead be
+every transaction read proves a performance bottleneck, they MAY instead be
 served by a separate function, such as `query_transaction_effects(hash)`, and
 the requirements below hold either way.
 
-5. <a id="f-5"></a>The API returns, with a transaction read by its hash, the
+5. <a id="f-5"></a>The API MUST return, with a transaction read by its hash, the
    state diff that transaction produced: the accounts whose public state
    changed, with their pre-state and post-state nonces and, for each actor state
    that changed and only those, its pre-state and post-state value; the new
@@ -778,64 +788,65 @@ the requirements below hold either way.
    included (`lee/state_machine/src/validated_state_diff/mod.rs:33-42`), and any
    party can write actor states of any size onto any account, so reporting whole
    states would let a third party inflate every effects response for an account
-   it targets. The diff is the one the chain applied when the transaction
+   it targets. The diff MUST be the one the chain applied when the transaction
    settled, as the node computes it on ingest
    (`lez/chain_state/src/apply.rs:391-812`), not one recomputed for the caller.
    A transaction paying a declared fee settles as separate diffs for its fee
    reserve, its action, and its refund (`lez/chain_state/src/apply.rs:654-812`);
    one paying from a reserve its proof commits to carries the reserve as a
    crossing inside its action, with any refund separate
-   (`lez/chain_state/src/apply.rs:485-592`). Each diff is reported with the
+   (`lez/chain_state/src/apply.rs:485-592`). Each diff MUST be reported with the
    state it applied to. **[Computed, not persisted]**
 
-6. <a id="f-6"></a>The read returns a balance delta per affected account,
+6. <a id="f-6"></a>The read MUST return a balance delta per affected account,
    expressed as pre-state and post-state values, for public transactions and for
    the public leg of privacy-preserving transactions. The native balance is the
    account's actor state at the native token program
    (`lez/indexer/service/protocol/src/lib.rs:106-127`), and a token held through
-   another program is that program's actor state, so the delta is reported per
-   actor state rather than as a single balance. **[Computed, not persisted]**
+   another program is that program's actor state, so the delta MUST be reported
+   per actor state rather than as a single balance. **\[Computed, not
+   persisted\]**
 
-7. <a id="f-7"></a>The fee is reported separately from the balance changes the
-   transaction itself caused, naming the account charged, the amount taken, and
-   any amount refunded. An exchange reconciling a withdrawal has to tell what it
-   sent from what it paid to send it, and a caller that has to reconstruct the
-   fee by arithmetic on the remaining deltas is reimplementing the chain's fee
-   rules. A public transaction declares a payer, a gas limit, a tip, and a cap
-   on the fee; the payer need not be an account the transaction otherwise acts
-   on, but it must sign (`lee/state_machine/src/fees.rs:34-52`). A
-   privacy-preserving transaction pays either from a reserve its proof commits
+7. <a id="f-7"></a>The fee MUST be reported separately from the balance changes
+   the transaction itself caused, naming the account charged, the amount taken,
+   and any amount refunded. An exchange reconciling a withdrawal has to tell
+   what it sent from what it paid to send it, and a caller that has to
+   reconstruct the fee by arithmetic on the remaining deltas is reimplementing
+   the chain's fee rules. A public transaction declares a payer, a gas limit, a
+   tip, and a cap on the fee; the payer need not be an account the transaction
+   otherwise acts on, but it must sign (`lee/state_machine/src/fees.rs:34-52`).
+   A privacy-preserving transaction pays either from a reserve its proof commits
    to, together with a tip it commits, or through a fee declaration signed by
    one of its public signers, as a public transaction does, and the effects
-   query reports which. A surplus left in a proof-committed reserve has one of
-   three fates: refunded to the target the proof names, published to the payer's
-   bound alias as a private credit, or, when it is no more than
+   query MUST report which. A surplus left in a proof-committed reserve has one
+   of three fates: refunded to the target the proof names, published to the
+   payer's bound alias as a private credit, or, when it is no more than
    `MIN_PRIVATE_REFUND` or there is nowhere to send it, kept as tip
-   (`lez/chain_state/src/apply.rs:575-592`), and the query reports which and
+   (`lez/chain_state/src/apply.rs:575-592`), and the query MUST report which and
    where. The base fee, tip, and refund, the account charged, which way a
    privacy-preserving transaction paid, and the fate of its surplus are computed
    when the transaction settles and then discarded **\[Computed, not
    persisted\]** (on `dev` since `f99ba435f`, after `v0.4.0-rc3`, the base fee,
    tip, and refund are kept in the block's receipts). A fee-exempt system
-   transaction is reported as exempt rather than as one that paid nothing.
+   transaction MUST be reported as exempt rather than as one that paid nothing.
 
-8. <a id="f-8"></a>The gas a transaction consumed is reported alongside the fee,
-   in each dimension the chain meters, execution and storage
+8. <a id="f-8"></a>The gas a transaction consumed MUST be reported alongside the
+   fee, in each dimension the chain meters, execution and storage
    (`lez/programs/fee/core/src/lib.rs:24-29`), so a caller comparing what it
    budgeted against what it paid can tell a transaction that ran long from one
    that paid a high price per unit. Both kinds of transaction are metered: a
    privacy-preserving transaction is charged a fixed verification cost, storage
    on its serialized size with its proof counted at a fixed length, and the
    metered execution of its public part
-   (`lez/chain_state/src/apply.rs:515-544`). The API reports a fee-exempt
+   (`lez/chain_state/src/apply.rs:515-544`). The API MUST report a fee-exempt
    transaction as exempt rather than as one that consumed zero, which a charged
    transaction never does, since it always meters storage. **\[Computed, not
    persisted\]** (on `dev` since `f99ba435f`, after `v0.4.0-rc3`, the block's
    receipts carry both dimensions and record an exempt transaction as all zeros,
    `lez/common/src/block.rs:59-95`).
 
-9. <a id="f-9"></a>The effects include the events the transaction emitted, in
-   the order it emitted them, each as [#12](#f-12) describes, as Ethereum's
+9. <a id="f-9"></a>The effects MUST include the events the transaction emitted,
+   in the order it emitted them, each as [#12](#f-12) describes, as Ethereum's
    receipt carries its logs and Solana's `getTransaction` its log messages. The
    FFI serves them today through `query_events` with a transaction hash
    (`lez/indexer/ffi/src/api/query.rs:553-583`), which reports a hash it does
@@ -847,8 +858,8 @@ the requirements below hold either way.
 Returns the receipt the block records for a transaction: whether its action
 applied, and the gas, base fee, tip, and refund it was charged.
 
-10. <a id="f-10"></a>The API returns a transaction's receipt, exporting what the
-    node RPC's `getTransactionReceipt` serves
+10. <a id="f-10"></a>The API MUST return a transaction's receipt, exporting what
+    the node RPC's `getTransactionReceipt` serves
     (`lez/indexer/service/rpc/src/lib.rs:100-105`,
     `lez/indexer/ffi/src/api/query.rs:359-407`). The wallet already reads a
     finished transaction's outcome this way, from the sequencer service today
@@ -856,9 +867,9 @@ applied, and the gas, base fee, tip, and refund it was charged.
     since `f99ba435f`, after `v0.4.0-rc3`).
 11. <a id="f-11"></a>A transaction the chain records without a receipt, the fee
     and clock transactions that close each block
-    (`lez/common/src/block.rs:100-105`), is reported as having none, distinctly
-    from a hash no indexed block holds. Both return an absent receipt today.
-    **[New]**
+    (`lez/common/src/block.rs:100-105`), MUST be reported as having none,
+    distinctly from a hash no indexed block holds. Both return an absent receipt
+    today. **[New]**
 
 **`query_events(from_block, to_block, program_account_id, selector) -> PointerResult<FfiVec<FfiEventRecord>, OperationStatus>`**
 
@@ -868,22 +879,23 @@ program and selector. The events of one transaction come with the transaction
 read instead ([#9](#f-9)), so the query takes no transaction hash, which the
 FFI's `query_events` does today (`lez/indexer/ffi/src/api/query.rs:536-543`).
 
-12. <a id="f-12"></a>The query returns each matching event record with its block
-    identifier, transaction index, transaction hash, emitting program, selector,
-    and data payload **[Ready]**, and its index among the transaction's events,
-    so a consumer deduplicates and resumes by event **[New]**.
-13. <a id="f-13"></a>A request the query cannot answer is reported as the
+12. <a id="f-12"></a>The query MUST return each matching event record with its
+    block identifier, transaction index, transaction hash, emitting program,
+    selector, and data payload **[Ready]**, and its index among the
+    transaction's events, so a consumer deduplicates and resumes by event
+    **[New]**.
+13. <a id="f-13"></a>A request the query cannot answer MUST be reported as the
     outcome [#101](#f-101) and [#103](#f-103) define for its case rather than as
     an empty result: a range spanning more than `MAX_EVENT_QUERY_BLOCK_SPAN`
     blocks, or inverted, as an invalid argument; a bound past the indexed tip as
     the lagging case; a range outside the node's event-filter history as data
     the node does not hold, as a read below the retention floor is. Each returns
     `InvalidArgument` today (`lez/indexer/ffi/src/api/query.rs:553-633`). The
-    query also bounds the size of its response, as the node RPC does at 8 MiB
-    (`lez/indexer/service/src/service.rs:28`), and reports a result past the
-    bound as too large rather than truncating it. **[New]**
+    query MUST also bound the size of its response, as the node RPC does at 8
+    MiB (`lez/indexer/service/src/service.rs:28`), and MUST report a result past
+    the bound as too large rather than truncating it. **[New]**
 14. <a id="f-14"></a>Events emitted by the public part of a privacy-preserving
-    transaction are indexed as a public transaction's are
+    transaction MUST be indexed as a public transaction's are
     (`lee/state_machine/src/validated_state_diff/mod.rs:586-621`), and execution
     inside the proof emits none a node can observe, so the query, and the events
     a transaction read returns, answer for public execution only. **[Ready]**
@@ -929,12 +941,12 @@ caller chooses ([#97](#f-97)).
 Returns the account record as it stands at the level read: its nonce, and one
 actor state per program holding state on the account.
 
-15. <a id="f-15"></a>The query returns the account's nonce and its actor states,
-    each keyed by the account identifier of the program it belongs to
+15. <a id="f-15"></a>The query MUST return the account's nonce and its actor
+    states, each keyed by the account identifier of the program it belongs to
     (`lez/indexer/service/protocol/src/lib.rs:100-110`). The native balance is
-    the actor state at the native token program, and the API documents how to
-    read it. **[Ready]**
-16. <a id="f-16"></a>An identifier the state holds no record for returns an
+    the actor state at the native token program, and the API documentation MUST
+    state how to read it. **[Ready]**
+16. <a id="f-16"></a>An identifier the state holds no record for MUST return an
     absent `FfiOption`, distinct from a recorded account whose actor states are
     empty and from a backend failure. **[Ready]**
 
@@ -943,8 +955,8 @@ actor state per program holding state on the account.
 Returns an account's nonce and the actor state of one program, optionally pinned
 to a block.
 
-17. <a id="f-17"></a>The API exposes a read of one program's actor state on an
-    account, with the account's nonce, at the tip or at a pinned block,
+17. <a id="f-17"></a>The API MUST expose a read of one program's actor state on
+    an account, with the account's nonce, at the tip or at a pinned block,
     exporting the existing `getAccountView` and `getAccountViewAtBlock` node RPC
     methods (`lez/indexer/service/rpc/src/lib.rs:83-91`). Nothing bounds how
     many actor states an account holds or how large each is, and any party can
@@ -957,12 +969,12 @@ to a block.
 Returns an account's nonce, its native balance, and the size of each actor state
 rather than its bytes.
 
-18. <a id="f-18"></a>The API exposes an account summary: the nonce, the native
-    balance, and the size of each actor state rather than its bytes, exporting
-    the existing `getAccountSummary` node RPC method, so a caller learns which
-    programs hold state on an account in a response whose size follows their
-    count. **[Ready, not exposed]**
-19. <a id="f-19"></a>An identifier the state holds no record for returns an
+18. <a id="f-18"></a>The API MUST expose an account summary: the nonce, the
+    native balance, and the size of each actor state rather than its bytes,
+    exporting the existing `getAccountSummary` node RPC method, so a caller
+    learns which programs hold state on an account in a response whose size
+    follows their count. **[Ready, not exposed]**
+19. <a id="f-19"></a>An identifier the state holds no record for MUST return an
     absent `FfiOption`, on the same terms as the account read ([#16](#f-16)).
     The RPC method returns a default summary for it today
     (`lez/indexer/service/src/service.rs:151-161`), which a caller cannot tell
@@ -973,18 +985,19 @@ rather than its bytes.
 Returns a public account's balances, decoded: its native balance, and its
 balance in each token a builtin token program issues.
 
-20. <a id="f-20"></a>The API returns a public account's native balance, decoded
-    from its actor state at the native token program, as the summary already
-    decodes it (`lez/indexer/service/src/service.rs:164`) and as the sequencer
-    service's `getAccountBalance` serves it today
+20. <a id="f-20"></a>The API MUST return a public account's native balance,
+    decoded from its actor state at the native token program, as the summary
+    already decodes it (`lez/indexer/service/src/service.rs:164`) and as the
+    sequencer service's `getAccountBalance` serves it today
     (`lez/sequencer/service/rpc/src/lib.rs:82`). **[Ready, not exposed]**
-21. <a id="f-21"></a>The same call returns the account's balance in each token a
-    builtin token program issues, decoded, each with the identifier of the token
-    it is denominated in, and the API documents which programs it decodes. A
-    wrapped token's balance sits not on the holder's account but in a holding
-    account the program derives from the token and the holder, whose data is the
-    balance (`lez/programs/wrapped_token/core/src/lib.rs:171-198`), so the node
-    resolves it for each wrapped token deployed. Solana's node does the same for
+21. <a id="f-21"></a>The same call MUST return the account's balance in each
+    token a builtin token program issues, decoded, each with the identifier of
+    the token it is denominated in, and the API documentation MUST state which
+    programs it decodes. A wrapped token's balance sits not on the holder's
+    account but in a holding account the program derives from the token and the
+    holder, whose data is the balance
+    (`lez/programs/wrapped_token/core/src/lib.rs:171-198`), so the node MUST
+    resolve it for each wrapped token deployed. Solana's node does the same for
     a fixed set of well-known programs, SPL Token among them, and returns any
     other program's accounts as raw bytes
     ([Appendix: Blockchain API and SDK Ecosystem, section 1.8](../appendix/blockchain-api-sdk-ecosystem.md#18-get-a-balance)).
@@ -995,32 +1008,34 @@ balance in each token a builtin token program issues.
 
 Returns the account record as it stood at a given block, rather than at the tip.
 
-22. <a id="f-22"></a>The API exposes an account read pinned to a block
+22. <a id="f-22"></a>The API MUST expose an account read pinned to a block
     identifier, returning the account record as it stood at that block, on the
     same terms as the read at the tip. This exports the existing
     `getAccountAtBlock` node RPC method
     ([Appendix: Logos API Surfaces, section 2](../appendix/logos-api-surfaces.md#2-lez-indexer-rpc)).
     **[Ready, not exposed]**
-23. <a id="f-23"></a>The pinned read returns the hash of the block it answered
-    against, and the API documents that a block identifier at the head names a
-    height rather than a block: until it is final, the same identifier can
-    resolve to a different block after the head is replaced, and the hash is
-    what tells a caller which one it read. **[New]**
+23. <a id="f-23"></a>The pinned read MUST return the hash of the block it
+    answered against, and the API documentation MUST state that a block
+    identifier at the head names a height rather than a block: until it is
+    final, the same identifier can resolve to a different block after the head
+    is replaced, and the hash is what tells a caller which one it read.
+    **[New]**
 
 **`query_accounts(account_ids, block_id) -> PointerResult<FfiVec<FfiOption<FfiAccount>>, OperationStatus>`**
 
 Returns one result per requested account identifier, optionally pinned to a
 block.
 
-24. <a id="f-24"></a>The API exposes a batch account read taking a list of
+24. <a id="f-24"></a>The API MUST expose a batch account read taking a list of
     account identifiers and returning a result per identifier in request order.
-    An identifier the state holds no record for is reported absent in its entry
-    rather than failing the call. **[New]**
-25. <a id="f-25"></a>The batch account read accepts an optional block identifier
-    that pins every account in the batch to the same block, so a multi-account
-    read is internally consistent under concurrent ingestion. **[New]**
-26. <a id="f-26"></a>The batch read also returns, per account, the summary of
-    [#18](#f-18) or the view of one program's actor state of [#17](#f-17) in
+    An identifier the state holds no record for MUST be reported absent in its
+    entry rather than failing the call. **[New]**
+25. <a id="f-25"></a>The batch account read MUST accept an optional block
+    identifier that pins every account in the batch to the same block, so a
+    multi-account read is internally consistent under concurrent ingestion.
+    **[New]**
+26. <a id="f-26"></a>The batch read MUST also return, per account, the summary
+    of [#18](#f-18) or the view of one program's actor state of [#17](#f-17) in
     place of the whole record, as the caller asks, so a batch never carries the
     unbounded actor states [#17](#f-17) warns of. The wallet reads its accounts'
     nonces in a batch today, through the sequencer service's `getAccountsNonces`
@@ -1042,24 +1057,24 @@ holds the data in its own state (`lee/state_machine/src/state/mod.rs:357-406`).
 
 Returns a page of publications in commitment-set order, from a given position.
 
-27. <a id="f-27"></a>The API lists publications in position order from a given
-    position, each with its position: for a clear publication its plaintext
-    envelope, and for a sealed one its commitment and encrypted note. Each page
-    also carries, once, the recovery note bound to each destination of a clear
-    publication in it, as the state already pages them
+27. <a id="f-27"></a>The API MUST list publications in position order from a
+    given position, each with its position: for a clear publication its
+    plaintext envelope, and for a sealed one its commitment and encrypted note.
+    Each page MUST also carry, once, the recovery note bound to each destination
+    of a clear publication in it, as the state already pages them
     (`lee/state_machine/src/state/mod.rs:178-181`,
     `lee/state_machine/src/state/mod.rs:383-406`) and the sequencer service's
     `getPublications` returns them. **[Ready, not exposed]**
-28. <a id="f-28"></a>The listing is bounded and reports whether more entries
-    remain, on the same terms as the other paginated reads, and takes no account
-    identifier, so a wallet receiving messages discloses nothing beyond the
-    position it resumes from. **[New]**
+28. <a id="f-28"></a>The listing MUST be bounded and MUST report whether more
+    entries remain, on the same terms as the other paginated reads, and MUST NOT
+    take an account identifier, so a wallet receiving messages discloses nothing
+    beyond the position it resumes from. **[New]**
 
 **`query_recovery_binding(address) -> PointerResult<FfiOption<FfiEncryptedNote>, OperationStatus>`**
 
 Returns the encrypted note bound to a private address, if one is.
 
-29. <a id="f-29"></a>The API returns the recovery note bound to a private
+29. <a id="f-29"></a>The API MUST return the recovery note bound to a private
     address, or an absent `FfiOption` when none is, at the level read
     ([#97](#f-97)), exporting what the sequencer service's `getRecoveryBinding`
     serves today from its head. A wallet building a transaction reads it at the
@@ -1067,12 +1082,12 @@ Returns the encrypted note bound to a private address, if one is.
     duplicate binding making the transaction invalid, and whether the
     destination of a clear send is bound, a clear send to an unbound one being
     refused (`lez/wallet/src/lib.rs:1474-1520`). **[Ready, not exposed]**
-30. <a id="f-30"></a>The API documents that this lookup names a private address
-    to the node: the caller's own, or, when a sender checks a destination before
-    a clear send, the address of the account it is about to pay. A consumer
-    reading its own notes without disclosing its addresses reads them from the
-    publication listing or the viewing key walk instead, neither of which takes
-    an address. **[New]**
+30. <a id="f-30"></a>The API documentation MUST state that this lookup names a
+    private address to the node: the caller's own, or, when a sender checks a
+    destination before a clear send, the address of the account it is about to
+    pay. A consumer reading its own notes without disclosing its addresses reads
+    them from the publication listing or the viewing key walk instead, neither
+    of which takes an address. **[New]**
 
 ##### Viewing key reads
 
@@ -1097,7 +1112,7 @@ carries with the public values needed to decrypt and check it.
 
 Delivers the same walk as new blocks arrive.
 
-31. <a id="f-31"></a>The API exposes a walk, ascending by block from a given
+31. <a id="f-31"></a>The API MUST expose a walk, ascending by block from a given
     block, returning for each privacy-preserving transaction its hash, its index
     in the block, and whether its action applied, and for each encrypted note it
     carries the values a scanner needs to open and check it: for a private
@@ -1105,30 +1120,30 @@ Delivers the same walk as new blocks arrive.
     commitment's position in the commitment set, and its encrypted post-state;
     for a sealed async message, its commitment, note, and position; and for a
     recovery binding, its address and note. Proofs, witness sets, and public
-    bodies are omitted; a clear publication, whose envelope is plaintext, is
+    bodies MUST be omitted; a clear publication, whose envelope is plaintext, is
     read from the publication listing, [#27](#f-27). The notes are in the stored
     transaction (`lez/indexer/service/protocol/src/lib.rs:362-441`), whether an
     action applied is in the block's receipts, and the positions are in the
     state's commitment set and publications, so the work is a compact projection
     of data the node holds. **[New]**
-32. <a id="f-32"></a>The walk covers every encrypted note whatever kind of
+32. <a id="f-32"></a>The walk MUST cover every encrypted note whatever kind of
     private account it addresses: a regular private account, a private PDA, and
     a shared private account keyed from a group master secret, of either kind.
     The node needs no knowledge of which kind a note belongs to, and the walk
-    does not depend on it. **[New]**
-33. <a id="f-33"></a>The walk takes no viewing key, account identifier, or other
-    value tied to the consumer's accounts. Every caller asking for the same
-    range receives the same result, so the walk discloses to the node the range
-    read and nothing else. **[New]**
-34. <a id="f-34"></a>The walk resumes from a block identifier and hash on the
-    same terms as the block subscription, [#60](#f-60), and is also delivered as
-    a subscription, so a viewing key consumer following the tip neither polls
-    nor misses a block. **[New]**
-35. <a id="f-35"></a>The API documents what the walk serves for each kind of
-    note, and that it serves every encrypted note in the range, whichever
-    account it addresses. What a viewing key holder can and cannot establish
-    from it belongs in the LEZ wallet API's documentation, since the wallet does
-    the scanning. **[New]**
+    MUST NOT depend on it. **[New]**
+33. <a id="f-33"></a>The walk MUST NOT take a viewing key, account identifier,
+    or other value tied to the consumer's accounts. Every caller asking for the
+    same range MUST receive the same result, so the walk discloses to the node
+    the range read and nothing else. **[New]**
+34. <a id="f-34"></a>The walk MUST resume from a block identifier and hash on
+    the same terms as the block subscription, [#60](#f-60), and MUST also be
+    delivered as a subscription, so a viewing key consumer following the tip
+    neither polls nor misses a block. **[New]**
+35. <a id="f-35"></a>The API documentation MUST state what the walk serves for
+    each kind of note, and that it serves every encrypted note in the range,
+    whichever account it addresses. What a viewing key holder can and cannot
+    establish from it belongs in the LEZ wallet API's documentation, since the
+    wallet does the scanning. **[New]**
 
 ##### Commitment membership proofs
 
@@ -1157,23 +1172,23 @@ position and no commitment.
 Returns a membership proof per requested commitment and per requested message
 position, together with the commitment set root they are proven against.
 
-36. <a id="f-36"></a>The API returns, for a list of commitments and a list of
-    message positions, a membership proof per entry in request order and the
+36. <a id="f-36"></a>The API MUST return, for a list of commitments and a list
+    of message positions, a membership proof per entry in request order and the
     commitment set root those proofs are proven against. A commitment or
-    position the set does not hold is reported as absent per entry rather than
-    failing the call. This is the data the sequencer service's
+    position the set does not hold MUST be reported as absent per entry rather
+    than failing the call. This is the data the sequencer service's
     `getProofsAndRoot` returns today
     (`lez/sequencer/service/rpc/src/lib.rs:131-145`), which the wallet reaches
     the sequencer for (`lez/wallet/src/lib.rs:1310-1325`), and the state the
     node already holds answers it (`lee/state_machine/src/state/mod.rs:206`,
     `lee/state_machine/src/state/mod.rs:431-438`). **[Ready, not exposed]**
-37. <a id="f-37"></a>The proofs and the root returned by one call are consistent
-    with one another: every proof verifies against the returned root, as those
-    `getProofsAndRoot` returns do. **[Ready, not exposed]**
-38. <a id="f-38"></a>The API documents that this read names to the node the
-    commitments and message positions the caller is about to spend, which is
-    what a node shared by several wallets learns from it, and Privacy
-    [#7](#priv-7)'s list of disclosing calls includes it. Soft [#6](#soft-6)
+37. <a id="f-37"></a>The proofs and the root returned by one call MUST be
+    consistent with one another: every proof verifies against the returned root,
+    as those `getProofsAndRoot` returns do. **[Ready, not exposed]**
+38. <a id="f-38"></a>The API documentation MUST state that this read names to
+    the node the commitments and message positions the caller is about to spend,
+    which is what a node shared by several wallets learns from it, and Privacy
+    [#7](#priv-7)'s list of disclosing calls MUST include it. Soft [#6](#soft-6)
     asks for a way to spend that names none. **[New]**
 
 ##### Transaction status
@@ -1193,10 +1208,10 @@ Answering how far a transaction has progressed and whether it succeeded
 Returns how far a transaction has progressed, where it sits, and whether its
 execution succeeded.
 
-39. <a id="f-39"></a>The API exposes a per-transaction status query returning a
-    level from a documented set that distinguishes at minimum the following, and
-    each level documents what a caller may conclude from it, that documented
-    meaning being what the API guarantees:
+39. <a id="f-39"></a>The API MUST expose a per-transaction status query
+    returning a level from a documented set that distinguishes at minimum the
+    following, and the documentation of each level MUST state what a caller may
+    conclude from it, that documented meaning being what the API guarantees:
 
     - **not known**, on the terms of [#42](#f-42);
     - **received**: the transaction is in the pending set the node holds or
@@ -1213,29 +1228,30 @@ execution succeeded.
     `pending` and `finalized` are the LEZ `BedrockStatus` values of the same
     names (`lez/common/src/block.rs:118-121`); its `Safe` is never set today and
     has no level. Before a transaction is finalized its level can move back as
-    well as forward, and the API documents when. The node reads blocks only once
-    final (`lez/chain_state/src/zone_indexer.rs:54-86`) and stamps every block
-    it stores `Finalized` (`lez/indexer/core/src/block_store.rs:362`); the
-    sequencer service already follows inscriptions at the L1 tip and folds them
-    into its head (`lez/chain_state/src/chain.rs:1-3`). No level comes before
-    inscription, since a node learns of a block only from its inscription
+    well as forward, and the API documentation MUST state when. The node reads
+    blocks only once final (`lez/chain_state/src/zone_indexer.rs:54-86`) and
+    stamps every block it stores `Finalized`
+    (`lez/indexer/core/src/block_store.rs:362`); the sequencer service already
+    follows inscriptions at the L1 tip and folds them into its head
+    (`lez/chain_state/src/chain.rs:1-3`). No level comes before inscription,
+    since a node learns of a block only from its inscription
     ([Assumption A7](#a7-lez-blocks-are-not-propagated-over-the-lez-p2p-protocol)).
     Whether a node can also see an inscription while it is still in the L1
     mempool is open, and a level is added if it can. **[New]**
 
-40. <a id="f-40"></a>The per-transaction status query returns the identifier and
-    hash of the block containing the transaction and the transaction's index in
-    it, which the node's store already resolves from the transaction hash
+40. <a id="f-40"></a>The per-transaction status query MUST return the identifier
+    and hash of the block containing the transaction and the transaction's index
+    in it, which the node's store already resolves from the transaction hash
     (`lez/indexer/core/src/block_store.rs:161-163`) **[Ready, not exposed]**,
     and the L1 block the level was assessed against, so a caller can tell how
     current the answer is. The store already records the L1 slot of the
     validated tip (`lez/indexer/core/src/block_store.rs:211-216`) **\[Ready, not
     exposed\]**; the rest is **[New]**.
 
-41. <a id="f-41"></a>The per-transaction status query reports execution success
-    or failure, with a typed reason on failure, for any transaction the node has
-    executed. A charged transaction whose action fails is included in its block
-    and keeps its fee, and its receipt records the failure
+41. <a id="f-41"></a>The per-transaction status query MUST report execution
+    success or failure, with a typed reason on failure, for any transaction the
+    node has executed. A charged transaction whose action fails is included in
+    its block and keeps its fee, and its receipt records the failure
     (`lez/common/src/block.rs:79-84`), which the FFI block type and
     `query_transaction_receipt` carry; that outcome is **\[Ready, not
     exposed\]**: the block keeps a list of reverted transactions that the FFI
@@ -1245,35 +1261,35 @@ execution succeeded.
     (`lee/state_machine/src/validated_state_diff/mod.rs:66-72`), so a typed
     reason is **[Computed, not persisted]**.
 
-42. <a id="f-42"></a>The API documents that a transaction this node never saw,
-    absent from the chain and from the pending set, is reported as not known,
-    whether it was never submitted or was submitted elsewhere and discarded, no
-    record of a declined transaction being retained. **[New]**
+42. <a id="f-42"></a>The API documentation MUST state that a transaction this
+    node never saw, absent from the chain and from the pending set, is reported
+    as not known, whether it was never submitted or was submitted elsewhere and
+    discarded, no record of a declined transaction being retained. **[New]**
 
 **`query_status() -> PointerResult<FfiNodeStatus, OperationStatus>`**
 
 Returns the node's own state as a typed record: how far it has followed the
 chain, its mode, and why it stopped if it has.
 
-43. <a id="f-43"></a>The query returns a typed record, defined in the module
+43. <a id="f-43"></a>The query MUST return a typed record, defined in the module
     contract like every other return type ([#95](#f-95)), carrying: the sync
     state, one of `Starting`, `Syncing`, `CaughtUp`, `Error`, `Stalled`, or
     `Halted`; the tips at the head and on the final chain, each as a block
     identifier and hash; the last error, the stall reason, and the cross-zone
     halt verdict when the node stopped; and the health of each peer zone it
     reads, one of `Live`, `Lagging`, `Holed`, `Suspended`, `PinMismatch`, or
-    `Halted`. A state or health value a client build does not recognise is
+    `Halted`. A state or health value a client build does not recognise MUST be
     treated as not known healthy rather than as a decode failure. The node holds
     this data today (`lez/indexer/core/src/status.rs:16-24`, `:45-98`,
     `:159-161`), but the FFI's `query_status` returns it as a JSON string,
     untyped by any contract, and as a bare null pointer on any failure
     (`lez/indexer/ffi/src/api/query.rs:120-145`). **[New]**
-44. <a id="f-44"></a>The status query reports the node's mode: whether it is in
-    sequencer mode and, if it is, whether it is accepting transactions or still
-    starting, as the sequencer service's `getSequencerStatus` reports today
-    (`lez/sequencer/service/rpc/src/lib.rs:158-159`); and, outside sequencer
-    mode, whether the node has a peer to relay a submission through. A caller
-    learns before submitting whether its transaction is admitted here or
+44. <a id="f-44"></a>The status query MUST report the node's mode: whether it is
+    in sequencer mode and, if it is, whether it is accepting transactions or
+    still starting, as the sequencer service's `getSequencerStatus` reports
+    today (`lez/sequencer/service/rpc/src/lib.rs:158-159`); and, outside
+    sequencer mode, whether the node has a peer to relay a submission through. A
+    caller learns before submitting whether its transaction is admitted here or
     relayed, and whether it can be either. **[New]**
 
 ##### Transaction submission
@@ -1301,35 +1317,35 @@ constructs, signs, or executes a transaction.
 Accepts a public or privacy-preserving transaction and returns the hash it will
 be known by.
 
-45. <a id="f-45"></a>The API accepts a transaction of either kind, a public
+45. <a id="f-45"></a>The API MUST accept a transaction of either kind, a public
     transaction signed by its signers or a privacy-preserving transaction
     carrying its proof (`lez/common/src/transaction.rs:20-23`), and returns the
     transaction hash a caller then tracks through `query_transaction_status`. A
-    node in sequencer mode admits the transaction to its own pending set, as the
-    sequencer service does today through its RPC's `sendTransaction`
+    node in sequencer mode MUST admit the transaction to its own pending set, as
+    the sequencer service does today through its RPC's `sendTransaction`
     (`lez/sequencer/service/rpc/src/lib.rs:52-53`) and its FFI's
     `sequencer_ffi_send_transaction`
     (`lez/core_ffi/src/sequencer/api/query.rs:408-438`), both taking either
-    kind. **[Ready, not exposed]** Any other node relays it over the LEZ
+    kind. **[Ready, not exposed]** Any other node MUST relay it over the LEZ
     peer-to-peer network to the nodes that sequence, which is not part of this
     API; no node outside sequencer mode submits today. **[New]**
-46. <a id="f-46"></a>Every node validates a transaction before it admits or
+46. <a id="f-46"></a>Every node MUST validate a transaction before it admits or
     relays it, against its head state, as the sequencer service screens fees
     against its head today
     (`lez/sequencer/actors/executor/src/actor.rs:369-384`), and a transaction it
-    declines is reported as a typed failure. The failures distinguish at least:
-    a malformed transaction; one that fails a stateless check; one too large for
-    a block; one declaring more gas than a block allows; one whose fee, or whose
-    proof-committed reserve less its tip, is below the current price at the
-    head; one whose payer cannot fund the fee or is not authorised to pay it
-    (`lez/sequencer/core/src/fees.rs:13-33`,
+    declines MUST be reported as a typed failure. The failures MUST distinguish
+    at least: a malformed transaction; one that fails a stateless check; one too
+    large for a block; one declaring more gas than a block allows; one whose
+    fee, or whose proof-committed reserve less its tip, is below the current
+    price at the head; one whose payer cannot fund the fee or is not authorised
+    to pay it (`lez/sequencer/core/src/fees.rs:13-33`,
     `lez/programs/fee/core/src/validity.rs:17-39`); and one invoking a program a
-    user transaction may not call. These are reported separately from a node
+    user transaction may not call. These MUST be reported separately from a node
     that cannot take a submission at all: one still starting, or, outside
     sequencer mode, one with no peer to relay through. A node in sequencer mode
-    also reports a pending set that is full. The sequencer service's RPC gives
-    three outcome codes of their own today, a full mempool, a privacy-preserving
-    reserve below the head fee, and not yet online
+    MUST also report a pending set that is full. The sequencer service's RPC
+    gives three outcome codes of their own today, a full mempool, a
+    privacy-preserving reserve below the head fee, and not yet online
     (`lez/sequencer/service/rpc/src/lib.rs:18-27`), and reports a public fee
     shortfall, an oversized transaction, and a call to a sequencer-only program
     as invalid parameters with text
@@ -1348,11 +1364,11 @@ be known by.
     on overflow (`lez/sequencer/actors/gossip/src/actor.rs:66`,
     `lez/sequencer/actors/gossip/src/actor.rs:114`), so a sequencer's refusal
     never comes back to the relaying node, and acceptance may mean queued for
-    relay. The API documents both, and the caller learns what became of the
-    transaction from the status query ([#39](#f-39)). **[New]**
-48. <a id="f-48"></a>Submission neither signs nor modifies the transaction it is
-    given. What is relayed is the transaction accepted, re-encoded at most, and
-    the hash returned is the hash of that transaction. **[New]**
+    relay. The API documentation MUST state both, and the caller learns what
+    became of the transaction from the status query ([#39](#f-39)). **[New]**
+48. <a id="f-48"></a>Submission MUST NOT sign or modify the transaction it is
+    given. What is relayed MUST be the transaction accepted, re-encoded at most,
+    and the hash returned MUST be the hash of that transaction. **[New]**
 
 ##### Pending transactions
 
@@ -1401,51 +1417,54 @@ in a block
 Lists the pending set as digests: per entry, its transaction hash and the
 account identifiers, nonces, and nullifiers it touches.
 
-49. <a id="f-49"></a>The API lists pending transactions as digests carrying, per
-    entry, its transaction hash together with the account identifiers, nonces,
-    and nullifiers the transaction acts on, so a caller detects a conflict with
-    a transaction it is about to build without fetching bodies. **[New]**
-50. <a id="f-50"></a>In sequencer mode the listing is the pending set the node
-    builds blocks from, together with the transactions of blocks it produced and
-    has not yet seen inscribed, each entry marked as which. A block's
-    transactions leave the mempool when it is produced
+49. <a id="f-49"></a>The API MUST list pending transactions as digests carrying,
+    per entry, its transaction hash together with the account identifiers,
+    nonces, and nullifiers the transaction acts on, so a caller detects a
+    conflict with a transaction it is about to build without fetching bodies.
+    **[New]**
+50. <a id="f-50"></a>In sequencer mode the listing MUST be the pending set the
+    node builds blocks from, together with the transactions of blocks it
+    produced and has not yet seen inscribed, each entry marked as which. A
+    block's transactions leave the mempool when it is produced
     (`lez/sequencer/core/src/lib.rs:1587-1591`), so without them a wallet's
     conflict check would miss the transactions most likely to conflict. Outside
-    sequencer mode, the listing is the transactions the node has observed on the
-    LEZ peer-to-peer network and not yet seen inscribed, together with those
-    submitted through it. In either mode an entry another node has included
-    leaves the listing once the inscription is seen. The API documents which a
-    node serves, and that in neither mode does absence from the listing show
-    that a transaction is not pending elsewhere. **[New]**
-51. <a id="f-51"></a>Outside sequencer mode, the observed set is bounded, admits
-    only a transaction that passes the node's validation ([#46](#f-46)), as the
-    gossip actor evaluates each transaction it receives
-    (`lez/sequencer/actors/gossip/src/actor/validation.rs:57-89`), and lets an
-    entry go after a documented time, after which the status query reports it as
-    no longer observed rather than as received. **[New]**
-52. <a id="f-52"></a>The listing is bounded and paginated by cursor, on the same
-    terms as the other paginated reads, and reports whether more entries remain.
-    The pending set turns over as entries are included or dropped, so an offset
-    into it names a different entry from one call to the next. **[New]**
-53. <a id="f-53"></a>A page of the digest listing costs no more to serve than a
-    page of blocks of the same limit, measured under Performance [#1](#perf-1),
-    so a wallet re-checks for a conflict throughout a proof generation and
-    abandons the proof rather than completing one it knows will be rejected.
+    sequencer mode, the listing MUST be the transactions the node has observed
+    on the LEZ peer-to-peer network and not yet seen inscribed, together with
+    those submitted through it. In either mode an entry another node has
+    included MUST leave the listing once the inscription is seen. The API
+    documentation MUST state which a node serves, and that in neither mode does
+    absence from the listing show that a transaction is not pending elsewhere.
     **[New]**
-54. <a id="f-54"></a>The pending set is queryable by transaction hash, through
-    `query_pending_entry` below, so a caller holding the hash
+51. <a id="f-51"></a>Outside sequencer mode, the observed set MUST be bounded,
+    MUST admit only a transaction that passes the node's validation
+    ([#46](#f-46)), as the gossip actor evaluates each transaction it receives
+    (`lez/sequencer/actors/gossip/src/actor/validation.rs:57-89`), and MUST let
+    an entry go after a documented time, after which the status query MUST
+    report it as no longer observed rather than as received. **[New]**
+52. <a id="f-52"></a>The listing MUST be bounded and paginated by cursor, on the
+    same terms as the other paginated reads, and MUST report whether more
+    entries remain. The pending set turns over as entries are included or
+    dropped, so an offset into it names a different entry from one call to the
+    next. **[New]**
+53. <a id="f-53"></a>A page of the digest listing MUST cost no more to serve
+    than a page of blocks of the same limit, measured under Performance
+    [#1](#perf-1), so a wallet re-checks for a conflict throughout a proof
+    generation and abandons the proof rather than completing one it knows will
+    be rejected. **[New]**
+54. <a id="f-54"></a>The pending set MUST be queryable by transaction hash,
+    through `query_pending_entry` below, so a caller holding the hash
     `submit_transaction` returned asks whether that transaction is still pending
-    without walking the listing. The listing also reports the pending set's size
-    and, in sequencer mode, its capacity (`lez/mempool/src/lib.rs:30-32`), which
-    a caller retrying on a full pending set reads. **[New]**
+    without walking the listing. The listing MUST also report the pending set's
+    size and, in sequencer mode, its capacity (`lez/mempool/src/lib.rs:30-32`),
+    which a caller retrying on a full pending set reads. **[New]**
 
 **`query_pending_entry(hash) -> PointerResult<FfiOption<FfiTransaction>, OperationStatus>`**
 
 Returns one pending transaction in full, by its transaction hash.
 
-55. <a id="f-55"></a>The API returns a pending transaction's body for a
+55. <a id="f-55"></a>The API MUST return a pending transaction's body for a
     transaction hash, in the same shape `query_transaction` returns an included
-    one, and reports absence distinctly from failure: an entry included or
+    one, and MUST report absence distinctly from failure: an entry included or
     dropped since the caller last saw it is gone rather than an error. **[New]**
 
 ##### Subscriptions
@@ -1468,35 +1487,35 @@ Pushing new blocks and events to a consumer instead of making it poll
 Registers a consumer that is called with each newly indexed block, optionally
 resuming from a position the consumer already processed.
 
-56. <a id="f-56"></a>The API exposes a subscription to finalised blocks that
+56. <a id="f-56"></a>The API MUST expose a subscription to finalised blocks that
     notifies a registered consumer of each block as it becomes final, exporting
-    the existing `subscribeToFinalizedBlocks` node RPC method. The consumer is
-    notified through a callback rather than by polling, and reads a block it is
-    told of through `query_block_by_hash`. **[Ready, not exposed]**
-57. <a id="f-57"></a>Each notification carries the block's height and its hash
-    together, so a consumer knows which block occupied the position without a
-    second read. The existing subscription yields a height alone
+    the existing `subscribeToFinalizedBlocks` node RPC method. The consumer MUST
+    be notified through a callback rather than by polling, and reads a block it
+    is told of through `query_block_by_hash`. **[Ready, not exposed]**
+57. <a id="f-57"></a>Each notification MUST carry the block's height and its
+    hash together, so a consumer knows which block occupied the position without
+    a second read. The existing subscription yields a height alone
     (`lez/indexer/service/rpc/src/lib.rs:45`), which does not identify a block
     once the head can be replaced; the pair already exists as `BlockMeta`
     (`lez/common/src/block.rs:11-14`). **[New]**
-58. <a id="f-58"></a>The API exposes a subscription to the head, notifying a
+58. <a id="f-58"></a>The API MUST expose a subscription to the head, notifying a
     consumer of each block as it enters the head on inscription; of each head
     block that is replaced, with the block that replaces it; and of each head
     block as it becomes final. The sequencer service already folds each L1
     update into its head as an extension or a conflict with the blocks it
     orphans (`lez/sequencer/core/src/lib.rs:350-358`). **[New]**
 59. <a id="f-59"></a>A notification that cannot be delivered, because the
-    consumer is not keeping up, ends the subscription with a final notice
+    consumer is not keeping up, MUST end the subscription with a final notice
     carrying the last position delivered, so the consumer resumes from it
     ([#60](#f-60)) rather than missing a block. The block subscription logs a
     failed send and goes on to the next block today
     (`lez/indexer/service/src/service.rs:526-534`). A resume position below the
-    retention floor is answered as [#90](#f-90) defines. **[New]**
-60. <a id="f-60"></a>The block subscription accepts a start position: the
-    identifier and hash of the block the consumer last processed. Delivery
-    resumes from the block after that position, so a consumer that reconnects
+    retention floor MUST be answered as [#90](#f-90) defines. **[New]**
+60. <a id="f-60"></a>The block subscription MUST accept a start position: the
+    identifier and hash of the block the consumer last processed. Delivery MUST
+    resume from the block after that position, so a consumer that reconnects
     observes no gap, and a position whose hash does not match the block the node
-    holds at that identifier is reported as such rather than resumed from.
+    holds at that identifier MUST be reported as such rather than resumed from.
     Neither existing RPC subscription carries a position:
     `subscribeToFinalizedBlocks` takes no arguments, and `subscribeToEvents`
     filters by transaction, program, and selector but not by position
@@ -1507,30 +1526,31 @@ resuming from a position the consumer already processed.
 
 Cancels a registered subscription and releases the resources it holds.
 
-61. <a id="f-61"></a>Cancelling a subscription stops delivery, and no callback
-    fires after the call returns. **[New]**
+61. <a id="f-61"></a>Cancelling a subscription MUST stop delivery, and a
+    callback MUST NOT fire after the call returns. **[New]**
 
 **`subscribe_to_events(filter, from_block, callback, user_data) -> PointerResult<FfiSubscription, OperationStatus>`**
 
 Registers a consumer that is called with each new event record matching a
 filter, optionally resuming from a position the consumer already processed.
 
-62. <a id="f-62"></a>The API exposes a subscription to program events, exporting
-    the existing `subscribeToEvents` node RPC method
+62. <a id="f-62"></a>The API MUST expose a subscription to program events,
+    exporting the existing `subscribeToEvents` node RPC method
     (`lez/indexer/service/rpc/src/lib.rs:48-49`) with the filter it takes by
     transaction, program, and selector, and delivering each record in the shape
     `query_events` returns. Cancellation, and delivery to the caller that opened
-    the subscription alone, are on the same terms as the block subscription.
+    the subscription alone, MUST be on the same terms as the block subscription.
     Today the subscription stops at the node RPC, so no application can follow a
-    program's events. A filter the node's event filter does not persist is
+    program's events. A filter the node's event filter does not persist MUST be
     refused at subscription, as the RPC refuses it
     (`lez/indexer/service/src/service.rs:80-87`), rather than accepted and left
     silent. **[Ready, not exposed]**
-63. <a id="f-63"></a>The event subscription resumes from a block identifier and
-    hash on the same terms as the block subscription, [#60](#f-60), so a
+63. <a id="f-63"></a>The event subscription MUST resume from a block identifier
+    and hash on the same terms as the block subscription, [#60](#f-60), so a
     consumer following a program's events across a disconnection misses none. A
-    resume position outside the node's event-filter history is answered as data
-    the node does not hold, as [#13](#f-13) defines for the query. **[New]**
+    resume position outside the node's event-filter history MUST be answered as
+    data the node does not hold, as [#13](#f-13) defines for the query.
+    **[New]**
 
 ##### Pagination and account history
 
@@ -1557,28 +1577,29 @@ Returns one page of the transactions touching an account, resumed from a cursor
 the previous page returned. Exported today as a numeric offset into the
 per-account index.
 
-64. <a id="f-64"></a>The query returns at most `limit` transactions from the
+64. <a id="f-64"></a>The query MUST return at most `limit` transactions from the
     position the cursor names, or from the start of the walk when the cursor is
-    absent, and stops early at the end of the account's history rather than
+    absent, and MUST stop early at the end of the account's history rather than
     failing. The bounded read exists; the cursor replaces the offset it takes
     today. **[New]**
-65. <a id="f-65"></a>Each entry carries, beside the transaction, the identifier
-    and hash of its block, its index in the block, and whether its action
-    applied, so a deposit tracker judges each entry without a status call per
-    entry. History entries are bare transactions today
+65. <a id="f-65"></a>Each entry MUST carry, beside the transaction, the
+    identifier and hash of its block, its index in the block, and whether its
+    action applied, so a deposit tracker judges each entry without a status call
+    per entry. History entries are bare transactions today
     (`lez/indexer/ffi/src/api/types/transaction.rs:343-346`). **[New]**
-66. <a id="f-66"></a>`query_transactions_by_account` accepts an ordering
+66. <a id="f-66"></a>`query_transactions_by_account` MUST accept an ordering
     parameter supporting both oldest-first and newest-first. Newest-first is the
     order a deposit tracker reads in. **[New]**
-67. <a id="f-67"></a>The page is walked by an opaque cursor rather than by a
-    numeric offset, and the cursor remains stable across ingestion: a caller
-    resuming from one neither skips nor repeats an entry that existed when the
-    walk began, however many transactions have landed since. The per-account
-    index is append-only (`lez/storage/src/indexer/write_atomic.rs:64-76`), so
-    an offset from the oldest entry holds that property, but an offset from the
-    newest, which is how a deposit tracker reads, shifts with every arrival, and
-    so does any offset once history is pruned. The cursor is opaque to the
-    caller, which may not construct one or infer a position from it. **[New]**
+67. <a id="f-67"></a>The page MUST be walked by an opaque cursor rather than by
+    a numeric offset, and the cursor MUST remain stable across ingestion: a
+    caller resuming from one neither skips nor repeats an entry that existed
+    when the walk began, however many transactions have landed since. The
+    per-account index is append-only
+    (`lez/storage/src/indexer/write_atomic.rs:64-76`), so an offset from the
+    oldest entry holds that property, but an offset from the newest, which is
+    how a deposit tracker reads, shifts with every arrival, and so does any
+    offset once history is pruned. The cursor is opaque to the caller, which
+    MUST NOT construct one or infer a position from it. **[New]**
 
 **`query_blocks(from, limit, order) -> PointerResult<FfiVec<FfiBlock>, OperationStatus>`**
 
@@ -1587,24 +1608,24 @@ requested direction. With `from` absent, a newest-first walk starts at the
 indexed tip and an oldest-first walk at the retention floor. Exported today as
 `query_block_vec`, which descends only.
 
-68. <a id="f-68"></a>The query returns at most `limit` blocks, descending from
-    `from`, or from the tip at the level read ([#97](#f-97)) when `from` is
+68. <a id="f-68"></a>The query MUST return at most `limit` blocks, descending
+    from `from`, or from the tip at the level read ([#97](#f-97)) when `from` is
     absent. **[Ready]**
-69. <a id="f-69"></a>The API documents the bound as exclusive in both
-    directions. The store already implements it that way when descending, from
-    `before_id.saturating_sub(1)`
+69. <a id="f-69"></a>The API documentation MUST state that the bound is
+    exclusive in both directions. The store already implements it that way when
+    descending, from `before_id.saturating_sub(1)`
     (`lez/storage/src/indexer/read_multiple.rs:11-12`) **[Ready]**; ascending is
     new with [#70](#f-70) **[New]**.
-70. <a id="f-70"></a>`query_blocks` accepts an ordering parameter supporting
+70. <a id="f-70"></a>`query_blocks` MUST accept an ordering parameter supporting
     both oldest-first and newest-first, on the same terms as
     `query_transactions_by_account`. Oldest-first is the order a consumer
     scanning forward reads in: a wallet syncing private accounts walks ascending
     from the last block it processed to the tip, decrypting each
     privacy-preserving transaction body against its own viewing key. Descending
     from the tip cannot serve that walk. An ascending walk with `from` absent
-    starts at the retention floor. **[New]**
-71. <a id="f-71"></a>Every paginated response reports whether more results
-    remain, and carries the position a caller resumes from, so a caller
+    MUST start at the retention floor. **[New]**
+71. <a id="f-71"></a>Every paginated response MUST report whether more results
+    remain, and MUST carry the position a caller resumes from, so a caller
     distinguishes the end of a result set from a page that happens to be short.
     For the account history and the pending listing that position is an opaque
     cursor the caller does not construct ([#67](#f-67)); for the walks keyed by
@@ -1635,34 +1656,34 @@ it
 Every surveyed chain reports this and LEZ reports none: `web3_clientVersion` on
 Ethereum, `getVersion` on Solana, `getnetworkinfo` on Bitcoin and Zcash.
 
-72. <a id="f-72"></a>The API reports the version of the node serving the call,
-    together with enough build identity to tell two builds of the same version
-    apart. An integrator that hits a defect can then say which build produced
-    it, and one that knows a build is bad can route around it. Neither the FFI's
-    `query_status` nor the node RPC's `checkHealth`, which the FFI does not
-    export, reports a version
+72. <a id="f-72"></a>The API MUST report the version of the node serving the
+    call, together with enough build identity to tell two builds of the same
+    version apart. An integrator that hits a defect can then say which build
+    produced it, and one that knows a build is bad can route around it. Neither
+    the FFI's `query_status` nor the node RPC's `checkHealth`, which the FFI
+    does not export, reports a version
     ([Appendix: Logos API Surfaces, section 2](../appendix/logos-api-surfaces.md#2-lez-indexer-rpc)).
     **[New]**
-73. <a id="f-73"></a>The version changes only across restarts, so a caller may
-    cache it for the life of a connection and use it to detect that the surface
-    it holds a schema for has been replaced. **[New]**
+73. <a id="f-73"></a>The version MUST change only across restarts, so a caller
+    MAY cache it for the life of a connection and use it to detect that the
+    surface it holds a schema for has been replaced. **[New]**
 
 **`query_block(block_id) -> PointerResult<FfiBlockOpt, OperationStatus>`**
 
 Returns the block at a given identifier: its header, its full transaction body,
 and its bedrock status.
 
-74. <a id="f-74"></a>The query returns the stored block for a known identifier
-    and an absent `FfiBlockOpt` for one the node does not hold, keeping the two
-    distinct from a backend failure. **[Ready]**
-75. <a id="f-75"></a>The returned header carries the block identifier, previous
-    block hash, own hash, and timestamp
-    (`lez/indexer/service/protocol/src/lib.rs:178-184`), and the body carries
+74. <a id="f-74"></a>The query MUST return the stored block for a known
+    identifier and an absent `FfiBlockOpt` for one the node does not hold,
+    keeping the two distinct from a backend failure. **[Ready]**
+75. <a id="f-75"></a>The returned header MUST carry the block identifier,
+    previous block hash, own hash, and timestamp
+    (`lez/indexer/service/protocol/src/lib.rs:178-184`), and the body MUST carry
     every transaction in the block. **[Ready]**
-76. <a id="f-76"></a>The returned body carries each user transaction's receipt,
-    so a consumer reading a block can tell a transaction that took effect from
-    one that only paid its fee. The stored block, the node RPC, and the FFI
-    block type already carry them
+76. <a id="f-76"></a>The returned body MUST carry each user transaction's
+    receipt, so a consumer reading a block can tell a transaction that took
+    effect from one that only paid its fee. The stored block, the node RPC, and
+    the FFI block type already carry them
     (`lez/indexer/service/protocol/src/lib.rs:207-252`,
     `lez/indexer/ffi/src/api/types/block.rs:10-45`). Whether an action applied
     is **[Ready, not exposed]** and its gas and fee are **\[Computed, not
@@ -1675,48 +1696,49 @@ Returns the same block record, resolved by block hash rather than by height. The
 store already holds the hash as a secondary index onto the height
 (`lez/storage/src/indexer/read_once.rs:67-70`).
 
-77. <a id="f-77"></a>The query returns the same record `query_block` returns for
-    the corresponding height, and an absent `FfiBlockOpt` for a hash no indexed
-    block carries. **[Ready]**
+77. <a id="f-77"></a>The query MUST return the same record `query_block` returns
+    for the corresponding height, and an absent `FfiBlockOpt` for a hash no
+    indexed block carries. **[Ready]**
 
 **`query_last_block() -> LastBlockIdResult`**
 
 Returns the identifier of the node's last finalised block, inline, with no
 allocation to free.
 
-78. <a id="f-78"></a>The query returns the last finalised block identifier, and
-    reports an empty chain as an outcome distinct from an error. **[Ready]**
+78. <a id="f-78"></a>The query MUST return the last finalised block identifier,
+    and MUST report an empty chain as an outcome distinct from an error.
+    **[Ready]**
 
 **`query_chain_tip() -> PointerResult<FfiChainTip, OperationStatus>`**
 
 Returns the tip as one record rather than as a height the caller must then
 resolve.
 
-79. <a id="f-79"></a>The API exposes the chain tip as a single call returning,
-    for the head and for the final chain, the tip block's height together with
-    its hash and timestamp, so learning about the tip does not cost a second
-    call and a caller knows which block holds the position. Below the FFI,
-    `getLastFinalizedBlockId` returns a height alone; the chain state keeps a
-    tip as a height and hash (`lez/chain_state/src/apply.rs:38-41`), and the
-    timestamp comes from a second read. **[New]**
+79. <a id="f-79"></a>The API MUST expose the chain tip as a single call
+    returning, for the head and for the final chain, the tip block's height
+    together with its hash and timestamp, so learning about the tip does not
+    cost a second call and a caller knows which block holds the position. Below
+    the FFI, `getLastFinalizedBlockId` returns a height alone; the chain state
+    keeps a tip as a height and hash (`lez/chain_state/src/apply.rs:38-41`), and
+    the timestamp comes from a second read. **[New]**
 
 **`query_network_identity() -> PointerResult<FfiNetworkIdentity, OperationStatus>`**
 
 Returns what the node is following: which zone, and which Logos Blockchain chain
 that zone settles to.
 
-80. <a id="f-80"></a>The call returns the zone identifier the node is following,
-    so an application can confirm which zone it is connected to. The node's
-    channel configuration already holds it
+80. <a id="f-80"></a>The call MUST return the zone identifier the node is
+    following, so an application can confirm which zone it is connected to. The
+    node's channel configuration already holds it
     (`lez/indexer/core/src/config.rs:37`). **[Ready, not exposed]**
-81. <a id="f-81"></a>The same call returns the chain identifier of the Logos
+81. <a id="f-81"></a>The same call MUST return the chain identifier of the Logos
     Blockchain the zone settles to. A zone identifier alone does not distinguish
     the same zone running against different L1 networks, which is the case an
     integrator connecting to the wrong network hits first, and the two are
     answered together so a caller cannot check one and assume the other.
     **[New]**
-82. <a id="f-82"></a>The chain identifier is the one inscribed in the L1 genesis
-    block as a Cryptarchia parameter, a bounded UTF-8 string such as
+82. <a id="f-82"></a>The chain identifier MUST be the one inscribed in the L1
+    genesis block as a Cryptarchia parameter, a bounded UTF-8 string such as
     `logos-chain-1`, and not a value the node is configured with independently:
     a configured string would agree with whatever an operator typed rather than
     with the chain the node is settling to. The Logos Blockchain node serves it,
@@ -1725,7 +1747,7 @@ that zone settles to.
     for its L1 node (`lez/indexer/core/src/lib.rs:112-115`), so the node reads
     it from there. **[New]**
 83. <a id="f-83"></a>Where the chain identifier cannot be obtained, because the
-    L1 node is unreachable, the call reports it as unavailable rather than
+    L1 node is unreachable, the call MUST report it as unavailable rather than
     omitting it or returning a placeholder, so a caller can tell an unidentified
     chain from an unasked question. **[New]**
 
@@ -1734,10 +1756,10 @@ that zone settles to.
 Returns the protocol parameters a transaction is built against, with the block
 they were read at.
 
-84. <a id="f-84"></a>The API returns the chain parameters a caller needs before
-    it builds and proves a transaction, at the level read ([#97](#f-97)): the
-    largest transaction a block accepts, which is the channel's maximum block
-    size (`lez/programs/sequencer_stake/core/src/lib.rs:238-252`,
+84. <a id="f-84"></a>The API MUST return the chain parameters a caller needs
+    before it builds and proves a transaction, at the level read ([#97](#f-97)):
+    the largest transaction a block accepts, which is the channel's maximum
+    block size (`lez/programs/sequencer_stake/core/src/lib.rs:238-252`,
     `lez/sequencer/core/src/lib.rs:2490`); the per-block execution and storage
     gas caps; the fixed execution gas a privacy-preserving transaction is
     charged for verification and the length its proof is charged at; the
@@ -1745,8 +1767,8 @@ they were read at.
     base fee moves between blocks (`lez/programs/fee/core/src/market.rs:15-54`).
     A wallet that learns a transaction is too large only on submitting it has
     already spent minutes proving it. The channel parameters change by committee
-    vote, so each value is reported with the block it was read at, and the chain
-    identifier of [#81](#f-81) is returned with them. **[New]**
+    vote, so each value MUST be reported with the block it was read at, and the
+    chain identifier of [#81](#f-81) MUST be returned with them. **[New]**
 
 **`query_program_ids() -> PointerResult<FfiVec<FfiProgramEntry>, OperationStatus>`**
 
@@ -1754,9 +1776,9 @@ Returns the programs deployed on the chain, each with its account identifier,
 its image identifier, and, for a builtin, its name, together with the identifier
 of the privacy-preserving circuit the chain verifies proofs against.
 
-85. <a id="f-85"></a>The API exposes the programs deployed on the chain as its
-    state records them, programs deployed after genesis included. A program is
-    an account written through the program loader, and the state resolves an
+85. <a id="f-85"></a>The API MUST expose the programs deployed on the chain as
+    its state records them, programs deployed after genesis included. A program
+    is an account written through the program loader, and the state resolves an
     account to the image deployed at it
     (`lee/state_machine/src/state/mod.rs:408-428`). An integrator decoding
     account data needs this: each actor state is keyed by the account identifier
@@ -1767,7 +1789,7 @@ of the privacy-preserving circuit the chain verifies proofs against.
     (`lez/programs/src/lib.rs:152-172`). The sequencer service's `getProgramIds`
     returns a fixed list today
     (`lez/sequencer/actors/rpc_server/src/actor/service.rs:275-283`). **[New]**
-86. <a id="f-86"></a>The same call returns the identifier of the
+86. <a id="f-86"></a>The same call MUST return the identifier of the
     privacy-preserving circuit whose proofs this node verifies, which a wallet
     compares with its own before it proves: a mismatch otherwise surfaces only
     when a transaction that took minutes to prove is rejected. That identifier
@@ -1782,21 +1804,21 @@ stated block, the band the next block's may move within, and the per-block gas
 caps
 ([Appendix: Blockchain API and SDK Ecosystem, section 1.17](../appendix/blockchain-api-sdk-ecosystem.md#117-estimate-the-fee-or-fee-rate)).
 
-87. <a id="f-87"></a>The API exposes the execution and storage base fees, the
-    block height they were read at, and the per-block execution and storage gas
-    caps, from the fee state the chain state holds
+87. <a id="f-87"></a>The API MUST expose the execution and storage base fees,
+    the block height they were read at, and the per-block execution and storage
+    gas caps, from the fee state the chain state holds
     (`lez/chain_state/src/apply.rs:335-344`). The wallet prices every fee
     declaration and every in-proof reserve against these values, read today from
     the sequencer service's `getFeeState`
     (`lez/sequencer/service/rpc/src/lib.rs:57-58`), and the node FFI serves none
     of them. **[Ready, not exposed]**
-88. <a id="f-88"></a>The same call returns the lowest and highest base fees the
-    next block can open at, in each dimension, as `getFeeState` does, so a
+88. <a id="f-88"></a>The same call MUST return the lowest and highest base fees
+    the next block can open at, in each dimension, as `getFeeState` does, so a
     caller sets a cap on the fee from the band rather than from a guess. The
     band follows from the fee state and the fee market's constants
-    (`lez/sequencer/core/src/fees.rs:89-123`). The API documents that the band
-    bounds the next block and is not an estimate for a given transaction.
-    **[Ready, not exposed]**
+    (`lez/sequencer/core/src/fees.rs:89-123`). The API documentation MUST state
+    that the band bounds the next block and is not an estimate for a given
+    transaction. **[Ready, not exposed]**
 
 The fee state is read at the level the caller chooses ([#97](#f-97)), and a
 wallet pricing a transaction reads it at the head, as the sequencer service
@@ -1819,21 +1841,22 @@ Soft [#5](#soft-5) covers the case where inclusion comes to depend on the tip.
 Returns the earliest block the node can still answer for, separately for account
 state pinned to a block and for transaction retrieval.
 
-89. <a id="f-89"></a>The API exposes the node's retention floor: the earliest
-    block for which account state can be read at a pinned block identifier, and
-    the earliest block for which a transaction can be retrieved. A deployment
-    that retains everything reports genesis and one bounded by Reliability
-    [#7](#rel-7) reports a moving value, and a caller learns which by asking
-    rather than by discovering it through a failed read. Where a deployment
-    keeps some data further back than the rest, as Soft [#4](#soft-4) allows,
-    the call reports retention per scope rather than one floor that is wrong for
-    part of the data. **[New]**
-90. <a id="f-90"></a>A read for data below the retention floor is answered as
-    such, distinctly from a read for data that never existed. Asking for a block
-    the node discarded and asking for one the chain never held are different
-    questions with different answers: the first is retried against an archival
-    source and the second is not. A caller learns which without a second call to
-    the retention floor, which may itself have moved between the two. **[New]**
+89. <a id="f-89"></a>The API MUST expose the node's retention floor: the
+    earliest block for which account state can be read at a pinned block
+    identifier, and the earliest block for which a transaction can be retrieved.
+    A deployment that retains everything reports genesis and one bounded by
+    Reliability [#7](#rel-7) reports a moving value, and a caller learns which
+    by asking rather than by discovering it through a failed read. Where a
+    deployment keeps some data further back than the rest, as Soft [#4](#soft-4)
+    allows, the call MUST report retention per scope rather than one floor that
+    is wrong for part of the data. **[New]**
+90. <a id="f-90"></a>A read for data below the retention floor MUST be answered
+    as such, distinctly from a read for data that never existed. Asking for a
+    block the node discarded and asking for one the chain never held are
+    different questions with different answers: the first is retried against an
+    archival source and the second is not. A caller learns which without a
+    second call to the retention floor, which may itself have moved between the
+    two. **[New]**
 
 ##### The node on the peer-to-peer network
 
@@ -1852,11 +1875,11 @@ peers relays nothing and observes no pending transaction.
 
 Returns how many LEZ peers the node is connected to.
 
-91. <a id="f-91"></a>The API reports how many LEZ peers the node is connected
-    to, inbound and outbound, and how many of them are in sequencer mode where a
-    peer makes that known, so a caller can tell a node that can relay and
-    observe from one that cannot. It is in the user category. The sequencer's
-    gossip actor already tracks the peers it is connected to
+91. <a id="f-91"></a>The API MUST report how many LEZ peers the node is
+    connected to, inbound and outbound, and how many of them are in sequencer
+    mode where a peer makes that known, so a caller can tell a node that can
+    relay and observe from one that cannot. It is in the user category. The
+    sequencer's gossip actor already tracks the peers it is connected to
     (`lez/sequencer/actors/gossip/src/actor.rs:82-86`). **[New]**
 
 **`query_peers() -> PointerResult<FfiPeerInfo, OperationStatus>`**
@@ -1864,12 +1887,12 @@ Returns how many LEZ peers the node is connected to.
 Returns the node's own peer identity and listening addresses, and each connected
 peer.
 
-92. <a id="f-92"></a>The API returns the node's peer identifier and listening
-    addresses, and, for each connected peer, its identifier, address, direction,
-    the time it connected, and, where known, whether it is in sequencer mode. A
-    peer's address is another operator's network identity, so the function is in
-    the operations category ([#105](#f-105)), as Geth keeps `admin_peers` off
-    its public endpoints. **[New]**
+92. <a id="f-92"></a>The API MUST return the node's peer identifier and
+    listening addresses, and, for each connected peer, its identifier, address,
+    direction, the time it connected, and, where known, whether it is in
+    sequencer mode. A peer's address is another operator's network identity, so
+    the function is in the operations category ([#105](#f-105)), as Geth keeps
+    `admin_peers` off its public endpoints. **[New]**
 
 ##### Operating the node
 
@@ -1886,19 +1909,19 @@ a failed call
 
 Returns the node's call metrics, per method.
 
-93. <a id="f-93"></a>The API reports, for each function of the user category,
-    how many calls it served, how many succeeded and failed by outcome
+93. <a id="f-93"></a>The API MUST report, for each function of the user
+    category, how many calls it served, how many succeeded and failed by outcome
     ([#101](#f-101), [#103](#f-103)), and the distribution of their serving
     times, together with the number of open subscriptions, as Geth reports per
-    method. It is in the operations category ([#105](#f-105)). The node keeps no
-    figures per caller: who called what is in Logos Core's call audit records.
-    **[New]**
-94. <a id="f-94"></a>The node logs each call, when the operator turns it on,
+    method. It is in the operations category ([#105](#f-105)). The node MUST NOT
+    keep figures per caller: who called what is in Logos Core's call audit
+    records. **[New]**
+94. <a id="f-94"></a>The node MUST log each call, when the operator turns it on,
     with its method, its outcome, its serving time, the caller identity Logos
     Core attached to it, and the identifier Logos Core gives the call, so an
-    operator can find a call a user reports. It is off by default (Privacy
+    operator can find a call a user reports. It MUST be off by default (Privacy
     [#5](#priv-5)), the operator chooses whether caller identities are recorded,
-    and the documentation states what each setting records. Bitcoin Core's
+    and the documentation MUST state what each setting records. Bitcoin Core's
     `-debug=rpc` is the precedent. **[New]**
 
 ##### Surface-wide obligations
@@ -1921,83 +1944,85 @@ chain interposes a plugin layer between its API and its consumers.
 What a caller generates its client from, and what Logos Core peering checks both
 sides agree on.
 
-95. <a id="f-95"></a>The LEZ node module publishes its contract in the Logos
+95. <a id="f-95"></a>The LEZ node module MUST publish its contract in the Logos
     Core contract format, covering every method and event the module exposes:
     its parameters, its return type, its error values, the category it belongs
     to ([#105](#f-105)), and the node modes it is available in ([#99](#f-99)).
     That format is a CDDL schema in the target and LIDL today, which the module
     wrapping the FFI already publishes, derived from its header. Where the
     format carries no field for the category or the mode per method, the
-    contract expresses them another way the documentation states, such as
-    separate user and administrative interfaces. The module describes its
-    contract at run time, and each release documents which FFI function serves
-    each module method. The existing `getSchema` describes the block, event
-    record, and event filter types rather than the surface, and is not exported
+    contract MUST express them another way the documentation states, such as
+    separate user and administrative interfaces. The module MUST describe its
+    contract at run time, and each release's documentation MUST state which FFI
+    function serves each module method. The existing `getSchema` describes the
+    block, event record, and event filter types rather than the surface, and is
+    not exported
     ([Appendix: Logos API Surfaces, section 2](../appendix/logos-api-surfaces.md#2-lez-indexer-rpc)).
     **[New]**
 
 Every function defined above is further bound by the following.
 
 096. <a id="f-96"></a>Every FFI function that takes the node handle returned by
-     `start_node`, as its first argument the signatures above elide, signals a
-     null handle as `OperationStatus::NullPointer` rather than as a not-found
+     `start_node`, as its first argument the signatures above elide, MUST signal
+     a null handle as `OperationStatus::NullPointer` rather than as a not-found
      result. Every query exported today does so except `query_status`, which
      returns a bare null pointer; its typed result ([#43](#f-43)) brings it in
      line. **[Ready]**
-097. <a id="f-97"></a>Every read of chain state takes a level, head or final,
-     and answers against it. The head is every block the node has seen
+097. <a id="f-97"></a>Every read of chain state MUST take a level, head or
+     final, and answer against it. The head is every block the node has seen
      inscribed, final or not; the final chain is the blocks inscribed in L1
      blocks that are final. A caller that omits the level reads the head, as the
      sequencer service answers today
      (`lez/sequencer/actors/executor/src/actor.rs:542-553`,
-     `lez/sequencer/core/src/lib.rs:1956`). Each answer names the level and the
-     block, with its hash, it was served at, because an answer at the head can
-     be overtaken when the head is replaced. **[New]**
-098. <a id="f-98"></a>Every read reports the tips it was served against: the
+     `lez/sequencer/core/src/lib.rs:1956`). Each answer MUST name the level and
+     the block, with its hash, it was served at, because an answer at the head
+     can be overtaken when the head is replaced. **[New]**
+098. <a id="f-98"></a>Every read MUST report the tips it was served against: the
      identifier and hash of the last block at the head and on the final chain
      when it answered. A caller detects a stalled or lagging node from any
      response, not only from the status query. No return type carries them
      today. **[New]**
-099. <a id="f-99"></a>Every function is available on every node unless the
+099. <a id="f-99"></a>Every function MUST be available on every node unless the
      contract ([#95](#f-95)) marks it, or one of its outcomes, for sequencer
-     mode. A node outside sequencer mode answers such a call as not available in
-     its mode, an outcome distinct from not found, invalid argument, backend
-     failure, and refusal ([#101](#f-101), [#109](#f-109)), so a caller learns
-     to call a node in sequencer mode rather than retrying this one. **[New]**
-100. <a id="f-100"></a>Every function above is exposed through the node module
-     with the same semantics, including the not-found and error distinction
-     required by Functionality [#101](#f-101). No capability reaching the FFI
-     stops at the module boundary. The module that wraps the FFI today carries
-     eight of its queries, omitting `query_events`, and at `dev`, where the FFI
-     has ten, `query_transaction_receipt` as well; it is built against the LEZ
-     `v0.3.1` FFI rather than the testnet 0.4 one. **[New]**
-101. <a id="f-101"></a>The FFI and the module signal not-found,
+     mode. A node outside sequencer mode MUST answer such a call as not
+     available in its mode, an outcome distinct from not found, invalid
+     argument, backend failure, and refusal ([#101](#f-101), [#109](#f-109)), so
+     a caller learns to call a node in sequencer mode rather than retrying this
+     one. **[New]**
+100. <a id="f-100"></a>Every function above MUST be exposed through the node
+     module with the same semantics, including the not-found and error
+     distinction required by Functionality [#101](#f-101). A capability reaching
+     the FFI MUST NOT stop at the module boundary. The module that wraps the FFI
+     today carries eight of its queries, omitting `query_events`, and at `dev`,
+     where the FFI has ten, `query_transaction_receipt` as well; it is built
+     against the LEZ `v0.3.1` FFI rather than the testnet 0.4 one. **[New]**
+101. <a id="f-101"></a>The FFI and the module MUST signal not-found,
      invalid-argument, and backend failure as three distinguishable outcomes on
      every query. The module currently flattens not-found and failure into an
      empty string
      ([Appendix: Logos API Surfaces, section 1](../appendix/logos-api-surfaces.md#1-lez-indexer-ffi)).
      **[New]**
-102. <a id="f-102"></a>Errors are machine-readable and stable: a caller branches
-     on a value rather than on message text, and that value does not change
-     meaning between releases. Which values exist is for the implementation to
-     decide; what this RFP requires is that two failures a caller would recover
-     from differently never arrive as the same value. The node RPC returns the
+102. <a id="f-102"></a>Errors MUST be machine-readable and stable: a caller
+     branches on a value rather than on message text, and that value MUST NOT
+     change meaning between releases. Which values exist is for the
+     implementation to decide; two failures a caller would recover from
+     differently MUST NOT arrive as the same value. The node RPC returns the
      stock JSON-RPC `InternalError` code with free text for most failures,
      typing only an invalid event range, and the FFI's status type has five
      values, so most failures look alike
      ([Appendix: Blockchain API and SDK Ecosystem, section 1.34](../appendix/blockchain-api-sdk-ecosystem.md#134-structured-errors-and-a-code-taxonomy)).
      **[New]**
-103. <a id="f-103"></a>The distinctions a caller acts on are, at minimum: a
-     request that was malformed, which the caller fixes; a request for data
-     below the retention floor, which the caller sends elsewhere; a request the
-     node could not serve because it is stalled or lagging, which the caller
-     retries; and a backend failure, which the caller retries with backoff. A
-     transient failure is distinguishable from a permanent one without parsing
-     text. **[New]**
-104. <a id="f-104"></a>Every heap-allocating return has a documented matching
-     free function, and calling it releases every allocation the return holds.
-     The returns exported today have theirs **[Ready]**; the return types this
-     RFP adds need theirs **[New]**.
+103. <a id="f-103"></a>The distinctions a caller acts on MUST include, at
+     minimum: a request that was malformed, which the caller fixes; a request
+     for data below the retention floor, which the caller sends elsewhere; a
+     request the node could not serve because it is stalled or lagging, which
+     the caller retries; and a backend failure, which the caller retries with
+     backoff. A transient failure MUST be distinguishable from a permanent one
+     without parsing text. **[New]**
+104. <a id="f-104"></a>Every heap-allocating return MUST have a documented
+     matching free function, and calling it MUST release every allocation the
+     return holds. The returns exported today have theirs **[Ready]**; the
+     return types this RFP adds need theirs **[New]**.
 
 ##### Access control and concurrent callers
 
@@ -2032,187 +2057,195 @@ Stops the node and releases the handle.
 Stops the node and deletes the store of the zone the configuration names,
 without restarting it. Exposed by the node module only.
 
-105. <a id="f-105"></a>Every function this RFP defines belongs to exactly one of
-     the three categories of [Function categories](#function-categories), and
-     the contract of [#95](#f-95) states which. The user category holds every
-     function defined under the headings above but `query_peers`. The operations
-     category holds `query_peers` ([#92](#f-92)), and any function the module
-     exposes that reports how the node runs in more detail than its status does,
-     such as `query_metrics` ([#93](#f-93)). The administrative category holds
-     `start_node`, `stop_node`, and `reset_storage`, together with any other
-     function the module exposes that changes how the node runs, such as the
-     FFI's `init_logger` were the module to expose it. A function added to the
-     surface later is assigned to a category when it is added. **[New]**
-106. <a id="f-106"></a>Each function exposed through the node module is
+105. <a id="f-105"></a>Every function this RFP defines MUST belong to exactly
+     one of the three categories of [Function categories](#function-categories),
+     and the contract of [#95](#f-95) MUST state which. The user category holds
+     every function defined under the headings above but `query_peers`. The
+     operations category holds `query_peers` ([#92](#f-92)), and any function
+     the module exposes that reports how the node runs in more detail than its
+     status does, such as `query_metrics` ([#93](#f-93)). The administrative
+     category holds `start_node`, `stop_node`, and `reset_storage`, together
+     with any other function the module exposes that changes how the node runs,
+     such as the FFI's `init_logger` were the module to expose it. A function
+     added to the surface later MUST be assigned to a category when it is added.
+     **[New]**
+106. <a id="f-106"></a>Each function exposed through the node module MUST be
      individually grantable. Where the deployer's Logos Core access policy
-     grants a caller a list of methods on the module, that caller reaches those
-     methods and no others, and the module is built so that such a grant is
-     enforced against it rather than refused as unenforceable. **[New]**
-107. <a id="f-107"></a>An operations or administrative function refuses a call
-     unless the caller is the host runtime, an operator of that runtime, or a
-     caller the node's own configuration names for that category. The module
-     decides this itself, from the caller identity Logos Core gives it: it
+     grants a caller a list of methods on the module, that caller MUST reach
+     those methods and no others, and the module MUST be built so that such a
+     grant is enforced against it rather than refused as unenforceable.
+     **[New]**
+107. <a id="f-107"></a>An operations or administrative function MUST refuse a
+     call unless the caller is the host runtime, an operator of that runtime, or
+     a caller the node's own configuration names for that category. The module
+     MUST decide this itself, from the caller identity Logos Core gives it: it
      cannot see which grant admitted a call, since grants are enforced before
      the module runs and the caller document carries only a kind, a name, and an
      instance (`logos-protocol` `cpp/logos_module_impl.h:223-283`). The refusal
-     holds when no access policy is in force, when the policy leaves the module
-     open to every caller, and when the runtime cannot identify the caller.
-     Logos Core emits host, module, and unknown callers today, and specifies an
-     operator kind it does not yet emit, so until it does the documentation
-     states which callers can start, stop, and reset the node, and a node can be
-     configured to start on load. **[New]**
-108. <a id="f-108"></a>A user function requires nothing of a caller beyond
-     admission to the module. No user function requires a caller to register, to
-     name a wallet, or to have made an earlier call, and the node holds no state
-     for a caller other than the subscriptions that caller opened. A cursor
-     carries the position it resumes from, so a walk part way through holds
-     nothing on the node. **[New]**
-109. <a id="f-109"></a>A refused call is reported as an outcome distinct from
-     the not-found, invalid-argument, and backend failure outcomes of
-     [#101](#f-101), and has no effect on the node. A caller does not retry it.
-     **[New]**
-110. <a id="f-110"></a>Calls from different callers are served concurrently, up
-     to a documented bound on calls in flight, and a slow call from one caller
-     delays another's only once that bound is reached. The module runs with
-     Logos Core's concurrent dispatch, where a module dispatches one call at a
-     time by default (`logos-module-builder` `docs/configuration.md`,
-     `concurrency`), and the module wrapping the FFI sets nothing today. A
-     cursor issued to one caller is neither advanced nor invalidated by another
-     caller's calls. **[New]**
-111. <a id="f-111"></a>A subscription belongs to the caller that opened it, and
-     is named by a handle no other caller can guess, so callers the runtime
-     cannot tell apart, which arrive as one unknown caller, still cannot cancel
-     or read one another's subscriptions. `unsubscribe` cancels only a
-     subscription whose handle the caller holds, a caller's subscriptions end
-     when it disconnects, and one caller's cancellation, disconnection, or
-     failing callback neither stops nor delays delivery to any other caller.
+     MUST hold when no access policy is in force, when the policy leaves the
+     module open to every caller, and when the runtime cannot identify the
+     caller. Logos Core emits host, module, and unknown callers today, and
+     specifies an operator kind it does not yet emit, so until it does the
+     documentation MUST state which callers can start, stop, and reset the node,
+     and a node MUST be configurable to start on load. **[New]**
+108. <a id="f-108"></a>A user function MUST require nothing of a caller beyond
+     admission to the module. A user function MUST NOT require a caller to
+     register, to name a wallet, or to have made an earlier call, and the node
+     MUST NOT hold state for a caller other than the subscriptions that caller
+     opened. A cursor carries the position it resumes from, so a walk part way
+     through holds nothing on the node. **[New]**
+109. <a id="f-109"></a>A refused call MUST be reported as an outcome distinct
+     from the not-found, invalid-argument, and backend failure outcomes of
+     [#101](#f-101), and MUST have no effect on the node. A caller does not
+     retry it. **[New]**
+110. <a id="f-110"></a>Calls from different callers MUST be served concurrently,
+     up to a documented bound on calls in flight, and a slow call from one
+     caller MUST NOT delay another's before that bound is reached. The module
+     MUST run with Logos Core's concurrent dispatch, where a module dispatches
+     one call at a time by default (`logos-module-builder`
+     `docs/configuration.md`, `concurrency`), and the module wrapping the FFI
+     sets nothing today. A cursor issued to one caller MUST NOT be advanced or
+     invalidated by another caller's calls. **[New]**
+111. <a id="f-111"></a>A subscription MUST belong to the caller that opened it,
+     and MUST be named by a handle no other caller can guess, so callers the
+     runtime cannot tell apart, which arrive as one unknown caller, still cannot
+     cancel or read one another's subscriptions. `unsubscribe` MUST cancel only
+     a subscription whose handle the caller holds, a caller's subscriptions MUST
+     end when it disconnects, and one caller's cancellation, disconnection, or
+     failing callback MUST NOT stop or delay delivery to any other caller.
      **[New]**
 112. <a id="f-112"></a>Once the node is stopped, every call reaching the module
-     from every caller reports the node as stopped, distinctly from a backend
-     failure, and each open subscription receives a final notification that
-     delivery has ended. The FFI handle is released on stop, so this is the
-     module's obligation rather than the FFI's. **[New]**
+     from every caller MUST report the node as stopped, distinctly from a
+     backend failure, and each open subscription MUST receive a final
+     notification that delivery has ended. The FFI handle is released on stop,
+     so this is the module's obligation rather than the FFI's. **[New]**
 
 #### Usability
 
-1. <a id="use-1"></a>Provide the LEZ node module, covering every function in
-   Functionality, usable to build Logos modules for reading LEZ state, following
-   the chain, and tracking deposits.
-2. <a id="use-2"></a>Provide a CLI that covers core functionality: read an
-   account at current and at a pinned block, read a batch of accounts, read a
-   block, read a transaction, read a transaction's effects, receipt, and status,
-   read an account's balances, list an account's transactions with ordering and
-   pagination, follow the head and the final chain, follow a program's events,
-   read the node's status, mode, and peer count, read the chain parameters and
-   the fee market, list the pending set, list publications, and walk the
-   encrypted notes of a block range. Every read takes the level of [#97](#f-97).
-   The CLI may have fewer features than the FFI but must support all essential
-   operations.
-3. <a id="use-3"></a>Provide a worked deposit-tracking example, in the CLI or as
-   a documented reference consumer, that follows the chain from a chosen start
-   block, detects credits to a supplied set of public accounts, and reports each
-   credit with its transaction hash, amount, block, and status level.
-4. <a id="use-4"></a>Document which state is readable and which is not for
-   privacy-preserving transactions, including that a send published clear, from
-   a public or a private sender, reveals its amount, its receiving private
-   address, and its sender as presented, but not who controls that address, and
-   that what a private account holds is not trackable from the node's data
-   without its viewing key.
-5. <a id="use-5"></a>Return clear, actionable error messages for every failure
-   mode, each carrying the machine-readable value required by Functionality
-   [#102](#f-102) alongside the text.
-6. <a id="use-6"></a>Document the semantics of every pagination parameter,
-   including the exclusivity of the block bound, what a cursor guarantees across
-   ingestion, and the behaviour when new data lands during a walk.
-7. <a id="use-7"></a>Provide a reference Logos Core access policy for each kind
-   of deployment in
+1. <a id="use-1"></a>The delivery MUST include the LEZ node module, covering
+   every function in Functionality, usable to build Logos modules for reading
+   LEZ state, following the chain, and tracking deposits.
+2. <a id="use-2"></a>The delivery MUST include a CLI that covers core
+   functionality: read an account at current and at a pinned block, read a batch
+   of accounts, read a block, read a transaction, read a transaction's effects,
+   receipt, and status, read an account's balances, list an account's
+   transactions with ordering and pagination, follow the head and the final
+   chain, follow a program's events, read the node's status, mode, and peer
+   count, read the chain parameters and the fee market, list the pending set,
+   list publications, and walk the encrypted notes of a block range. Every read
+   MUST take the level of [#97](#f-97). The CLI MAY have fewer features than the
+   FFI but MUST support all essential operations.
+3. <a id="use-3"></a>The delivery MUST include a worked deposit-tracking
+   example, in the CLI or as a documented reference consumer, that follows the
+   chain from a chosen start block, detects credits to a supplied set of public
+   accounts, and reports each credit with its transaction hash, amount, block,
+   and status level.
+4. <a id="use-4"></a>The documentation MUST set out which state is readable and
+   which is not for privacy-preserving transactions, including that a send
+   published clear, from a public or a private sender, reveals its amount, its
+   receiving private address, and its sender as presented, but not who controls
+   that address, and that what a private account holds is not trackable from the
+   node's data without its viewing key.
+5. <a id="use-5"></a>The API MUST return clear, actionable error messages for
+   every failure mode, each carrying the machine-readable value required by
+   Functionality [#102](#f-102) alongside the text.
+6. <a id="use-6"></a>The documentation MUST describe the semantics of every
+   pagination parameter, including the exclusivity of the block bound, what a
+   cursor guarantees across ingestion, and the behaviour when new data lands
+   during a walk.
+7. <a id="use-7"></a>The delivery MUST include a reference Logos Core access
+   policy for each kind of deployment in
    [Who uses it, and how it is deployed](#who-uses-it-and-how-it-is-deployed): a
    user's own node, on the same machine as the wallet or another, a node in an
    integrator's infrastructure serving its users' wallets, and a node an
-   operator offers as a service. Each grants the user category to wallets, the
-   operations category to the operator's monitoring, and the administrative
+   operator offers as a service. Each MUST grant the user category to wallets,
+   the operations category to the operator's monitoring, and the administrative
    category to no caller beyond those Functionality [#107](#f-107) admits.
-8. <a id="use-8"></a>Document how a deployer grants a caller a single function
-   or a subset of the user category, such as the reads without
-   `submit_transaction`.
-9. <a id="use-9"></a>Document the head and the final chain for a caller: what
-   each level guarantees, how long a block takes to become final on testnet, how
-   a read at the head reports that the head was replaced, and which level a
-   deposit tracker, a wallet building a transaction, and an explorer should each
-   read at.
+8. <a id="use-8"></a>The documentation MUST describe how a deployer grants a
+   caller a single function or a subset of the user category, such as the reads
+   without `submit_transaction`.
+9. <a id="use-9"></a>The documentation MUST describe the head and the final
+   chain for a caller: what each level guarantees, how long a block takes to
+   become final on testnet, how a read at the head reports that the head was
+   replaced, and which level a deposit tracker, a wallet building a transaction,
+   and an explorer should each read at.
 
 #### Reliability
 
-1. <a id="rel-1"></a>A pinned account read at a given block identifier returns
-   the same value on every call for as long as that block is the one at the
-   identifier, which on the final chain is for good, and returns the hash of the
-   block it answered against so a caller can tell that a repeated read resolved
-   to the same block.
-2. <a id="rel-2"></a>A batch account read pinned to a block identifier returns a
-   set of accounts consistent with one another as at that block, not a mixture
-   of values read at different points during concurrent ingestion.
-3. <a id="rel-3"></a>Pagination remains valid across ingestion: a caller walking
-   an account's transactions by cursor, or blocks, publications, and encrypted
-   notes by position, neither skips nor repeats an entry that existed when the
-   walk began.
+1. <a id="rel-1"></a>A pinned account read at a given block identifier MUST
+   return the same value on every call for as long as that block is the one at
+   the identifier, which on the final chain is for good, and MUST return the
+   hash of the block it answered against so a caller can tell that a repeated
+   read resolved to the same block.
+2. <a id="rel-2"></a>A batch account read pinned to a block identifier MUST
+   return a set of accounts consistent with one another as at that block, not a
+   mixture of values read at different points during concurrent ingestion.
+3. <a id="rel-3"></a>Pagination MUST remain valid across ingestion: a caller
+   walking an account's transactions by cursor, or blocks, publications, and
+   encrypted notes by position, neither skips nor repeats an entry that existed
+   when the walk began.
 4. <a id="rel-4"></a>A subscription consumer that disconnects and reconnects
-   with its last processed block identifier and hash receives every block after
-   that position, with no gap and no assumption that the consumer was connected.
-5. <a id="rel-5"></a>A stalled or lagging node is detectable from any read,
+   with its last processed block identifier and hash MUST receive every block
+   after that position, with no gap and no assumption that the consumer was
+   connected.
+5. <a id="rel-5"></a>A stalled or lagging node MUST be detectable from any read,
    through the tips every response carries (Functionality [#98](#f-98)).
-6. <a id="rel-6"></a>A stalled node is reported as stalled by the status surface
-   rather than serving stale reads silently.
-7. <a id="rel-7"></a>The growth of history is bounded by something the
+6. <a id="rel-6"></a>A stalled node MUST be reported as stalled by the status
+   surface rather than serving stale reads silently.
+7. <a id="rel-7"></a>The growth of history MUST be bounded by something the
    deployment controls rather than by the length of the chain. The node runs
    both as infrastructure an operator provisions and inside Basecamp on an end
    user's machine, where no one is watching a disk and no one can add one, so
    growth that a server operator would size for is a defect on a desktop. A
-   deployment can put a ceiling on the history the node retains, blocks,
-   transaction bodies, effects, per-account indexes, and events, and reaching
-   that ceiling degrades what the retention floor reports rather than failing
-   reads or exhausting the disk. The state the node validates against cannot be
-   bounded this way, so the node reports its size and the documentation projects
-   its growth.
-8. <a id="rel-8"></a>No caller degrades the node for the others through the user
-   set. Every user function bounds what one call consumes, including the size of
-   a batch, the limit of a page, the span of a range, the size of a response,
-   and the number of subscriptions one caller holds open. A call past a bound
-   returns `InvalidArgument`, and the bounds are documented. A whole-account
-   read (Functionality [#15](#f-15), [#24](#f-24)) of an account whose actor
-   states exceed the response bound reports the account as too large to read
-   whole, and the caller reads it one program at a time (Functionality
-   [#17](#f-17)).
+   deployment MUST be able to put a ceiling on the history the node retains,
+   blocks, transaction bodies, effects, per-account indexes, and events, and
+   reaching that ceiling MUST degrade what the retention floor reports rather
+   than failing reads or exhausting the disk. The state the node validates
+   against cannot be bounded this way, so the node MUST report its size and the
+   documentation MUST project its growth.
+8. <a id="rel-8"></a>A caller MUST NOT be able to degrade the node for the
+   others through the user set. Every user function MUST bound what one call
+   consumes, including the size of a batch, the limit of a page, the span of a
+   range, the size of a response, and the number of subscriptions one caller
+   holds open. A call past a bound MUST return `InvalidArgument`, and the bounds
+   MUST be documented. A whole-account read (Functionality [#15](#f-15),
+   [#24](#f-24)) of an account whose actor states exceed the response bound MUST
+   report the account as too large to read whole, and the caller reads it one
+   program at a time (Functionality [#17](#f-17)).
 
 #### Performance
 
-1. <a id="perf-1"></a>Document the latency of every exported function, measured
-   rather than estimated, against a stated chain size and transaction density.
+1. <a id="perf-1"></a>The documentation MUST state the latency of every exported
+   function, measured rather than estimated, against a stated chain size and
+   transaction density.
 2. <a id="perf-2"></a>Where a function's cost varies with something the caller
-   controls or observes, document what it varies with and report the worst case
-   as well as the typical one. A read of a past block, a batch sized by the
-   caller, and a page bounded by a limit each cost more than a read at the tip,
-   and a caller choosing between them needs to know by how much.
-3. <a id="perf-3"></a>A batch account read of N accounts costs materially less
-   than N single reads, and the improvement is measured and documented for
-   representative N.
-4. <a id="perf-4"></a>Document the storage cost of persisting per-transaction
-   effects: bytes per transaction, and projected growth against a stated block
-   rate and transaction density.
-5. <a id="perf-5"></a>Benchmarks are reproducible from the test suite and run
-   against a LEZ devnet or testnet node.
-6. <a id="perf-6"></a>Document the latency of the user category under concurrent
-   callers, measured against a stated number of callers and open subscriptions,
-   alongside the single caller figures.
-7. <a id="perf-7"></a>Document the size of the viewing key walk against the full
-   blocks it is drawn from, in bytes per block and per encrypted note, and the
-   time the node takes to serve a stated number of blocks of it, so a consumer
-   restoring from a viewing key knows what fetching the walk from genesis costs.
-8. <a id="perf-8"></a>Document how one node scales with the deployments it
-   serves, from a user's own node to one an integrator or an operator runs for
-   many users: the callers, open subscriptions, and calls per second it sustains
-   on stated hardware, and how its cost grows with the number of accounts its
-   callers read and follow. Where a figure falls short of a node serving many
-   users, the documentation says so.
+   controls or observes, the documentation MUST state what it varies with and
+   report the worst case as well as the typical one. A read of a past block, a
+   batch sized by the caller, and a page bounded by a limit each cost more than
+   a read at the tip, and a caller choosing between them needs to know by how
+   much.
+3. <a id="perf-3"></a>A batch account read of N accounts MUST cost materially
+   less than N single reads, and the improvement MUST be measured and documented
+   for representative N.
+4. <a id="perf-4"></a>The documentation MUST state the storage cost of
+   persisting per-transaction effects: bytes per transaction, and projected
+   growth against a stated block rate and transaction density.
+5. <a id="perf-5"></a>Benchmarks MUST be reproducible from the test suite and
+   run against a LEZ devnet or testnet node.
+6. <a id="perf-6"></a>The documentation MUST state the latency of the user
+   category under concurrent callers, measured against a stated number of
+   callers and open subscriptions, alongside the single caller figures.
+7. <a id="perf-7"></a>The documentation MUST state the size of the viewing key
+   walk against the full blocks it is drawn from, in bytes per block and per
+   encrypted note, and the time the node takes to serve a stated number of
+   blocks of it, so a consumer restoring from a viewing key knows what fetching
+   the walk from genesis costs.
+8. <a id="perf-8"></a>The documentation MUST describe how one node scales with
+   the deployments it serves, from a user's own node to one an integrator or an
+   operator runs for many users: the callers, open subscriptions, and calls per
+   second it sustains on stated hardware, and how its cost grows with the number
+   of accounts its callers read and follow. Where a figure falls short of a node
+   serving many users, the documentation MUST say so.
 
 #### Supportability
 
@@ -2222,27 +2255,28 @@ library and includes its generated header, so the two ship together and a
 function reaches an application only when both carry it. "The FFI and module"
 below means the node's FFI crate and the module that links it.
 
-01. <a id="sup-1"></a>The FFI and module are delivered for LEZ testnet 0.4: both
-    are built and tested against a LEZ devnet and against LEZ testnet 0.4.
-02. <a id="sup-2"></a>End-to-end integration tests run in CI against a local
-    stack of a Logos Blockchain node and LEZ nodes, at least one in sequencer
-    mode and one outside it, with the node module loaded in a Logos Core runtime
-    and called through it. The repository's `docker-compose.yml` assembles a dev
-    Bedrock node, a sequencer committee, and the node's RPC service today,
-    without the FFI, the module, or a Logos Core runtime, and LEZ's own CI runs
-    a Bedrock node with its test fixtures rather than the compose file. The
-    tests of the module and its access control drive a Logos Core runtime with
-    several callers, as `logos-capability-module` drives its module through
-    `logosctl` in doctests. Every function and outcome whose behaviour differs
-    by mode is tested in each mode, including a call that is not available in a
-    node's mode (Functionality [#99](#f-99)).
-03. <a id="sup-3"></a>CI builds and tests the FFI and the module, and must be
+01. <a id="sup-1"></a>The FFI and module MUST be delivered for LEZ testnet 0.4:
+    both MUST be built and tested against a LEZ devnet and against LEZ testnet
+    0.4.
+02. <a id="sup-2"></a>End-to-end integration tests MUST run in CI against a
+    local stack of a Logos Blockchain node and LEZ nodes, at least one in
+    sequencer mode and one outside it, with the node module loaded in a Logos
+    Core runtime and called through it. The repository's `docker-compose.yml`
+    assembles a dev Bedrock node, a sequencer committee, and the node's RPC
+    service today, without the FFI, the module, or a Logos Core runtime, and
+    LEZ's own CI runs a Bedrock node with its test fixtures rather than the
+    compose file. The tests of the module and its access control MUST drive a
+    Logos Core runtime with several callers, as `logos-capability-module` drives
+    its module through `logosctl` in doctests. Every function and outcome whose
+    behaviour differs by mode MUST be tested in each mode, including a call that
+    is not available in a node's mode (Functionality [#99](#f-99)).
+03. <a id="sup-3"></a>CI MUST build and test the FFI and the module, and MUST be
     green on the default branch of every repository the work lands in. The
     module that wraps the FFI today has no build or test workflow.
 04. <a id="sup-4"></a>Every hard requirement in Functionality, Usability,
-    Reliability, and Performance has at least one corresponding test.
-05. <a id="sup-5"></a>Tests cover, at minimum: a read of an identifier the state
-    holds no record for; a pinned read at a block before and after a state
+    Reliability, and Performance MUST have at least one corresponding test.
+05. <a id="sup-5"></a>Tests MUST cover, at minimum: a read of an identifier the
+    state holds no record for; a pinned read at a block before and after a state
     change; a batch read spanning recorded and unrecorded accounts; effects for
     a public transaction, for the public leg of a privacy-preserving
     transaction, and for a transaction whose action reverted; membership proofs
@@ -2260,82 +2294,83 @@ below means the node's FFI crate and the module that links it.
     holding no grant, with no access policy in force and with a policy that
     leaves the module open; and two callers holding subscriptions when one of
     them cancels.
-06. <a id="sup-6"></a>A README documents end-to-end usage: building the FFI and
-    the module that links it, the configuration and storage directory
+06. <a id="sup-6"></a>A README MUST document end-to-end usage: building the FFI
+    and the module that links it, the configuration and storage directory
     `start_node` requires, and step-by-step instructions for every operation via
     the CLI.
-07. <a id="sup-7"></a>Provide documentation in repo for the FFI and module,
-    covering the developer integration journey for reading state, tracking
-    deposits, and confirming transactions.
-08. <a id="sup-8"></a>Provide documentation in repo for the CLI, covering the
-    core operator journey.
-09. <a id="sup-9"></a>Provide a get started guide that takes a developer from an
-    empty repository to a working Logos Core module calling the LEZ node module,
-    covering the client generated from the module's contract, reading LEZ state
-    through it, following the chain, and running the result against a devnet,
-    with the node in the same runtime and reached through peering. A module
-    calls another through its contract rather than linking its library, so the
-    guide does not link the node FFI library. The README required above
-    documents building and operating what this RFP specifies; this documents
-    building something else on top of it.
-10. <a id="sup-10"></a>Provide a full API reference for the node API, published
-    per version as the Logos Storage module publishes its
+07. <a id="sup-7"></a>The delivery MUST include documentation in repo for the
+    FFI and module, covering the developer integration journey for reading
+    state, tracking deposits, and confirming transactions.
+08. <a id="sup-8"></a>The delivery MUST include documentation in repo for the
+    CLI, covering the core operator journey.
+09. <a id="sup-9"></a>The delivery MUST include a get started guide that takes a
+    developer from an empty repository to a working Logos Core module calling
+    the LEZ node module, covering the client generated from the module's
+    contract, reading LEZ state through it, following the chain, and running the
+    result against a devnet, with the node in the same runtime and reached
+    through peering. A module calls another through its contract rather than
+    linking its library, so the guide MUST NOT link the node FFI library. The
+    README required above documents building and operating what this RFP
+    specifies; this documents building something else on top of it.
+10. <a id="sup-10"></a>The delivery MUST include a full API reference for the
+    node API, published per version as the Logos Storage module publishes its
     [API reference](https://logos-co.github.io/logos-storage-module/latest/api_reference.html),
     covering every module method and event, its parameters, its return type, its
     error values, its set, and the node modes it is available in. The reference
-    is generated from the module contract required by Functionality [#95](#f-95)
-    rather than maintained by hand, so it cannot drift from the surface it
-    describes.
-11. <a id="sup-11"></a>Provide a design decision log in repo recording each
-    major design decision and choice: the context, the options considered, the
-    option chosen, and the rationale and trade-offs. The log is updated as
-    decisions are made and is current at each milestone delivery.
-12. <a id="sup-12"></a>Provide a plan, agreed with the Logos Core maintainers
-    and recorded in the design decision log, for how an application uses several
-    zones while Logos Core runs one instance of each kind of module: whether
-    through several instances of the node module, one per zone, or through one
-    node serving several zones, and what an application sees, and for how long,
-    when it moves between zones.
+    MUST be generated from the module contract required by Functionality
+    [#95](#f-95) rather than maintained by hand, so it cannot drift from the
+    surface it describes.
+11. <a id="sup-11"></a>The delivery MUST include a design decision log in repo
+    recording each major design decision and choice: the context, the options
+    considered, the option chosen, and the rationale and trade-offs. The log
+    MUST be updated as decisions are made and MUST be current at each milestone
+    delivery.
+12. <a id="sup-12"></a>The delivery MUST include a plan, agreed with the Logos
+    Core maintainers and recorded in the design decision log, for how an
+    application uses several zones while Logos Core runs one instance of each
+    kind of module: whether through several instances of the node module, one
+    per zone, or through one node serving several zones, and what an application
+    sees, and for how long, when it moves between zones.
 
 #### + Privacy
 
-1. <a id="priv-1"></a>No function added by this RFP returns private state in the
-   clear, or a viewing key, or any value from which either can be recovered
-   without the viewing key, and no function accepts a viewing key, a nullifier
-   key, or a decrypted note. Private post-states remain readable only by the
-   viewing key holder, who decrypts them on its own side.
-2. <a id="priv-2"></a>The effects and status surfaces do not report, for a
+1. <a id="priv-1"></a>A function added by this RFP MUST NOT return private state
+   in the clear, or a viewing key, or any value from which either can be
+   recovered without the viewing key, and a function MUST NOT accept a viewing
+   key, a nullifier key, or a decrypted note. Private post-states MUST remain
+   readable only by the viewing key holder, who decrypts them on its own side.
+2. <a id="priv-2"></a>The effects and status surfaces MUST NOT report, for a
    privacy-preserving transaction, any linkage between its private inputs and
    its private outputs beyond the commitments and nullifiers already published
    on-chain.
-3. <a id="priv-3"></a>Provide a privacy properties document covering: what a
-   third party reading the node can learn about a public transaction, about the
-   public leg of a privacy-preserving transaction, including the address its fee
-   was paid from under either way of paying it, and about its private leg; what
-   a send published clear reveals, from a public and from a private sender;
-   which of those boundaries are enforced by encryption and which by the API
-   declining to expose data it holds; and what an operator running their own
-   node can see that a remote caller cannot. What a viewing key holder can learn
-   belongs in the LEZ wallet API's documentation.
-4. <a id="priv-4"></a>No function discloses one caller's activity to another.
-   Which accounts, commitments, and transactions a caller asked about, which
-   subscriptions it holds and with what filter, and which caller submitted a
-   transaction are not readable by any other caller through this surface.
-5. <a id="priv-5"></a>The node keeps no record tying a caller identity to what
-   that caller read or submitted beyond what serving the call requires. Any
-   logging that does so is off by default, and the operator turns it on as
+3. <a id="priv-3"></a>The delivery MUST include a privacy properties document
+   covering: what a third party reading the node can learn about a public
+   transaction, about the public leg of a privacy-preserving transaction,
+   including the address its fee was paid from under either way of paying it,
+   and about its private leg; what a send published clear reveals, from a public
+   and from a private sender; which of those boundaries are enforced by
+   encryption and which by the API declining to expose data it holds; and what
+   an operator running their own node can see that a remote caller cannot. What
+   a viewing key holder can learn belongs in the LEZ wallet API's documentation.
+4. <a id="priv-4"></a>A function MUST NOT disclose one caller's activity to
+   another. Which accounts, commitments, and transactions a caller asked about,
+   which subscriptions it holds and with what filter, and which caller submitted
+   a transaction MUST NOT be readable by any other caller through this surface.
+5. <a id="priv-5"></a>The node MUST NOT keep a record tying a caller identity to
+   what that caller read or submitted beyond what serving the call requires. Any
+   logging that does so MUST be off by default, and the operator turns it on as
    Functionality [#94](#f-94) defines. This binds the node; what Logos Core
    records of each access decision is covered under Privacy [#6](#priv-6).
-6. <a id="priv-6"></a>The privacy properties document states what the operator
-   of a node shared by several wallets learns about each of them from its calls:
-   the accounts and commitments it reads, the transactions it submits, and the
-   caller identity those arrive under. It also states what Logos Core records
-   about calls to the node, its draft specification giving every access decision
-   an audit record.
-7. <a id="priv-7"></a>A viewing key consumer can follow its accounts through
-   calls that name none of them. The viewing key walk, the publication listing,
-   and the subscription delivering the walk take positions only, and the
-   documentation identifies every user function that takes an account
+6. <a id="priv-6"></a>The privacy properties document MUST state what the
+   operator of a node shared by several wallets learns about each of them from
+   its calls: the accounts and commitments it reads, the transactions it
+   submits, and the caller identity those arrive under. It MUST also state what
+   Logos Core records about calls to the node, its draft specification giving
+   every access decision an audit record.
+7. <a id="priv-7"></a>A viewing key consumer MUST be able to follow its accounts
+   through calls that name none of them. The viewing key walk, the publication
+   listing, and the subscription delivering the walk MUST take positions only,
+   and the documentation MUST identify every user function that takes an account
    identifier, a commitment, or a private address, so a consumer knows which
    calls disclose what it holds.
 
@@ -2345,32 +2380,35 @@ If possible.
 
 #### Functionality
 
-1. <a id="soft-1"></a>A subscription filtered to a supplied set of accounts,
-   delivering only blocks containing a transaction that touches one of them.
-   Most surveyed chains that offer a block subscription also offer a filtered
-   one; Bitcoin and Zcash push unfiltered streams only
+1. <a id="soft-1"></a>The API SHOULD expose a subscription filtered to a
+   supplied set of accounts, delivering only blocks containing a transaction
+   that touches one of them. Most surveyed chains that offer a block
+   subscription also offer a filtered one; Bitcoin and Zcash push unfiltered
+   streams only
    ([Appendix: Blockchain API and SDK Ecosystem, section 1.32](../appendix/blockchain-api-sdk-ecosystem.md#132-subscribe-to-new-blocks-and-to-events)).
-2. <a id="soft-2"></a>A batch transaction read, taking a list of transaction
-   hashes and returning a result per hash in request order.
-3. <a id="soft-3"></a>A block-scoped effects query returning the diffs for every
-   transaction in one block, so a consumer following the chain reads one result
-   per block rather than one per transaction.
-4. <a id="soft-4"></a>Retention policies beyond a single ceiling, such as
-   keeping transaction history for accounts a deployment cares about while
-   discarding the rest, so a desktop deployment holds what its user needs rather
-   than the most recent window of everything.
-5. <a id="soft-5"></a>The tips recent transactions chose, per block, so a caller
-   chooses a tip against what was paid, should inclusion come to depend on the
-   tip. Receipts record the tip each transaction paid (Functionality
-   [#76](#f-76)), but for a proof-committed fee that figure includes a surplus
-   kept rather than refunded, so this reads the tip each transaction body
-   declares.
-6. <a id="soft-6"></a>A read of the commitment set that names no commitment: its
-   frontier at a given block, with each commitment the viewing key walk
-   (Functionality [#31](#f-31)) lists carrying its position, so a wallet keeps
-   its own membership witnesses up to date and spends without naming to the node
-   the commitments it holds, as a Zcash light client does from the tree state.
-   Functionality [#36](#f-36) names them (Functionality [#38](#f-38)).
+2. <a id="soft-2"></a>The API SHOULD expose a batch transaction read, taking a
+   list of transaction hashes and returning a result per hash in request order.
+3. <a id="soft-3"></a>The API SHOULD expose a block-scoped effects query
+   returning the diffs for every transaction in one block, so a consumer
+   following the chain reads one result per block rather than one per
+   transaction.
+4. <a id="soft-4"></a>The node SHOULD support retention policies beyond a single
+   ceiling, such as keeping transaction history for accounts a deployment cares
+   about while discarding the rest, so a desktop deployment holds what its user
+   needs rather than the most recent window of everything.
+5. <a id="soft-5"></a>The API SHOULD report the tips recent transactions chose,
+   per block, so a caller chooses a tip against what was paid, should inclusion
+   come to depend on the tip. Receipts record the tip each transaction paid
+   (Functionality [#76](#f-76)), but for a proof-committed fee that figure
+   includes a surplus kept rather than refunded, so this reads the tip each
+   transaction body declares.
+6. <a id="soft-6"></a>The API SHOULD expose a read of the commitment set that
+   names no commitment: its frontier at a given block, with each commitment the
+   viewing key walk (Functionality [#31](#f-31)) lists carrying its position, so
+   a wallet keeps its own membership witnesses up to date and spends without
+   naming to the node the commitments it holds, as a Zcash light client does
+   from the tree state. Functionality [#36](#f-36) names them (Functionality
+   [#38](#f-38)).
 
 ### Out of Scope
 
