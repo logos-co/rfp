@@ -1213,6 +1213,15 @@ execution succeeded.
       much of the chain the node has processed;
     - **dropped**, on the terms of [#42](#f-42).
 
+    **Open question: drop the produced level.** Only a node in sequencer mode
+    reports it, only for the blocks it produced itself, and only until it sees
+    them inscribed, so the same transaction reads as produced on one node and as
+    received on every other. Dropping it takes a transaction from received to
+    inscribed on every node, and keeps the head to inscribed blocks in both
+    modes ([#60](#f-60), [#99](#f-99)), so a read answers alike whichever node
+    serves it. The cost is that a caller submitting through a sequencer learns
+    its transaction is in a block only once that block is inscribed.
+
     The levels map onto `BedrockStatus`, whose `Pending`, `Safe`, and
     `Finalized` (`lez/common/src/block.rs:118-121`) the node sets only as
     `Pending` and `Finalized` today, and the mapping is documented. Before a
