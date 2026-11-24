@@ -186,7 +186,7 @@ pending set.
 
 Transactions sequencers gossip travel on a peer-to-peer topic per zone, which
 any node following the zone can subscribe to, so a wallet on the user's own node
-can still abandon a proof that a pending transaction invalidates.
+can still see a pending transaction that conflicts with one it is building.
 
 **Basis:** the transaction topic of the gossip actor today
 (`lez/sequencer/actors/gossip/src/actor.rs:338-340`). **Rests on it:** the
@@ -323,7 +323,8 @@ by Logos Core and are outside this RFP.
 chain state, tracks deposits to accounts it controls, and waits for a
 transaction to reach a level it is willing to act on. A wallet also needs what
 an exchange never asks for: the proofs it spends with, the pending set it checks
-while proving, and the publications and encrypted notes it receives through.
+before proving and submitting, and the publications and encrypted notes it
+receives through.
 
 Wallet and key management, transaction construction and signing, the protocol
 between LEZ nodes, the Logos Blockchain APIs, and hosting Logos Core in an
@@ -747,6 +748,19 @@ lez_node.block_ref = {
     hash: lez_node.hash,
 }
 
+; where a caller resumes: the last block it processed, its hash optional
+lez_node.resume_from = {
+    id: lez_node.block_id,
+    ? hash: lez_node.hash,
+}
+
+; a resume position whose hash the node's chain does not match; `common` is
+; the last block on the node's chain that the caller's position shares
+lez_node.resume_mismatch = {
+    common: lez_node.block_ref,
+    tips: lez_node.tips,
+}
+
 ; -- what a read answers against --
 lez_node.level = "head" / "final"
 
@@ -779,7 +793,6 @@ lez_node.error_code =
     "invalid_argument" /
     "too_large" /
     "below_retention_floor" /
-    "position_mismatch" /
     "lagging" /
     "stalled" /
     "backend_failure" /
@@ -865,9 +878,11 @@ lez_node.event_record = {
   or a nonce, a `u128` in LEZ, is a 16-byte string holding the value
   little-endian (`lez_node.amount`, `lez_node.nonce`).
 - **Block positions.** A `lez_node.block_ref` names a block by its identifier
-  and hash together. The API takes one wherever a caller resumes from a block,
-  and reports one for every tip, since an identifier at the head names a height
-  rather than a block ([#23](#f-23)).
+  and hash together. The API reports one for every tip, since an identifier at
+  the head names a height rather than a block ([#23](#f-23)). A caller resuming
+  from a block passes a `lez_node.resume_from`, whose hash is optional, and a
+  hash the node's chain does not match is answered with a
+  `lez_node.resume_mismatch` rather than resumed from ([#61](#f-61)).
 - **Levels and tips.** A read of chain state takes an optional `level`, the head
   when omitted ([#97](#f-97)), and its response carries a `lez_node.served_at`
   naming the level, the block it was served at, and both tips ([#98](#f-98)).
@@ -1499,15 +1514,16 @@ block.
 
 ##### Private message delivery
 
-Reading the messages a private account receives. A send to a private account is
-published rather than applied, at a position in the commitment set: as a clear
-publication whose envelope is in plaintext, always for a public-to-private send
-and at the sender's choice for a private one, or as a sealed publication. The
-receiving wallet reads the publications, finds those addressed to it, and later
-consumes them. Among the surveyed chains only Zcash, whose shielded payments a
-recipient finds by scanning, has a comparable structure. The sequencer service
-serves it today (`lez/sequencer/service/rpc/src/lib.rs:112-129`), and the node
-holds the data in its own state (`lee/state_machine/src/state/mod.rs:357-406`).
+Reading the messages a private account receives. A send to a private account the
+sender does not hold is published rather than applied, at a position in the
+commitment set: as a clear publication whose envelope is in plaintext, always
+for a public-to-private send and at the sender's choice for a private one, or as
+a sealed publication. The receiving wallet reads the publications, finds those
+addressed to it, and later consumes them. Among the surveyed chains only Zcash,
+whose shielded payments a recipient finds by scanning, has a comparable
+structure. The sequencer service serves it today
+(`lez/sequencer/service/rpc/src/lib.rs:112-129`), and the node holds the data in
+its own state (`lee/state_machine/src/state/mod.rs:357-406`).
 
 ```cddl
 lez_node.query_publications_request = {
@@ -1591,7 +1607,7 @@ encrypted note, account state updates included. Scanning it is the wallet's.
 ; `from` is the last block the caller processed; omitted, the walk starts
 ; at the retention floor
 lez_node.query_private_notes_request = {
-    ? from: lez_node.block_ref,
+    ? from: lez_node.resume_from,
     limit: lez_node.limit,
     ? level: lez_node.level,
 }
@@ -1601,6 +1617,8 @@ lez_node.query_private_notes_response = {
     more: bool,
     ? next_from: lez_node.block_ref,
     served: lez_node.served_at,
+} / {
+    mismatch: lez_node.resume_mismatch,
 } / {
     error: lez_node.error,
 }
@@ -1641,11 +1659,13 @@ carries with the public values needed to decrypt and check it.
 ```cddl
 lez_node.subscribe_to_private_notes_request = {
     subscription: lez_node.subscription_id,
-    ? from: lez_node.block_ref,
+    ? from: lez_node.resume_from,
 }
 
 lez_node.subscribe_to_private_notes_response = {
     ended: lez_node.subscription_end,
+} / {
+    mismatch: lez_node.resume_mismatch,
 } / {
     error: lez_node.error,
 }
@@ -1681,10 +1701,10 @@ Delivers the same walk as new blocks arrive.
     or other value tied to the consumer's accounts. Every caller asking for the
     same range MUST receive the same result, so the walk discloses to the node
     the range read and nothing else. **[New]**
-34. <a id="f-34"></a>The walk MUST resume from a block identifier and hash on
-    the same terms as the block subscription, [#61](#f-61), and MUST also be
-    delivered as a subscription, so a viewing key consumer following the tip
-    neither polls nor misses a block. **[New]**
+34. <a id="f-34"></a>The walk MUST resume from a block identifier, with or
+    without its hash, on the same terms as the block subscription, [#61](#f-61),
+    and MUST also be delivered as a subscription, so a viewing key consumer
+    following the tip neither polls nor misses a block. **[New]**
 35. <a id="f-35"></a>The API documentation MUST state what the walk serves for
     each kind of note, and that it serves every encrypted note in the range,
     whichever account it addresses. What a viewing key holder can and cannot
@@ -1927,11 +1947,10 @@ chain, its mode, and why it stopped if it has.
     identifier and hash; the last error, the stall reason, and the cross-zone
     halt verdict when the node stopped; and the health of each peer zone it
     reads, one of `live`, `lagging`, `holed`, `suspended`, `pin_mismatch`, or
-    `halted`. A state or health value a client build does not recognise MUST be
-    treated as not known healthy rather than as a decode failure. The node holds
-    this data today (`lez/indexer/core/src/status.rs:16-24`, `:45-98`,
-    `:159-161`), but the FFI's `query_status` returns it as a JSON string,
-    untyped by any contract, and as a bare null pointer on any failure
+    `halted`. The node holds this data today
+    (`lez/indexer/core/src/status.rs:16-24`, `:45-98`, `:159-161`), but the
+    FFI's `query_status` returns it as a JSON string, untyped by any contract,
+    and as a bare null pointer on any failure
     (`lez/indexer/ffi/src/api/query.rs:120-145`). **[New]**
 44. <a id="f-44"></a>The status query MUST report the node's mode: whether it is
     in sequencer mode and, if it is, whether it is accepting transactions or
@@ -2059,12 +2078,25 @@ Listing what the network holds but has not yet included in a block
 - **Solana, XRPL, Stellar, NEAR, Sui**: no equivalent. Solana has no mempool at
   all: transactions are forwarded to the upcoming leaders.
 
-A privacy-preserving transaction commits to a post-state when it is built, so a
-pending transaction that changes the pre-state it assumed invalidates it before
-it is ever submitted. Generating the proof takes minutes, so a wallet that can
-see the pending set aborts a proof it now knows will be rejected instead of
-finishing it. That is the difference between reading the pending set and
-diagnosing a failure afterwards.
+A privacy-preserving transaction's proof commits to its private actions, its
+recovery bindings, and the messages crossing between its private and public
+execution
+(`lee/state_machine/src/privacy_preserving_transaction/circuit/mod.rs:77-79`,
+`lee/state_machine/core/src/circuit_io.rs:506-523`), while its public part runs
+against the state at block production
+(`lee/state_machine/src/validated_state_diff/mod.rs:380-408`). A pending
+transaction can still defeat one being built: one that binds the same private
+address first has it dropped at settlement
+(`lee/state_machine/src/state/mod.rs:535-551`), and one that changes a public
+account whose replies to private actors the proof predicted has it included as
+reverted, its fee charged
+(`lee/state_machine/core/src/execution_state.rs:930-941`,
+`lee/state_machine/src/validated_state_diff/mod.rs:426-470`). Proving takes tens
+of seconds (`docs/benchmarks/cycle_bench.md:92-104`), so a wallet that checks
+the pending set before proving and again before submitting avoids discarding a
+proof or paying for a revert. A spent nullifier needs no such check, since only
+the key holder can spend it, and a changed nonce costs a new signature rather
+than a new proof.
 
 The pending set also answers where a submitted transaction has got to. Absence
 from the chain alone means nothing, since a transaction not yet included and one
@@ -2074,8 +2106,8 @@ fails during block production is included as reverted, but one that fails
 settlement is dropped without a record: it is logged and omitted from the block
 (`lez/sequencer/core/src/lib.rs:1793-1804`), so no drop is retrievable
 afterwards and the pending set is the only surface on which its disappearance is
-visible. It is the proof a wallet abandons, though, rather than status, that
-makes the pending set a requirement here.
+visible. Detecting a conflict with a transaction being built, together with
+status, is what makes the pending set a requirement here.
 
 Which pending set a node can show depends on its mode. A sequencer's pending set
 is a bounded mempool, fed both by submission and by gossip from its peers, and
@@ -2105,11 +2137,14 @@ lez_node.query_pending_digests_response = {
     error: lez_node.error,
 }
 
+; `account_ids` and `nonces` name public accounts; `nullifiers` are those it
+; spends, and `bound_addresses` the private addresses it binds
 lez_node.pending_digest = {
     hash: lez_node.hash,
     account_ids: [* lez_node.account_id],
     nonces: [* lez_node.account_nonce],
     nullifiers: [* lez_node.nullifier],
+    bound_addresses: [* lez_node.account_id],
 }
 
 lez_node.account_nonce = {
@@ -2118,14 +2153,15 @@ lez_node.account_nonce = {
 }
 ```
 
-Lists the pending set as digests: per entry, its transaction hash and the
-account identifiers, nonces, and nullifiers it touches.
+Lists the pending set as digests: per entry, its transaction hash, the public
+account identifiers and nonces it touches, the nullifiers it spends, and the
+private addresses it binds.
 
 49. <a id="f-49"></a>The API MUST list pending transactions as digests carrying,
-    per entry, its transaction hash together with the account identifiers,
-    nonces, and nullifiers the transaction acts on, so a caller detects a
-    conflict with a transaction it is about to build without fetching bodies.
-    **[New]**
+    per entry, its transaction hash, the public account identifiers and nonces
+    it touches, the nullifiers it spends, and the private addresses it binds, so
+    a caller detects a conflict with a transaction it is about to build without
+    fetching bodies. **[New]**
 50. <a id="f-50"></a>In sequencer mode the listing MUST be the pending set the
     node builds blocks from. Outside sequencer mode, the listing MUST be the
     transactions the node has observed on the LEZ peer-to-peer network and not
@@ -2177,9 +2213,8 @@ the pending set can miss it.
 
 54. <a id="f-54"></a>A page of the digest listing MUST cost no more to serve
     than a page of blocks of the same limit, measured under Performance
-    [#1](#perf-1), so a wallet re-checks for a conflict throughout a proof
-    generation and abandons the proof rather than completing one it knows will
-    be rejected. **[New]**
+    [#1](#perf-1), so a wallet re-checks for a conflict before proving and again
+    before submitting. **[New]**
 
 55. <a id="f-55"></a>The pending set MUST be queryable by transaction hash,
     through `query_pending_entry` below, so a caller holding the hash
@@ -2206,8 +2241,9 @@ Returns one pending transaction in full, by its transaction hash.
 
 56. <a id="f-56"></a>The API MUST return a pending transaction's body for a
     transaction hash, in the same shape `query_transaction` returns an included
-    one, and MUST report absence distinctly from failure: an entry included or
-    dropped since the caller last saw it is gone rather than an error. **[New]**
+    one, and MUST report absence distinctly from failure: an entry that has left
+    the pending set since the caller last saw it is reported as absent rather
+    than as an error. **[New]**
 
 ##### Subscriptions
 
@@ -2227,11 +2263,13 @@ Pushing new blocks and events to a consumer instead of making it poll
 ```cddl
 lez_node.subscribe_to_finalized_blocks_request = {
     subscription: lez_node.subscription_id,
-    ? from: lez_node.block_ref,
+    ? from: lez_node.resume_from,
 }
 
 lez_node.subscribe_to_finalized_blocks_response = {
     ended: lez_node.subscription_end,
+} / {
+    mismatch: lez_node.resume_mismatch,
 } / {
     error: lez_node.error,
 }
@@ -2257,6 +2295,44 @@ resuming from a position the consumer already processed.
     (`lez/indexer/service/rpc/src/lib.rs:45`), which does not identify a block
     once the head can be replaced; the pair already exists as `BlockMeta`
     (`lez/common/src/block.rs:11-14`). **[New]**
+
+```cddl
+lez_node.subscribe_to_head_request = {
+    subscription: lez_node.subscription_id,
+    ? from: lez_node.resume_from,
+}
+
+lez_node.subscribe_to_head_response = {
+    ended: lez_node.subscription_end,
+} / {
+    mismatch: lez_node.resume_mismatch,
+} / {
+    error: lez_node.error,
+}
+
+lez_node.head_block_event = {
+    subscription: lez_node.subscription_id,
+    change: lez_node.head_change,
+}
+
+lez_node.head_change = {
+    kind: "entered",
+    block: lez_node.block_ref,
+} / {
+    kind: "replaced",
+    replaced: lez_node.block_ref,
+    by: lez_node.block_ref,
+} / {
+    kind: "finalized",
+    block: lez_node.block_ref,
+}
+```
+
+Delivers each change to the head to the caller as an event: a block entering it
+on inscription, a block replaced, with the block that replaces it, and a block
+becoming final, optionally resuming from a position the consumer already
+processed.
+
 59. <a id="f-59"></a>The API MUST expose a subscription to the head, notifying a
     consumer of each block as it enters the head on inscription; of each head
     block that is replaced, with the block that replaces it; and of each head
@@ -2271,15 +2347,32 @@ resuming from a position the consumer already processed.
     (`lez/indexer/service/src/service.rs:526-534`). A resume position below the
     retention floor MUST be answered as [#91](#f-91) defines. **[New]**
 61. <a id="f-61"></a>The block subscription MUST accept a start position: the
-    identifier and hash of the block the consumer last processed. Delivery MUST
-    resume from the block after that position, so a consumer that reconnects
-    observes no gap, and a position whose hash does not match the block the node
-    holds at that identifier MUST be reported as such rather than resumed from.
+    identifier of the block the consumer last processed, and optionally its
+    hash. Delivery MUST resume from the block after that position, so a consumer
+    that reconnects observes no gap. Given an identifier alone, delivery MUST
+    resume after the block the node holds at that identifier. Given an
+    identifier and a hash, the node MUST check the hash against the block it
+    holds at that identifier. On a mismatch it MUST NOT resume, and it MUST
+    report the mismatch together with the last block on its chain that the
+    caller's position shares, so the caller rolls back to it in one round trip.
     Neither existing RPC subscription carries a position:
     `subscribeToFinalizedBlocks` takes no arguments, and `subscribeToEvents`
     filters by transaction, program, and selector but not by position
     ([Appendix: Blockchain API and SDK Ecosystem, section 1.33](../appendix/blockchain-api-sdk-ecosystem.md#133-resume-a-stream-from-a-known-position)).
     **[New]**
+
+Base-layer RPCs resume by height and leave reorg detection to the client:
+Ethereum's `eth_getLogs` accepts a `blockHash` only instead of a block range,
+never with one (EIP-234), and Solana relies on commitment levels. Reorg-aware
+consumers each rebuild the check: The Graph keeps its position as a block number
+and hash, Ponder checks each block's parent hash, Firehose cursors encode the
+block number and hash, and Cardano's chain sync resumes from slot and hash
+points. Reads here default to a head that can be replaced
+([Assumption A8](#a8-every-node-holds-a-head-as-well-as-a-final-chain-and-reads-default-to-the-head))
+and the walk is a range read, so the node performs the check once for every
+caller. A caller that sends no hash resumes by height alone, as on those base
+layers
+([Appendix: Blockchain API and SDK Ecosystem, section 1.33](../appendix/blockchain-api-sdk-ecosystem.md#133-resume-a-stream-from-a-known-position)).
 
 ```cddl
 lez_node.unsubscribe_request = {
@@ -2302,7 +2395,7 @@ Cancels a registered subscription and releases the resources it holds.
 lez_node.subscribe_to_events_request = {
     subscription: lez_node.subscription_id,
     filter: lez_node.event_filter,
-    ? from: lez_node.block_ref,
+    ? from: lez_node.resume_from,
 }
 
 lez_node.event_filter = {
@@ -2313,6 +2406,8 @@ lez_node.event_filter = {
 
 lez_node.subscribe_to_events_response = {
     ended: lez_node.subscription_end,
+} / {
+    mismatch: lez_node.resume_mismatch,
 } / {
     error: lez_node.error,
 }
@@ -2337,12 +2432,12 @@ optionally resuming from a position the consumer already processed.
     refused at subscription, as the RPC refuses it
     (`lez/indexer/service/src/service.rs:80-87`), rather than accepted and left
     silent. **[Ready, not exposed]**
-64. <a id="f-64"></a>The event subscription MUST resume from a block identifier
-    and hash on the same terms as the block subscription, [#61](#f-61), so a
-    consumer following a program's events across a disconnection misses none. A
-    resume position outside the node's event-filter history MUST be answered as
-    data the node does not hold, as [#13](#f-13) defines for the query.
-    **[New]**
+64. <a id="f-64"></a>The event subscription MUST resume from a block identifier,
+    with or without its hash, on the same terms as the block subscription,
+    [#61](#f-61), so a consumer following a program's events across a
+    disconnection misses none. A resume position outside the node's event-filter
+    history MUST be answered as data the node does not hold, as [#13](#f-13)
+    defines for the query. **[New]**
 
 ##### Pagination and account history
 
@@ -2715,9 +2810,10 @@ they were read at.
     smallest surplus refunded rather than kept as tip; and the rate at which a
     base fee moves between blocks (`lez/programs/fee/core/src/market.rs:15-54`).
     A wallet that learns a transaction is too large only on submitting it has
-    already spent minutes proving it. The channel parameters change by committee
-    vote, so each value MUST be reported with the block it was read at, and the
-    chain identifier of [#82](#f-82) MUST be returned with them. **[New]**
+    already spent tens of seconds proving it. The channel parameters change by
+    committee vote, so each value MUST be reported with the block it was read
+    at, and the chain identifier of [#82](#f-82) MUST be returned with them.
+    **[New]**
 
 ```cddl
 lez_node.query_program_ids_request = {
@@ -2759,9 +2855,9 @@ of the privacy-preserving circuit the chain verifies proofs against.
 87. <a id="f-87"></a>The same call MUST return the identifier of the
     privacy-preserving circuit whose proofs this node verifies, which a wallet
     compares with its own before it proves: a mismatch otherwise surfaces only
-    when a transaction that took minutes to prove is rejected. That identifier
-    is the one entry `getProgramIds` returns today, and the wallet's health
-    check compares it with its own (`lez/wallet/src/cli/mod.rs:300-309`).
+    when a transaction that took tens of seconds to prove is rejected. That
+    identifier is the one entry `getProgramIds` returns today, and the wallet's
+    health check compares it with its own (`lez/wallet/src/cli/mod.rs:300-309`).
     **[Ready, not exposed]**
 
 ```cddl
@@ -3431,8 +3527,11 @@ module" below means the LEZ node module together with its contract.
    and about its private leg; what a send published clear reveals, from a public
    and from a private sender; which of those boundaries are enforced by
    encryption and which by the API declining to expose data it holds; and what
-   an operator running their own node can see that a remote caller cannot. What
-   a viewing key holder can learn belongs in the LEZ wallet API's documentation.
+   an operator running their own node can see that a remote caller cannot. The
+   document MUST state that the pending listing shows, before inclusion, the
+   private addresses a transaction binds, which its body already carries in
+   clear. What a viewing key holder can learn belongs in the LEZ wallet API's
+   documentation.
 4. <a id="priv-4"></a>A function MUST NOT disclose one caller's activity to
    another. Which accounts, commitments, and transactions a caller asked about,
    which subscriptions it holds and with what filter, and which caller submitted

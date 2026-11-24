@@ -1618,21 +1618,26 @@ why it appears again under stream resumption below.
 Restarts an interrupted stream from the last position the client processed,
 without gaps.
 
-| Chain    | Mechanism                                                                    |
-| -------- | ---------------------------------------------------------------------------- |
-| Ethereum | [NOT FOUND] [[51]](#ref-51)                                                  |
-| Bitcoin  | `-zmqpubsequence` allows loss detection, not replay [[52]](#ref-52)          |
-| Zcash    | lightwalletd `GetBlockRange` takes a height range [[123]](#ref-123)          |
-| Solana   | [NOT FOUND] [[45]](#ref-45)                                                  |
-| XRPL     | [NOT FOUND] for streams; `marker` covers historical paging [[26]](#ref-26)   |
-| Cosmos   | [NOT FOUND] [[9]](#ref-9)                                                    |
-| Stellar  | `cursor` on streaming mode [[48]](#ref-48)                                   |
-| NEAR     | [NOT FOUND]; no streaming surface [[13]](#ref-13)                            |
-| Sui      | [NOT FOUND] on the documented subscription methods [[15]](#ref-15)           |
-| Logos L1 | `slot_from` on `/cryptarchia/blocks_range` [[84]](#ref-84)                   |
-| LEZ      | [NOT FOUND]; `subscribeToFinalizedBlocks` takes no arguments [[22]](#ref-22) |
+| Chain    | Mechanism                                                                                                                                                                      |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Ethereum | `eth_getLogs` pages by `fromBlock` and `toBlock` numbers, or one block by `blockHash`; `eth_subscribe` takes no start position [[46]](#ref-46)[[96]](#ref-96)[[139]](#ref-139) |
+| Bitcoin  | `-zmqpubsequence` allows loss detection, not replay [[52]](#ref-52)                                                                                                            |
+| Zcash    | lightwalletd `GetBlockRange` takes a height range; `BlockID` has a hash field that `BlockRange` does not yet accept [[123]](#ref-123)                                          |
+| Solana   | [NOT FOUND] on the node RPC [[45]](#ref-45); Yellowstone gRPC `from_slot` replays recent slots [[140]](#ref-140)                                                               |
+| XRPL     | [NOT FOUND] for streams; `marker` covers historical paging [[26]](#ref-26)                                                                                                     |
+| Cosmos   | [NOT FOUND] [[9]](#ref-9)                                                                                                                                                      |
+| Stellar  | `cursor` on streaming mode [[48]](#ref-48)                                                                                                                                     |
+| NEAR     | [NOT FOUND]; no streaming surface [[13]](#ref-13)                                                                                                                              |
+| Sui      | [NOT FOUND] on the documented subscription methods [[15]](#ref-15)                                                                                                             |
+| Logos L1 | `slot_from` on `/cryptarchia/blocks_range` [[84]](#ref-84)                                                                                                                     |
+| LEZ      | [NOT FOUND]; `subscribeToFinalizedBlocks` takes no arguments [[22]](#ref-22)                                                                                                   |
 
-**Why it exists.** No specific or relevant context has been found.
+**Why it exists.** EIP-234 gives the rationale: a client that disconnects while
+a reorg happens never learns of the logs the reorg removed, so EIP-234 lets a
+caller read logs by block hash and reconcile its view against the chain
+[[96]](#ref-96). A `blockHash` is mutually exclusive with `fromBlock` and
+`toBlock`, which Geth enforces by rejecting a filter that carries both
+[[138]](#ref-138).
 
 This is the weakest-supported capability in the survey, and that is itself the
 finding. Among the surveyed chains only Stellar documents cursor-based
@@ -1644,6 +1649,23 @@ than opening an unbounded stream [[123]](#ref-123), so a consumer resumes by
 asking for the range it has not yet seen. That is resumption as a consequence of
 never having an unresumable stream in the first place. Bitcoin offers loss
 detection without replay. The other six document no resume mechanism.
+
+Ethereum pages history through `eth_getLogs` by `fromBlock` and `toBlock`, which
+are block numbers [[46]](#ref-46), and its subscriptions take no start position
+[[139]](#ref-139). Solana's node RPC documents none either [[45]](#ref-45), but
+Yellowstone gRPC accepts a `from_slot` on a subscription and replays from a
+buffer of recent slots, a resume by slot alone [[140]](#ref-140). On Zcash,
+lightwalletd's `BlockID` has `height` and `hash` fields, but `BlockRange`
+accepts heights only: "specification by hash is not yet supported"
+[[123]](#ref-123).
+
+Reorg-safe cursors appear in the indexers built on these chains rather than in
+their node APIs. The Graph's node keeps its position as a `BlockPtr`, a block
+hash and number together [[141]](#ref-141). A Firehose cursor encodes the block
+number and hash of the position it names [[142]](#ref-142), and Substreams sends
+an undo signal when blocks it delivered leave the chain [[143]](#ref-143).
+Cardano's chain sync resumes from intersection points, each a slot and a block
+hash [[144]](#ref-144).
 
 There is a mechanical reason the majority lack it. Server-sent events carry
 resumption in the transport: the `Last-Event-ID` header "reports an EventSource
@@ -2454,3 +2476,24 @@ and carries no resume anchor [[81]](#ref-81).
      `rpc/requests`, `rpc/success`, `rpc/failure`, and `rpc/duration/<method>`
      metrics.
      https://github.com/ethereum/go-ethereum/blob/2a2cbe3b4ec2/rpc/metrics.go
+138. <a id="ref-138"></a>go-ethereum, "eth/filters/api.go", the filter criteria
+     decoding that rejects `blockHash` together with `fromBlock` or `toBlock`.
+     https://github.com/ethereum/go-ethereum/blob/master/eth/filters/api.go
+139. <a id="ref-139"></a>Ethereum, "execution-apis: src/eth/subscribe.yaml", the
+     `eth_subscribe` method definition.
+     https://github.com/ethereum/execution-apis/blob/main/src/eth/subscribe.yaml
+140. <a id="ref-140"></a>rpcpool, "yellowstone-grpc:
+     yellowstone-grpc-proto/proto/geyser.proto", the Geyser gRPC service
+     definition and its `from_slot` subscription field.
+     https://github.com/rpcpool/yellowstone-grpc/blob/master/yellowstone-grpc-proto/proto/geyser.proto
+141. <a id="ref-141"></a>The Graph, "graph-node: graph/src/blockchain/types.rs",
+     the `BlockPtr` type.
+     https://github.com/graphprotocol/graph-node/blob/master/graph/src/blockchain/types.rs
+142. <a id="ref-142"></a>StreamingFast, "bstream: cursor.go", the Firehose
+     cursor. https://github.com/streamingfast/bstream/blob/develop/cursor.go
+143. <a id="ref-143"></a>StreamingFast, "Substreams: Reliability Guarantees"
+     documentation.
+     https://docs.substreams.dev/reference-material/core-concepts/reliability-guarantees
+144. <a id="ref-144"></a>Ogmios, "Local Chain Sync" mini-protocol documentation,
+     its intersection points.
+     https://github.com/CardanoSolutions/ogmios/blob/master/docs/content/mini-protocols/local-chain-sync.md
