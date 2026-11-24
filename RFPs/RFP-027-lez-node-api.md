@@ -2365,9 +2365,9 @@ Base-layer RPCs resume by height and leave reorg detection to the client:
 Ethereum's `eth_getLogs` accepts a `blockHash` only instead of a block range,
 never with one (EIP-234), and Solana relies on commitment levels. Reorg-aware
 consumers each rebuild the check: The Graph keeps its position as a block number
-and hash, Ponder checks each block's parent hash, Firehose cursors encode the
-block number and hash, and Cardano's chain sync resumes from slot and hash
-points. Reads here default to a head that can be replaced
+and hash, Firehose cursors encode the block number and hash, and Cardano's chain
+sync resumes from slot and hash points. Reads here default to a head that can be
+replaced
 ([Assumption A8](#a8-every-node-holds-a-head-as-well-as-a-final-chain-and-reads-default-to-the-head))
 and the walk is a range read, so the node performs the check once for every
 caller. A caller that sends no hash resumes by height alone, as on those base
