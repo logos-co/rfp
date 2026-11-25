@@ -789,16 +789,8 @@ lez_node.subscription_end = {
 }
 
 ; -- errors --
-lez_node.error_code =
-    "invalid_argument" /
-    "too_large" /
-    "below_retention_floor" /
-    "lagging" /
-    "stalled" /
-    "backend_failure" /
-    "not_available_in_mode" /
-    "refused" /
-    "node_stopped"
+; the values are the implementer's (#102), one for each expected failure
+lez_node.error_code = tstr .size (1..64)
 
 lez_node.error = {
     code: lez_node.error_code,
@@ -892,8 +884,9 @@ lez_node.event_record = {
   holds no block there.
 - **Absence and errors.** The API MUST report a record the node does not hold as
   an omitted field, not an error. Every response MUST be either its success map
-  or an `error` map whose `code` is one of `lez_node.error_code`, the expected
-  failures this RFP names ([#99](#f-99), [#101](#f-101) to [#103](#f-103),
+  or an `error` map whose `code` names the failure. Which codes exist is the
+  implementer's choice ([#102](#f-102)), provided each expected failure this RFP
+  names has a code of its own ([#99](#f-99), [#101](#f-101) to [#103](#f-103),
   [#108](#f-108), [#111](#f-111)). These are contract responses: the shared
   `logos.error_code` values are reserved for failures of the invocation itself,
   such as a request that does not match its schema, and the API MUST NOT use
@@ -1232,13 +1225,13 @@ FFI's `query_events` does today (`lez/indexer/ffi/src/api/query.rs:536-543`).
     an empty result: a range spanning more than `MAX_EVENT_QUERY_BLOCK_SPAN`
     blocks, or inverted, as an invalid argument; a bound past the indexed tip as
     the lagging case; a range outside the node's event-filter history as data
-    the node does not hold, as a read below the retention floor is (the
-    `invalid_argument`, `lagging`, and `below_retention_floor` errors). Each
-    returns `InvalidArgument` today
+    the node does not hold, as a read below the retention floor is (an invalid
+    argument, a lagging node, and a read below the retention floor, as three
+    distinct errors). Each returns `InvalidArgument` today
     (`lez/indexer/ffi/src/api/query.rs:553-633`). The query MUST also bound the
     size of its response, as the node RPC does at 8 MiB
     (`lez/indexer/service/src/service.rs:28`), and MUST report a result past the
-    bound as too large, the `too_large` error, rather than truncating it.
+    bound as too large, as an error of its own, rather than truncating it.
     **[New]**
 14. <a id="f-14"></a>Events emitted by the public part of a privacy-preserving
     transaction MUST be indexed as a public transaction's are
@@ -3148,10 +3141,10 @@ Every function defined above is further bound by the following.
 099. <a id="f-99"></a>Every function MUST be available on every node unless the
      contract ([#96](#f-96)) marks it, or one of its outcomes, for sequencer
      mode. A node outside sequencer mode MUST answer such a call as not
-     available in its mode, the `not_available_in_mode` error, an outcome
-     distinct from not found, invalid argument, backend failure, and refusal
-     ([#101](#f-101), [#108](#f-108)), so a caller learns to call a node in
-     sequencer mode rather than retrying this one. **[New]**
+     available in its mode, an outcome distinct from not found, invalid
+     argument, backend failure, and refusal ([#101](#f-101), [#108](#f-108)), so
+     a caller learns to call a node in sequencer mode rather than retrying this
+     one. **[New]**
 100. <a id="f-100"></a>Every function above MUST be served by the node module
      under its contract ([#96](#f-96)) with the semantics defined here,
      including the not-found and error distinction required by Functionality
@@ -3160,9 +3153,9 @@ Every function defined above is further bound by the following.
      `query_transaction_receipt` as well. **[New]**
 101. <a id="f-101"></a>The API MUST signal not-found, invalid-argument, and
      backend failure as three distinguishable outcomes on every query: an
-     omitted record or a `not_found` result, the `invalid_argument` error, and
-     the `backend_failure` error. The module currently flattens not-found and
-     failure into an empty string
+     omitted record or a `not_found` result, an invalid-argument error, and a
+     backend-failure error. The module currently flattens not-found and failure
+     into an empty string
      ([Appendix: Logos API Surfaces, section 1](../appendix/logos-api-surfaces.md#1-lez-indexer-ffi)).
      **[New]**
 102. <a id="f-102"></a>Errors MUST be machine-readable and stable: a caller
@@ -3283,8 +3276,8 @@ without restarting it. Exposed by the node module only.
      through holds nothing on the node. **[New]**
 108. <a id="f-108"></a>A refused call MUST be reported as an outcome distinct
      from the not-found, invalid-argument, and backend failure outcomes of
-     [#101](#f-101), the `refused` error, and MUST have no effect on the node. A
-     caller does not retry it. **[New]**
+     [#101](#f-101), and MUST have no effect on the node. A caller does not
+     retry it. **[New]**
 109. <a id="f-109"></a>Calls from different callers MUST be served concurrently,
      up to a documented bound on calls in flight, and a slow call from one
      caller MUST NOT delay another's before that bound is reached. The module
@@ -3302,9 +3295,9 @@ without restarting it. Exposed by the node module only.
      disconnection, or failure to keep up MUST NOT stop or delay delivery to any
      other caller. **[New]**
 111. <a id="f-111"></a>Once the node is stopped, every call reaching the module
-     from every caller MUST report the node as stopped, the `node_stopped`
-     error, distinctly from a backend failure, and each open subscription MUST
-     end with a final response saying that delivery has ended. **[New]**
+     from every caller MUST report the node as stopped, as an error of its own,
+     distinctly from a backend failure, and each open subscription MUST end with
+     a final response saying that delivery has ended. **[New]**
 
 #### Usability
 
@@ -3394,11 +3387,11 @@ without restarting it. Exposed by the node module only.
    others through the user set. Every user function MUST bound what one call
    consumes, including the size of a batch, the limit of a page, the span of a
    range, the size of a response, and the number of subscriptions one caller
-   holds open. A call past a bound MUST return the `invalid_argument` error, and
+   holds open. A call past a bound MUST return an invalid-argument error, and
    the bounds MUST be documented. A whole-account read (Functionality
    [#15](#f-15), [#24](#f-24)) of an account whose actor states exceed the
-   response bound MUST report the account as too large to read whole, the
-   `too_large` error, and the caller reads it one program at a time
+   response bound MUST report the account as too large to read whole, as an
+   error of its own, and the caller reads it one program at a time
    (Functionality [#17](#f-17)).
 
 #### Performance
