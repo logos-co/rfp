@@ -901,9 +901,9 @@ lez_node.event_record = {
   with a `kind` naming which of the two kinds it is. Those bytes are the
   transaction as the chain holds it, so a caller recomputes its hash from them
   ([#3](#f-3)), and decoding them is the caller's.
-- **Pages.** A `lez_node.cursor` MUST be opaque ([#68](#f-68)). A page MUST
-  report `more` and the position or cursor the next page resumes from
-  ([#72](#f-72)).
+- **Pages.** A `lez_node.cursor` MUST be stable ([#68](#f-68)); what it holds is
+  the implementer's choice. A page MUST report `more` and the position or cursor
+  the next page resumes from ([#72](#f-72)).
 - **Subscriptions.** A subscription is a method that watches, as the profile
   models one: its invocation stays open while it delivers `_event` maps to the
   caller that opened it, and its final response, carrying a
@@ -2204,8 +2204,9 @@ the pending set can miss it.
     mempool with `-maxmempool` and expires its entries with `-mempoolexpiry`,
     with defaults of 300 MB and 336 hours. **[New]**
 
-53. <a id="f-53"></a>The listing MUST be bounded and paginated by cursor, on the
-    same terms as the other paginated reads, and MUST report whether more
+53. <a id="f-53"></a>The listing MUST be bounded and paginated by a cursor that
+    is stable as [#68](#f-68) requires, a caller resuming from one neither
+    skipping nor repeating an entry still pending, and MUST report whether more
     entries remain. The pending set turns over as entries are included or
     dropped, so an offset into it names a different entry from one call to the
     next. **[New]**
@@ -2499,16 +2500,15 @@ per-account index.
 67. <a id="f-67"></a>`query_transactions_by_account` MUST accept an ordering
     parameter supporting both oldest-first and newest-first. Newest-first is the
     order a deposit tracker reads in. **[New]**
-68. <a id="f-68"></a>The page MUST be walked by an opaque cursor rather than by
-    a numeric offset, and the cursor MUST remain stable across ingestion: a
-    caller resuming from one neither skips nor repeats an entry that existed
-    when the walk began, however many transactions have landed since. The
-    per-account index is append-only
-    (`lez/storage/src/indexer/write_atomic.rs:64-76`), so an offset from the
-    oldest entry holds that property, but an offset from the newest, which is
-    how a deposit tracker reads, shifts with every arrival, and so does any
-    offset once history is pruned. The cursor is opaque to the caller, which
-    MUST NOT construct one or infer a position from it. **[New]**
+68. <a id="f-68"></a>The page MUST be walked by a cursor rather than by a
+    numeric offset, and the cursor MUST be stable: a caller resuming from one
+    neither skips nor repeats an entry that existed when the walk began, however
+    many transactions have landed or been pruned since. The per-account index is
+    append-only (`lez/storage/src/indexer/write_atomic.rs:64-76`), so an offset
+    from the oldest entry holds that property, but an offset from the newest,
+    which is how a deposit tracker reads, shifts with every arrival, and so does
+    any offset once history is pruned. What a cursor holds is the implementer's
+    choice, and MAY differ from one paginated read to another. **[New]**
 
 ```cddl
 lez_node.query_blocks_request = {
@@ -2552,11 +2552,11 @@ indexed tip and an oldest-first walk at the retention floor. Exported today as
 72. <a id="f-72"></a>Every paginated response MUST report whether more results
     remain, and MUST carry the position a caller resumes from, so a caller
     distinguishes the end of a result set from a page that happens to be short.
-    For the account history and the pending listing that position is an opaque
-    cursor the caller does not construct ([#68](#f-68)); for the walks keyed by
-    position, the blocks, publications, and encrypted notes, it is the block or
-    commitment-set position the next page starts after. No paginated return type
-    carries either signal today. **[New]**
+    For the account history and the pending listing that position is a stable
+    cursor ([#68](#f-68)); for the walks keyed by position, the blocks,
+    publications, and encrypted notes, it is the block or commitment-set
+    position the next page starts after. No paginated return type carries either
+    signal today. **[New]**
 
 ##### Chain and node metadata
 
