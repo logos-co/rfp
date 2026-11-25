@@ -263,7 +263,7 @@ Modules publish LIDL contracts today, and their values travel as JSON.
 
 **Basis:** the integration guide and the draft Logos Core specification. **Rests
 on it:** the module contract ([#96](#f-96)), module parity ([#100](#f-100)),
-access control and concurrent callers ([#104](#f-104) to [#111](#f-111)), and
+access control and concurrent callers ([#104](#f-104) to [#110](#f-110)), and
 Supportability [#9](#sup-9) and [#10](#sup-10).
 
 #### A10. Each LEZ node follows one zone
@@ -754,10 +754,10 @@ lez_node.resume_from = {
     ? hash: lez_node.hash,
 }
 
-; a resume position whose hash the node's chain does not match; `common` is
-; the last block on the node's chain that the caller's position shares
+; a resume position whose hash the node's chain does not match; `held` is
+; the block the node holds at that identifier
 lez_node.resume_mismatch = {
-    common: lez_node.block_ref,
+    held: lez_node.block_ref,
     tips: lez_node.tips,
 }
 
@@ -887,7 +887,7 @@ lez_node.event_record = {
   or an `error` map whose `code` names the failure. Which codes exist is the
   implementer's choice ([#102](#f-102)), provided each expected failure this RFP
   names has a code of its own ([#99](#f-99), [#101](#f-101) to [#103](#f-103),
-  [#108](#f-108), [#111](#f-111)). These are contract responses: the shared
+  [#108](#f-108), [#110](#f-110)). These are contract responses: the shared
   `logos.error_code` values are reserved for failures of the invocation itself,
   such as a request that does not match its schema, and the API MUST NOT use
   them for an expected failure, as the profile forbids
@@ -1006,8 +1006,6 @@ lez_node.fee_report = {
 }
 
 lez_node.surplus = {
-    fate: "none",
-} / {
     fate: "refunded",
     amount: lez_node.amount,
     to: lez_node.account_id,
@@ -1100,7 +1098,7 @@ either way.
    one paying from a reserve its proof commits to carries the reserve as a
    crossing inside its action, with any refund separate
    (`lez/chain_state/src/apply.rs:485-592`). Each diff MUST be reported with the
-   state it applied to. **[Computed, not persisted]**
+   stage it belongs to. **[Computed, not persisted]**
 
 6. <a id="f-6"></a>The read MUST return a balance delta per affected account,
    expressed as pre-state and post-state values, for public transactions and for
@@ -1597,10 +1595,9 @@ encrypted note, account state updates included. Scanning it is the wallet's.
   to scan.
 
 ```cddl
-; `from` is the last block the caller processed; omitted, the walk starts
-; at the retention floor
+; `from` is the last block the caller processed
 lez_node.query_private_notes_request = {
-    ? from: lez_node.resume_from,
+    from: lez_node.resume_from,
     limit: lez_node.limit,
 }
 
@@ -1978,7 +1975,6 @@ lez_node.submit_transaction_request = {
 
 lez_node.submit_transaction_response = {
     transaction_hash: lez_node.hash,
-    accepted: "admitted" / "relayed",
 } / {
     declined: lez_node.declined_reason,
     message: tstr .size (1..512),
@@ -2232,7 +2228,8 @@ Returns one mempool transaction in full, by its transaction hash.
     transaction hash, in the same shape `query_transaction` returns an included
     one, and MUST report absence distinctly from failure: an entry that has left
     the mempool since the caller last saw it is reported as absent rather than
-    as an error. **[New]**
+    as an error. A transaction hash can name more than one transaction
+    ([#4](#f-4)), and a lookup here is open to the same problem. **[New]**
 
 ##### Subscriptions
 
@@ -2342,11 +2339,13 @@ processed.
     resume after the block the node holds at that identifier. Given an
     identifier and a hash, the node MUST check the hash against the block it
     holds at that identifier. On a mismatch it MUST NOT resume, and it MUST
-    report the mismatch together with the last block on its chain that the
-    caller's position shares, so the caller rolls back to it in one round trip.
-    Neither existing RPC subscription carries a position:
-    `subscribeToFinalizedBlocks` takes no arguments, and `subscribeToEvents`
-    filters by transaction, program, and selector but not by position
+    report the mismatch together with the block it holds at that identifier and
+    the tips, and the caller walks back from there. The node cannot name the
+    block where the two chains part, since the caller's block may never have
+    been on the node's chain. Neither existing RPC subscription carries a
+    position: `subscribeToFinalizedBlocks` takes no arguments, and
+    `subscribeToEvents` filters by transaction, program, and selector but not by
+    position
     ([Appendix: Blockchain API and SDK Ecosystem, section 1.33](../appendix/blockchain-api-sdk-ecosystem.md#133-resume-a-stream-from-a-known-position)).
     **[New]**
 
@@ -3286,15 +3285,7 @@ without restarting it. Exposed by the node module only.
      `docs/configuration.md`, `concurrency`), and the module wrapping the FFI
      sets nothing today. A cursor issued to one caller MUST NOT be advanced or
      invalidated by another caller's calls. **[New]**
-110. <a id="f-110"></a>A subscription MUST belong to the caller that opened it,
-     and MUST be named by an identifier no other caller can guess, so callers
-     the runtime cannot tell apart, which arrive as one unknown caller, still
-     cannot cancel or read one another's subscriptions. `unsubscribe` MUST
-     cancel only a subscription whose identifier the caller holds, a caller's
-     subscriptions MUST end when it disconnects, and one caller's cancellation,
-     disconnection, or failure to keep up MUST NOT stop or delay delivery to any
-     other caller. **[New]**
-111. <a id="f-111"></a>Once the node is stopped, every call reaching the module
+110. <a id="f-110"></a>Once the node is stopped, every call reaching the module
      from every caller MUST report the node as stopped, as an error of its own,
      distinctly from a backend failure, and each open subscription MUST end with
      a final response saying that delivery has ended. **[New]**
@@ -3774,13 +3765,11 @@ Access control and the contract rest on Logos Core in several places.
   runtimes from one node through peering is still in design. The documentation
   states how a per method grant is enforced for such a caller where the platform
   does not enforce it.
-- **Events and lifecycle per caller.** Functionality [#110](#f-110) and Privacy
-  [#4](#priv-4) require delivery per caller, and [#110](#f-110) requires a
-  disconnected caller's subscriptions to end. A Logos Core module event
-  published in the ordinary way reaches every subscriber of the module. The
-  draft's invocation-scoped events, on which the subscriptions above are
-  modelled, reach only the invocation that watches for them, and stop with its
-  response, its cancellation, or the loss of its route
+- **Events per caller.** Privacy [#4](#priv-4) requires delivery per caller. A
+  Logos Core module event published in the ordinary way reaches every subscriber
+  of the module. The draft's invocation-scoped events, on which the
+  subscriptions above are modelled, reach only the invocation that watches for
+  them, and stop with its response, its cancellation, or the loss of its route
   (`spec-module-runtime.md:1173-1184`, `:1200-1201`). Until Logos Core
   implements them, the documentation states how a subscription is delivered to
   the caller that opened it and to no other, and how the module learns that a
