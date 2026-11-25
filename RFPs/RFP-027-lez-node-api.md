@@ -704,14 +704,11 @@ fixes what the method carries, while the requirements underneath it state what
 is required.
 
 The markers describe the FFI on the LEZ `dev` branch, so a marker of **Ready**
-means ready in the FFI. On its default branch, the Logos Core module that wraps
-the FFI today is built against LEZ `v0.3.1`, from before the FFI's account read
-became optional and its account record moved to actor states. A release branch
-building it against `v0.4.0-rc1` exists but is not merged, and has no tag.
-`v0.4.0-rc2` and `v0.4.0-rc3` exist too. Where a capability landed on `dev`
-after `v0.4.0-rc3`, as transaction receipts did, the marker gives its state at
-the release tags and a note says it is on `dev`. A capability ready in the FFI
-therefore reaches a caller only once the module carries it, which [#100](#f-100)
+means ready in the FFI. Only the `v0.4.0` release candidates (`v0.4.0-rc1` to
+`v0.4.0-rc3`) are considered at the time of writing. Where a capability landed
+on `dev` after `v0.4.0-rc3`, as transaction receipts did, the marker gives its
+state at the release tags and a note says it is on `dev`. A capability ready in
+the FFI reaches a caller only once the module carries it, which [#100](#f-100)
 requires.
 
 ##### Shared types
@@ -3147,8 +3144,7 @@ Every function defined above is further bound by the following.
      including the not-found and error distinction required by Functionality
      [#101](#f-101). The module that wraps the FFI today carries eight of its
      queries, omitting `query_events`, and at `dev`, where the FFI has ten,
-     `query_transaction_receipt` as well; it is built against the LEZ `v0.3.1`
-     FFI rather than the testnet 0.4 one. **[New]**
+     `query_transaction_receipt` as well. **[New]**
 101. <a id="f-101"></a>The API MUST signal not-found, invalid-argument, and
      backend failure as three distinguishable outcomes on every query: an
      omitted record or a `not_found` result, the `invalid_argument` error, and
