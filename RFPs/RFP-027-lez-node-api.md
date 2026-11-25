@@ -703,7 +703,10 @@ indicate effort, not priority: every hard requirement is required regardless of
 its marker. The CDDL under each function is indicative
 ([Assumption A9](#a9-the-api-defined-here-is-the-lez-node-modules-api)): it
 fixes what the method carries, while the requirements underneath it state what
-is required.
+is required. The CDDL of each method whose requirements carry a marker opens
+with a `; readiness:` comment summarising those markers, with requirement
+numbers where they differ; CDDL comments are presentation only and not part of
+the schema.
 
 The markers describe the FFI on the LEZ `dev` branch, so a marker of **Ready**
 means ready in the FFI. Only the `v0.4.0` release candidates (`v0.4.0-rc1` to
@@ -937,6 +940,7 @@ The read that says what a transaction did to balances
   rather than an access-control setting.
 
 ```cddl
+; readiness: Ready (#1, #2, #9); Computed, not persisted (#5 to #8); New (#3, #4)
 lez_node.query_transaction_request = {
     hash: lez_node.hash,
     ? bedrock_status: lez_node.bedrock_status,
@@ -1164,6 +1168,7 @@ the requirements below hold either way.
    is not found ([#1](#f-1)). **[Ready]**
 
 ```cddl
+; readiness: New
 lez_node.query_transaction_receipt_request = {
     hash: lez_node.hash,
     ? bedrock_status: lez_node.bedrock_status,
@@ -1201,6 +1206,7 @@ applied, and the gas, base fee, tip, and refund it was charged.
     today. **[New]**
 
 ```cddl
+; readiness: Ready (#12, #14); New (#12, #13)
 lez_node.query_events_request = {
     from_block: lez_node.block_id,
     ? to_block: lez_node.block_id,
@@ -1285,6 +1291,7 @@ Every read in this section answers at the Bedrock status the caller chooses,
 `pending` or `finalized` ([#97](#f-97)).
 
 ```cddl
+; readiness: Ready
 lez_node.query_account_request = {
     account_id: lez_node.account_id,
     ? bedrock_status: lez_node.bedrock_status,
@@ -1311,6 +1318,7 @@ nonce, and one actor state per program holding state on the account.
     empty and from a backend failure. **[Ready]**
 
 ```cddl
+; readiness: Ready, not exposed
 lez_node.query_account_view_request = {
     account_id: lez_node.account_id,
     program_account_id: lez_node.account_id,
@@ -1345,6 +1353,7 @@ to a block.
     is not a safe way to read one balance; this is. **[Ready, not exposed]**
 
 ```cddl
+; readiness: Ready, not exposed (#18); New (#19)
 lez_node.query_account_summary_request = {
     account_id: lez_node.account_id,
     ? bedrock_status: lez_node.bedrock_status,
@@ -1385,6 +1394,7 @@ rather than its bytes.
     from a recorded account that is empty. **[New]**
 
 ```cddl
+; readiness: Ready, not exposed (#20); New (#21)
 lez_node.query_balances_request = {
     account_id: lez_node.account_id,
     ? bedrock_status: lez_node.bedrock_status,
@@ -1432,6 +1442,7 @@ balance in each token a builtin token program issues.
     whose SDK decodes the actor state from the program's IDL. **[New]**
 
 ```cddl
+; readiness: Ready, not exposed (#22); New (#23)
 lez_node.query_account_at_block_request = {
     account_id: lez_node.account_id,
     block_id: lez_node.block_id,
@@ -1462,6 +1473,7 @@ Returns the account record as it stood at a given block, rather than at the tip.
     which one it read. **[New]**
 
 ```cddl
+; readiness: New
 lez_node.query_accounts_request = {
     account_ids: [* lez_node.account_id],
     shape: lez_node.batch_shape,
@@ -1530,6 +1542,7 @@ structure. The sequencer service serves it today
 its own state (`lee/state_machine/src/state/mod.rs:357-406`).
 
 ```cddl
+; readiness: Ready, not exposed (#27); New (#28)
 lez_node.query_publications_request = {
     from_position: lez_node.position,
     limit: lez_node.limit,
@@ -1562,6 +1575,7 @@ Returns a page of publications in commitment-set order, from a given position.
     **[New]**
 
 ```cddl
+; readiness: Ready, not exposed (#29); New (#30)
 lez_node.query_recovery_binding_request = {
     address: lez_node.account_id,
     ? bedrock_status: lez_node.bedrock_status,
@@ -1607,6 +1621,7 @@ encrypted note, account state updates included. Scanning it is the wallet's.
   to scan.
 
 ```cddl
+; readiness: New
 ; `from` is the last block the caller processed; omitted, the walk starts
 ; at the retention floor
 lez_node.query_private_notes_request = {
@@ -1659,6 +1674,7 @@ Returns, block by block in ascending order, every encrypted note the chain
 carries with the public values needed to decrypt and check it.
 
 ```cddl
+; readiness: New
 lez_node.subscribe_to_private_notes_request = {
     subscription: lez_node.subscription_id,
     ? from: lez_node.resume_from,
@@ -1672,6 +1688,7 @@ lez_node.subscribe_to_private_notes_response = {
     error: lez_node.error,
 }
 
+; readiness: New
 lez_node.private_notes_event = {
     subscription: lez_node.subscription_id,
     notes: lez_node.note_block,
@@ -1736,6 +1753,7 @@ position read the sequencer service also serves, `getMessagePath`
 position and no commitment.
 
 ```cddl
+; readiness: Ready, not exposed (#36, #37); New (#38)
 lez_node.query_commitment_proofs_request = {
     commitments: [* lez_node.commitment],
     message_positions: [* lez_node.position],
@@ -1798,6 +1816,7 @@ Answering how far a transaction has progressed and whether it succeeded
   funds and ten for untrusted, as wallet behaviour rather than as a node call.
 
 ```cddl
+; readiness: Ready, not exposed (#40, #41); Computed, not persisted (#41); New (#39, #40, #42)
 lez_node.query_transaction_status_request = {
     hash: lez_node.hash,
 }
@@ -1907,6 +1926,7 @@ execution succeeded.
     discarded, no record of a declined transaction being retained. **[New]**
 
 ```cddl
+; readiness: New
 lez_node.query_status_request = {}
 
 lez_node.query_status_response = {
@@ -1986,6 +2006,7 @@ another party constructed and signed, and takes it from there. Nothing here
 constructs, signs, or executes a transaction.
 
 ```cddl
+; readiness: Ready, not exposed (#45); New (#45 to #48)
 lez_node.submit_transaction_request = {
     transaction: lez_node.transaction,
 }
@@ -2125,6 +2146,7 @@ in a block
 ([Appendix: Blockchain API and SDK Ecosystem, section 1.26](../appendix/blockchain-api-sdk-ecosystem.md#126-inspect-the-mempool-or-pending-set)).
 
 ```cddl
+; readiness: New
 lez_node.query_pending_digests_request = {
     ? cursor: lez_node.cursor,
     limit: lez_node.limit,
@@ -2229,6 +2251,7 @@ conflict check against the pending set can miss it.
     retrying on a full pending set reads. **[New]**
 
 ```cddl
+; readiness: New
 lez_node.query_pending_entry_request = {
     hash: lez_node.hash,
 }
@@ -2265,6 +2288,7 @@ Pushing new blocks and events to a consumer instead of making it poll
   seen.
 
 ```cddl
+; readiness: Ready, not exposed (#57); New (#58)
 lez_node.subscribe_to_finalized_blocks_request = {
     subscription: lez_node.subscription_id,
     ? from: lez_node.resume_from,
@@ -2278,6 +2302,7 @@ lez_node.subscribe_to_finalized_blocks_response = {
     error: lez_node.error,
 }
 
+; readiness: Ready, not exposed (#57); New (#58)
 lez_node.finalized_block_event = {
     subscription: lez_node.subscription_id,
     block: lez_node.block_ref,
@@ -2301,6 +2326,7 @@ resuming from a position the consumer already processed.
     as `BlockMeta` (`lez/common/src/block.rs:11-14`). **[New]**
 
 ```cddl
+; readiness: New
 lez_node.subscribe_to_pending_blocks_request = {
     subscription: lez_node.subscription_id,
     ? from: lez_node.resume_from,
@@ -2314,6 +2340,7 @@ lez_node.subscribe_to_pending_blocks_response = {
     error: lez_node.error,
 }
 
+; readiness: New
 lez_node.pending_block_event = {
     subscription: lez_node.subscription_id,
     change: lez_node.pending_block_change,
@@ -2380,6 +2407,7 @@ layers
 ([Appendix: Blockchain API and SDK Ecosystem, section 1.33](../appendix/blockchain-api-sdk-ecosystem.md#133-resume-a-stream-from-a-known-position)).
 
 ```cddl
+; readiness: New
 lez_node.unsubscribe_request = {
     subscription: lez_node.subscription_id,
 }
@@ -2397,6 +2425,7 @@ Cancels a registered subscription and releases the resources it holds.
     for it MUST NOT be delivered after `unsubscribe` returns. **[New]**
 
 ```cddl
+; readiness: Ready, not exposed (#63); New (#64)
 lez_node.subscribe_to_events_request = {
     subscription: lez_node.subscription_id,
     filter: lez_node.event_filter,
@@ -2417,6 +2446,7 @@ lez_node.subscribe_to_events_response = {
     error: lez_node.error,
 }
 
+; readiness: Ready, not exposed (#63); New (#64)
 lez_node.event_record_event = {
     subscription: lez_node.subscription_id,
     record: lez_node.event_record,
@@ -2464,6 +2494,7 @@ and
   position.
 
 ```cddl
+; readiness: New
 lez_node.query_transactions_by_account_request = {
     account_id: lez_node.account_id,
     ? cursor: lez_node.cursor,
@@ -2515,6 +2546,7 @@ per-account index.
     choice, and MAY differ from one paginated read to another. **[New]**
 
 ```cddl
+; readiness: Ready (#69, #70); New (#70 to #72)
 lez_node.query_blocks_request = {
     ? from: lez_node.block_id,
     limit: lez_node.limit,
@@ -2578,6 +2610,7 @@ and
   `getblockchaininfo` for the network.
 
 ```cddl
+; readiness: New
 lez_node.query_version_request = {}
 
 lez_node.query_version_response = {
@@ -2608,6 +2641,7 @@ Ethereum, `getVersion` on Solana, `getnetworkinfo` on Bitcoin and Zcash.
     surface it holds a schema for has been replaced. **[New]**
 
 ```cddl
+; readiness: Ready (#75, #76); Ready, not exposed (#77); Computed, not persisted (#77)
 lez_node.query_block_request = {
     block_id: lez_node.block_id,
     ? bedrock_status: lez_node.bedrock_status,
@@ -2661,6 +2695,7 @@ and its Bedrock status.
     `v0.4.0-rc3`).
 
 ```cddl
+; readiness: Ready
 lez_node.query_block_by_hash_request = {
     hash: lez_node.hash,
     ? bedrock_status: lez_node.bedrock_status,
@@ -2683,6 +2718,7 @@ store already holds the hash as a secondary index onto the height
     block carries. **[Ready]**
 
 ```cddl
+; readiness: Ready
 lez_node.query_last_block_request = {}
 
 ; `block_id` is omitted while no block is `finalized`
@@ -2701,6 +2737,7 @@ Returns the identifier of the node's last finalised block.
     **[Ready]**
 
 ```cddl
+; readiness: New
 lez_node.query_chain_tip_request = {}
 
 lez_node.query_chain_tip_response = {
@@ -2728,6 +2765,7 @@ resolve.
     timestamp comes from a second read. **[New]**
 
 ```cddl
+; readiness: Ready, not exposed (#81); New (#82 to #84)
 lez_node.query_network_identity_request = {}
 
 lez_node.query_network_identity_response = {
@@ -2773,6 +2811,7 @@ that zone settles to.
     chain from an unasked question. **[New]**
 
 ```cddl
+; readiness: New
 lez_node.query_chain_parameters_request = {
     ? bedrock_status: lez_node.bedrock_status,
 }
@@ -2820,6 +2859,7 @@ they were read at.
     **[New]**
 
 ```cddl
+; readiness: Ready, not exposed (#87); New (#86)
 lez_node.query_program_ids_request = {
     ? bedrock_status: lez_node.bedrock_status,
 }
@@ -2865,6 +2905,7 @@ of the privacy-preserving circuit the chain verifies proofs against.
     **[Ready, not exposed]**
 
 ```cddl
+; readiness: Ready, not exposed
 lez_node.query_fee_state_request = {
     ? bedrock_status: lez_node.bedrock_status,
 }
@@ -2923,6 +2964,7 @@ so it can exceed the tip the sender chose, which the transaction body carries.
 Soft [#5](#soft-5) covers the case where inclusion comes to depend on the tip.
 
 ```cddl
+; readiness: New
 lez_node.query_retention_floor_request = {}
 
 ; `scopes` lists any data kept further back than the two floors
@@ -2975,6 +3017,7 @@ peers relays nothing and observes no pending transaction.
 - **Solana**: `getClusterNodes`.
 
 ```cddl
+; readiness: New
 lez_node.query_peer_count_request = {}
 
 lez_node.query_peer_count_response = {
@@ -2997,6 +3040,7 @@ Returns how many LEZ peers the node is connected to.
     (`lez/sequencer/actors/gossip/src/actor.rs:82-86`). **[New]**
 
 ```cddl
+; readiness: New
 lez_node.query_peers_request = {}
 
 lez_node.query_peers_response = {
@@ -3039,6 +3083,7 @@ a failed call
   authenticated user, and its request identifier.
 
 ```cddl
+; readiness: New
 lez_node.query_metrics_request = {}
 
 lez_node.query_metrics_response = {
