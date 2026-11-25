@@ -202,37 +202,38 @@ Logos Blockchain.
 Sequencers learn of each other's blocks through the L1 alone today, gossip
 carrying transactions and approvals
 (`lez/sequencer/actors/gossip/src/lib.rs:4-6`), and no plan to change that was
-found. A sequencer inscribes a LEZ block in an L1 block, and the block's Bedrock
-status becomes `finalized` once that L1 block is irreversible, about an hour
-after inscription on testnet today.
+found. A sequencer inscribes a LEZ block in an L1 block, and the block is final
+once that L1 block is irreversible, about an hour after inscription on testnet
+today.
 
 **Basis:** the code at the commit read, and the absence of any plan found.
-**Rests on it:** the transaction statuses ([#39](#f-39)), the subscription to
-`pending` blocks ([#59](#f-59)), and the `pending` reads of
-[Assumption A8](#a8-every-node-serves-pending-reads-as-well-as-finalized-ones-and-reads-default-to-pending).
+**Rests on it:** the transaction statuses ([#39](#f-39)), the head subscription
+([#59](#f-59)), and the head of
+[Assumption A8](#a8-every-node-holds-a-head-as-well-as-a-final-chain-and-reads-default-to-the-head).
 **If invalidated:** a node learns of a block before its inscription, and
 [#39](#f-39) gains a status for that.
 
-#### A8. Every node serves `pending` reads as well as `finalized` ones, and reads default to `pending`
+#### A8. Every node holds a head as well as a final chain, and reads default to the head
 
-Every LEZ node answers a read of chain state at one of two Bedrock statuses, and
-answers at `pending` unless the caller asks for `finalized`.
+Every LEZ node holds a final chain, the blocks inscribed in L1 blocks that are
+final, and a head, the final chain plus the blocks inscribed in L1 blocks that
+are not yet final. A read at `pending` answers against the head and a read at
+`finalized` against the final chain, and a read answers at `pending` unless the
+caller asks for `finalized`.
 
-The blocks the two statuses see are nested. A `finalized` read sees only the
-blocks inscribed in L1 blocks that are final. A `pending` read sees those, and
-also the blocks inscribed in L1 blocks that are not yet final. Only those latter
-blocks can be replaced, by an L1 reorganisation or a competing inscription. A
-transaction's status moves through being received, inscribed, and finalised. The
-sequencer service already keeps both sets of blocks and answers at `pending`
-(`lez/chain_state/src/chain.rs:1-3`), while the node today reads only to
-finality (`lez/chain_state/src/zone_indexer.rs:54-86`).
+An L1 reorganisation or a competing inscription can still replace the head;
+nothing replaces the final chain. A transaction's status moves through being
+received, inscribed, and finalised. The sequencer service already keeps both
+tiers and answers against the head (`lez/chain_state/src/chain.rs:1-3`), while
+the node today reads only to finality
+(`lez/chain_state/src/zone_indexer.rs:54-86`).
 
-**Basis:** the sequencer service, which keeps both and answers at `pending`, and
-a finality delay too long for a wallet to build on `finalized` reads alone.
-**Rests on it:** the Bedrock status a read takes ([#97](#f-97)), the tips every
-read reports ([#98](#f-98)), status ([#39](#f-39)), the subscription to
-`pending` blocks ([#59](#f-59)), the chain tip ([#80](#f-80)), the fee state
-([#88](#f-88) and [#89](#f-89)), and the recovery binding lookup ([#29](#f-29)).
+**Basis:** the sequencer service's head and final tiers, and a finality delay
+too long for a wallet to build against the final chain alone. **Rests on it:**
+the Bedrock status a read takes ([#97](#f-97)), the tips every read reports
+([#98](#f-98)), status ([#39](#f-39)), the head subscription ([#59](#f-59)), the
+chain tip ([#80](#f-80)), the fee state ([#88](#f-88) and [#89](#f-89)), and the
+recovery binding lookup ([#29](#f-29)).
 
 #### A9. The API defined here is the LEZ node module's API
 
@@ -340,12 +341,11 @@ to answer the same questions it answers on the chains the integrator already
 supports. The requirements below are therefore drawn from what those integrators
 rely on elsewhere. Nine established chains were surveyed for that purpose. LEZ
 does not currently meet several of the norms: there are no per-transaction
-effects; no status saying how settled a transaction is; and no subscription
-reaches the node module, which is the boundary an integrator can actually call.
-Some norms this RFP declines rather than fills: simulation, for the reason given
-in the Design Rationale, and the functions that go with constructing a
-transaction rather than reading the chain, which [Out of Scope](#out-of-scope)
-lists one by one. See
+effects; no confirmation status; and no subscription reaches the node module,
+which is the boundary an integrator can actually call. Some norms this RFP
+declines rather than fills: simulation, for the reason given in the Design
+Rationale, and the functions that go with constructing a transaction rather than
+reading the chain, which [Out of Scope](#out-of-scope) lists one by one. See
 [Appendix: Blockchain API and SDK Ecosystem, section 4](../appendix/blockchain-api-sdk-ecosystem.md#4-gap-summary).
 
 Most of the missing capability already exists one layer below the FFI, as the
@@ -431,9 +431,9 @@ the states the transaction touches, which the account reads below serve, and the
 current fee market, which it prices the declaration against and reads from the
 sequencer service's `getFeeState` today (`lez/wallet/src/lib.rs:363-365`).
 [Functionality](#functionality) [#88](#f-88) and [#89](#f-89) require the node
-to serve the fee market, and [#97](#f-97) lets every read answer at `pending`,
-so a wallet simulating on its own side reaches every input it needs, at the
-state it is building on, through the node API.
+to serve the fee market, and [#97](#f-97) lets every read answer at the head, so
+a wallet simulating on its own side reaches every input it needs, at the state
+it is building on, through the node API.
 
 ### Precedents for the wallet and node split
 
@@ -761,13 +761,12 @@ lez_node.resume_mismatch = {
     tips: lez_node.tips,
 }
 
-; -- what a read answers at --
+; -- what a read answers against --
 lez_node.bedrock_status = "pending" / "finalized"
 
-; the last block visible at each Bedrock status
 lez_node.tips = {
-    ? pending: lez_node.block_ref,
-    ? finalized: lez_node.block_ref,
+    ? head: lez_node.block_ref,
+    ? final: lez_node.block_ref,
 }
 
 lez_node.served_at = {
@@ -880,16 +879,17 @@ lez_node.event_record = {
   little-endian (`lez_node.amount`, `lez_node.nonce`).
 - **Block positions.** A `lez_node.block_ref` names a block by its identifier
   and hash together. The API MUST report one for every tip, since an identifier
-  read at `pending` names a height rather than a block ([#23](#f-23)). A caller
+  at the head names a height rather than a block ([#23](#f-23)). A caller
   resuming from a block passes a `lez_node.resume_from`, whose hash is optional,
   and the API MUST answer a hash the node's chain does not match with a
   `lez_node.resume_mismatch` rather than resume from it ([#61](#f-61)).
 - **Bedrock status and tips.** A read of chain state takes an optional
-  `bedrock_status`: `pending` (the default) or `finalized` ([#97](#f-97)). Its
-  response carries a `lez_node.served_at` with the status it answered at, the
-  block it answered at, and both tips ([#98](#f-98)). Other reads carry the tips
-  alone. A tip is the last block visible at its status. The API MUST omit a tip,
-  or the block answered at, only while no block is visible at that status.
+  `bedrock_status`: `pending`, the default, answers against the head, and
+  `finalized` against the final chain ([#97](#f-97)). Its response carries a
+  `lez_node.served_at` with the status it answered at, the block it answered at,
+  and both tips ([#98](#f-98)). A read that takes no status carries the tips
+  alone. The API MUST omit a tip, or the block served at, only while the node
+  holds no block there.
 - **Absence and errors.** The API MUST report a record the node does not hold as
   an omitted field, not an error. Every response MUST be either its success map
   or an `error` map whose `code` is one of `lez_node.error_code`, the expected
@@ -1206,23 +1206,21 @@ lez_node.query_events_request = {
     ? to_block: lez_node.block_id,
     ? program_account_id: lez_node.account_id,
     ? selector: lez_node.selector,
-    ? bedrock_status: lez_node.bedrock_status,
 }
 
 lez_node.query_events_response = {
     events: [* lez_node.event_record],
-    served: lez_node.served_at,
+    tips: lez_node.tips,
 } / {
     error: lez_node.error,
 }
 ```
 
 Returns the program events emitted in a block range, from `from_block` to
-`to_block`, defaulting to the tip at the requested Bedrock status, optionally
-filtered by emitting program and selector. The events of one transaction come
-with the transaction read instead ([#9](#f-9)), so the query takes no
-transaction hash, which the FFI's `query_events` does today
-(`lez/indexer/ffi/src/api/query.rs:536-543`).
+`to_block`, defaulting to the indexed tip, optionally filtered by emitting
+program and selector. The events of one transaction come with the transaction
+read instead ([#9](#f-9)), so the query takes no transaction hash, which the
+FFI's `query_events` does today (`lez/indexer/ffi/src/api/query.rs:536-543`).
 
 12. <a id="f-12"></a>The query MUST return each matching event record with its
     block identifier, transaction index, transaction hash, emitting program,
@@ -1232,11 +1230,11 @@ transaction hash, which the FFI's `query_events` does today
 13. <a id="f-13"></a>A request the query cannot answer MUST be reported as the
     outcome [#101](#f-101) and [#103](#f-103) define for its case rather than as
     an empty result: a range spanning more than `MAX_EVENT_QUERY_BLOCK_SPAN`
-    blocks, or inverted, as an invalid argument; a bound past the tip at the
-    requested Bedrock status as the lagging case; a range outside the node's
-    event-filter history as data the node does not hold, as a read below the
-    retention floor is (the `invalid_argument`, `lagging`, and
-    `below_retention_floor` errors). Each returns `InvalidArgument` today
+    blocks, or inverted, as an invalid argument; a bound past the indexed tip as
+    the lagging case; a range outside the node's event-filter history as data
+    the node does not hold, as a read below the retention floor is (the
+    `invalid_argument`, `lagging`, and `below_retention_floor` errors). Each
+    returns `InvalidArgument` today
     (`lez/indexer/ffi/src/api/query.rs:553-633`). The query MUST also bound the
     size of its response, as the node RPC does at 8 MiB
     (`lez/indexer/service/src/service.rs:28`), and MUST report a result past the
@@ -1281,8 +1279,8 @@ write actor states of any size onto any account
 account can be inflated by a third party, as Ethereum's `eth_getStorageAt` reads
 one storage slot rather than an account's whole storage.
 
-Every read in this section answers at the Bedrock status the caller chooses,
-`pending` or `finalized` ([#97](#f-97)).
+Every read in this section answers at the head or on the final chain, as the
+caller chooses ([#97](#f-97)).
 
 ```cddl
 lez_node.query_account_request = {
@@ -1456,10 +1454,10 @@ Returns the account record as it stood at a given block, rather than at the tip.
     **[Ready, not exposed]**
 23. <a id="f-23"></a>The pinned read MUST return the hash of the block it
     answered against, and the API documentation MUST state that a block
-    identifier read at `pending` names a height rather than a block: until the
-    block at it is `finalized`, the same identifier can resolve to a different
-    block after that block is replaced, and the hash is what tells a caller
-    which one it read. **[New]**
+    identifier at the head names a height rather than a block: until it is
+    final, the same identifier can resolve to a different block after the head
+    is replaced, and the hash is what tells a caller which one it read.
+    **[New]**
 
 ```cddl
 lez_node.query_accounts_request = {
@@ -1533,14 +1531,13 @@ its own state (`lee/state_machine/src/state/mod.rs:357-406`).
 lez_node.query_publications_request = {
     from_position: lez_node.position,
     limit: lez_node.limit,
-    ? bedrock_status: lez_node.bedrock_status,
 }
 
 lez_node.query_publications_response = {
     publications: [* lez_node.publication],
     recovery_bindings: [* lez_node.recovery_binding],
     next_position: lez_node.position,
-    served: lez_node.served_at,
+    tips: lez_node.tips,
 } / {
     error: lez_node.error,
 }
@@ -1580,8 +1577,8 @@ Returns the encrypted note bound to a private address, if one is.
 29. <a id="f-29"></a>The API MUST return the recovery note bound to a private
     address, or an omitted `note` when none is, at the requested Bedrock status
     ([#97](#f-97)), exporting what the sequencer service's `getRecoveryBinding`
-    serves today at `pending`. A wallet building a transaction reads it at
-    `pending`: it checks whether each address it would bind is bound already, a
+    serves today from its head. A wallet building a transaction reads it at the
+    head: it checks whether each address it would bind is bound already, a
     duplicate binding making the transaction invalid, and whether the
     destination of a clear send is bound, a clear send to an unbound one being
     refused (`lez/wallet/src/lib.rs:1474-1520`). **[Ready, not exposed]**
@@ -1612,13 +1609,12 @@ encrypted note, account state updates included. Scanning it is the wallet's.
 lez_node.query_private_notes_request = {
     ? from: lez_node.resume_from,
     limit: lez_node.limit,
-    ? bedrock_status: lez_node.bedrock_status,
 }
 
 lez_node.query_private_notes_response = {
     blocks: [* lez_node.note_block],
     ? next_from: lez_node.block_ref,
-    served: lez_node.served_at,
+    tips: lez_node.tips,
 } / {
     mismatch: lez_node.resume_mismatch,
 } / {
@@ -1863,19 +1859,15 @@ execution succeeded.
       processed.
 
     `pending` and `finalized` are the LEZ `BedrockStatus` values of the same
-    names (`lez/common/src/block.rs:118-122`), and mean what they mean for a
-    read ([#97](#f-97)): a `pending` transaction is in a block a `pending` read
-    sees and a `finalized` read does not yet see, and a `finalized` transaction
-    is in a block both see. `Safe` has no transaction status, for the reason
-    [#97](#f-97) gives. Before a transaction is `finalized` its status can move
+    names (`lez/common/src/block.rs:118-121`); its `Safe` is never set today and
+    has no status here. Before a transaction is finalized its status can move
     back as well as forward, and the API documentation MUST state when. The node
     reads blocks only once final (`lez/chain_state/src/zone_indexer.rs:54-86`)
     and stamps every block it stores `Finalized`
     (`lez/indexer/core/src/block_store.rs:362`); the sequencer service already
-    follows inscriptions at the L1 tip and folds them into the blocks it serves
-    at `pending` (`lez/chain_state/src/chain.rs:1-3`). No status covers a block
-    before its inscription, since a node learns of a block only from its
-    inscription
+    follows inscriptions at the L1 tip and folds them into its head
+    (`lez/chain_state/src/chain.rs:1-3`). No status comes before inscription,
+    since a node learns of a block only from its inscription
     ([Assumption A7](#a7-lez-blocks-are-not-propagated-over-the-lez-p2p-protocol)).
     **[New]**
 
@@ -1949,13 +1941,14 @@ chain, its mode, and why it stopped if it has.
 43. <a id="f-43"></a>The query MUST return a typed record, defined in the module
     contract like every other return type ([#96](#f-96)), carrying: the sync
     state, one of `starting`, `syncing`, `caught_up`, `error`, `stalled`, or
-    `halted`; the `pending` and `finalized` tips, each as a block identifier and
-    hash; the last error, the stall reason, and the cross-zone halt verdict when
-    the node stopped; and the health of each peer zone it reads, one of `live`,
-    `lagging`, `holed`, `suspended`, `pin_mismatch`, or `halted`. The node holds
-    this data today (`lez/indexer/core/src/status.rs:16-24`, `:45-98`,
-    `:159-161`), but the FFI's `query_status` returns it as a JSON string,
-    untyped by any contract, and as a bare null pointer on any failure
+    `halted`; the tips at the head and on the final chain, each as a block
+    identifier and hash; the last error, the stall reason, and the cross-zone
+    halt verdict when the node stopped; and the health of each peer zone it
+    reads, one of `live`, `lagging`, `holed`, `suspended`, `pin_mismatch`, or
+    `halted`. The node holds this data today
+    (`lez/indexer/core/src/status.rs:16-24`, `:45-98`, `:159-161`), but the
+    FFI's `query_status` returns it as a JSON string, untyped by any contract,
+    and as a bare null pointer on any failure
     (`lez/indexer/ffi/src/api/query.rs:120-145`). **[New]**
 44. <a id="f-44"></a>The status query MUST report the node's mode: whether it is
     in sequencer mode and, if it is, whether it is accepting transactions or
@@ -2029,14 +2022,14 @@ be known by.
     peer-to-peer network to the nodes that sequence, which is not part of this
     API; no node outside sequencer mode submits today. **[New]**
 46. <a id="f-46"></a>Every node MUST validate a transaction before it admits or
-    relays it, against its state at `pending`, as the sequencer service screens
-    fees against that state today
+    relays it, against its head state, as the sequencer service screens fees
+    against its head today
     (`lez/sequencer/actors/executor/src/actor.rs:369-384`), and a transaction it
     declines MUST be reported as a typed failure. The failures MUST distinguish
     at least: a malformed transaction; one that fails a stateless check; one too
     large for a block; one declaring more gas than a block allows; one whose
     fee, or whose proof-committed reserve less its tip, is below the current
-    price at `pending`; one whose payer cannot fund the fee or is not authorised
+    price at the head; one whose payer cannot fund the fee or is not authorised
     to pay it (`lez/sequencer/core/src/fees.rs:13-33`,
     `lez/programs/fee/core/src/validity.rs:17-39`); and one invoking a program a
     user transaction may not call. These MUST be reported separately from a node
@@ -2044,7 +2037,7 @@ be known by.
     sequencer mode, one with no peer to relay through. A node in sequencer mode
     MUST also report a mempool that is full. The sequencer service's RPC gives
     three outcome codes of their own today, a full mempool, a privacy-preserving
-    reserve below the current fee, and not yet online
+    reserve below the head fee, and not yet online
     (`lez/sequencer/service/rpc/src/lib.rs:18-27`), and reports a public fee
     shortfall, an oversized transaction, and a call to a sequencer-only program
     as invalid parameters with text
@@ -2089,8 +2082,8 @@ execution
 (`lee/state_machine/src/privacy_preserving_transaction/circuit/mod.rs:77-79`,
 `lee/state_machine/core/src/circuit_io.rs:506-523`), while its public part runs
 against the state at block production
-(`lee/state_machine/src/validated_state_diff/mod.rs:380-408`). A pending
-transaction can still defeat one being built: one that binds the same private
+(`lee/state_machine/src/validated_state_diff/mod.rs:380-408`). A transaction in
+the mempool can still defeat one being built: one that binds the same private
 address first has it dropped at settlement
 (`lee/state_machine/src/state/mod.rs:535-551`), and one that changes a public
 account whose replies to private actors the proof predicted has it included as
@@ -2172,7 +2165,7 @@ private addresses it binds.
     an entry another node has included MUST leave the listing once the
     inscription is seen. The API documentation MUST state which a node serves,
     and that in neither mode does absence from the listing show that a
-    transaction is not pending elsewhere. **[New]**
+    transaction is not in another node's mempool. **[New]**
 
 **Open problem: blocks produced but not yet inscribed.** A node in sequencer
 mode holds the blocks it has produced and not yet seen inscribed on the Logos
@@ -2181,11 +2174,11 @@ Blockchain, whose transactions have left its mempool
 propagated over the LEZ p2p protocol
 ([Assumption A7](#a7-lez-blocks-are-not-propagated-over-the-lez-p2p-protocol)),
 no other node knows of them. What the API reports about them is open: whether
-the mempool listing, the status query, or `pending` reads on the node that
+the mempool listing, the status query, or reads at the head of the node that
 produced them show them, and how. Until that is settled, a transaction in such a
-block is neither in the producing node's mempool nor in a block a `pending` read
-sees, so no status of [#39](#f-39) describes it there, and a caller's conflict
-check against the mempool can miss it.
+block is neither in the producing node's mempool nor on its head, so no status
+of [#39](#f-39) describes it there, and a caller's conflict check against the
+mempool can miss it.
 
 51. <a id="f-51"></a>Outside sequencer mode, the observed set MUST admit only a
     transaction that passes the node's validation ([#46](#f-46)), as the gossip
@@ -2221,11 +2214,11 @@ check against the mempool can miss it.
 
 55. <a id="f-55"></a>The mempool MUST be queryable by transaction hash, through
     `query_mempool_entry` below, so a caller holding the hash
-    `submit_transaction` returned asks whether that transaction is still pending
-    without walking the listing. The listing MUST also report the mempool's size
-    (`lez/mempool/src/lib.rs:30-32`), the bound it is configured with, and the
-    time after which an entry leaves it ([#52](#f-52)), which a caller retrying
-    on a full mempool reads. **[New]**
+    `submit_transaction` returned asks whether that transaction is still in the
+    mempool without walking the listing. The listing MUST also report the
+    mempool's size (`lez/mempool/src/lib.rs:30-32`), the bound it is configured
+    with, and the time after which an entry leaves it ([#52](#f-52)), which a
+    caller retrying on a full mempool reads. **[New]**
 
 ```cddl
 lez_node.query_mempool_entry_request = {
@@ -2287,25 +2280,25 @@ Delivers each newly finalised block to the caller as an event, optionally
 resuming from a position the consumer already processed.
 
 57. <a id="f-57"></a>The API MUST expose a subscription to finalised blocks that
-    notifies a registered consumer of each block as it becomes `finalized`,
-    exporting the existing `subscribeToFinalizedBlocks` node RPC method. The
-    consumer MUST be notified through `lez_node.finalized_block_event`
-    deliveries rather than by polling, and reads a block it is told of through
-    `query_block_by_hash`. **[Ready, not exposed]**
+    notifies a registered consumer of each block as it becomes final, exporting
+    the existing `subscribeToFinalizedBlocks` node RPC method. The consumer MUST
+    be notified through `lez_node.finalized_block_event` deliveries rather than
+    by polling, and reads a block it is told of through `query_block_by_hash`.
+    **[Ready, not exposed]**
 58. <a id="f-58"></a>Each notification MUST carry the block's height and its
     hash together, so a consumer knows which block occupied the position without
     a second read. The existing subscription yields a height alone
     (`lez/indexer/service/rpc/src/lib.rs:45`), which does not identify a block
-    once a block a `pending` read sees can be replaced; the pair already exists
-    as `BlockMeta` (`lez/common/src/block.rs:11-14`). **[New]**
+    once the head can be replaced; the pair already exists as `BlockMeta`
+    (`lez/common/src/block.rs:11-14`). **[New]**
 
 ```cddl
-lez_node.subscribe_to_pending_blocks_request = {
+lez_node.subscribe_to_head_request = {
     subscription: lez_node.subscription_id,
     ? from: lez_node.resume_from,
 }
 
-lez_node.subscribe_to_pending_blocks_response = {
+lez_node.subscribe_to_head_response = {
     ended: lez_node.subscription_end,
 } / {
     mismatch: lez_node.resume_mismatch,
@@ -2313,12 +2306,12 @@ lez_node.subscribe_to_pending_blocks_response = {
     error: lez_node.error,
 }
 
-lez_node.pending_block_event = {
+lez_node.head_block_event = {
     subscription: lez_node.subscription_id,
-    change: lez_node.pending_block_change,
+    change: lez_node.head_change,
 }
 
-lez_node.pending_block_change = {
+lez_node.head_change = {
     kind: "entered",
     block: lez_node.block_ref,
 } / {
@@ -2331,18 +2324,17 @@ lez_node.pending_block_change = {
 }
 ```
 
-Delivers each change to the blocks a `pending` read sees to the caller as an
-event: a block entering them on inscription, a block replaced, with the block
-that replaces it, and a block becoming `finalized`, optionally resuming from a
-position the consumer already processed.
+Delivers each change to the head to the caller as an event: a block entering it
+on inscription, a block replaced, with the block that replaces it, and a block
+becoming final, optionally resuming from a position the consumer already
+processed.
 
-59. <a id="f-59"></a>The API MUST expose a subscription to the blocks a
-    `pending` read sees, notifying a consumer of each block as it enters them on
-    inscription; of each such block that is replaced, with the block that
-    replaces it; and of each such block as it becomes `finalized`. The sequencer
-    service already folds each L1 update into the blocks it serves at `pending`
-    as an extension or a conflict with the blocks it orphans
-    (`lez/sequencer/core/src/lib.rs:350-358`). **[New]**
+59. <a id="f-59"></a>The API MUST expose a subscription to the head, notifying a
+    consumer of each block as it enters the head on inscription; of each head
+    block that is replaced, with the block that replaces it; and of each head
+    block as it becomes final. The sequencer service already folds each L1
+    update into its head as an extension or a conflict with the blocks it
+    orphans (`lez/sequencer/core/src/lib.rs:350-358`). **[New]**
 60. <a id="f-60"></a>A notification that cannot be delivered, because the
     consumer is not keeping up, MUST end the subscription with a final response
     carrying the last position delivered, `last_delivered`, so the consumer
@@ -2370,9 +2362,9 @@ Ethereum's `eth_getLogs` accepts a `blockHash` only instead of a block range,
 never with one (EIP-234), and Solana relies on commitment levels. Reorg-aware
 consumers each rebuild the check: The Graph keeps its position as a block number
 and hash, Firehose cursors encode the block number and hash, and Cardano's chain
-sync resumes from slot and hash points. Reads here default to `pending`, where a
-block can be replaced
-([Assumption A8](#a8-every-node-serves-pending-reads-as-well-as-finalized-ones-and-reads-default-to-pending))
+sync resumes from slot and hash points. Reads here default to a head that can be
+replaced
+([Assumption A8](#a8-every-node-holds-a-head-as-well-as-a-final-chain-and-reads-default-to-the-head))
 and the walk is a range read, so the node performs the check once for every
 caller. A caller that sends no hash resumes by height alone, as on those base
 layers
@@ -2468,13 +2460,12 @@ lez_node.query_transactions_by_account_request = {
     ? cursor: lez_node.cursor,
     limit: lez_node.limit,
     order: lez_node.order,
-    ? bedrock_status: lez_node.bedrock_status,
 }
 
 lez_node.query_transactions_by_account_response = {
     entries: [* lez_node.history_entry],
     next_cursor: lez_node.cursor,
-    served: lez_node.served_at,
+    tips: lez_node.tips,
 } / {
     error: lez_node.error,
 }
@@ -2531,9 +2522,9 @@ lez_node.query_blocks_response = {
 ```
 
 Returns a page of blocks after `from`, `from` itself excluded, walked in the
-requested direction. With `from` absent, a newest-first walk starts at the tip
-at the requested Bedrock status and an oldest-first walk at the retention floor.
-Exported today as `query_block_vec`, which descends only.
+requested direction. With `from` absent, a newest-first walk starts at the
+indexed tip and an oldest-first walk at the retention floor. Exported today as
+`query_block_vec`, which descends only.
 
 69. <a id="f-69"></a>The query MUST return at most `limit` blocks, descending
     from `from`, or from the tip at the requested Bedrock status ([#97](#f-97))
@@ -2609,12 +2600,11 @@ Ethereum, `getVersion` on Solana, `getnetworkinfo` on Bitcoin and Zcash.
 ```cddl
 lez_node.query_block_request = {
     block_id: lez_node.block_id,
-    ? bedrock_status: lez_node.bedrock_status,
 }
 
 lez_node.query_block_response = {
     ? block: lez_node.block,
-    served: lez_node.served_at,
+    tips: lez_node.tips,
 } / {
     error: lez_node.error,
 }
@@ -2622,7 +2612,7 @@ lez_node.query_block_response = {
 lez_node.block = {
     header: lez_node.block_header,
     transactions: [* lez_node.block_transaction],
-    bedrock_status: lez_node.bedrock_status,
+    status: "pending" / "finalized",
 }
 
 lez_node.block_header = {
@@ -2640,7 +2630,7 @@ lez_node.block_transaction = {
 ```
 
 Returns the block at a given identifier: its header, its full transaction body,
-and its Bedrock status.
+and its bedrock status.
 
 75. <a id="f-75"></a>The query MUST return the stored block for a known
     identifier and an omitted `block` for one the node does not hold, keeping
@@ -2662,12 +2652,11 @@ and its Bedrock status.
 ```cddl
 lez_node.query_block_by_hash_request = {
     hash: lez_node.hash,
-    ? bedrock_status: lez_node.bedrock_status,
 }
 
 lez_node.query_block_by_hash_response = {
     ? block: lez_node.block,
-    served: lez_node.served_at,
+    tips: lez_node.tips,
 } / {
     error: lez_node.error,
 }
@@ -2684,7 +2673,7 @@ store already holds the hash as a secondary index onto the height
 ```cddl
 lez_node.query_last_block_request = {}
 
-; `block_id` is omitted while no block is `finalized`
+; `block_id` is omitted while the final chain is empty
 lez_node.query_last_block_response = {
     ? block_id: lez_node.block_id,
     tips: lez_node.tips,
@@ -2703,8 +2692,8 @@ Returns the identifier of the node's last finalised block.
 lez_node.query_chain_tip_request = {}
 
 lez_node.query_chain_tip_response = {
-    ? pending: lez_node.tip,
-    ? finalized: lez_node.tip,
+    ? head: lez_node.tip,
+    ? final: lez_node.tip,
 } / {
     error: lez_node.error,
 }
@@ -2719,12 +2708,12 @@ Returns the tip as one record rather than as a height the caller must then
 resolve.
 
 80. <a id="f-80"></a>The API MUST expose the chain tip as a single call
-    returning, at `pending` and at `finalized`, the tip block's height together
-    with its hash and timestamp, so learning about the tip does not cost a
-    second call and a caller knows which block holds the position. Below the
-    FFI, `getLastFinalizedBlockId` returns a height alone; the chain state keeps
-    a tip as a height and hash (`lez/chain_state/src/apply.rs:38-41`), and the
-    timestamp comes from a second read. **[New]**
+    returning, for the head and for the final chain, the tip block's height
+    together with its hash and timestamp, so learning about the tip does not
+    cost a second call and a caller knows which block holds the position. Below
+    the FFI, `getLastFinalizedBlockId` returns a height alone; the chain state
+    keeps a tip as a height and hash (`lez/chain_state/src/apply.rs:38-41`), and
+    the timestamp comes from a second read. **[New]**
 
 ```cddl
 lez_node.query_network_identity_request = {}
@@ -2820,13 +2809,13 @@ they were read at.
 
 ```cddl
 lez_node.query_program_ids_request = {
-    ? bedrock_status: lez_node.bedrock_status,
+
 }
 
 lez_node.query_program_ids_response = {
     programs: [* lez_node.program_entry],
     circuit_id: lez_node.hash,
-    served: lez_node.served_at,
+    tips: lez_node.tips,
 } / {
     error: lez_node.error,
 }
@@ -2906,11 +2895,11 @@ caps
     transaction. **[Ready, not exposed]**
 
 The fee state is read at the Bedrock status the caller chooses ([#97](#f-97)),
-and a wallet pricing a transaction reads it at `pending`, as the sequencer
+and a wallet pricing a transaction reads it at the head, as the sequencer
 service quotes it today. A base fee can move by up to an eighth between blocks
-(`lez/programs/fee/core/src/market.rs:16`), so a band read at `finalized`, whose
-tip on testnet trails the `pending` tip by about an hour, bounds only the block
-after the `finalized` tip, and the API says so.
+(`lez/programs/fee/core/src/market.rs:16`), so a band read on the final chain,
+which on testnet trails the head by about an hour, bounds only the block after
+the final tip, and the API says so.
 
 No tip history is required. A sequencer takes transactions from its mempool in
 arrival order (`lez/mempool/src/lib.rs:40-58`,
@@ -3124,36 +3113,38 @@ sides agree on.
 
 Every function defined above is further bound by the following.
 
-097. <a id="f-97"></a>The API MUST take a Bedrock status, `pending` or
-     `finalized`, on every read of chain state, and MUST answer at it. A lookup
-     by transaction hash, `query_transaction` and `query_transaction_receipt`,
-     takes no status: it answers at `pending`, carries the tips alone, and
-     leaves whether the transaction is final to `query_transaction_status`
-     ([#39](#f-39)). The blocks the two statuses see are nested. A `finalized`
-     read sees only the blocks inscribed in L1 blocks that are final. A
-     `pending` read sees those, and also the blocks inscribed in L1 blocks that
-     are not yet final. Only those latter blocks can be replaced, by an L1
-     reorganisation or a competing inscription, and a caller tells them apart by
-     the `finalized` tip every response carries ([#98](#f-98)). A caller that
-     omits the status reads at `pending`, as the sequencer service answers today
+097. <a id="f-97"></a>Every read of chain state MUST take a Bedrock status,
+     `pending` or `finalized`, and answer at it: at `pending` against the head,
+     at `finalized` against the final chain. The two are nested. The final chain
+     is the blocks inscribed in L1 blocks that are final; the head is the final
+     chain plus the blocks inscribed in L1 blocks that are not yet final, and
+     only those latter blocks can be replaced. A caller that omits the status
+     reads at `pending`, as the sequencer service answers today
      (`lez/sequencer/actors/executor/src/actor.rs:542-553`,
      `lez/sequencer/core/src/lib.rs:1956`). Each answer MUST name the status and
-     the block, with its hash, it was served at, because an answer at `pending`
-     can be overtaken when a block it saw is replaced. The two values are LEZ's
-     `BedrockStatus` (`lez/common/src/block.rs:118-122`). `BedrockStatus` also
-     declares `Safe`, but LEZ never assigns it: a block is created `Pending`,
-     and is only ever set to `Finalized` or reset to `Pending`
-     (`lez/common/src/block.rs:203`,
+     the block, with its hash, it was served at, because an answer at the head
+     can be overtaken when the head is replaced. The lookups by transaction hash
+     and by block, and the walks of publications, encrypted notes, events and an
+     account's history (`query_transaction`, `query_transaction_receipt`,
+     `query_block`, `query_block_by_hash`, `query_publications`,
+     `query_private_notes`, `query_events`, `query_transactions_by_account`, and
+     `query_program_ids`), take no status: they answer against the head and
+     carry the tips alone, and whether what they return is final is read from
+     the transaction status ([#39](#f-39)) or the block's own status. The two
+     values are LEZ's `BedrockStatus` (`lez/common/src/block.rs:118-122`).
+     `BedrockStatus` also declares `Safe`, but LEZ never assigns it: a block is
+     created `Pending`, and is only ever set to `Finalized` or reset to
+     `Pending` (`lez/common/src/block.rs:203`,
      `lez/sequencer/actors/storage/src/actor.rs:272-306`, `:1638`,
      `lez/indexer/core/src/block_store.rs:362`). Bedrock exposes only its tip
      and its last immutable block (`logos-blockchain`
      `c-bindings/src/api/cryptarchia.rs:63-70`), so the API omits `Safe` until a
      rule defines it. **[New]**
-098. <a id="f-98"></a>The API MUST report, on every read, the tips it was served
-     against: the identifier and hash of the last block visible at `pending` and
-     at `finalized` when it answered. A caller detects a stalled or lagging node
-     from any response, not only from the status query. No return type carries
-     them today. **[New]**
+098. <a id="f-98"></a>Every read MUST report the tips it was served against: the
+     identifier and hash of the last block at the head and on the final chain
+     when it answered. A caller detects a stalled or lagging node from any
+     response, not only from the status query. No return type carries them
+     today. **[New]**
 099. <a id="f-99"></a>Every function MUST be available on every node unless the
      contract ([#96](#f-96)) marks it, or one of its outcomes, for sequencer
      mode. A node outside sequencer mode MUST answer such a call as not
@@ -3325,12 +3316,12 @@ without restarting it. Exposed by the node module only.
    functionality: read an account at current and at a pinned block, read a batch
    of accounts, read a block, read a transaction, read a transaction's effects,
    receipt, and status, read an account's balances, list an account's
-   transactions with ordering and pagination, follow the blocks at `pending` and
-   at `finalized`, follow a program's events, read the node's status, mode, and
-   peer count, read the chain parameters and the fee market, list the mempool,
-   list publications, and walk the encrypted notes of a block range. Every read
-   MUST take the Bedrock status of [#97](#f-97). The CLI MAY have fewer features
-   than the module but MUST support all essential operations.
+   transactions with ordering and pagination, follow the head and the final
+   chain, follow a program's events, read the node's status, mode, and peer
+   count, read the chain parameters and the fee market, list the mempool, list
+   publications, and walk the encrypted notes of a block range. Every read that
+   takes a Bedrock status ([#97](#f-97)) MUST accept it. The CLI MAY have fewer
+   features than the module but MUST support all essential operations.
 3. <a id="use-3"></a>The delivery MUST include a worked deposit-tracking
    example, in the CLI or as a documented reference consumer, that follows the
    chain from a chosen start block, detects credits to a supplied set of public
@@ -3360,20 +3351,19 @@ without restarting it. Exposed by the node module only.
 8. <a id="use-8"></a>The documentation MUST describe how a deployer grants a
    caller a single function or a subset of the user category, such as the reads
    without `submit_transaction`.
-9. <a id="use-9"></a>The documentation MUST describe the two Bedrock statuses
-   for a caller: which blocks a `pending` read and a `finalized` read each see,
-   what each guarantees, how long a block takes to become `finalized` on
-   testnet, how a `pending` read reports that a block it saw was replaced, and
-   which status a deposit tracker, a wallet building a transaction, and an
-   explorer should each read at.
+9. <a id="use-9"></a>The documentation MUST describe the head and the final
+   chain for a caller: what `pending` and `finalized` each guarantee, how long a
+   block takes to become final on testnet, how a read at the head reports that
+   the head was replaced, and which Bedrock status a deposit tracker, a wallet
+   building a transaction, and an explorer should each read at.
 
 #### Reliability
 
 1. <a id="rel-1"></a>A pinned account read at a given block identifier MUST
    return the same value on every call for as long as that block is the one at
-   the identifier, which for a `finalized` block is for good, and MUST return
-   the hash of the block it answered against so a caller can tell that a
-   repeated read resolved to the same block.
+   the identifier, which on the final chain is for good, and MUST return the
+   hash of the block it answered against so a caller can tell that a repeated
+   read resolved to the same block.
 2. <a id="rel-2"></a>A batch account read pinned to a block identifier MUST
    return a set of accounts consistent with one another as at that block, not a
    mixture of values read at different points during concurrent ingestion.
@@ -3481,15 +3471,16 @@ module" below means the LEZ node module together with its contract.
     a clear publication from a public and from a private sender, and a sealed
     one, in the listing; the viewing key walk over a range, returning every
     encrypted note the range's transactions carry, for a regular private
-    account, a private PDA, and a shared private account; a `pending` read and a
-    `finalized` read while a block is inscribed but not final, and a `pending`
-    read across that block being replaced; each documented transaction status; a
-    submission to a node in sequencer mode and to one outside it, and to one
-    with no peers; a subscription resumed from a stored position across a
-    disconnection, and one resumed from a position whose hash does not match; an
-    administrative call and an operations call from a caller holding no grant,
-    with no access policy in force and with a policy that leaves the module
-    open; and two callers holding subscriptions when one of them cancels.
+    account, a private PDA, and a shared private account; a read at the head and
+    on the final chain while a block is inscribed but not final, and a read at
+    the head across the head being replaced; a transaction status at each
+    documented status; a submission to a node in sequencer mode and to one
+    outside it, and to one with no peers; a subscription resumed from a stored
+    position across a disconnection, and one resumed from a position whose hash
+    does not match; an administrative call and an operations call from a caller
+    holding no grant, with no access policy in force and with a policy that
+    leaves the module open; and two callers holding subscriptions when one of
+    them cancels.
 06. <a id="sup-6"></a>A README MUST document end-to-end usage: building the
     module, the configuration and storage directory `start_node` requires, and
     step-by-step instructions for every operation via the CLI.
@@ -3658,11 +3649,10 @@ The following are explicitly excluded from this RFP:
   A read-only call executes program code, and is simulation by another name: a
   caller reads the state through the account reads and executes on its own side.
   A pre-submission acceptance check is the wallet's own simulation together with
-  the typed rejection of Functionality [#46](#f-46). Waiting for a transaction
-  to reach a chosen status is composed from the status query ([#39](#f-39)) and
-  the block subscription ([#57](#f-57)) rather than offered as a call that
-  blocks. Batch submission is not required: each transaction is submitted on its
-  own.
+  the typed rejection of Functionality [#46](#f-46). Waiting for a confirmation
+  status is composed from the status query ([#39](#f-39)) and the block
+  subscription ([#57](#f-57)) rather than offered as a call that blocks. Batch
+  submission is not required: each transaction is submitted on its own.
 - **Hosting Logos Core in an application, and reaching a node on another
   machine.** The Logos Core host libraries are a separate component outside this
   RFP, and a node elsewhere is reached through Logos Core peering, which carries
@@ -3725,23 +3715,21 @@ and each is listed so the work can be planned and costed.
   (`lez/sequencer/actors/gossip/src/actor.rs:338-340`), and the node joins no
   peer-to-peer network at all. The sequencer service can already run without
   sequencing, as the read-only sequencer the wallet embeds
-  (`lez/core_ffi/src/sequencer/service.rs`), following the chain at `pending`
-  and joining gossip, which is the closest thing today to a node outside
-  sequencer mode.
+  (`lez/core_ffi/src/sequencer/service.rs`), following the head and joining
+  gossip, which is the closest thing today to a node outside sequencer mode.
 - **One node in both modes.** The node and the sequencer run today as separate
-  services, each with its own RPC, the node holding the history, `finalized`
-  blocks only, and the sequencer the blocks a `pending` read sees. A node in
-  either mode serves the API defined here from both. A sequencer's mempool is
-  also only pushed to today (`lez/mempool/src/lib.rs:66-92`), so listing it is
-  work in the sequencer. The design decision log (Supportability [#11](#sup-11))
-  records how the two are brought together.
-- **`pending` reads.** The node reads blocks only once they are final on L1
+  services, each with its own RPC, the node holding the history and the
+  sequencer the head. A node in either mode serves the API defined here from
+  both. A sequencer's mempool is also only pushed to today
+  (`lez/mempool/src/lib.rs:66-92`), so listing it is work in the sequencer. The
+  design decision log (Supportability [#11](#sup-11)) records how the two are
+  brought together.
+- **The head.** The node reads blocks only once they are final on L1
   (`lez/chain_state/src/zone_indexer.rs:54-86`) and has no path for undoing a
-  block. Reads at `pending` ([#97](#f-97)), the subscription to `pending` blocks
-  ([#59](#f-59)), and the transaction statuses short of `finalized`
-  ([#39](#f-39)) need the node to follow inscriptions at the L1 tip and to
-  handle a replaced block, as the sequencer service does
-  (`lez/chain_state/src/chain.rs:1-3`).
+  block. Reads at the head ([#97](#f-97)), the head subscription ([#59](#f-59)),
+  and the transaction statuses short of `finalized` ([#39](#f-39)) need the node
+  to follow inscriptions at the L1 tip and to handle a replaced head, as the
+  sequencer service does (`lez/chain_state/src/chain.rs:1-3`).
 
 Access control and the contract rest on Logos Core in several places.
 
