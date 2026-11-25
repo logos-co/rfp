@@ -942,7 +942,7 @@ The read that says what a transaction did to balances
 ```cddl
 ; readiness: Ready (#1, #2, #9); Computed, not persisted (#5 to #8); New (#3, #4)
 lez_node.query_transaction_request = {
-    hash: lez_node.hash,
+    transaction_hash: lez_node.hash,
     ? bedrock_status: lez_node.bedrock_status,
 }
 
@@ -1088,8 +1088,9 @@ rather than recomputed on the caller's behalf, as Solana's `getTransaction`,
 XRPL's `tx`, and Sui's `sui_getTransactionBlock` return effects with the
 transaction rather than from a call of their own. If returning effects with
 every transaction read proves a performance bottleneck, they MAY instead be
-served by a separate function, such as `query_transaction_effects(hash)`, and
-the requirements below hold either way.
+served by a separate function, such as
+`query_transaction_effects(transaction_hash)`, and the requirements below hold
+either way.
 
 5. <a id="f-5"></a>The API MUST return, with a transaction read by its hash, the
    state diff that transaction produced: the accounts whose public state
@@ -1170,7 +1171,7 @@ the requirements below hold either way.
 ```cddl
 ; readiness: New
 lez_node.query_transaction_receipt_request = {
-    hash: lez_node.hash,
+    transaction_hash: lez_node.hash,
     ? bedrock_status: lez_node.bedrock_status,
 }
 
@@ -1646,7 +1647,7 @@ lez_node.note_block = {
 }
 
 lez_node.note_transaction = {
-    hash: lez_node.hash,
+    transaction_hash: lez_node.hash,
     index: uint32,
     applied: bool,
     notes: [* lez_node.private_note],
@@ -1818,7 +1819,7 @@ Answering how far a transaction has progressed and whether it succeeded
 ```cddl
 ; readiness: Ready, not exposed (#40, #41); Computed, not persisted (#41); New (#39, #40, #42)
 lez_node.query_transaction_status_request = {
-    hash: lez_node.hash,
+    transaction_hash: lez_node.hash,
 }
 
 lez_node.query_transaction_status_response = {
@@ -2012,7 +2013,7 @@ lez_node.submit_transaction_request = {
 }
 
 lez_node.submit_transaction_response = {
-    hash: lez_node.hash,
+    transaction_hash: lez_node.hash,
     accepted: "admitted" / "relayed",
 } / {
     declined: lez_node.declined_reason,
@@ -2166,7 +2167,7 @@ lez_node.query_pending_digests_response = {
 ; `account_ids` and `nonces` name public accounts; `nullifiers` are those it
 ; spends, and `bound_addresses` the private addresses it binds
 lez_node.pending_digest = {
-    hash: lez_node.hash,
+    transaction_hash: lez_node.hash,
     account_ids: [* lez_node.account_id],
     nonces: [* lez_node.account_nonce],
     nullifiers: [* lez_node.nullifier],
@@ -2253,7 +2254,7 @@ conflict check against the pending set can miss it.
 ```cddl
 ; readiness: New
 lez_node.query_pending_entry_request = {
-    hash: lez_node.hash,
+    transaction_hash: lez_node.hash,
 }
 
 lez_node.query_pending_entry_response = {
