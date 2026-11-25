@@ -875,24 +875,25 @@ lez_node.event_record = {
   or a nonce, a `u128` in LEZ, is a 16-byte string holding the value
   little-endian (`lez_node.amount`, `lez_node.nonce`).
 - **Block positions.** A `lez_node.block_ref` names a block by its identifier
-  and hash together. The API reports one for every tip, since an identifier at
-  the head names a height rather than a block ([#23](#f-23)). A caller resuming
-  from a block passes a `lez_node.resume_from`, whose hash is optional, and a
-  hash the node's chain does not match is answered with a
-  `lez_node.resume_mismatch` rather than resumed from ([#61](#f-61)).
+  and hash together. The API MUST report one for every tip, since an identifier
+  at the head names a height rather than a block ([#23](#f-23)). A caller
+  resuming from a block passes a `lez_node.resume_from`, whose hash is optional,
+  and the API MUST answer a hash the node's chain does not match with a
+  `lez_node.resume_mismatch` rather than resume from it ([#61](#f-61)).
 - **Levels and tips.** A read of chain state takes an optional `level`, the head
   when omitted ([#97](#f-97)), and its response carries a `lez_node.served_at`
   naming the level, the block it was served at, and both tips ([#98](#f-98)).
-  Other reads carry the tips alone. A tip, or the block served at, is omitted
-  only while the node holds no block at that level.
-- **Absence and errors.** A record the node does not hold is an omitted field,
-  not an error. Every response is either its success map or an `error` map whose
-  `code` is one of `lez_node.error_code`, the expected failures this RFP names
-  ([#99](#f-99), [#101](#f-101) to [#103](#f-103), [#108](#f-108),
-  [#111](#f-111)). These are contract responses: the shared `logos.error_code`
-  values are reserved for failures of the invocation itself, such as a request
-  that does not match its schema, and the profile forbids using them for an
-  expected failure (`spec-module-interface.md:345-346`, `:3260-3264`).
+  Other reads carry the tips alone. The API MUST omit a tip, or the block served
+  at, only while the node holds no block at that level.
+- **Absence and errors.** The API MUST report a record the node does not hold as
+  an omitted field, not an error. Every response MUST be either its success map
+  or an `error` map whose `code` is one of `lez_node.error_code`, the expected
+  failures this RFP names ([#99](#f-99), [#101](#f-101) to [#103](#f-103),
+  [#108](#f-108), [#111](#f-111)). These are contract responses: the shared
+  `logos.error_code` values are reserved for failures of the invocation itself,
+  such as a request that does not match its schema, and the API MUST NOT use
+  them for an expected failure, as the profile forbids
+  (`spec-module-interface.md:345-346`, `:3260-3264`).
 - **Transactions.** A `lez_node.transaction` carries a transaction as the bytes
   the LEZ `LeeTransaction` type serialises to under Borsh
   (`lez/common/src/transaction.rs:14-35`), the value the sequencer RPC's
@@ -900,8 +901,9 @@ lez_node.event_record = {
   with a `kind` naming which of the two kinds it is. Those bytes are the
   transaction as the chain holds it, so a caller recomputes its hash from them
   ([#3](#f-3)), and decoding them is the caller's.
-- **Pages.** A `lez_node.cursor` is opaque ([#68](#f-68)). A page reports `more`
-  and the position or cursor the next page resumes from ([#72](#f-72)).
+- **Pages.** A `lez_node.cursor` MUST be opaque ([#68](#f-68)). A page MUST
+  report `more` and the position or cursor the next page resumes from
+  ([#72](#f-72)).
 - **Subscriptions.** A subscription is a method that watches, as the profile
   models one: its invocation stays open while it delivers `_event` maps to the
   caller that opened it, and its final response, carrying a
