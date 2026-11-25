@@ -799,10 +799,149 @@ lez_node.error = {
 }
 
 ; -- transactions --
+; a transaction as a read returns it
 lez_node.transaction = {
-    kind: "public" / "privacy_preserving",
-    encoded: bstr,
+    kind: "public",
+    hash: lez_node.hash,
+    message: lez_node.public_message,
+    witness_set: lez_node.witness_set,
+} / {
+    kind: "privacy_preserving",
+    hash: lez_node.hash,
+    message: lez_node.privacy_preserving_message,
+    witness_set: lez_node.witness_set,
 }
+
+; a transaction as a submission sends it: the Borsh encoding of LEZ's
+; `LeeTransaction` (`lez/common/src/transaction.rs:14-35`), the value the
+; sequencer RPC's `sendTransaction` takes today
+; (`lez/sequencer/service/rpc/src/lib.rs:52-53`)
+lez_node.encoded_transaction = bstr
+
+lez_node.public_message = {
+    public_context: lez_node.public_execution_context,
+    root: lez_node.root_call,
+    ? fee: lez_node.fee_declaration,
+    nonces: [* lez_node.account_nonce],
+    admission_evidence: [* lez_node.public_account_evidence],
+}
+
+lez_node.privacy_preserving_message = {
+    public_context: lez_node.public_execution_context,
+    boundary: [* lez_node.boundary_step],
+    async_messages: [* lez_node.transaction_publication],
+    recovery_bindings: [* lez_node.recovery_binding],
+    ? public_root: lez_node.root_call,
+    nonces: [* lez_node.account_nonce],
+    private_actions: [* lez_node.private_action],
+    block_validity_window: lez_node.validity_window,
+    timestamp_validity_window: lez_node.validity_window,
+    admission_evidence: [* lez_node.public_account_evidence],
+    ? proven_fee: lez_node.proven_fee,
+    ? fee: lez_node.fee_declaration,
+}
+
+lez_node.witness_set = {
+    signatures_and_public_keys: [* {
+        signature: lez_node.signature,
+        public_key: lez_node.public_key,
+    }],
+    ? proof: lez_node.proof,
+}
+
+lez_node.fee_declaration = {
+    payer: lez_node.account_id,
+    gas_limit: uint64,
+    tip: uint64,
+    max_fee: lez_node.amount,
+}
+
+lez_node.public_execution_context = {
+    actors: [* lez_node.actor],
+    authorized_accounts: [* lez_node.account_id],
+    promotions: [* uint64],
+}
+
+lez_node.root_call = {
+    to: lez_node.actor,
+    message: bstr,
+}
+
+lez_node.message_envelope = {
+    from: lez_node.actor,
+    to: lez_node.actor,
+    message: bstr,
+}
+
+lez_node.public_account_evidence = {
+    kind: "key",
+    public_key: lez_node.public_key,
+} / {
+    kind: "pda",
+    program: lez_node.account_id,
+    seed: lez_node.pda_seed,
+}
+
+lez_node.boundary_step = {
+    kind: "private_to_public",
+    envelope: lez_node.message_envelope,
+    inherited_authorizations: [* lez_node.account_id],
+    inherits_entry_authorizations: bool,
+    pda_seeds: [* lez_node.pda_seed],
+} / {
+    kind: "public_to_private",
+    envelope: lez_node.message_envelope,
+    inherited_authorizations: [* lez_node.account_id],
+    inherits_entry_authorizations: bool,
+    pda_seeds: [* lez_node.pda_seed],
+} / {
+    kind: "end_private_subtree",
+} / {
+    kind: "end_public_subtree",
+}
+
+; `root` is a commitment set digest
+lez_node.private_action = {
+    nullifier: lez_node.nullifier,
+    root: lez_node.hash,
+    commitment: lez_node.commitment,
+    encrypted_post_state: lez_node.encrypted_note,
+}
+
+lez_node.proven_fee = {
+    ? refund_to: lez_node.account_id,
+    tip: uint64,
+    ? fallback: lez_node.fee_fallback,
+}
+
+lez_node.fee_fallback = {
+    action: lez_node.private_action,
+    boundary: [* lez_node.boundary_step],
+}
+
+; a publication as a transaction carries it; `lez_node.publication` is one as
+; listed, with its position
+lez_node.transaction_publication = {
+    kind: "clear",
+    from: lez_node.actor,
+    to: lez_node.actor,
+    message: bstr,
+} / {
+    kind: "sealed",
+    commitment: lez_node.commitment,
+    note: lez_node.encrypted_note,
+}
+
+; the range [start, end), either end unbounded when omitted
+lez_node.validity_window = {
+    ? start: lez_node.block_id,
+    ? end: lez_node.block_id,
+}
+
+lez_node.pda_seed = bstr .size 32
+lez_node.signature = bstr .size 64
+lez_node.public_key = bstr .size 32
+lez_node.proof = bstr
 
 lez_node.actor = {
     account_id: lez_node.account_id,
@@ -821,7 +960,7 @@ lez_node.account = {
 
 lez_node.encrypted_note = {
     ciphertext: bstr,
-    ephemeral_key: bstr,
+    epk: bstr,
 }
 
 lez_node.recovery_binding = {
@@ -892,13 +1031,15 @@ lez_node.event_record = {
   such as a request that does not match its schema, and the API MUST NOT use
   them for an expected failure, as the profile forbids
   (`spec-module-interface.md:345-346`, `:3260-3264`).
-- **Transactions.** A `lez_node.transaction` carries a transaction as the bytes
-  the LEZ `LeeTransaction` type serialises to under Borsh
-  (`lez/common/src/transaction.rs:14-35`), the value the sequencer RPC's
-  `sendTransaction` takes today (`lez/sequencer/service/rpc/src/lib.rs:52-53`),
-  with a `kind` naming which of the two kinds it is. Those bytes are the
-  transaction as the chain holds it, so a caller recomputes its hash from them
-  ([#3](#f-3)), and decoding them is the caller's.
+- **Transactions.** A read returns a transaction as a `lez_node.transaction`,
+  the typed structure the node RPC's `Transaction` already serves
+  (`lez/indexer/service/protocol/src/lib.rs:254-503`), with a `kind` naming
+  which of the two kinds it is and the transaction's hash beside its fields
+  ([#3](#f-3)). A submission sends a transaction as a
+  `lez_node.encoded_transaction`: the bytes the LEZ `LeeTransaction` type
+  serialises to under Borsh (`lez/common/src/transaction.rs:14-35`), the value
+  the sequencer RPC's `sendTransaction` takes today
+  (`lez/sequencer/service/rpc/src/lib.rs:52-53`).
 - **Pages.** A `lez_node.cursor` MUST be stable ([#68](#f-68)); what it holds is
   the implementer's choice. A page MUST carry the position or cursor the next
   page resumes from, and only an empty page marks the end ([#72](#f-72)).
@@ -1038,11 +1179,13 @@ signalled by an omitted `record`, not by an error.
    (`lez/indexer/service/protocol/src/lib.rs:254-441`). A program is deployed by
    a public transaction to the program loader rather than by a transaction kind
    of its own. **[Ready]**
-3. <a id="f-3"></a>The returned transaction MUST carry every field of the
-   transaction as the chain holds it, so a caller can recompute its hash. The
-   wire type drops a privacy-preserving transaction's program image claims
-   (`lez/indexer/service/protocol/src/convert.rs:599-602`), so a transaction
-   carrying any cannot be reproduced from what is returned. **[New]**
+3. <a id="f-3"></a>The returned transaction carries its hash, as the wire type
+   does (`lez/indexer/service/protocol/src/lib.rs:277-289`), and MUST carry
+   every field of the transaction as the chain holds it, so a caller can
+   recompute that hash. The wire type drops a privacy-preserving transaction's
+   program image claims (`lez/indexer/service/protocol/src/convert.rs:599-602`),
+   so a transaction carrying any cannot be reproduced from what is returned.
+   **[New]**
 4. <a id="f-4"></a>**Problem: two transactions can share a hash.** Every block
    ends with a fee transaction that carries no nonce and no block identifier
    (`lez/common/src/transaction.rs:355-395`), so when consecutive blocks have
@@ -1970,7 +2113,7 @@ constructs, signs, or executes a transaction.
 
 ```cddl
 lez_node.submit_transaction_request = {
-    transaction: lez_node.transaction,
+    transaction: lez_node.encoded_transaction,
 }
 
 lez_node.submit_transaction_response = {
