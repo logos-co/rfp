@@ -2550,8 +2550,8 @@ indexed tip and an oldest-first walk at the retention floor. Exported today as
     that position is a stable cursor ([#68](#f-68)); for the walks keyed by
     position, the blocks, publications, and encrypted notes, it is the block or
     commitment-set position the next page starts after. Today the block walk and
-    the account history return a bare list with no resume position, and a caller
-    pages until it receives fewer entries than it asked for. **[New]**
+    the account history return a bare list with no resume position, so a caller
+    can infer the end only from a short or empty page. **[New]**
 
 ##### Chain and node metadata
 
