@@ -902,8 +902,8 @@ lez_node.event_record = {
   transaction as the chain holds it, so a caller recomputes its hash from them
   ([#3](#f-3)), and decoding them is the caller's.
 - **Pages.** A `lez_node.cursor` MUST be stable ([#68](#f-68)); what it holds is
-  the implementer's choice. A page MUST report `more` and the position or cursor
-  the next page resumes from ([#72](#f-72)).
+  the implementer's choice. A page MUST carry the position or cursor the next
+  page resumes from, and only an empty page marks the end ([#72](#f-72)).
 - **Subscriptions.** A subscription is a method that watches, as the profile
   models one: its invocation stays open while it delivers `_event` maps to the
   caller that opened it, and its final response, carrying a
@@ -1534,7 +1534,6 @@ lez_node.query_publications_request = {
 lez_node.query_publications_response = {
     publications: [* lez_node.publication],
     recovery_bindings: [* lez_node.recovery_binding],
-    more: bool,
     next_position: lez_node.position,
     served: lez_node.served_at,
 } / {
@@ -1552,10 +1551,10 @@ Returns a page of publications in commitment-set order, from a given position.
     (`lee/state_machine/src/state/mod.rs:178-181`,
     `lee/state_machine/src/state/mod.rs:383-406`) and the sequencer service's
     `getPublications` returns them. **[Ready, not exposed]**
-28. <a id="f-28"></a>The listing MUST be bounded and MUST report whether more
-    entries remain, on the same terms as the other paginated reads, and MUST NOT
-    take an account identifier, so a wallet receiving messages discloses nothing
-    beyond the position it resumes from. **[New]**
+28. <a id="f-28"></a>The listing MUST be bounded, on the same terms as the other
+    paginated reads, and MUST NOT take an account identifier, so a wallet
+    receiving messages discloses nothing beyond the position it resumes from.
+    **[New]**
 
 ```cddl
 lez_node.query_recovery_binding_request = {
@@ -1613,7 +1612,6 @@ lez_node.query_private_notes_request = {
 
 lez_node.query_private_notes_response = {
     blocks: [* lez_node.note_block],
-    more: bool,
     ? next_from: lez_node.block_ref,
     served: lez_node.served_at,
 } / {
@@ -2126,7 +2124,6 @@ lez_node.query_pending_digests_request = {
 
 lez_node.query_pending_digests_response = {
     digests: [* lez_node.pending_digest],
-    more: bool,
     next_cursor: lez_node.cursor,
     size: uint64,
     bound: uint64,
@@ -2206,10 +2203,9 @@ the pending set can miss it.
 
 53. <a id="f-53"></a>The listing MUST be bounded and paginated by a cursor that
     is stable as [#68](#f-68) requires, a caller resuming from one neither
-    skipping nor repeating an entry still pending, and MUST report whether more
-    entries remain. The pending set turns over as entries are included or
-    dropped, so an offset into it names a different entry from one call to the
-    next. **[New]**
+    skipping nor repeating an entry still pending. The pending set turns over as
+    entries are included or dropped, so an offset into it names a different
+    entry from one call to the next. **[New]**
 
 54. <a id="f-54"></a>A page of the digest listing MUST cost no more to serve
     than a page of blocks of the same limit, measured under Performance
@@ -2469,7 +2465,6 @@ lez_node.query_transactions_by_account_request = {
 
 lez_node.query_transactions_by_account_response = {
     entries: [* lez_node.history_entry],
-    more: bool,
     next_cursor: lez_node.cursor,
     served: lez_node.served_at,
 } / {
@@ -2520,7 +2515,6 @@ lez_node.query_blocks_request = {
 
 lez_node.query_blocks_response = {
     blocks: [* lez_node.block],
-    more: bool,
     ? next_from: lez_node.block_id,
     served: lez_node.served_at,
 } / {
@@ -2549,14 +2543,15 @@ indexed tip and an oldest-first walk at the retention floor. Exported today as
     privacy-preserving transaction body against its own viewing key. Descending
     from the tip cannot serve that walk. An ascending walk with `from` absent
     MUST start at the retention floor. **[New]**
-72. <a id="f-72"></a>Every paginated response MUST report whether more results
-    remain, and MUST carry the position a caller resumes from, so a caller
-    distinguishes the end of a result set from a page that happens to be short.
-    For the account history and the pending listing that position is a stable
-    cursor ([#68](#f-68)); for the walks keyed by position, the blocks,
-    publications, and encrypted notes, it is the block or commitment-set
-    position the next page starts after. No paginated return type carries either
-    signal today. **[New]**
+72. <a id="f-72"></a>Every paginated response MUST carry the position a caller
+    resumes from. A caller pages until it receives an empty page: a page shorter
+    than `limit` does not mark the end of the result set, and the API
+    documentation MUST say so. For the account history and the pending listing
+    that position is a stable cursor ([#68](#f-68)); for the walks keyed by
+    position, the blocks, publications, and encrypted notes, it is the block or
+    commitment-set position the next page starts after. Today the block walk and
+    the account history return a bare list with no resume position, and a caller
+    pages until it receives fewer entries than it asked for. **[New]**
 
 ##### Chain and node metadata
 
