@@ -116,8 +116,8 @@ A LEZ node runs in one of two modes, in sequencer mode or outside it, and a
 sequencer is a LEZ node in sequencer mode. It serves the same API as any other
 node.
 
-In that mode it also holds the pending set it builds blocks from, produces
-blocks, and inscribes them on the Logos Blockchain.
+In that mode it also holds the mempool it builds blocks from, produces blocks,
+and inscribes them on the Logos Blockchain.
 
 The mode decides what the node depends on. In either mode a LEZ node depends on
 a Logos Blockchain node, from which it reads the inscriptions it follows. In
@@ -134,8 +134,8 @@ sequencer mode reports it as not available in its mode ([#99](#f-99)).
 
 **Basis:** the integration guide, which has a LEZ node acting as a sequencer
 also use a Logos Blockchain wallet. **Rests on it:** the node's mode in status
-([#44](#f-44)), admission and relay ([#45](#f-45) to [#47](#f-47)), the pending
-set ([#50](#f-50)), and availability by mode ([#99](#f-99)).
+([#44](#f-44)), admission and relay ([#45](#f-45) to [#47](#f-47)), the mempool
+([#50](#f-50)), and availability by mode ([#99](#f-99)).
 
 #### A3. Following the chain, serving its history, and sequencing are one node
 
@@ -175,23 +175,23 @@ about the node's place in it, such as how many peers it has, is part of this API
 ([#92](#f-92) and [#93](#f-93)).
 
 **Basis:** the integration guide, and the sequencer's gossip today. **Rests on
-it:** relay ([#45](#f-45) and [#47](#f-47)), the observed pending set
+it:** relay ([#45](#f-45) and [#47](#f-47)), the observed mempool
 ([#51](#f-51)), and the peer reads ([#92](#f-92) and [#93](#f-93)).
 
-#### A6. A node outside sequencer mode sees pending transactions on gossip
+#### A6. A node outside sequencer mode sees mempool transactions on gossip
 
-A node outside sequencer mode observes pending transactions on the LEZ
+A node outside sequencer mode observes mempool transactions on the LEZ
 transaction gossip, and serves those it has not yet seen inscribed as its
-pending set.
+mempool.
 
 Transactions sequencers gossip travel on a peer-to-peer topic per zone, which
 any node following the zone can subscribe to, so a wallet on the user's own node
-can still see a pending transaction that conflicts with one it is building.
+can still see a mempool transaction that conflicts with one it is building.
 
 **Basis:** the transaction topic of the gossip actor today
 (`lez/sequencer/actors/gossip/src/actor.rs:338-340`). **Rests on it:** the
-pending set outside sequencer mode ([#50](#f-50) and [#51](#f-51)) and the
-received status ([#39](#f-39)).
+mempool outside sequencer mode ([#50](#f-50) and [#51](#f-51)) and the received
+status ([#39](#f-39)).
 
 #### A7. LEZ blocks are not propagated over the LEZ p2p protocol
 
@@ -323,7 +323,7 @@ by Logos Core and are outside this RFP.
 **Reference users.** The requirements are written against two. An exchange reads
 chain state, tracks deposits to accounts it controls, and waits for a
 transaction to reach a status it is willing to act on. A wallet also needs what
-an exchange never asks for: the proofs it spends with, the pending set it checks
+an exchange never asks for: the proofs it spends with, the mempool it checks
 before proving and submitting, and the publications and encrypted notes it
 receives through.
 
@@ -943,12 +943,11 @@ The read that says what a transaction did to balances
 ; readiness: Ready (#1, #2, #9); Computed, not persisted (#5 to #8); New (#3, #4)
 lez_node.query_transaction_request = {
     transaction_hash: lez_node.hash,
-    ? bedrock_status: lez_node.bedrock_status,
 }
 
 lez_node.query_transaction_response = {
     ? record: lez_node.transaction_record,
-    served: lez_node.served_at,
+    tips: lez_node.tips,
 } / {
     error: lez_node.error,
 }
@@ -1172,19 +1171,18 @@ either way.
 ; readiness: New
 lez_node.query_transaction_receipt_request = {
     transaction_hash: lez_node.hash,
-    ? bedrock_status: lez_node.bedrock_status,
 }
 
 lez_node.query_transaction_receipt_response = {
     result: "receipt",
     receipt: lez_node.receipt,
-    served: lez_node.served_at,
+    tips: lez_node.tips,
 } / {
     result: "no_receipt",
-    served: lez_node.served_at,
+    tips: lez_node.tips,
 } / {
     result: "not_found",
-    served: lez_node.served_at,
+    tips: lez_node.tips,
 } / {
     error: lez_node.error,
 }
@@ -1871,9 +1869,9 @@ execution succeeded.
     conclude from it, that documented meaning being what the API guarantees:
 
     - **not known**, on the terms of [#42](#f-42);
-    - **received**: the transaction is in the pending set the node holds or
-      observes ([#50](#f-50)), having been submitted through this node or seen
-      on the LEZ peer-to-peer network;
+    - **received**: the transaction is in the mempool the node holds or observes
+      ([#50](#f-50)), having been submitted through this node or seen on the LEZ
+      peer-to-peer network;
     - **pending** (`BedrockStatus::Pending`): in a LEZ block carried by an L1
       block that is not yet final, which an L1 reorganisation or a competing
       inscription can still replace, returning the transaction to received;
@@ -1922,8 +1920,8 @@ execution succeeded.
     reason is **[Computed, not persisted]**.
 
 42. <a id="f-42"></a>The API documentation MUST state that a transaction this
-    node never saw, absent from the chain and from the pending set, is reported
-    as not known, whether it was never submitted or was submitted elsewhere and
+    node never saw, absent from the chain and from the mempool, is reported as
+    not known, whether it was never submitted or was submitted elsewhere and
     discarded, no record of a declined transaction being retained. **[New]**
 
 ```cddl
@@ -2019,7 +2017,7 @@ lez_node.submit_transaction_response = {
     declined: lez_node.declined_reason,
     message: tstr .size (1..512),
 } / {
-    unavailable: "starting" / "no_relay_peer" / "pending_set_full",
+    unavailable: "starting" / "no_relay_peer" / "mempool_full",
 } / {
     error: lez_node.error,
 }
@@ -2042,8 +2040,8 @@ be known by.
     transaction signed by its signers or a privacy-preserving transaction
     carrying its proof (`lez/common/src/transaction.rs:20-23`), and returns the
     transaction hash a caller then tracks through `query_transaction_status`. A
-    node in sequencer mode MUST admit the transaction to its own pending set, as
-    the sequencer service does today through its RPC's `sendTransaction`
+    node in sequencer mode MUST admit the transaction to its own mempool, as the
+    sequencer service does today through its RPC's `sendTransaction`
     (`lez/sequencer/service/rpc/src/lib.rs:52-53`) and its FFI's
     `sequencer_ffi_send_transaction`
     (`lez/core_ffi/src/sequencer/api/query.rs:408-438`), both taking either
@@ -2064,9 +2062,9 @@ be known by.
     user transaction may not call. These MUST be reported separately from a node
     that cannot take a submission at all: one still starting, or, outside
     sequencer mode, one with no peer to relay through. A node in sequencer mode
-    MUST also report a pending set that is full. The sequencer service's RPC
-    gives three outcome codes of their own today, a full mempool, a
-    privacy-preserving reserve below the current fee, and not yet online
+    MUST also report a mempool that is full. The sequencer service's RPC gives
+    three outcome codes of their own today, a full mempool, a privacy-preserving
+    reserve below the current fee, and not yet online
     (`lez/sequencer/service/rpc/src/lib.rs:18-27`), and reports a public fee
     shortfall, an oversized transaction, and a call to a sequencer-only program
     as invalid parameters with text
@@ -2074,8 +2072,8 @@ be known by.
     `lez/sequencer/actors/rpc_server/src/actor/service.rs:467-475`); the
     sequencer FFI reports every admission failure alike, apart from a
     transaction it cannot decode. A caller re-prices on an insufficient fee,
-    funds the payer when it cannot pay, retries on a full pending set or a node
-    that cannot take a submission yet, and does not retry the others. **[New]**
+    funds the payer when it cannot pay, retries on a full mempool or a node that
+    cannot take a submission yet, and does not retry the others. **[New]**
 47. <a id="f-47"></a>Outside sequencer mode, acceptance means the node validated
     the transaction and handed it to the peer-to-peer network, not that a
     sequencer admitted it. Gossip forwards a transaction whatever a receiving
@@ -2091,7 +2089,7 @@ be known by.
     given. What is relayed MUST be the transaction accepted, re-encoded at most,
     and the hash returned MUST be the hash of that transaction. **[New]**
 
-##### Pending transactions
+##### Mempool
 
 Listing what the network holds but has not yet included in a block
 ([Appendix: Blockchain API and SDK Ecosystem, section 1.26](../appendix/blockchain-api-sdk-ecosystem.md#126-inspect-the-mempool-or-pending-set)).
@@ -2120,41 +2118,40 @@ reverted, its fee charged
 (`lee/state_machine/core/src/execution_state.rs:930-941`,
 `lee/state_machine/src/validated_state_diff/mod.rs:426-470`). Proving takes tens
 of seconds (`docs/benchmarks/cycle_bench.md:92-104`), so a wallet that checks
-the pending set before proving and again before submitting avoids discarding a
-proof or paying for a revert. A spent nullifier needs no such check, since only
-the key holder can spend it, and a changed nonce costs a new signature rather
-than a new proof.
+the mempool before proving and again before submitting avoids discarding a proof
+or paying for a revert. A spent nullifier needs no such check, since only the
+key holder can spend it, and a changed nonce costs a new signature rather than a
+new proof.
 
-The pending set also answers where a submitted transaction has got to. Absence
-from the chain alone means nothing, since a transaction not yet included and one
-the network declined look identical, and only four of the nine surveyed chains
-expose a pending set to tell them apart. A charged transaction whose action
-fails during block production is included as reverted, but one that fails
-settlement is dropped without a record: it is logged and omitted from the block
+The mempool also answers where a submitted transaction has got to. Absence from
+the chain alone means nothing, since a transaction not yet included and one the
+network declined look identical, and only four of the nine surveyed chains
+expose a mempool to tell them apart. A charged transaction whose action fails
+during block production is included as reverted, but one that fails settlement
+is dropped without a record: it is logged and omitted from the block
 (`lez/sequencer/core/src/lib.rs:1793-1804`), so no drop is retrievable
-afterwards and the pending set is the only surface on which its disappearance is
+afterwards and the mempool is the only surface on which its disappearance is
 visible. Detecting a conflict with a transaction being built, together with
-status, is what makes the pending set a requirement here.
+status, is what makes the mempool a requirement here.
 
-Which pending set a node can show depends on its mode. A sequencer's pending set
-is a bounded mempool, fed both by submission and by gossip from its peers, and
-it is only pushed to today (`lez/mempool/src/lib.rs:66-92`). A node outside
-sequencer mode holds none, but the transactions sequencers gossip travel on a
-peer-to-peer topic per zone (`lez/sequencer/actors/gossip/src/actor.rs:338-340`)
-that any node following the zone can observe. Either way, one transaction sits
-in several pending sets at once, none of them observable today, until it appears
-in a block
+Which mempool a node can show depends on its mode. A sequencer's mempool is a
+bounded mempool, fed both by submission and by gossip from its peers, and it is
+only pushed to today (`lez/mempool/src/lib.rs:66-92`). A node outside sequencer
+mode holds none, but the transactions sequencers gossip travel on a peer-to-peer
+topic per zone (`lez/sequencer/actors/gossip/src/actor.rs:338-340`) that any
+node following the zone can observe. Either way, one transaction sits in several
+mempools at once, none of them observable today, until it appears in a block
 ([Appendix: Blockchain API and SDK Ecosystem, section 1.26](../appendix/blockchain-api-sdk-ecosystem.md#126-inspect-the-mempool-or-pending-set)).
 
 ```cddl
 ; readiness: New
-lez_node.query_pending_digests_request = {
+lez_node.query_mempool_digests_request = {
     ? cursor: lez_node.cursor,
     limit: lez_node.limit,
 }
 
-lez_node.query_pending_digests_response = {
-    digests: [* lez_node.pending_digest],
+lez_node.query_mempool_digests_response = {
+    digests: [* lez_node.mempool_digest],
     next_cursor: lez_node.cursor,
     size: uint64,
     bound: uint64,
@@ -2166,7 +2163,7 @@ lez_node.query_pending_digests_response = {
 
 ; `account_ids` and `nonces` name public accounts; `nullifiers` are those it
 ; spends, and `bound_addresses` the private addresses it binds
-lez_node.pending_digest = {
+lez_node.mempool_digest = {
     transaction_hash: lez_node.hash,
     account_ids: [* lez_node.account_id],
     nonces: [* lez_node.account_nonce],
@@ -2180,17 +2177,17 @@ lez_node.account_nonce = {
 }
 ```
 
-Lists the pending set as digests: per entry, its transaction hash, the public
+Lists the mempool as digests: per entry, its transaction hash, the public
 account identifiers and nonces it touches, the nullifiers it spends, and the
 private addresses it binds.
 
-49. <a id="f-49"></a>The API MUST list pending transactions as digests carrying,
+49. <a id="f-49"></a>The API MUST list mempool transactions as digests carrying,
     per entry, its transaction hash, the public account identifiers and nonces
     it touches, the nullifiers it spends, and the private addresses it binds, so
     a caller detects a conflict with a transaction it is about to build without
     fetching bodies. **[New]**
-50. <a id="f-50"></a>In sequencer mode the listing MUST be the pending set the
-    node builds blocks from. Outside sequencer mode, the listing MUST be the
+50. <a id="f-50"></a>In sequencer mode the listing MUST be the mempool the node
+    builds blocks from. Outside sequencer mode, the listing MUST be the
     transactions the node has observed on the LEZ peer-to-peer network and not
     yet seen inscribed, together with those submitted through it. In either mode
     an entry another node has included MUST leave the listing once the
@@ -2205,11 +2202,11 @@ Blockchain, whose transactions have left its mempool
 propagated over the LEZ p2p protocol
 ([Assumption A7](#a7-lez-blocks-are-not-propagated-over-the-lez-p2p-protocol)),
 no other node knows of them. What the API reports about them is open: whether
-the pending listing, the status query, or `pending` reads on the node that
+the mempool listing, the status query, or `pending` reads on the node that
 produced them show them, and how. Until that is settled, a transaction in such a
-block is neither in the producing node's pending set nor in a block a `pending`
-read sees, so no status of [#39](#f-39) describes it there, and a caller's
-conflict check against the pending set can miss it.
+block is neither in the producing node's mempool nor in a block a `pending` read
+sees, so no status of [#39](#f-39) describes it there, and a caller's conflict
+check against the mempool can miss it.
 
 51. <a id="f-51"></a>Outside sequencer mode, the observed set MUST admit only a
     transaction that passes the node's validation ([#46](#f-46)), as the gossip
@@ -2219,10 +2216,10 @@ conflict check against the pending set can miss it.
     expired, the status query MUST report it as no longer observed rather than
     as received. **[New]**
 
-52. <a id="f-52"></a>The pending set a node holds MUST be bounded by an operator
+52. <a id="f-52"></a>The mempool a node holds MUST be bounded by an operator
     setting, with a documented default, that limits its size, and the
-    documentation MUST state the setting's unit. An entry MUST leave the pending
-    set after a time set by a second operator setting, also with a documented
+    documentation MUST state the setting's unit. An entry MUST leave the mempool
+    after a time set by a second operator setting, also with a documented
     default. This holds in either mode, for a sequencer's mempool and for the
     set a node outside sequencer mode observes on gossip alike. The sequencer's
     `mempool_max_size` (`lez/sequencer/core/src/config.rs:72-73`) is the prior
@@ -2234,8 +2231,8 @@ conflict check against the pending set can miss it.
 
 53. <a id="f-53"></a>The listing MUST be bounded and paginated by a cursor that
     is stable as [#68](#f-68) requires, a caller resuming from one neither
-    skipping nor repeating an entry still pending. The pending set turns over as
-    entries are included or dropped, so an offset into it names a different
+    skipping nor repeating an entry still in the mempool. The mempool turns over
+    as entries are included or dropped, so an offset into it names a different
     entry from one call to the next. **[New]**
 
 54. <a id="f-54"></a>A page of the digest listing MUST cost no more to serve
@@ -2243,21 +2240,21 @@ conflict check against the pending set can miss it.
     [#1](#perf-1), so a wallet re-checks for a conflict before proving and again
     before submitting. **[New]**
 
-55. <a id="f-55"></a>The pending set MUST be queryable by transaction hash,
-    through `query_pending_entry` below, so a caller holding the hash
+55. <a id="f-55"></a>The mempool MUST be queryable by transaction hash, through
+    `query_mempool_entry` below, so a caller holding the hash
     `submit_transaction` returned asks whether that transaction is still pending
-    without walking the listing. The listing MUST also report the pending set's
-    size (`lez/mempool/src/lib.rs:30-32`), the bound it is configured with, and
-    the time after which an entry leaves it ([#52](#f-52)), which a caller
-    retrying on a full pending set reads. **[New]**
+    without walking the listing. The listing MUST also report the mempool's size
+    (`lez/mempool/src/lib.rs:30-32`), the bound it is configured with, and the
+    time after which an entry leaves it ([#52](#f-52)), which a caller retrying
+    on a full mempool reads. **[New]**
 
 ```cddl
 ; readiness: New
-lez_node.query_pending_entry_request = {
+lez_node.query_mempool_entry_request = {
     transaction_hash: lez_node.hash,
 }
 
-lez_node.query_pending_entry_response = {
+lez_node.query_mempool_entry_response = {
     ? transaction: lez_node.transaction,
     tips: lez_node.tips,
 } / {
@@ -2265,13 +2262,13 @@ lez_node.query_pending_entry_response = {
 }
 ```
 
-Returns one pending transaction in full, by its transaction hash.
+Returns one mempool transaction in full, by its transaction hash.
 
-56. <a id="f-56"></a>The API MUST return a pending transaction's body for a
+56. <a id="f-56"></a>The API MUST return a mempool transaction's body for a
     transaction hash, in the same shape `query_transaction` returns an included
     one, and MUST report absence distinctly from failure: an entry that has left
-    the pending set since the caller last saw it is reported as absent rather
-    than as an error. **[New]**
+    the mempool since the caller last saw it is reported as absent rather than
+    as an error. **[New]**
 
 ##### Subscriptions
 
@@ -2588,7 +2585,7 @@ Exported today as `query_block_vec`, which descends only.
 72. <a id="f-72"></a>Every paginated response MUST carry the position a caller
     resumes from. A caller pages until it receives an empty page: a page shorter
     than `limit` does not mark the end of the result set, and the API
-    documentation MUST say so. For the account history and the pending listing
+    documentation MUST say so. For the account history and the mempool listing
     that position is a stable cursor ([#68](#f-68)); for the walks keyed by
     position, the blocks, publications, and encrypted notes, it is the block or
     commitment-set position the next page starts after. Today the block walk and
@@ -2955,8 +2952,8 @@ service quotes it today. A base fee can move by up to an eighth between blocks
 tip on testnet trails the `pending` tip by about an hour, bounds only the block
 after the `finalized` tip, and the API says so.
 
-No tip history is required. A sequencer takes transactions from its pending set
-in arrival order (`lez/mempool/src/lib.rs:40-58`,
+No tip history is required. A sequencer takes transactions from its mempool in
+arrival order (`lez/mempool/src/lib.rs:40-58`,
 `lez/sequencer/core/src/lib.rs:1591`), so at the commit read the tip, paid to
 the block's producer whichever way a transaction pays, does not buy earlier
 inclusion. Each receipt records the tip a transaction paid ([#77](#f-77)). For a
@@ -3009,7 +3006,7 @@ state pinned to a block and for transaction retrieval.
 What a caller can learn about the node's place in the LEZ peer-to-peer network.
 The protocol between nodes is not part of this API
 ([Out of Scope](#out-of-scope)), but a node's connectivity is: a node with no
-peers relays nothing and observes no pending transaction.
+peers relays nothing and observes no mempool transaction.
 
 - **Ethereum**: `net_peerCount` and `net_listening` for any caller; Geth's
   `admin_peers` and `admin_nodeInfo` for the operator.
@@ -3172,14 +3169,17 @@ sides agree on.
 Every function defined above is further bound by the following.
 
 097. <a id="f-97"></a>The API MUST take a Bedrock status, `pending` or
-     `finalized`, on every read of chain state, and MUST answer at it. The
-     blocks the two statuses see are nested. A `finalized` read sees only the
-     blocks inscribed in L1 blocks that are final. A `pending` read sees those,
-     and also the blocks inscribed in L1 blocks that are not yet final. Only
-     those latter blocks can be replaced, by an L1 reorganisation or a competing
-     inscription, and a caller tells them apart by the `finalized` tip every
-     response carries ([#98](#f-98)). A caller that omits the status reads at
-     `pending`, as the sequencer service answers today
+     `finalized`, on every read of chain state, and MUST answer at it. A lookup
+     by transaction hash, `query_transaction` and `query_transaction_receipt`,
+     takes no status: it answers at `pending`, carries the tips alone, and
+     leaves whether the transaction is final to `query_transaction_status`
+     ([#39](#f-39)). The blocks the two statuses see are nested. A `finalized`
+     read sees only the blocks inscribed in L1 blocks that are final. A
+     `pending` read sees those, and also the blocks inscribed in L1 blocks that
+     are not yet final. Only those latter blocks can be replaced, by an L1
+     reorganisation or a competing inscription, and a caller tells them apart by
+     the `finalized` tip every response carries ([#98](#f-98)). A caller that
+     omits the status reads at `pending`, as the sequencer service answers today
      (`lez/sequencer/actors/executor/src/actor.rs:542-553`,
      `lez/sequencer/core/src/lib.rs:1956`). Each answer MUST name the status and
      the block, with its hash, it was served at, because an answer at `pending`
@@ -3371,10 +3371,10 @@ without restarting it. Exposed by the node module only.
    receipt, and status, read an account's balances, list an account's
    transactions with ordering and pagination, follow the blocks at `pending` and
    at `finalized`, follow a program's events, read the node's status, mode, and
-   peer count, read the chain parameters and the fee market, list the pending
-   set, list publications, and walk the encrypted notes of a block range. Every
-   read MUST take the Bedrock status of [#97](#f-97). The CLI MAY have fewer
-   features than the module but MUST support all essential operations.
+   peer count, read the chain parameters and the fee market, list the mempool,
+   list publications, and walk the encrypted notes of a block range. Every read
+   MUST take the Bedrock status of [#97](#f-97). The CLI MAY have fewer features
+   than the module but MUST support all essential operations.
 3. <a id="use-3"></a>The delivery MUST include a worked deposit-tracking
    example, in the CLI or as a documented reference consumer, that follows the
    chain from a chosen start block, detects credits to a supplied set of public
@@ -3590,7 +3590,7 @@ module" below means the LEZ node module together with its contract.
    and from a private sender; which of those boundaries are enforced by
    encryption and which by the API declining to expose data it holds; and what
    an operator running their own node can see that a remote caller cannot. The
-   document MUST state that the pending listing shows, before inclusion, the
+   document MUST state that the mempool listing shows, before inclusion, the
    private addresses a transaction binds, which its body already carries in
    clear. What a viewing key holder can learn belongs in the LEZ wallet API's
    documentation.
@@ -3762,10 +3762,10 @@ of the work (see
 and each is listed so the work can be planned and costed.
 
 - **Peer-to-peer participation in every mode.** A node relays a submission
-  (Functionality [#45](#f-45)), observes the pending set ([#51](#f-51)), and
-  reports its peers ([#92](#f-92)) over the LEZ peer-to-peer network. Today only
-  the sequencer joins that network: transaction gossip runs on a topic per zone
-  in the sequencer's gossip actor
+  (Functionality [#45](#f-45)), observes the mempool ([#51](#f-51)), and reports
+  its peers ([#92](#f-92)) over the LEZ peer-to-peer network. Today only the
+  sequencer joins that network: transaction gossip runs on a topic per zone in
+  the sequencer's gossip actor
   (`lez/sequencer/actors/gossip/src/actor.rs:338-340`), and the node joins no
   peer-to-peer network at all. The sequencer service can already run without
   sequencing, as the read-only sequencer the wallet embeds
@@ -3775,10 +3775,10 @@ and each is listed so the work can be planned and costed.
 - **One node in both modes.** The node and the sequencer run today as separate
   services, each with its own RPC, the node holding the history, `finalized`
   blocks only, and the sequencer the blocks a `pending` read sees. A node in
-  either mode serves the API defined here from both. A sequencer's pending set
-  is also only pushed to today (`lez/mempool/src/lib.rs:66-92`), so listing it
-  is work in the sequencer. The design decision log (Supportability
-  [#11](#sup-11)) records how the two are brought together.
+  either mode serves the API defined here from both. A sequencer's mempool is
+  also only pushed to today (`lez/mempool/src/lib.rs:66-92`), so listing it is
+  work in the sequencer. The design decision log (Supportability [#11](#sup-11))
+  records how the two are brought together.
 - **`pending` reads.** The node reads blocks only once they are final on L1
   (`lez/chain_state/src/zone_indexer.rs:54-86`) and has no path for undoing a
   block. Reads at `pending` ([#97](#f-97)), the subscription to `pending` blocks
