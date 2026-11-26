@@ -1526,7 +1526,11 @@ which the FFI's `query_events` does today
     argument, a lagging node, and a read below the retention floor, as three
     distinct errors). Each returns `InvalidArgument` today
     ([`lez/indexer/ffi/src/api/query.rs:553-633`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/ffi/src/api/query.rs#L553-L633)).
-    **[New]**
+    The events the node keeps are its `event_filter` setting ([#103](#f-103)),
+    which `query_settings` reports ([#102](#f-102)); a caller learns of a range
+    the node does not hold from this error, as a Solana RPC node's caller learns
+    of an account index its operator excluded, and the documentation MUST say
+    so. **[New]**
 14. <a id="f-14"></a>The query MUST return at most `limit` events, in block,
     transaction, and event order, from the position the cursor names, or from
     `from_block` when the cursor is absent, and MUST stop at the end of the
@@ -2119,7 +2123,6 @@ lez_node.query_transaction_status_response = {
 lez_node.transaction_status =
     "not_known" /
     "received" /
-    "no_longer_observed" /
     "pending" /
     "finalized"
 
@@ -2158,10 +2161,6 @@ execution succeeded.
     - **received**: the transaction is in the mempool the node holds or observes
       ([#50](#f-50)), having been submitted through this node or seen on the LEZ
       peer-to-peer network;
-    - **no longer observed**: the transaction left the mempool the node holds or
-      observes without the node seeing it in a block, having expired or been
-      evicted ([#52](#f-52)); a sequencer that still holds it can include it,
-      and its status then becomes pending;
     - **pending** (`BedrockStatus::Pending`): in a LEZ block carried by an L1
       block that is not yet final, which an L1 reorganisation or a competing
       inscription can still replace, returning the transaction to received;
@@ -2208,8 +2207,9 @@ execution succeeded.
 
 43. <a id="f-43"></a>The API documentation MUST state that a transaction this
     node never saw, absent from the chain and from the mempool, is reported as
-    not known, whether it was never submitted or was submitted elsewhere and
-    discarded, no record of a declined transaction being retained. **[New]**
+    not known, whether it was never submitted, was submitted elsewhere and
+    discarded, or left the mempool without reaching a block, no record of a
+    declined transaction being retained. **[New]**
 
 ##### Node status
 
@@ -2599,10 +2599,7 @@ the mempool until its inscription is seen.
     transactions. An entry MUST leave the mempool after a time set by a second
     operator setting, also with a documented default. This holds in either mode,
     for a sequencer's mempool and for the set a node outside sequencer mode
-    observes on gossip alike, and in either mode the status query MUST report an
-    entry that has left the mempool without reaching a block as no longer
-    observed ([#40](#f-40)) rather than as received. The sequencer's
-    `mempool_max_size`
+    observes on gossip alike. The sequencer's `mempool_max_size`
     ([`lez/sequencer/core/src/config.rs:72-73`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/core/src/config.rs#L72-L73))
     is the prior art: a transaction count with no default in code, which the
     shipped devnet and testnet configurations set to 10000
@@ -3687,6 +3684,20 @@ lez_node.node_settings = {
     ? log_caller_identity: bool,
     ? max_history_bytes: uint64,
     ? max_calls_in_flight: uint64,
+    ? event_filter: lez_node.event_filter_setting,
+}
+
+; the events the node keeps, as the node's `EventFilterConfig` takes them
+; (lez/indexer/core/src/config.rs): every event, or those of the listed
+; programs, each with all its selectors when `selectors` is absent; the
+; default lists no program and keeps no event
+lez_node.event_filter_setting = "archival" / {
+    sources: [* lez_node.event_source],
+}
+
+lez_node.event_source = {
+    program_id: lez_node.account_id,
+    ? selectors: [* lez_node.selector],
 }
 ```
 
@@ -3777,8 +3788,8 @@ name, without restarting it. Exposed by the node module only.
      mempool bounds ([#52](#f-52)), call logging and whether it records caller
      identities ([#92](#f-92)), the ceiling on retained history (Reliability
      [#7](#rel-7)), the bound on calls in flight ([#108](#f-108)), and starting
-     on load, MUST be settings of `start_node`. Every setting the node's
-     configuration file
+     on load, and the events the node keeps ([#13](#f-13)), MUST be settings of
+     `start_node`. Every setting the node's configuration file
      ([`lez/indexer/core/src/config.rs:33-73`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/core/src/config.rs#L33-L73))
      and the sequencer's
      ([`lez/sequencer/core/src/config.rs:66-109`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/core/src/config.rs#L66-L109))
