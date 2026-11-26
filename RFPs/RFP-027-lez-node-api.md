@@ -3099,19 +3099,33 @@ Which zone and which network the node follows
 lez_node.query_network_identity_request = {}
 
 lez_node.query_network_identity_response = {
+    ; the zone the node follows: its Bedrock channel identifier, as the
+    ; node's configuration names it (`channel_id`,
+    ; lez/indexer/core/src/config.rs:37); not unique across L1 networks
     zone: lez_node.zone_id,
+    ; the L1 chain the zone settles to, and the identifier derived from the
+    ; two; `unavailable` while the node cannot reach the L1 (#81)
     chain: lez_node.chain_identity,
 } / {
     error: lez_node.error,
 }
 
 lez_node.chain_identity = {
-    id: tstr .size (1..256),
+    ; the Logos Blockchain chain identifier from its genesis inscription,
+    ; such as `logos-chain-1`, as the L1 serves it at `GET /chain/id`;
+    ; 1 to 255 bytes (`MAX_CHAIN_ID_SIZE`,
+    ; core/src/mantle/transactions/genesis_tx.rs:252)
+    id: tstr .size (1..255),
+    ; the LEZ chain identifier, derived from `id` and `zone` (#82), which
+    ; names this zone on this L1 network
     lez_chain_id: lez_node.lez_chain_id,
 } / {
     unavailable: true,
 }
 
+; 32 lowercase hex characters: the first 16 bytes of a SHA-256 over the L1
+; chain identifier and the zone identifier (Chain identifiers and CAIP); the
+; reference of a CAIP-2 identifier once a LEZ namespace is registered
 lez_node.lez_chain_id = tstr .size 32
 ```
 
