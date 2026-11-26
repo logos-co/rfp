@@ -2922,8 +2922,6 @@ Which software the node runs, so a caller can tell which build answered it.
 
 - **Cosmos**: `GetNodeInfo`, returning the version together with the commit it
   was built from, the build identity that tells two builds of one version apart.
-- **Logos Blockchain**: `GET /version`, returning the package version and
-  commit.
 - **Ethereum**: `web3_clientVersion`, the version a caller reports alongside a
   defect.
 
@@ -2975,9 +2973,6 @@ and
 - **Ethereum**: `eth_getBlockByNumber` and `eth_getBlockByHash`, one block
   record reached by either key, as LEZ's node RPC already serves it with
   `getBlockById` and `getBlockByHash`.
-- **Logos Blockchain**: `GET /cryptarchia/info`, returning the tip and the last
-  irreversible block in one call, as the chain tip read returns the head and the
-  final tip together.
 
 ```cddl
 lez_node.query_block_request = {
@@ -3103,9 +3098,6 @@ Which zone and which network the node follows
 - **Ethereum**: `eth_chainId`, added because a client could otherwise connect to
   the wrong network without knowing it (EIP-695), the case the network identity
   read guards against.
-- **Logos Blockchain**: `GET /chain/id` serves the chain identifier read off the
-  genesis inscription, which the network identity read returns rather than a
-  configured value.
 - **CAIP-2**: the `bip122` and `solana` namespaces take a truncated genesis hash
   as a chain's reference, as the LEZ chain identifier is a truncated hash.
 
