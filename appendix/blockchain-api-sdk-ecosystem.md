@@ -1460,6 +1460,45 @@ Sui is explicit about its own limits here: "there is no software-level
 guarantee/SLA that objects with past versions can be retrieved by this API"
 [[17]](#ref-17).
 
+**Finality selection and response context on L2s.** A pinned read has a second
+use on rollups: choosing how settled the state read must be. Ethereum defines
+the tags `earliest`, `finalized`, `safe`, `latest`, and `pending`, and documents
+`latest` as the default for state reads such as `eth_getBalance`
+[[145]](#ref-145)[[30]](#ref-30). The six chains below differ in what a tag
+means, in whether the response says anything about the block it was served at,
+and in where finality is reported.
+
+| Chain         | Selector on state reads                                                                                                                                                                 | Response context                                                                                                                                                                                  | Where finality is surfaced                                                                                                                                                                                               |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Ethereum      | Block tags; `latest` is the documented default [[145]](#ref-145)[[30]](#ref-30)                                                                                                         | Bare value                                                                                                                                                                                        | Query a tag through `eth_getBlockByNumber` [[145]](#ref-145)                                                                                                                                                             |
+| OP Stack      | Ethereum tags on `eth_*` reads                                                                                                                                                          | Bare value on `eth_*`; `optimism_outputAtBlock(number)` returns the output root, `blockRef`, state root, and `syncStatus` [[147]](#ref-147)[[148]](#ref-148)                                      | Separate `optimism_syncStatus` with `unsafe_l2`, `safe_l2`, `finalized_l2`, and the L1 heads `head_l1`, `safe_l1`, `finalized_l1` [[146]](#ref-146)                                                                      |
+| Arbitrum      | `latest`, `safe`, `finalized`; the last two mean the batch holding the block reached the parent chain's `safe` or `finalized` block [[149]](#ref-149)                                   | Bare value                                                                                                                                                                                        | `NodeInterface` calls `getL1Confirmations` and `findBatchContainingBlock` [[150]](#ref-150)                                                                                                                              |
+| zkSync Era    | Extended tags `latest`, `committed`, `l1_committed`, `precommitted`, `fast_finalized`, `finalized`; `safe` is an alias of `precommitted` [[152]](#ref-152)                              | Bare value                                                                                                                                                                                        | `zks_getBlockDetails` and `zks_getL1BatchDetails` return `status` and the commit, prove, and execute transaction hashes; `zks_getTransactionDetails` returns a per-transaction status [[153]](#ref-153)[[152]](#ref-152) |
+| Starknet      | `block_id` is a hash, a number, or the tag `l1_accepted`, `latest`, or `pre_confirmed`; required on `starknet_call`, `starknet_getStorageAt`, and `starknet_getNonce` [[154]](#ref-154) | Bare value; `starknet_getStorageProof` returns `global_roots.block_hash`, "needed in case the caller used a block tag"; `getStorageAt` can add the last-update block on request [[154]](#ref-154) | Block `status` and receipt `finality_status` of `PRE_CONFIRMED`, `ACCEPTED_ON_L2`, or `ACCEPTED_ON_L1`; `starknet_getTransactionStatus` [[154]](#ref-154)                                                                |
+| Polygon zkEVM | `latest`, `pending`, `safe`, `finalized`, `earliest`; an empty tag parses as `latest` [[155]](#ref-155)                                                                                 | Bare value                                                                                                                                                                                        | Separate `zkevm_isBlockVirtualized`, `zkevm_isBlockConsolidated`, `zkevm_virtualBatchNumber`, `zkevm_verifiedBatchNumber`, and `zkevm_consolidatedBlockNumber` [[156]](#ref-156)                                         |
+
+The common pattern is a block tag on the read, a bare value in the response, and
+finality learned afterwards: from the block a tag resolves to, from a
+sync-status call (OP Stack), from a per-block or per-transaction status (zkSync
+Era, Starknet, Polygon zkEVM), or from status fields on blocks and receipts
+(Starknet). The tags differ in what they wait for. OP Stack defines `safe_l2` as
+derived from the L1 chain and `finalized_l2` as "derived fully from finalized L1
+information" [[146]](#ref-146); Arbitrum ties both to the parent chain's own
+`safe` and `finalized` blocks [[149]](#ref-149); zkSync Era maps `safe` to its
+`precommitted` stage, with the source comment "Real chances of revert are very
+low" [[152]](#ref-152). Starknet is the one surveyed chain with no default,
+because `block_id` is required [[154]](#ref-154).
+
+Full context on what a read was served at appears in one place. OP Stack's
+`optimism_outputAtBlock` returns the block reference with the whole `syncStatus`
+in one response, but it is a single method for output-root consumers and takes a
+block number only, not a tag [[147]](#ref-147)[[148]](#ref-148). Starknet's
+`getStorageProof` echoes only the resolved block hash, because the caller may
+have passed a tag [[154]](#ref-154). Arbitrum's receipt `l1BlockNumber` is the
+parent chain block number usable for `block.number`, not the block that holds
+the batch [[151]](#ref-151). No surveyed chain echoes the selector the caller
+sent.
+
 **Potential gaps.**
 
 - **Logos L1**: A tip parameter pins three routes, but two are wallet-scoped
@@ -1471,6 +1510,10 @@ guarantee/SLA that objects with past versions can be retrieved by this API"
   make is against current state. The indexer serves a pinned read by replaying
   blocks from the nearest stored state snapshot, and neither stack declares a
   retention floor [[119]](#ref-119).
+- **Both targets, finality selection**: No LEZ read takes a finality selector.
+  `getAccountAtBlock` takes a block identifier and returns `Option<Account>`,
+  and no read response carries the block or chain tips it was served at
+  [[22]](#ref-22)[[120]](#ref-120).
 
 ### 1.30 Paginate a result set
 
@@ -2497,3 +2540,38 @@ and carries no resume anchor [[81]](#ref-81).
 144. <a id="ref-144"></a>Ogmios, "Local Chain Sync" mini-protocol documentation,
      its intersection points.
      https://github.com/CardanoSolutions/ogmios/blob/master/docs/content/mini-protocols/local-chain-sync.md
+145. <a id="ref-145"></a>Ethereum, "execution-apis: src/schemas/block.yaml", the
+     `BlockTag` definitions.
+     https://github.com/ethereum/execution-apis/blob/main/src/schemas/block.yaml
+146. <a id="ref-146"></a>Optimism, "op-service/eth/sync_status.go", the
+     `SyncStatus` type.
+     https://github.com/ethereum-optimism/optimism/blob/develop/op-service/eth/sync_status.go
+147. <a id="ref-147"></a>Optimism, "op-service/eth/output.go", the
+     `OutputResponse` type.
+     https://github.com/ethereum-optimism/optimism/blob/develop/op-service/eth/output.go
+148. <a id="ref-148"></a>Optimism, "Rollup Node Specification", the
+     `optimism_outputAtBlock` method.
+     https://specs.optimism.io/protocol/rollup-node.html
+149. <a id="ref-149"></a>Arbitrum, "Finality and reorgs" documentation.
+     https://docs.arbitrum.io/how-arbitrum-works/reference/finality-and-reorgs
+150. <a id="ref-150"></a>Arbitrum, "NodeInterface" reference,
+     `getL1Confirmations` and `findBatchContainingBlock`.
+     https://docs.arbitrum.io/build-decentralized-apps/nodeinterface/reference
+151. <a id="ref-151"></a>Arbitrum, "RPC methods" documentation, the added
+     receipt fields.
+     https://docs.arbitrum.io/build-decentralized-apps/arbitrum-vs-ethereum/rpc-methods
+152. <a id="ref-152"></a>Matter Labs, "zksync-era:
+     core/lib/types/src/api/mod.rs", the `BlockNumber` tags,
+     `TransactionStatus`, and transaction receipt fields.
+     https://github.com/matter-labs/zksync-era/blob/main/core/lib/types/src/api/mod.rs
+153. <a id="ref-153"></a>ZKsync, "zks namespace" JSON-RPC documentation.
+     https://docs.zksync.io/zksync-protocol/api/zks-rpc
+154. <a id="ref-154"></a>Starknet, "starknet_api_openrpc.json" at specification
+     version 0.10.5.
+     https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json
+155. <a id="ref-155"></a>Polygon Hermez, "zkevm-node: jsonrpc/types/codec.go",
+     block tag parsing.
+     https://github.com/0xPolygonHermez/zkevm-node/blob/develop/jsonrpc/types/codec.go
+156. <a id="ref-156"></a>Polygon Hermez, "zkevm-node:
+     jsonrpc/endpoints_zkevm.go", the `zkevm_` batch and block status methods.
+     https://github.com/0xPolygonHermez/zkevm-node/blob/develop/jsonrpc/endpoints_zkevm.go
