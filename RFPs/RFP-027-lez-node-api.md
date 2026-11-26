@@ -342,7 +342,7 @@ callers it serves, and what its operator learns about them. A node therefore
 scales with its callers and the accounts they follow
 ([Performance #8](#perf-8)), sorts its functions into categories a deployer
 grants separately ([Function categories](#function-categories)), and documents
-what its operator can see ([Privacy #6](#priv-6)). Pairing a wallet's runtime
+what its operator can see ([Privacy #1](#priv-1)). Pairing a wallet's runtime
 with a remote node, and enrolling and authenticating its callers, are delivered
 by Logos Core and are outside this RFP.
 
@@ -442,7 +442,7 @@ one capability across two components and answer against the node's state rather
 than the state the caller is building on, its own transactions not yet included
 among it. It would also show the node every transaction a caller considered, not
 only those it submitted, which a node several wallets share should not see
-(Privacy [#5](#priv-5), Privacy [#6](#priv-6)). The wallet already holds the
+(Privacy [#1](#priv-1), Privacy [#6](#priv-6)). The wallet already holds the
 executor for the private path and can read whatever state it needs through the
 queries below, so it can answer for both kinds of transaction, against a state
 it chose, at the moment it is constructing the transaction. That is also what
@@ -3454,7 +3454,7 @@ Returns the node's call metrics, per method.
     with its method, its outcome, its serving time, the caller identity Logos
     Core attached to it, and the identifier Logos Core gives the call, so an
     operator can find a call a user reports. It MUST be off by default (Privacy
-    [#5](#priv-5)), the operator chooses whether caller identities are recorded,
+    [#6](#priv-6)), the operator chooses whether caller identities are recorded,
     and the documentation MUST state what each setting records. Bitcoin Core's
     `-debug=rpc` is the precedent. **[New]**
 
@@ -4042,40 +4042,47 @@ module" below means the LEZ node module together with its contract.
 
 #### + Privacy
 
-1. <a id="priv-1"></a>A function MUST NOT accept a viewing key, a nullifier key,
+1. <a id="priv-1"></a>The privacy properties document MUST open with the risk of
+   using a LEZ node the caller does not control, written for a wallet or an
+   application deciding whether to use one. It MUST state what that node's
+   operator learns from the caller's calls: the account identifiers,
+   commitments, private addresses, and transaction hashes they name, the
+   functions Privacy [#7](#priv-7) identifies; the subscriptions the caller
+   holds and their filters; the transactions it submits and when; and the caller
+   identity and runtime they arrive under, including where several wallets share
+   one node. It MUST state that Privacy [#5](#priv-5) and [#6](#priv-6) bind
+   this node software only, and that an operator running other software can
+   record all of it. It MUST state what Logos Core records about calls to the
+   node, its draft specification giving every access decision an audit record.
+   It MUST state how a caller discloses less: by running its own node, or by
+   keeping to the functions that take positions only (Privacy [#7](#priv-7)).
+2. <a id="priv-2"></a>A function MUST NOT accept a viewing key, a nullifier key,
    or a decrypted note. Private post-states MUST remain readable only by the
    viewing key holder, who decrypts them on its own side.
-2. <a id="priv-2"></a>The effects and status surfaces MUST NOT report, for a
-   privacy-preserving transaction, any linkage between its private inputs and
-   its private outputs beyond the commitments and nullifiers already published
-   on-chain.
-3. <a id="priv-3"></a>The delivery MUST include a privacy properties document
-   covering: what a third party reading the node can learn about a public
-   transaction, about the public leg of a privacy-preserving transaction,
-   including the address its fee was paid from under either way of paying it,
-   and about its private leg; what a send published clear reveals, from a public
-   and from a private sender; which of those boundaries are enforced by
-   encryption and which by the API declining to expose data it holds; and what
-   an operator running their own node can see that a remote caller cannot. The
-   document MUST state that the mempool listing shows, before inclusion, the
-   private addresses a transaction binds, which its body already carries in
-   clear. What a viewing key holder can learn belongs in the LEZ wallet API's
-   documentation.
-4. <a id="priv-4"></a>A function MUST NOT disclose one caller's activity to
+3. <a id="priv-3"></a>For a privacy-preserving transaction, the effects and
+   status surfaces MUST NOT report anything beyond what the transaction and its
+   block carry on-chain, including any ordering, grouping, or labelling of its
+   commitments and nullifiers that the transaction does not itself carry. Which
+   private inputs became which private outputs is hidden by the proof, so the
+   node cannot report it; what it can add is metadata of its own making.
+4. <a id="priv-4"></a>The privacy properties document MUST also cover what a
+   third party reading any node can learn about a public transaction, about the
+   public leg of a privacy-preserving transaction, including the address its fee
+   was paid from under either way of paying it, and about its private leg; what
+   a send published clear reveals, from a public and from a private sender; and
+   which of those boundaries are enforced by encryption and which by the API
+   declining to expose data it holds. It MUST state that the mempool listing
+   shows, before inclusion, the private addresses a transaction binds, which its
+   body already carries in clear. What a viewing key holder can learn belongs in
+   the LEZ wallet API's documentation.
+5. <a id="priv-5"></a>A function MUST NOT disclose one caller's activity to
    another. Which accounts, commitments, and transactions a caller asked about,
    which subscriptions it holds and with what filter, and which caller submitted
    a transaction MUST NOT be readable by any other caller through this surface.
-5. <a id="priv-5"></a>The node MUST NOT keep a record tying a caller identity to
+6. <a id="priv-6"></a>The node MUST NOT keep a record tying a caller identity to
    what that caller read or submitted beyond what serving the call requires. Any
    logging that does so MUST be off by default, and the operator turns it on as
-   Functionality [#92](#f-92) defines. This binds the node; what Logos Core
-   records of each access decision is covered under Privacy [#6](#priv-6).
-6. <a id="priv-6"></a>The privacy properties document MUST state what the
-   operator of a node shared by several wallets learns about each of them from
-   its calls: the accounts and commitments it reads, the transactions it
-   submits, and the caller identity those arrive under. It MUST also state what
-   Logos Core records about calls to the node, its draft specification giving
-   every access decision an audit record.
+   Functionality [#92](#f-92) defines.
 7. <a id="priv-7"></a>A viewing key consumer MUST be able to follow its accounts
    through calls that name none of them. The viewing key walk, the publication
    listing, and the subscription delivering the walk MUST take positions only,
@@ -4310,7 +4317,7 @@ Access control and the contract rest on Logos Core in several places.
   module its settings from one environment, so that the networks a user's
   modules join agree, is under discussion and not specified. Were it to land,
   its settings would take the place of the defaults.
-- **Events per caller.** Privacy [#4](#priv-4) requires delivery per caller. A
+- **Events per caller.** Privacy [#5](#priv-5) requires delivery per caller. A
   Logos Core module event published in the ordinary way reaches every subscriber
   of the module. The draft's invocation-scoped events, on which the
   subscriptions above are modelled, reach only the invocation that watches for
