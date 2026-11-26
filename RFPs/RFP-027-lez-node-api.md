@@ -2693,31 +2693,33 @@ lez_node.head_block_event = {
     change: lez_node.head_change,
 }
 
+; on a conflict the blocks that left the head come first, as LEZ's
+; `ViewChange::Conflict` lists them, and the blocks replacing them then enter
 lez_node.head_change = {
     kind: "entered",
     block: lez_node.block_ref,
 } / {
-    kind: "replaced",
-    replaced: lez_node.block_ref,
-    by: lez_node.block_ref,
-} / {
-    kind: "finalized",
-    block: lez_node.block_ref,
+    kind: "orphaned",
+    blocks: [+ lez_node.block_ref],
 }
 ```
 
 Delivers each change to the head to the caller as an event: a block entering it
-on inscription, a block replaced, with the block that replaces it, and a block
-becoming final, optionally resuming from a position the consumer already
-processed.
+on inscription, and the blocks that leave it when it is replaced, optionally
+resuming from a position the consumer already processed.
 
 59. <a id="f-59"></a>The API MUST expose a subscription to the head, notifying a
-    consumer of each block as it enters the head on inscription; of each head
-    block that is replaced, with the block that replaces it; and of each head
-    block as it becomes final. The sequencer service already folds each L1
-    update into its head as an extension or a conflict with the blocks it
-    orphans
-    ([`lez/sequencer/core/src/lib.rs:350-358`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/core/src/lib.rs#L350-L358)).
+    consumer of each block as it enters the head on inscription and, when blocks
+    leave the head, of the blocks that left it, before any block that replaces
+    them enters. The sequencer service already folds each L1 update into its
+    head as an extension or as a conflict listing the entries it orphans
+    ([`lez/sequencer/core/src/lib.rs:350-358`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/core/src/lib.rs#L350-L358),
+    [`lez/sequencer/actors/bedrock/src/protocol.rs:68-76`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/actors/bedrock/src/protocol.rs#L68-L76)).
+    Finality is not reported here: a consumer that needs it subscribes to
+    finalised blocks ([#57](#f-57)). Starknet likewise reports a reorganisation
+    as the range of orphaned blocks, while the EVM rollups signal one only by a
+    second header at the same height
+    ([Appendix: Blockchain API and SDK Ecosystem, section 1.32](../appendix/blockchain-api-sdk-ecosystem.md#132-subscribe-to-new-blocks-and-to-events)).
     **[New]**
 60. <a id="f-60"></a>A notification that cannot be delivered, because the
     consumer is not keeping up, MUST end the subscription with a final response

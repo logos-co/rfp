@@ -1637,6 +1637,8 @@ occur.
 | Ethereum | `eth_subscribe("newHeads")` [[51]](#ref-51)                                | `eth_subscribe("logs")` [[51]](#ref-51)                                                |
 | Bitcoin  | `-zmqpubhashblock`, `-zmqpubrawblock` [[52]](#ref-52)                      | `-zmqpubrawtx`, `-zmqpubsequence` [[52]](#ref-52)                                      |
 | Zcash    | ZeroMQ, or lightwalletd `GetBlockRange` [[126]](#ref-126)[[123]](#ref-123) | `-zmqpubrawtx`, `-zmqpubhashtx`; `GetMempoolStream` [[126]](#ref-126)[[123]](#ref-123) |
+| ZKsync   | `eth_subscribe("newHeads")` [[161]](#ref-161)                              | `eth_subscribe("logs")` [[161]](#ref-161)                                              |
+| Starknet | `starknet_subscribeNewHeads` [[162]](#ref-162)                             | `starknet_subscribeEvents`, `starknet_subscribeTransactionStatus` [[162]](#ref-162)    |
 | Solana   | `slotSubscribe`, `blockSubscribe` [[45]](#ref-45)                          | `accountSubscribe`, `programSubscribe`, `logsSubscribe` [[45]](#ref-45)                |
 | XRPL     | `subscribe` ledger stream [[26]](#ref-26)                                  | `subscribe` transaction and account streams [[26]](#ref-26)                            |
 | Cosmos   | `/subscribe` [[9]](#ref-9)                                                 | `/subscribe` with an event query [[9]](#ref-9)                                         |
@@ -1647,6 +1649,23 @@ occur.
 | LEZ      | indexer `subscribeToFinalizedBlocks` [[22]](#ref-22)                       | indexer `subscribeToEvents` [[121]](#ref-121)                                          |
 
 **Why it exists.** No specific or relevant context has been found.
+
+**Reorganisations and finality on a block stream.** On Ethereum, a
+reorganisation reaches a `newHeads` subscriber only as a repeated height: "In
+case of a chain reorganization the subscription will emit the last header in the
+new chain. Therefore the subscription can emit multiple headers on the same
+height." The `logs` subscription resends the logs of the abandoned chain "with
+the removed property set to true" [[51]](#ref-51). ZKsync is "fully compatible
+with Geth's pubsub API, except for the `syncing` subscription"
+[[161]](#ref-161). Starknet alone sends an explicit notification,
+`starknet_subscriptionReorg`, which "Notifies the subscriber of a reorganization
+of the chain" on every subscription type and carries the first and last block of
+the orphaned chain, each as a hash and a number [[162]](#ref-162). None of them
+streams finality. Geth has no safe or finalised subscription [[51]](#ref-51),
+and Starknet's block subscriptions exclude `l1_accepted` [[162]](#ref-162), so a
+consumer learns that a block is final by polling for it. LEZ is the exception in
+the survey: its indexer subscription streams finalised blocks only
+[[22]](#ref-22).
 
 Zcash reaches this capability from a different layer than the rest of the
 survey. There is no JSON-RPC subscription on `zcashd`; the node's own push
@@ -2605,3 +2624,8 @@ and carries no resume anchor [[81]](#ref-81).
      https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-txpool
 160. <a id="ref-160"></a>Zcash, "getmempoolinfo", Zcash RPC Docs for zcashd
      6.12.2. https://zcash.github.io/rpc/getmempoolinfo.html
+161. <a id="ref-161"></a>ZKsync, "PubSub JSON-RPC API" documentation.
+     https://docs.zksync.io/zksync-protocol/api/pub-sub-rpc
+162. <a id="ref-162"></a>Starknet, "starknet_ws_api.json" at specification
+     version 0.10.5.
+     https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_ws_api.json
