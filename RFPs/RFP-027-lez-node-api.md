@@ -3601,12 +3601,18 @@ that callers built before it must tolerate.
 ##### Starting and configuring the node
 
 <a id="open-start-and-configure"></a>**Open question: how a module is started
-and configured.** Logos Core is expected to set one pattern for how every module
-is started and receives its settings, whether a host or a caller starts it and
-whether it runs locally or on another machine, and no such pattern exists yet
-([Settings from the runtime](#dep-settings-from-the-runtime)). What follows is
-this RFP's proposal, drawn from the delivery and storage modules. Where Logos
-Core sets a pattern, the node module follows it in place of the functions and
+and configured.** The Logos Core specification draft sets one pattern for every
+module, which Logos Core does not yet implement: the runtime owns a module's
+configuration and delivers it at initialisation, as a value checked against the
+configuration schema the module declares and never as a file path
+([`spec-module-configuration.md:223-226`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-configuration.md#L223-L226)),
+and configuration does not start or stop a module
+([`:57`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-configuration.md#L57)).
+Under it, the node's settings would be module configuration the runtime holds
+rather than arguments to `start_node`. What follows is this RFP's proposal for
+today's Logos Core, drawn from the delivery and storage modules
+([Settings from the runtime](#dep-settings-from-the-runtime)). Once Logos Core
+implements the pattern, the node module follows it in place of the functions and
 requirements below, and the design decision log (Supportability [#11](#sup-11))
 records how they map onto it.
 
@@ -3976,18 +3982,21 @@ Where today's Logos Core falls short of that, the requirement says so.
 
 #### Performance
 
-1. <a id="perf-1"></a>The documentation MUST state the latency of every exported
-   function, measured rather than estimated, against a stated chain size and
-   transaction density.
+1. <a id="perf-1"></a>Every user function MUST complete or fail within a
+   documented time bound, as Geth bounds `eth_call` with `--rpc.evmtimeout` and
+   CometBFT bounds `broadcast_tx_commit`. The documentation MUST state the
+   latency of each function whose cost varies under Performance [#2](#perf-2),
+   measured rather than estimated, against a stated chain size and transaction
+   density.
 2. <a id="perf-2"></a>Where a function's cost varies with something the caller
    controls or observes, the documentation MUST state what it varies with and
-   report the worst case as well as the typical one. A read of a past block, a
-   batch sized by the caller, and a page bounded by a limit each cost more than
-   a read at the tip, and a caller choosing between them needs to know by how
-   much.
-3. <a id="perf-3"></a>A batch account read of N accounts MUST cost materially
-   less than N single reads, and the improvement MUST be measured and documented
-   for representative N.
+   report the typical case and the case at each bound Reliability [#8](#rel-8)
+   documents. A read of a past block, a batch sized by the caller, and a page
+   bounded by a limit each cost more than a read at the tip, and a caller
+   choosing between them needs to know by how much.
+3. <a id="perf-3"></a>The documentation MUST state the measured cost of a batch
+   account read of N accounts against N single reads, for representative N up to
+   the documented batch bound.
 4. <a id="perf-4"></a>The documentation MUST state the storage cost of
    persisting per-transaction effects: bytes per transaction, and projected
    growth against a stated block rate and transaction density.
@@ -3995,12 +4004,14 @@ Where today's Logos Core falls short of that, the requirement says so.
    run against a LEZ devnet or testnet node.
 6. <a id="perf-6"></a>The documentation MUST state the latency of the user
    category under concurrent callers, measured against a stated number of
-   callers and open subscriptions, alongside the single caller figures.
+   callers and open subscriptions up to the bounds of Reliability [#8](#rel-8)
+   and Functionality [#108](#f-108), alongside the single caller figures.
 7. <a id="perf-7"></a>The documentation MUST state the size of the viewing key
    walk against the full blocks it is drawn from, in bytes per block and per
    encrypted note, and the time the node takes to serve a stated number of
    blocks of it, so a consumer restoring from a viewing key knows what fetching
-   the walk from genesis costs.
+   the walk from genesis costs, as Zcash states the per-output size of its
+   compact blocks (ZIP 307).
 8. <a id="perf-8"></a>The documentation MUST describe how one node scales with
    the deployments it serves, from a user's own node to one an integrator or an
    operator runs for many users: the callers, open subscriptions, and calls per
