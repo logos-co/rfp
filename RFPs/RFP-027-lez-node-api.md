@@ -2086,7 +2086,7 @@ position, together with the commitment set root they are proven against.
 39. <a id="f-39"></a>The API documentation MUST state that this read names to
     the node the commitments and message positions the caller is about to spend,
     which is what a node shared by several wallets learns from it, and Privacy
-    [#7](#priv-7)'s list of disclosing calls MUST include it. Soft [#6](#soft-6)
+    [#7](#priv-7)'s list of disclosing calls MUST include it. Soft [#5](#soft-5)
     asks for a way to spend that names none. **[New]**
 
 ##### Transaction status
@@ -3286,7 +3286,7 @@ so at the commit read the tip, paid to the block's producer whichever way a
 transaction pays, does not buy earlier inclusion. Each receipt records the tip a
 transaction paid ([#75](#f-75)). For a proof-committed fee that figure includes
 any surplus kept rather than refunded, so it can exceed the tip the sender
-chose, which the transaction body carries. Soft [#5](#soft-5) covers the case
+chose, which the transaction body carries. Soft [#4](#soft-4) covers the case
 where inclusion comes to depend on the tip.
 
 ##### Retention
@@ -3325,7 +3325,7 @@ state pinned to a block and for transaction retrieval.
     A deployment that retains everything reports genesis and one bounded by
     Reliability [#7](#rel-7) reports a moving value, and a caller learns which
     by asking rather than by discovering it through a failed read. Where a
-    deployment keeps some data further back than the rest, as Soft [#4](#soft-4)
+    deployment keeps some data further back than the rest, as Soft [#3](#soft-3)
     allows, the call MUST report retention per scope rather than one floor that
     is wrong for part of the data. **[New]**
 88. <a id="f-88"></a>A read for data below the retention floor MUST be answered
@@ -4091,29 +4091,23 @@ If possible.
 
 #### Functionality
 
-1. <a id="soft-1"></a>The API SHOULD expose a subscription filtered to a
-   supplied set of accounts, delivering only blocks containing a transaction
-   that touches one of them. Most surveyed chains that offer a block
-   subscription also offer a filtered one; Bitcoin and Zcash push unfiltered
-   streams only
-   ([Appendix: Blockchain API and SDK Ecosystem, section 1.32](../appendix/blockchain-api-sdk-ecosystem.md#132-subscribe-to-new-blocks-and-to-events)).
-2. <a id="soft-2"></a>The API SHOULD expose a batch transaction read, taking a
+1. <a id="soft-1"></a>The API SHOULD expose a batch transaction read, taking a
    list of transaction hashes and returning a result per hash in request order.
-3. <a id="soft-3"></a>The API SHOULD expose a block-scoped effects query
+2. <a id="soft-2"></a>The API SHOULD expose a block-scoped effects query
    returning the diffs for every transaction in one block, so a consumer
    following the chain reads one result per block rather than one per
    transaction.
-4. <a id="soft-4"></a>The node SHOULD support retention policies beyond a single
+3. <a id="soft-3"></a>The node SHOULD support retention policies beyond a single
    ceiling, such as keeping transaction history for accounts a deployment cares
    about while discarding the rest, so a desktop deployment holds what its user
    needs rather than the most recent window of everything.
-5. <a id="soft-5"></a>The API SHOULD report the tips recent transactions chose,
+4. <a id="soft-4"></a>The API SHOULD report the tips recent transactions chose,
    per block, so a caller chooses a tip against what was paid, should inclusion
    come to depend on the tip. Receipts record the tip each transaction paid
    (Functionality [#75](#f-75)), but for a proof-committed fee that figure
    includes a surplus kept rather than refunded, so this reads the tip each
    transaction body declares.
-6. <a id="soft-6"></a>The API SHOULD expose a read of the commitment set that
+5. <a id="soft-5"></a>The API SHOULD expose a read of the commitment set that
    names no commitment: its frontier at a given block, with each commitment the
    viewing key walk (Functionality [#32](#f-32)) lists carrying its position, so
    a wallet keeps its own membership witnesses up to date and spends without
