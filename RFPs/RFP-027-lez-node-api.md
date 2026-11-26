@@ -3152,9 +3152,8 @@ that zone settles to, and the chain identifier as per CAIP-2.
 ##### Chain parameters and programs
 
 What a caller needs to know about the chain before it builds a transaction: the
-limits and constants it is built against, and the programs it can call. No
-surveyed chain serves either as one read; both follow calls the LEZ sequencer
-service serves today, `getFeeState` and `getProgramIds`, cited below.
+largest transaction a block accepts, and the programs it can call. Both follow
+what the LEZ sequencer computes or serves today, cited below.
 
 - **Solana**: no call lists the programs deployed. A program is an account its
   loader owns, so `getProgramAccounts` with the loader as owner is the nearest
@@ -3168,45 +3167,29 @@ lez_node.query_chain_parameters_request = {
 }
 
 lez_node.query_chain_parameters_response = {
-    parameters: lez_node.chain_parameters,
+    max_transaction_bytes: uint64,
     block: lez_node.block_ref,
 } / {
     error: lez_node.error,
 }
-
-lez_node.chain_parameters = {
-    max_transaction_bytes: uint64,
-    gas_caps: lez_node.gas,
-    proof_verification_gas: uint64,
-    proof_charged_bytes: uint64,
-    min_private_refund: lez_node.amount,
-    base_fee_change: lez_node.ratio,
-}
-
-lez_node.ratio = {
-    numerator: uint32,
-    denominator: uint32,
-}
 ```
 
-Returns the protocol parameters a transaction is built against, with the block
-they were read at.
+Returns the largest transaction a block accepts, with the block it was read at.
 
-83. <a id="f-83"></a>The API MUST return the chain parameters a caller needs
-    before it builds and proves a transaction, at the requested Bedrock status
-    ([#95](#f-95)): the largest transaction a block accepts, which is the
-    channel's maximum block size
-    ([`lez/programs/sequencer_stake/core/src/lib.rs:238-252`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/programs/sequencer_stake/core/src/lib.rs#L238-L252),
-    [`lez/sequencer/core/src/lib.rs:2490`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/core/src/lib.rs#L2490));
-    the per-block execution and storage gas caps; the fixed execution gas a
-    privacy-preserving transaction is charged for verification and the length
-    its proof is charged at; the smallest surplus refunded rather than kept as
-    tip; and the rate at which a base fee moves between blocks
-    ([`lez/programs/fee/core/src/market.rs:15-54`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/programs/fee/core/src/market.rs#L15-L54)).
+83. <a id="f-83"></a>The API MUST return the largest transaction a block
+    accepts, at the requested Bedrock status ([#95](#f-95)): the channel's
+    maximum block size, which the committee votes
+    ([`lez/programs/sequencer_stake/core/src/lib.rs:238-252`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/programs/sequencer_stake/core/src/lib.rs#L238-L252)),
+    less the block's own overhead, as the sequencer computes it
+    ([`lez/sequencer/core/src/lib.rs:2488-2493`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/core/src/lib.rs#L2488-L2493)).
     A wallet that learns a transaction is too large only on submitting it has
-    already spent tens of seconds proving it. The channel parameters change by
-    committee vote, so each value MUST be reported with the block it was read
-    at. **[New]**
+    already spent tens of seconds proving it. The value changes by committee
+    vote, so it MUST be reported with the block it was read at. The fee market's
+    values, such as the proof's verification gas and charged length and the
+    smallest refunded surplus, are protocol constants that change only with a
+    protocol version
+    ([`lez/programs/fee/core/src/market.rs:1-4`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/programs/fee/core/src/market.rs#L1-L4))
+    and are not served. **[Computed, not exposed]**
 
 ```cddl
 lez_node.query_program_ids_request = {
