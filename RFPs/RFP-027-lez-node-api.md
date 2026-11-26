@@ -4214,125 +4214,82 @@ The following are explicitly excluded from this RFP:
 
 ## ⚠ Platform Dependencies
 
-Most capabilities required above are already present on the node RPC and
-unexported, already computed by the node and discarded, or derivable from data
-the node's store already holds. The exceptions are what the target architecture
-needs that the node does not provide today. Closing them on the LEZ side is part
-of the work (see
-[Assumption A3](#a3-following-the-chain-serving-its-history-and-sequencing-are-one-node)),
-and each is listed so the work can be planned and costed.
+What the work needs that LEZ or Logos Core does not provide today. Closing the
+LEZ items is part of the work
+([Assumption A3](#a3-following-the-chain-serving-its-history-and-sequencing-are-one-node));
+the Logos Core items are listed so the work can be planned around them.
 
-- **Peer-to-peer participation in every mode.** A node relays a submission
-  (Functionality [#46](#f-46)), observes the mempool ([#51](#f-51)), and reports
-  its peers ([#89](#f-89)) over the LEZ peer-to-peer network. Today only the
-  sequencer joins that network: transaction gossip runs on a topic per zone in
-  the sequencer's gossip actor
-  ([`lez/sequencer/actors/gossip/src/actor.rs:338-340`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/actors/gossip/src/actor.rs#L338-L340)),
-  and the node joins no peer-to-peer network at all. The sequencer service can
-  already run without sequencing, as the read-only sequencer the wallet embeds
-  ([`lez/core_ffi/src/sequencer/service.rs`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/core_ffi/src/sequencer/service.rs)),
-  following the head and joining gossip, which is the closest thing today to a
-  node outside sequencer mode.
-- **One node in both modes.** The node and the sequencer run today as separate
-  services, each with its own RPC, the node holding the history and the
-  sequencer the head. A node in either mode serves the API defined here from
-  both. A sequencer's mempool is also only pushed to today
-  ([`lez/mempool/src/lib.rs:66-92`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/mempool/src/lib.rs#L66-L92)),
-  so listing it is work in the sequencer. The design decision log
-  (Supportability [#11](#sup-11)) records how the two are brought together.
-- **The head.** The node reads blocks only once they are final on L1
-  ([`lez/chain_state/src/zone_indexer.rs:54-86`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/chain_state/src/zone_indexer.rs#L54-L86))
-  and has no path for undoing a block. Reads at the head ([#93](#f-93)), the
-  head subscription ([#57](#f-57)), and the transaction statuses short of
-  `finalized` ([#40](#f-40)) need the node to follow inscriptions at the L1 tip
-  and to handle a replaced head, as the sequencer service does
+**LEZ**
+
+- **Peer-to-peer participation outside sequencer mode.** Relay (Functionality
+  [#46](#f-46)), the observed mempool ([#51](#f-51)), and peer reporting
+  ([#89](#f-89)) need the node on the LEZ peer-to-peer network, which only the
+  sequencer joins today
+  ([`lez/sequencer/actors/gossip/src/actor.rs:338-340`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/actors/gossip/src/actor.rs#L338-L340)).
+  The read-only sequencer the wallet embeds is the nearest thing
+  ([`lez/core_ffi/src/sequencer/service.rs`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/core_ffi/src/sequencer/service.rs)).
+- **One node in both modes.** The node and the sequencer run as separate
+  services today, and the sequencer's mempool is only pushed to
+  ([`lez/mempool/src/lib.rs:66-92`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/mempool/src/lib.rs#L66-L92)).
+- **The head.** The node reads blocks only once final and cannot undo one
+  ([`lez/chain_state/src/zone_indexer.rs:54-86`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/chain_state/src/zone_indexer.rs#L54-L86)).
+  Reads at the head ([#93](#f-93)), the head subscription ([#57](#f-57)), and
+  statuses short of `finalized` ([#40](#f-40)) need it to follow the L1 tip and
+  handle a replaced head, as the sequencer does
   ([`lez/chain_state/src/chain.rs:1-3`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/chain_state/src/chain.rs#L1-L3)).
 
-Access control and the contract rest on Logos Core in several places.
+**Logos Core**
 
-- **The contract format.** The API is defined in the CDDL profile of the draft
-  Logos Core specification
-  ([Assumption A9](#a9-the-api-defined-here-is-the-lez-node-modules-api)), which
-  Logos Core does not yet implement: modules publish LIDL contracts today, with
-  JSON values. The CDDL contract, its description at run time, clients generated
-  from it, its invocation-scoped events, and the schema root peering compares
-  are in that draft.
-- **One instance per module.** Logos Core runs one instance of each kind of
-  module, while a node follows one zone
-  ([Assumption A10](#a10-each-lez-node-follows-one-zone)), so an application
-  using several zones restarts the node module to move between them today.
-  Supportability [#12](#sup-12) asks for the plan.
-- <a id="dep-call-identifiers"></a>**Call identifiers.** Logos Core gives each
-  transport request an identifier the callee echoes (`logos-lips` draft at
-  `6cac8335`,
-  [`spec-module-transport.md:335-336`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-transport.md#L335-L336)),
-  records an authority decision identifier, and keeps call audit records naming
-  the caller
-  ([`spec-module-capability-authority.md:538-539`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-capability-authority.md#L538-L539),
-  [`:1067-1084`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-capability-authority.md#L1067-L1084)).
-  The node issues no correlation identifier of its own and logs against those
-  ([#92](#f-92)), so it needs Logos Core to give a module the identifier of the
-  call it is serving, and the caller a value it can quote to an operator, which
-  the draft specifications do not yet state.
-- **A dependency needed in one mode.** A node in sequencer mode needs a Logos
-  Blockchain wallet module to inscribe with, and a node outside it does not
-  ([Assumption A2](#a2-a-sequencer-is-a-lez-node-in-sequencer-mode)). The module
-  builder's `optional_dependencies` loads a module when it is installed and
-  never requires it; whether a node can rely on it to bring the wallet module up
-  for sequencer mode alone is to be settled with Logos Core.
-- **Caller identities.** The caller document a module receives names a host, a
-  module, a derived caller, an operator, or an unknown caller (`logos-protocol`
+- **The CDDL profile**
+  ([Assumption A9](#a9-the-api-defined-here-is-the-lez-node-modules-api)) is not
+  implemented: modules publish LIDL contracts with JSON values today. The
+  contract, its run-time schema, generated clients, and invocation-scoped events
+  wait on it.
+- **One instance per module**
+  ([Assumption A10](#a10-each-lez-node-follows-one-zone), Supportability
+  [#12](#sup-12)).
+- **A dependency needed in one mode**
+  ([Assumption A2](#a2-a-sequencer-is-a-lez-node-in-sequencer-mode)): whether
+  `optional_dependencies` can bring the Logos Blockchain wallet module up for
+  sequencer mode alone.
+- **Access enforcement.** Today Logos Core enforces no policy unless the
+  deployer turns it on, grants per module, and names callers host, module, or
+  unknown (`logos-protocol`
   [`cpp/logos_module_impl.h:223-283`](https://github.com/logos-co/logos-protocol/blob/d8389858fe4fc9a91113bc8dd66721bf99699173/cpp/logos_module_impl.h#L223-L283)),
-  and only host, module, and unknown are emitted today; every `logosctl` call
-  arrives as the host. The specification has no host, operator, or unknown
-  caller: a caller is a module instance or a system service, named by its
-  runtime and module instance identifiers
-  ([`spec-module-interface.md:3533-3537`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-interface.md#L3533-L3537)),
-  so operating the node from elsewhere is a remote module instance holding
-  grants. Functionality [#106](#f-106) admits only the host until Logos Core
-  enforces grants.
-- **Per method grants.** The access policy admits a caller to a module today.
-  Narrowing a caller to a list of methods is in development
+  every `logosctl` call arriving as the host. Per method grants are in
+  development
   ([logos-liblogos#232](https://github.com/logos-co/logos-liblogos/pull/232),
-  [logos-capability-module#37](https://github.com/logos-co/logos-capability-module/pull/37))
-  and is what Functionality [#105](#f-105) depends on. Functionality
-  [#106](#f-106) covers the gap until then.
-- **Callers on another runtime.** A wallet on another runtime reaches the node
-  through Logos Core peering, which is also in development
+  [logos-capability-module#37](https://github.com/logos-co/logos-capability-module/pull/37)).
+  The specification authorises each call in the runtime and names a caller by
+  its runtime and module instance only
+  ([`spec-module-interface.md:3533-3537`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-interface.md#L3533-L3537)).
+  Functionality [#105](#f-105) and [#106](#f-106) cover the gap.
+- **Callers on another runtime.** Peering is in development
   ([logos-liblogos#230](https://github.com/logos-co/logos-liblogos/pull/230)),
-  and which identifies each peered runtime by its own keys. Serving many users'
-  runtimes from one node through peering is still in design. The documentation
-  states how a per method grant is enforced for such a caller where the platform
-  does not enforce it.
-- **`logosctl`.** Usability [#2](#use-2) meets the CLI need through `logosctl`,
-  which today calls a module once and returns, streams a module's ordinary
-  events with `watch`, and passes byte values as unpadded base64url
-  (`logos-logoscore-cli` at `5154f41`, `docs/logosctl.md`). Three things are
-  Logos Core's to deliver: `logosctl call` delivering an invocation's events
-  until its response, and cancelling the invocation when the command is
-  interrupted; per-token operator identities, since every `logosctl` call
-  reaches a module today as the host, whichever token was used; and encoding of
-  byte values, and `logos.schema` introspection in `module show`, driven by the
-  module's contract.
+  and serving many users' runtimes from one node through it is in design.
+- <a id="dep-call-identifiers"></a>**Call identifiers.** The draft gives each
+  request an identifier and each access decision an audit record
+  ([`spec-module-transport.md:335-336`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-transport.md#L335-L336),
+  [`spec-module-capability-authority.md:1067-1084`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-capability-authority.md#L1067-L1084)),
+  but does not give a module the identifier of the call it serves, which logging
+  against it ([#92](#f-92)) needs.
+- **Events per caller.** Privacy [#5](#priv-5) relies on the draft's
+  invocation-scoped events, which reach only the invocation that watches for
+  them
+  ([`spec-module-runtime.md:1173-1184`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-runtime.md#L1173-L1184)).
+  Until they are implemented, the documentation states how a subscription
+  reaches only its caller and how the module learns that caller has gone.
+- **`logosctl`** (Usability [#2](#use-2)): delivering an invocation's events
+  until its response and cancelling it on interrupt, per-token caller
+  identities, and contract-driven byte encoding and `logos.schema` in
+  `module show` (`logos-logoscore-cli` at `5154f41`).
 - <a id="dep-settings-from-the-runtime"></a>**Settings from the runtime.** Logos
-  Core passes a module no settings when it loads it, only the module's
-  per-instance persistence directory
-  ([`docs/spec.md:175-184`](https://github.com/logos-co/logos-liblogos/blob/af19e519c9b579a1dab86e8dc3960925fc28b526/docs/spec.md#L175-L184)),
-  so a node it starts on load runs with the settings it last started with or its
-  defaults (Functionality [#98](#f-98)). A way for the runtime to give every
-  module its settings from one environment, so that the networks a user's
-  modules join agree, is under discussion and not specified. Were it to land,
-  its settings would take the place of the defaults.
-- **Events per caller.** Privacy [#5](#priv-5) requires delivery per caller. A
-  Logos Core module event published in the ordinary way reaches every subscriber
-  of the module. The draft's invocation-scoped events, on which the
-  subscriptions above are modelled, reach only the invocation that watches for
-  them, and stop with its response, its cancellation, or the loss of its route
-  ([`spec-module-runtime.md:1173-1184`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-runtime.md#L1173-L1184),
-  [`:1200-1201`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-runtime.md#L1200-L1201)).
-  Until Logos Core implements them, the documentation states how a subscription
-  is delivered to the caller that opened it and to no other, and how the module
-  learns that a caller has gone.
+  Core passes a module only its per-instance directory today
+  ([`docs/spec.md:175-184`](https://github.com/logos-co/logos-liblogos/blob/af19e519c9b579a1dab86e8dc3960925fc28b526/docs/spec.md#L175-L184)).
+  The specification has the runtime deliver a module its configuration at
+  initialisation, never as a file path
+  ([`spec-module-configuration.md:223-226`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-configuration.md#L223-L226)),
+  which is not implemented; until it is, Functionality [#98](#f-98) applies.
 
 ## 🌍 Open Source Requirement
 
@@ -4343,33 +4300,24 @@ All code must be released under the **MIT+Apache2.0 dual License**.
 - [Appendix: Integrating the Logos Technology Stack](../appendix/integrating-logos-technology-stack.md):
   the components the stack exposes, the shapes an integration takes, the
   measured size of the node libraries, and what the stack has not yet settled
-
 - [Integrate Logos into your application](https://docs.logos.co/build-an-app/integrate-logos):
   the target architecture this RFP assumes, with wallet and node modules,
   peering, and module contracts
-
 - [Appendix: Logos API Surfaces](../appendix/logos-api-surfaces.md): as-built
   inventory of the LEZ node FFI, RPC, and module, the sequencer RPC and FFI,
   `core_ffi` and the `lez_core` module, and the L1 bindings, routes, and module
-
 - [Appendix: Blockchain API and SDK Ecosystem](../appendix/blockchain-api-sdk-ecosystem.md):
   34 API functions across nine established chains, with transports, SDK
   languages, response shapes, and per-function gap notes for LEZ
-
 - [logos-execution-zone](https://github.com/logos-blockchain/logos-execution-zone):
   the LEZ node, sequencer, and wallet
-
 - [`logos-execution-zone-module`](https://github.com/logos-blockchain/logos-execution-zone-module):
   `lez_core` Logos Core module
-
 - [Logos glossary](https://docs.logos.co/get-started/glossary): zone, channel,
   Bedrock, Basecamp, module, viewing key, and note
-
 - [LEZ documentation](https://docs.logos.co/lez): the sequencer and node roles,
   and the separation of public and private state
-
 - [Logos Documentation](https://github.com/logos-co/logos-docs)
-
 - [CAIP-2: Blockchain ID Specification](https://standards.chainagnostic.org/CAIPs/caip-2):
   the `namespace:reference` chain identifier wallets use across ecosystems, with
   the per-namespace profiles in the
