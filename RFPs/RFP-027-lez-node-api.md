@@ -801,6 +801,10 @@ What this RFP leaves for the LEZ and Logos Core maintainers to settle:
   transaction status.
 - **Reads before the first block** ([#93](#f-93)): whether anything relies on
   reading the seeded accounts before the first block.
+- **Events kept with every transaction**
+  ([open question](#open-events-with-transaction)): whether keeping each
+  transaction's events whatever the event filter costs more storage than the
+  filter saves.
 - **A `safe` status** ([open question](#open-safe-status)): whether to add one,
   and by what rule.
 - **How a module is started and configured**
@@ -1447,11 +1451,28 @@ either way.
 
 9. <a id="f-9"></a>The effects MUST include the events the transaction emitted,
    in the order it emitted them, each as [#12](#f-12) describes, as Ethereum's
-   receipt carries its logs and Solana's `getTransaction` its log messages. The
-   FFI serves them today through `query_events` with a transaction hash
+   receipt carries its logs and Solana's `getTransaction` its log messages,
+   whatever the node's event filter: the filter decides only what the event
+   query and the event subscription cover ([#13](#f-13), [#61](#f-61)), so the
+   node MUST keep every transaction's events with the transaction, for as long
+   as it keeps the transaction. The FFI serves them today through `query_events`
+   with a transaction hash
    ([`lez/indexer/ffi/src/api/query.rs:553-583`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/ffi/src/api/query.rs#L553-L583)),
    which reports a hash it does not hold as an invalid argument; with the
-   transaction read, an unknown hash is not found ([#1](#f-1)). **[Ready]**
+   transaction read, an unknown hash is not found ([#1](#f-1)). **[Ready]** on
+   an archival node. Today a transaction the filter excluded has no events
+   stored, and asking for them fails
+   ([`lez/indexer/ffi/src/api/query.rs:555-576`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/ffi/src/api/query.rs#L555-L576)),
+   so keeping them whatever the filter is **[New]**.
+
+<a id="open-events-with-transaction"></a>**Open question: events kept with every
+transaction.** Keeping each transaction's events with it, whatever the event
+filter, changes how the node stores events: the filter would select only the
+programs whose events the event query and subscription index, as a Solana RPC
+operator selects the account indexes its node builds. Does that cost the node
+more storage than the filter was meant to save, on a node an end user runs
+(Reliability [#7](#rel-7))? The LEZ maintainers are asked to confirm the
+approach.
 
 ```cddl
 lez_node.query_transaction_receipt_request = {
@@ -1526,11 +1547,11 @@ which the FFI's `query_events` does today
     argument, a lagging node, and a read below the retention floor, as three
     distinct errors). Each returns `InvalidArgument` today
     ([`lez/indexer/ffi/src/api/query.rs:553-633`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/ffi/src/api/query.rs#L553-L633)).
-    The events the node keeps are its `event_filter` setting ([#103](#f-103)),
-    which `query_settings` reports ([#102](#f-102)); a caller learns of a range
-    the node does not hold from this error, as a Solana RPC node's caller learns
-    of an account index its operator excluded, and the documentation MUST say
-    so. **[New]**
+    The programs the query covers are the node's `event_filter` setting
+    ([#103](#f-103)), which `query_settings` reports ([#102](#f-102)); a caller
+    learns of a range the query does not cover from this error, as a Solana RPC
+    node's caller learns of an account index its operator excluded, and the
+    documentation MUST say so. **[New]**
 14. <a id="f-14"></a>The query MUST return at most `limit` events, in block,
     transaction, and event order, from the position the cursor names, or from
     `from_block` when the cursor is absent, and MUST stop at the end of the
@@ -3687,10 +3708,11 @@ lez_node.node_settings = {
     ? event_filter: lez_node.event_filter_setting,
 }
 
-; the events the node keeps, as the node's `EventFilterConfig` takes them
-; (lez/indexer/core/src/config.rs): every event, or those of the listed
-; programs, each with all its selectors when `selectors` is absent; the
-; default lists no program and keeps no event
+; what the event query and subscription cover (#13), as the node's
+; `EventFilterConfig` takes it (lez/indexer/core/src/config.rs): every event,
+; or those of the listed programs, each with all its selectors when
+; `selectors` is absent; the default lists no program and covers no event;
+; a transaction read carries its events whatever the filter (#9)
 lez_node.event_filter_setting = "archival" / {
     sources: [* lez_node.event_source],
 }
@@ -3788,8 +3810,8 @@ name, without restarting it. Exposed by the node module only.
      mempool bounds ([#52](#f-52)), call logging and whether it records caller
      identities ([#92](#f-92)), the ceiling on retained history (Reliability
      [#7](#rel-7)), the bound on calls in flight ([#108](#f-108)), and starting
-     on load, and the events the node keeps ([#13](#f-13)), MUST be settings of
-     `start_node`. Every setting the node's configuration file
+     on load, and what the event query covers ([#13](#f-13)), MUST be settings
+     of `start_node`. Every setting the node's configuration file
      ([`lez/indexer/core/src/config.rs:33-73`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/core/src/config.rs#L33-L73))
      and the sequencer's
      ([`lez/sequencer/core/src/config.rs:66-109`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/core/src/config.rs#L66-L109))
