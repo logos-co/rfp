@@ -294,10 +294,10 @@ zones, and this assumption is invalidated. A clear plan for this is required
 (Supportability [#12](#sup-12)).
 
 **Basis:** the node's configuration and store today. **Rests on it:** the
-network identity ([#79](#f-79)), storage reset, which removes the store of the
-zone the configuration names, and every read, none of which takes a zone. **If
-invalidated:** every read takes the zone it answers for, and the network
-identity lists the zones the node follows.
+network identity ([#79](#f-79)), storage reset, which removes the store of one
+zone, by default the zone the node's settings name, and every read, none of
+which takes a zone. **If invalidated:** every read takes the zone it answers
+for, and the network identity lists the zones the node follows.
 
 #### A11. The LEZ wallet module holds the keys
 
@@ -339,12 +339,12 @@ three kinds of integrator, and this API serves all three:
 
 The API is the same in every case. What changes is who calls a node, how many
 callers it serves, and what its operator learns about them. A node therefore
-scales with its callers and the accounts they follow
-([Performance #8](#perf-8)), sorts its functions into categories a deployer
-grants separately ([Function categories](#function-categories)), and documents
-what its operator can see ([Privacy #1](#priv-1)). Pairing a wallet's runtime
-with a remote node, and enrolling and authenticating its callers, are delivered
-by Logos Core and are outside this RFP.
+scales with its callers and the accounts they follow (Performance
+[#8](#perf-8)), sorts its functions into categories a deployer grants separately
+([Function categories](#function-categories)), and documents what its operator
+can see (Privacy [#1](#priv-1)). Pairing a wallet's runtime with a remote node,
+and enrolling and authenticating its callers, are delivered by Logos Core and
+are outside this RFP.
 
 **Reference users.** The requirements are written against two. An exchange reads
 chain state, tracks deposits to accounts it controls, and waits for a
@@ -400,7 +400,7 @@ public transaction's is
 [`lez/chain_state/src/classify.rs:171-183`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/chain_state/src/classify.rs#L171-L183)).
 Gas is metered in two dimensions, execution and storage
 ([`lez/programs/fee/core/src/lib.rs:24-29`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/programs/fee/core/src/lib.rs#L24-L29)),
-and storage is charged on a transaction's serialized size, a privacy-preserving
+and storage is charged on a transaction's serialised size, a privacy-preserving
 transaction's proof being counted at a fixed length
 ([`lez/common/src/transaction.rs:38-57`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/common/src/transaction.rs#L38-L57)).
 Cost is therefore something a caller estimates, reports, and budgets against.
@@ -442,15 +442,15 @@ one capability across two components and answer against the node's state rather
 than the state the caller is building on, its own transactions not yet included
 among it. It would also show the node every transaction a caller considered, not
 only those it submitted, which a node several wallets share should not see
-(Privacy [#1](#priv-1), Privacy [#6](#priv-6)). The wallet already holds the
-executor for the private path and can read whatever state it needs through the
-queries below, so it can answer for both kinds of transaction, against a state
-it chose, at the moment it is constructing the transaction. That is also what
-simulation is for elsewhere: Stellar returns the transaction data and the
-minimum resource fee that the caller copies back into the transaction before
-submitting, which makes simulation a construction step rather than a read.
-Construction is out of scope here and belongs to the LEZ wallet API, defined
-separately. [Out of Scope](#out-of-scope) records the exclusion.
+(Privacy [#1](#priv-1)). The wallet already holds the executor for the private
+path and can read whatever state it needs through the queries below, so it can
+answer for both kinds of transaction, against a state it chose, at the moment it
+is constructing the transaction. That is also what simulation is for elsewhere:
+Stellar returns the transaction data and the minimum resource fee that the
+caller copies back into the transaction before submitting, which makes
+simulation a construction step rather than a read. Construction is out of scope
+here and belongs to the LEZ wallet API, defined separately.
+[Out of Scope](#out-of-scope) records the exclusion.
 
 The LEZ wallet already works this way. Before it sends a public transaction it
 simulates it locally against the actor states and program loader state it has
@@ -658,9 +658,9 @@ two UI plugins, or two runtimes are two callers. Two wallets behind one calling
 module are one caller, and the node cannot tell them apart. Because the node
 keeps nothing per wallet, it does not need to. Sessions and user identity are
 Logos Core's: a paired runtime or the holder of a token arrives as the caller
-identity Logos Core attaches to the call, and the node reports, meters, and logs
-against that identity rather than issuing credentials of its own
-([Out of Scope](#out-of-scope)).
+identity Logos Core attaches to the call, and the node logs against that
+identity, when the operator turns logging on ([#92](#f-92)), rather than issuing
+credentials of its own ([Out of Scope](#out-of-scope)).
 
 ### Function categories
 
@@ -682,11 +682,8 @@ category, or any single function in it, to the callers it chooses
   logging. They are for the node's operator alone.
 
 **Operations and administrative functions are closed unless granted.** Under the
-Logos Core specification the runtime denies what no policy allows. Today's Logos
-Core enforces no policy unless the deployer turns it on, and a policy in force
-may admit a caller to every method of the module, so until it enforces grants as
-specified, [#106](#f-106) requires the module to refuse such a call unless it
-comes from the host.
+Logos Core specification the runtime denies what no policy allows, and
+[#106](#f-106) relies on that enforcement rather than on where a caller runs.
 
 ### Chain identifiers and CAIP
 
@@ -931,7 +928,7 @@ lez_node.cursor = bstr .size (1..256)
 lez_node.subscription_id = bstr .size 16
 
 lez_node.subscription_end = {
-    reason: "unsubscribed" / "consumer_lagging" / "node_stopped",
+    reason: "unsubscribed" / "consumer_lagging",
     ? last_delivered: lez_node.block_ref,
 }
 
@@ -1171,11 +1168,10 @@ lez_node.event_record = {
   an omitted field, not an error. Every response MUST be either its success map
   or an `error` map whose `code` names the failure. Which codes exist is the
   implementer's choice ([#96](#f-96)), provided each expected failure this RFP
-  names has a code of its own ([#95](#f-95) to [#97](#f-97), [#107](#f-107)).
-  These are contract responses: the shared `logos.error_code` values are
-  reserved for failures of the invocation itself, such as a request that does
-  not match its schema, and the API MUST NOT use them for an expected failure,
-  as the profile forbids
+  names has a code of its own ([#95](#f-95) to [#97](#f-97)). These are contract
+  responses: the shared `logos.error_code` values are reserved for failures of
+  the invocation itself, such as a request that does not match its schema, and
+  the API MUST NOT use them for an expected failure, as the profile forbids
   ([`spec-module-interface.md:345-346`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-interface.md#L345-L346),
   [`:3260-3264`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-interface.md#L3260-L3264)).
 - **Transactions.** A read returns a transaction as a `lez_node.transaction`,
@@ -1342,7 +1338,8 @@ signalled by an omitted `record`, not by an error.
    ([`lez/storage/src/indexer/write_atomic.rs:40-46`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/storage/src/indexer/write_atomic.rs#L40-L46)),
    and the transaction a read by hash returns carries no block identifier, so
    such a read is ambiguous. The LEZ maintainers MUST choose one of the
-   following, and the API documentation MUST state the guarantee that results:
+   following, and the API documentation MUST state the guarantee that results
+   **[New]**:
    - **A. Make the fee transaction unique.** The fee transaction carries its
      block identifier, as the clock transaction that closes each block already
      does
@@ -1359,13 +1356,13 @@ signalled by an omitted `record`, not by an error.
      shares. A hash can still name more than one transaction.
    - **D. Index every occurrence.** The index keeps every block a hash appears
      in, and a read by hash returns each match with its block, for the caller to
-     choose. **[New]**
+     choose.
 
 **Effects.** The same read returns what the transaction did, read from storage
 rather than recomputed on the caller's behalf, as Solana's `getTransaction`,
 XRPL's `tx`, and Sui's `sui_getTransactionBlock` return effects with the
 transaction rather than from a call of their own. If returning effects with
-every transaction read proves a performance bottleneck, they MAY instead be
+every transaction read proves a performance bottleneck, they may instead be
 served by a separate function, such as
 `query_transaction_effects(transaction_hash)`, and the requirements below hold
 either way.
@@ -1410,7 +1407,7 @@ either way.
    reconstruct the fee by arithmetic on the remaining deltas is reimplementing
    the chain's fee rules. A public transaction declares a payer, a gas limit, a
    tip, and a cap on the fee; the payer need not be an account the transaction
-   otherwise acts on, but it must sign
+   otherwise acts on, but it signs
    ([`lee/state_machine/src/fees.rs:34-52`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lee/state_machine/src/fees.rs#L34-L52)).
    A privacy-preserving transaction pays either from a reserve its proof commits
    to, together with a tip it commits, or through a fee declaration signed by
@@ -1420,13 +1417,13 @@ either way.
    payer's bound alias as a private credit, or, when it is no more than
    `MIN_PRIVATE_REFUND` or there is nowhere to send it, kept as tip
    ([`lez/chain_state/src/apply.rs:575-592`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/chain_state/src/apply.rs#L575-L592)),
-   and the query MUST report which and where. The base fee, tip, and refund, the
-   account charged, which way a privacy-preserving transaction paid, and the
-   fate of its surplus are computed when the transaction settles and then
-   discarded **[Computed, not persisted]** (on `dev` since `f99ba435f`, after
-   `v0.4.0-rc3`, the base fee, tip, and refund are kept in the block's
-   receipts). A fee-exempt system transaction MUST be reported as exempt rather
-   than as one that paid nothing.
+   and the query MUST report which and where. A fee-exempt system transaction
+   MUST be reported as exempt rather than as one that paid nothing. The base
+   fee, tip, and refund, the account charged, which way a privacy-preserving
+   transaction paid, and the fate of its surplus are computed when the
+   transaction settles and then discarded **[Computed, not persisted]** (on
+   `dev` since `f99ba435f`, after `v0.4.0-rc3`, the base fee, tip, and refund
+   are kept in the block's receipts).
 
 8. <a id="f-8"></a>The gas a transaction consumed MUST be reported alongside the
    fee, in each dimension the chain meters, execution and storage
@@ -1434,7 +1431,7 @@ either way.
    so a caller comparing what it budgeted against what it paid can tell a
    transaction that ran long from one that paid a high price per unit. Both
    kinds of transaction are metered: a privacy-preserving transaction is charged
-   a fixed verification cost, storage on its serialized size with its proof
+   a fixed verification cost, storage on its serialised size with its proof
    counted at a fixed length, and the metered execution of its public part
    ([`lez/chain_state/src/apply.rs:515-544`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/chain_state/src/apply.rs#L515-L544)).
    The API MUST report a fee-exempt transaction as exempt rather than as one
@@ -1505,8 +1502,8 @@ lez_node.query_events_response = {
 ```
 
 Returns one page of the program events emitted in a block range, from
-`from_block` to `to_block`, defaulting to the indexed tip, optionally filtered
-by emitting program and selector. The events of one transaction come with the
+`from_block` to `to_block`, defaulting to the head, optionally filtered by
+emitting program and selector. The events of one transaction come with the
 transaction read instead ([#9](#f-9)), so the query takes no transaction hash,
 which the FFI's `query_events` does today
 ([`lez/indexer/ffi/src/api/query.rs:536-543`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/ffi/src/api/query.rs#L536-L543)).
@@ -1519,9 +1516,9 @@ which the FFI's `query_events` does today
 13. <a id="f-13"></a>A request the query cannot answer MUST be reported as the
     outcome [#95](#f-95) and [#97](#f-97) define for its case rather than as an
     empty result: a range spanning more than `MAX_EVENT_QUERY_BLOCK_SPAN`
-    blocks, or inverted, as an invalid argument; a bound past the indexed tip as
-    the lagging case; a range outside the node's event-filter history as data
-    the node does not hold, as a read below the retention floor is (an invalid
+    blocks, or inverted, as an invalid argument; a bound past the head as the
+    lagging case; a range outside the node's event-filter history as data the
+    node does not hold, as a read below the retention floor is (an invalid
     argument, a lagging node, and a read below the retention floor, as three
     distinct errors). Each returns `InvalidArgument` today
     ([`lez/indexer/ffi/src/api/query.rs:553-633`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/ffi/src/api/query.rs#L553-L633)).
@@ -1675,9 +1672,10 @@ rather than its bytes.
 
 19. <a id="f-19"></a>The API MUST expose an account summary: the nonce, the
     native balance, and the size of each actor state rather than its bytes,
-    exporting the existing `getAccountSummary` node RPC method, so a caller
-    learns which programs hold state on an account in a response whose size
-    follows their count. **[Ready, not exposed]**
+    exporting the existing `getAccountSummary` node RPC method
+    ([`lez/indexer/service/rpc/src/lib.rs:77-78`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/service/rpc/src/lib.rs#L77-L78)),
+    so a caller learns which programs hold state on an account in a response
+    whose size follows their count. **[Ready, not exposed]**
 20. <a id="f-20"></a>An identifier the state holds no record for MUST return an
     omitted `summary`, on the same terms as the account read ([#17](#f-17)). The
     RPC method returns a default summary for it today
@@ -1698,7 +1696,8 @@ lez_node.query_balances_response = {
 }
 
 lez_node.balances = {
-    native: lez_node.amount,
+    ; omitted when the native actor state is not a canonical encoding
+    ? native: lez_node.amount,
     tokens: [* lez_node.token_balance],
 }
 
@@ -1813,7 +1812,7 @@ block.
     **[New]**
 27. <a id="f-27"></a>The batch read MUST also return, per account, the summary
     of [#19](#f-19) or the view of one program's actor state of [#18](#f-18) in
-    place of the whole record, as the caller asks, so a batch never carries the
+    place of the whole record, as the caller asks, so a batch need not carry the
     unbounded actor states [#18](#f-18) warns of. The wallet reads its accounts'
     nonces in a batch today, through the sequencer service's `getAccountsNonces`
     ([`lez/sequencer/service/rpc/src/lib.rs:98-102`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/service/rpc/src/lib.rs#L98-L102)).
@@ -2005,9 +2004,10 @@ Delivers the same walk as new blocks arrive.
     same range MUST receive the same result, so the walk discloses to the node
     the range read and nothing else. **[New]**
 35. <a id="f-35"></a>The walk MUST resume from a block identifier, with or
-    without its hash, on the same terms as the block subscription, [#59](#f-59),
-    and MUST also be delivered as a subscription, so a viewing key consumer
-    following the tip neither polls nor misses a block. **[New]**
+    without its hash, on the same terms as each block subscription
+    ([#55](#f-55), [#57](#f-57)) under [#59](#f-59), and MUST also be delivered
+    as a subscription, so a viewing key consumer following the tip neither polls
+    nor misses a block. **[New]**
 36. <a id="f-36"></a>The API documentation MUST state what the walk serves for
     each kind of note, and that it serves every encrypted note in the range,
     whichever account it addresses. What a viewing key holder can and cannot
@@ -2166,7 +2166,7 @@ execution succeeded.
     names
     ([`lez/common/src/block.rs:118-121`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/common/src/block.rs#L118-L121));
     its `Safe` is never set today and has no status here. Before a transaction
-    is finalized its status can move back as well as forward, and the API
+    is finalised its status can move back as well as forward, and the API
     documentation MUST state when. The node reads blocks only once final
     ([`lez/chain_state/src/zone_indexer.rs:54-86`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/chain_state/src/zone_indexer.rs#L54-L86))
     and stamps every block it stores `Finalized`
@@ -2193,12 +2193,12 @@ execution succeeded.
     success or failure, with a typed reason on failure, for any transaction the
     node has executed. A charged transaction whose action fails is included in
     its block and keeps its fee, and its receipt records the failure
-    ([`lez/common/src/block.rs:79-84`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/common/src/block.rs#L79-L84)),
-    which the FFI block type and `query_transaction_receipt` carry; that outcome
-    is **[Ready, not exposed]**: the block keeps a list of reverted transactions
-    that the FFI block type drops (exported through receipts on `dev` since
-    `f99ba435f`, after `v0.4.0-rc3`). The reason is computed as free text when
-    the action fails and then discarded
+    ([`lez/common/src/block.rs:79-84`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/common/src/block.rs#L79-L84)).
+    At the release tags the stored block keeps a list of reverted transactions
+    that the FFI block type drops, so that outcome is **[Ready, not exposed]**;
+    on `dev` since `f99ba435f`, after `v0.4.0-rc3`, receipts carry it and
+    `query_transaction_receipt` exports it. The reason is computed as free text
+    when the action fails and then discarded
     ([`lee/state_machine/src/validated_state_diff/mod.rs:66-72`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lee/state_machine/src/validated_state_diff/mod.rs#L66-L72)),
     so a typed reason is **[Computed, not persisted]**.
 
@@ -2333,18 +2333,18 @@ chain, its mode, and why it stopped if it has.
     dispatch failed, where the dispatch came from, and the verdict), each as the
     typed record LEZ keeps; and, for each peer zone it reads, its verified tip,
     read cursor, stuck slot attempts, and health, one of `live`, `lagging`,
-    `holed`, `suspended`, `pin_mismatch`, or `halted`. The node RPC's
-    `getStatus` serves all of this typed today
-    ([`lez/indexer/service/rpc/src/lib.rs:127-128`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/service/rpc/src/lib.rs#L127-L128),
-    [`lez/indexer/service/protocol/src/lib.rs:543-709`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/service/protocol/src/lib.rs#L543-L709))
-    **[Ready]**, except the tips: it reports the final block's identifier alone,
-    with no hash and no head **[New]**. The node holds this data
+    `holed`, `suspended`, `pin_mismatch`, or `halted`. The node holds this data
     ([`lez/indexer/core/src/status.rs:16-24`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/core/src/status.rs#L16-L24),
     [`:45-98`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/core/src/status.rs#L45-L98),
     [`:159-161`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/core/src/status.rs#L159-L161)),
     but the FFI's `query_status` returns it as a JSON string, untyped by any
     contract, and as a bare null pointer on any failure
     ([`lez/indexer/ffi/src/api/query.rs:120-145`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/ffi/src/api/query.rs#L120-L145)).
+    The node RPC's `getStatus` serves all of this typed today
+    ([`lez/indexer/service/rpc/src/lib.rs:127-128`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/service/rpc/src/lib.rs#L127-L128),
+    [`lez/indexer/service/protocol/src/lib.rs:543-709`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/service/protocol/src/lib.rs#L543-L709))
+    **[Ready]**, except the tips: it reports the final block's identifier alone,
+    with no hash and no head **[New]**.
 45. <a id="f-45"></a>The status query MUST report the node's mode: whether it is
     in sequencer mode and, if it is, whether it is accepting transactions or
     still starting, as the sequencer service's `getSequencerStatus` reports
@@ -2593,12 +2593,11 @@ the mempool until its inscription is seen.
     rather than as received. **[New]**
 
 52. <a id="f-52"></a>The mempool a node holds MUST be bounded by an operator
-    setting ([#103](#f-103)), with a documented default, that limits its size,
-    and the documentation MUST state the setting's unit. An entry MUST leave the
-    mempool after a time set by a second operator setting, also with a
-    documented default. This holds in either mode, for a sequencer's mempool and
-    for the set a node outside sequencer mode observes on gossip alike. The
-    sequencer's `mempool_max_size`
+    setting ([#103](#f-103)), with a documented default, that limits its size in
+    transactions. An entry MUST leave the mempool after a time set by a second
+    operator setting, also with a documented default. This holds in either mode,
+    for a sequencer's mempool and for the set a node outside sequencer mode
+    observes on gossip alike. The sequencer's `mempool_max_size`
     ([`lez/sequencer/core/src/config.rs:72-73`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/core/src/config.rs#L72-L73))
     is the prior art: a transaction count with no default in code, which the
     shipped devnet and testnet configurations set to 10000
@@ -2664,16 +2663,17 @@ resuming from a position the consumer already processed.
 
 55. <a id="f-55"></a>The API MUST expose a subscription to finalised blocks that
     notifies a registered consumer of each block as it becomes final, exporting
-    the existing `subscribeToFinalizedBlocks` node RPC method. The consumer MUST
-    be notified through `lez_node.finalized_block_event` deliveries rather than
-    by polling, and reads a block it is told of through `query_block_by_hash`.
-    **[Ready, not exposed]**
+    the existing `subscribeToFinalizedBlocks` node RPC method
+    ([`lez/indexer/service/rpc/src/lib.rs:44-45`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/service/rpc/src/lib.rs#L44-L45)).
+    The consumer MUST be notified through `lez_node.finalized_block_event`
+    deliveries rather than by polling, and reads a block it is told of through
+    `query_block_by_hash`. **[Ready, not exposed]**
 56. <a id="f-56"></a>Each notification MUST carry the block's height and its
     hash together, so a consumer knows which block occupied the position without
     a second read. The existing subscription yields a height alone
     ([`lez/indexer/service/rpc/src/lib.rs:45`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/service/rpc/src/lib.rs#L45)),
-    which does not identify a block once the head can be replaced; the pair
-    already exists as `BlockMeta`
+    which a consumer cannot match against the head subscription's blocks, whose
+    positions can be replaced; the pair already exists as `BlockMeta`
     ([`lez/common/src/block.rs:11-14`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/common/src/block.rs#L11-L14)).
     **[New]**
 
@@ -2727,25 +2727,25 @@ resuming from a position the consumer already processed.
 58. <a id="f-58"></a>A notification that cannot be delivered, because the
     consumer is not keeping up, MUST end the subscription with a final response
     carrying the last position delivered, `last_delivered`, so the consumer
-    resumes from it ([#59](#f-59)) rather than missing a block. The block
-    subscription logs a failed send and goes on to the next block today
+    resumes from it ([#59](#f-59)) rather than missing a block. The finalised
+    block subscription logs a failed send and goes on to the next block today
     ([`lez/indexer/service/src/service.rs:526-534`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/service/src/service.rs#L526-L534)).
     A resume position below the retention floor MUST be answered as [#88](#f-88)
     defines. **[New]**
-59. <a id="f-59"></a>The block subscription MUST accept a start position: the
-    identifier of the block the consumer last processed, and optionally its
-    hash. Delivery MUST resume from the block after that position, so a consumer
-    that reconnects observes no gap. Given an identifier alone, delivery MUST
-    resume after the block the node holds at that identifier. Given an
-    identifier and a hash, the node MUST check the hash against the block it
-    holds at that identifier. On a mismatch it MUST NOT resume, and it MUST
-    report the mismatch together with the block it holds at that identifier and
-    the tips, and the caller walks back from there. The node cannot name the
-    block where the two chains part, since the caller's block may never have
-    been on the node's chain. Neither existing RPC subscription carries a
-    position: `subscribeToFinalizedBlocks` takes no arguments, and
-    `subscribeToEvents` filters by transaction, program, and selector but not by
-    position
+59. <a id="f-59"></a>Each block subscription ([#55](#f-55), [#57](#f-57)) MUST
+    accept a start position: the identifier of the block the consumer last
+    processed, and optionally its hash. Delivery MUST resume from the block
+    after that position, so a consumer that reconnects observes no gap. Given an
+    identifier alone, delivery MUST resume after the block the node holds at
+    that identifier. Given an identifier and a hash, the node MUST check the
+    hash against the block it holds at that identifier. On a mismatch it MUST
+    NOT resume, and it MUST report the mismatch together with the block it holds
+    at that identifier and the tips, and the caller walks back from there. The
+    node cannot name the block where the two chains part, since the caller's
+    block may never have been on the node's chain. Neither existing RPC
+    subscription carries a position: `subscribeToFinalizedBlocks` takes no
+    arguments, and `subscribeToEvents` filters by transaction, program, and
+    selector but not by position
     ([Appendix: Blockchain API and SDK Ecosystem, section 1.33](../appendix/blockchain-api-sdk-ecosystem.md#133-resume-a-stream-from-a-known-position)).
     **[New]**
 
@@ -2815,14 +2815,14 @@ optionally resuming from a position the consumer already processed.
     with the filter it takes by transaction, program, and selector, and
     delivering each record in the shape `query_events` returns. Cancellation,
     and delivery to the caller that opened the subscription alone, MUST be on
-    the same terms as the block subscription. Today the subscription stops at
-    the node RPC, so no application can follow a program's events. A filter the
-    node's event filter does not persist MUST be refused at subscription, as the
-    RPC refuses it
+    the same terms as each block subscription ([#55](#f-55), [#57](#f-57)).
+    Today the subscription stops at the node RPC, so no application can follow a
+    program's events. A filter the node's event filter does not persist MUST be
+    refused at subscription, as the RPC refuses it
     ([`lez/indexer/service/src/service.rs:80-87`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/service/src/service.rs#L80-L87)),
     rather than accepted and left silent. **[Ready, not exposed]**
 62. <a id="f-62"></a>The event subscription MUST resume from a block identifier,
-    with or without its hash, on the same terms as the block subscription,
+    with or without its hash, on the same terms as each block subscription under
     [#59](#f-59), so a consumer following a program's events across a
     disconnection misses none. A resume position outside the node's event-filter
     history MUST be answered as data the node does not hold, as [#13](#f-13)
@@ -2914,13 +2914,14 @@ lez_node.query_blocks_response = {
 ```
 
 Returns a page of blocks after `from`, `from` itself excluded, walked in the
-requested direction. With `from` absent, a newest-first walk starts at the
-indexed tip and an oldest-first walk at the retention floor. Exported today as
+requested direction. With `from` absent, a newest-first walk starts at the head
+and an oldest-first walk at the retention floor. Exported today as
 `query_block_vec`, which descends only.
 
-67. <a id="f-67"></a>The query MUST return at most `limit` blocks, descending
-    from `from`, or from the tip at the requested Bedrock status ([#93](#f-93))
-    when `from` is absent. **[Ready]**
+67. <a id="f-67"></a>The query MUST return at most `limit` blocks, in the
+    requested order from `from`, or from the tip at the requested Bedrock status
+    ([#93](#f-93)) when `from` is absent. **[Ready]** at `finalized`; at the
+    head **[New]**
 68. <a id="f-68"></a>The API documentation MUST state that the bound is
     exclusive in both directions. The store already implements it that way when
     descending, from `before_id.saturating_sub(1)`
@@ -3219,7 +3220,7 @@ Returns the largest transaction a block accepts, with the block it was read at.
     smallest refunded surplus, are protocol constants that change only with a
     protocol version
     ([`lez/programs/fee/core/src/market.rs:1-4`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/programs/fee/core/src/market.rs#L1-L4))
-    and are not served. **[Computed, not exposed]**
+    and are not served. **[Ready, not exposed]**
 
 ##### Fee state
 
@@ -3448,8 +3449,8 @@ Returns the node's call metrics, per method.
     ([#95](#f-95), [#97](#f-97)), and the distribution of their serving times,
     together with the number of open subscriptions, as Geth reports per method.
     It is in the operations category ([#104](#f-104)). The node MUST NOT keep
-    figures per caller: who called what is in Logos Core's call audit records.
-    **[New]**
+    figures per caller: who called what is in the audit records the Logos Core
+    draft specification defines. **[New]**
 92. <a id="f-92"></a>The node MUST log each call, when the operator turns it on,
     with its method, its outcome, its serving time, the caller identity Logos
     Core attached to it, and the identifier Logos Core gives the call, so an
@@ -3484,11 +3485,6 @@ These bind every function above rather than adding one
 
 The module parity requirement has no ecosystem analogue, because no surveyed
 chain interposes a plugin layer between its API and its consumers.
-
-**The module contract**
-
-What a caller generates its client from, and what Logos Core peering checks both
-sides agree on.
 
 Every function defined above is further bound by the following.
 
@@ -3554,7 +3550,7 @@ surveyed rollups offer one
 - **Ethereum**: the `safe` block tag, "The most recent block that is safe from
   re-orgs under honest majority and certain synchronicity assumptions".
 - **OP Stack**: `safe_l2`, the L2 head derived from data the L1 holds, ahead of
-  `finalized_l2`, derived from finalized L1 data only.
+  `finalized_l2`, derived from finalised L1 data only.
 - **Arbitrum**: `safe`, a block whose batch has reached the parent chain's
   `safe` block.
 - **zkSync Era**: `safe`, an alias of its `precommitted` stage, documented in
@@ -3565,7 +3561,12 @@ surveyed rollups offer one
 Should support for `Safe` be added, and by what rule? One needs Bedrock to
 report a block deeper than its tip but short of immutable, or LEZ to define a
 depth of its own. Added later, it is a new value of `lez_node.bedrock_status`
-that callers built before it must tolerate.
+that callers built before it will have to tolerate.
+
+**The module contract**
+
+What a caller generates its client from, and what Logos Core peering checks both
+sides agree on.
 
 94. <a id="f-94"></a>Every function above MUST be served by the node module
     under its contract with the semantics defined here, including the not-found
@@ -3632,7 +3633,7 @@ today:
   unless the configuration names another
   ([`src/delivery_module_plugin.cpp:626-628`](https://github.com/logos-co/logos-delivery-module/blob/3653ba95f532992f1eff1162b27eaa44d8f06151/src/delivery_module_plugin.cpp#L626-L628)),
   and `getAvailableConfigs` lists the settings `createNode` accepts
-  ([`src/delivery_module_plugin.h:316-317`](https://github.com/logos-co/logos-delivery-module/blob/3653ba95f532992f1eff1162b27eaa44d8f06151/src/delivery_module_plugin.h#L316-L317)).
+  ([`src/delivery_module_plugin.h:316-318`](https://github.com/logos-co/logos-delivery-module/blob/3653ba95f532992f1eff1162b27eaa44d8f06151/src/delivery_module_plugin.h#L316-L318)).
   `createNode` runs once per module instance
   ([`src/delivery_module_plugin.h:36-37`](https://github.com/logos-co/logos-delivery-module/blob/3653ba95f532992f1eff1162b27eaa44d8f06151/src/delivery_module_plugin.h#L36-L37)),
   so the first caller to create the node chooses the network for every caller
@@ -3678,7 +3679,6 @@ lez_node.node_settings = {
     ? start_on_load: bool,
     $$lez_node.node_settings,
 }
-
 ```
 
 Starts the node with the settings it resolves from the request.
@@ -3765,8 +3765,8 @@ name, without restarting it. Exposed by the node module only.
 103. <a id="f-103"></a>The operator settings this RFP requires, the zone
      ([Assumption A10](#a10-each-lez-node-follows-one-zone)), sequencer mode
      ([Assumption A2](#a2-a-sequencer-is-a-lez-node-in-sequencer-mode)), the
-     mempool bounds ([#52](#f-52)), and starting on load ([#106](#f-106)), MUST
-     be settings of `start_node`. Every setting the node's configuration file
+     mempool bounds ([#52](#f-52)), and starting on load, MUST be settings of
+     `start_node`. Every setting the node's configuration file
      ([`lez/indexer/core/src/config.rs:33-73`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/core/src/config.rs#L33-L73))
      and the sequencer's
      ([`lez/sequencer/core/src/config.rs:66-109`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/core/src/config.rs#L66-L109))
@@ -3800,7 +3800,8 @@ Where today's Logos Core falls short of that, the requirement says so.
 104. <a id="f-104"></a>Every function this RFP defines MUST belong to exactly
      one of the three categories of [Function categories](#function-categories),
      and the documentation MUST state which. The user category holds every
-     function defined under the headings above but `query_peers` and those of
+     function defined under the headings above but `query_peers`,
+     `query_metrics`, and those of
      [Starting and configuring the node](#starting-and-configuring-the-node).
      The operations category holds `query_peers` ([#90](#f-90)),
      `query_settings` ([#102](#f-102)), and any function the module exposes that
@@ -3825,32 +3826,26 @@ Where today's Logos Core falls short of that, the requirement says so.
      [logos-capability-module#37](https://github.com/logos-co/logos-capability-module/pull/37)),
      the module MUST be built so that such a grant is enforced against it rather
      than refused as unenforceable. **[New]**
-106. <a id="f-106"></a>The module MUST NOT treat a caller identity as
-     authorisation, and MUST NOT carry grants in its settings: the specification
-     leaves authorisation to the runtime and its capability authority
-     ([`spec-module-capability-authority.md:417-420`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-capability-authority.md#L417-L420))
+106. <a id="f-106"></a>An operations or administrative function MUST be
+     reachable only by a consumer a grant admits to it, as the Logos Core
+     runtime enforces: it denies what no policy allows and checks the method
+     against the consumer's grant before the module runs
+     ([`spec-module-runtime.md:1598`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-runtime.md#L1598),
+     [`:815-816`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-runtime.md#L815-L816)).
+     The module MUST NOT treat a caller identity as authorisation, and MUST NOT
+     carry grants in its settings, since the specification leaves authorisation
+     to the runtime and its capability authority
+     ([`spec-module-capability-authority.md:408-420`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-capability-authority.md#L408-L420))
      and forbids grants in module configuration
      ([`spec-module-configuration.md:58`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-configuration.md#L58)).
-     Today's Logos Core enforces no policy unless the deployer turns it on, and
-     a policy in force admits a caller to every method of a module, so until it
-     enforces method grants by default, an operations or administrative function
-     MUST refuse a call whose caller document is not the host's
-     (`logos-protocol`
-     [`cpp/logos_module_impl.h:223-283`](https://github.com/logos-co/logos-protocol/blob/d8389858fe4fc9a91113bc8dd66721bf99699173/cpp/logos_module_impl.h#L223-L283)),
-     whether or not a policy is in force. Every `logosctl` call reaches a module
-     as the host, so the documentation MUST state that any holder of a
-     `logosctl` token reaches these functions, and a node MUST be configurable
-     to start on load ([#103](#f-103)). This transitional rule is withdrawn once
-     Logos Core enforces grants as its specification requires. **[New]**
+     The node MUST NOT offer a mode that admits callers to these functions by
+     where they run instead. The documentation MUST state the grants each
+     category needs. **[New]**
 107. <a id="f-107"></a>A call Logos Core refuses arrives as `NOT_AUTHORISED` and
      never reaches the module
-     ([`spec-module-runtime.md:815-816`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-runtime.md#L815-L816)).
-     A call the module refuses under [#106](#f-106) MUST be an outcome of the
-     function's response, distinct from the not-found, invalid-argument, and
-     backend failure outcomes of [#95](#f-95), as the specification requires of
-     an expected failure
-     ([`spec-module-interface.md:345-346`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-interface.md#L345-L346)),
-     and MUST have no effect on the node. A caller does not retry it. **[New]**
+     ([`spec-module-runtime.md:815-816`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-runtime.md#L815-L816)),
+     so it has no effect on the node, and the documentation MUST state that a
+     caller does not retry it. **[New]**
 108. <a id="f-108"></a>Calls from different callers MUST be served concurrently,
      up to a documented bound on calls in flight, and a slow call from one
      caller MUST NOT delay another's before that bound is reached. The
@@ -3918,9 +3913,9 @@ Where today's Logos Core falls short of that, the requirement says so.
     an integrator's infrastructure serving its users' wallets, and a node an
     operator offers as a service. Each MUST grant the user category to wallets,
     the operations category to the operator's monitoring, and the administrative
-    category to no caller beyond those Functionality [#106](#f-106) admits. Each
-    reference policy MUST be given as the `access_policy` of a `logosctl` daemon
-    configuration, and MUST state which caller identity a `logosctl` call
+    category to the operator alone, as Functionality [#106](#f-106) requires.
+    Each reference policy MUST be given as the `access_policy` of a `logosctl`
+    daemon configuration, and MUST state which caller identity a `logosctl` call
     arrives with and so which categories it reaches.
 08. <a id="use-8"></a>The documentation MUST describe how a deployer grants a
     caller a single function or a subset of the user category, such as the reads
@@ -4147,10 +4142,11 @@ module" below means the LEZ node module together with its contract.
    another. Which accounts, commitments, and transactions a caller asked about,
    which subscriptions it holds and with what filter, and which caller submitted
    a transaction MUST NOT be readable by any other caller through this surface.
-6. <a id="priv-6"></a>The node MUST NOT keep a record tying a caller identity to
-   what that caller read or submitted beyond what serving the call requires. Any
-   logging that does so MUST be off by default, and the operator turns it on as
-   Functionality [#92](#f-92) defines.
+6. <a id="priv-6"></a>Except for the logging of Functionality [#92](#f-92), the
+   node MUST NOT keep a record tying a caller identity to what that caller read
+   or submitted beyond what serving the call requires. Any logging that does so
+   MUST be off by default, and the operator turns it on as Functionality
+   [#92](#f-92) defines.
 7. <a id="priv-7"></a>A viewing key consumer MUST be able to follow its accounts
    through calls that name none of them. The viewing key walk, the publication
    listing, and the subscription delivering the walk MUST take positions only,
@@ -4198,10 +4194,12 @@ The following are explicitly excluded from this RFP:
   ([Simulation belongs to the wallet, not to the node](#simulation-belongs-to-the-wallet-not-to-the-node)).
   The node accepts a signed transaction, serves for every account alike what a
   viewing key consumer decrypts, and executes nothing a caller supplies.
-- **The protocol between LEZ nodes.** Relay, gossip, and the coordination of a
-  zone's sequencers run over the LEZ peer-to-peer network and are not part of
-  this API, which reports the node's connectivity (Functionality [#89](#f-89),
-  [#90](#f-90)). That the node takes part in the network is part of the work
+- **The protocol between LEZ nodes.** The messages of relay, gossip, and the
+  coordination of a zone's sequencers over the LEZ peer-to-peer network are not
+  part of this API, though reads of the sequencer state they produce are
+  ([Sequencer mode](#sequencer-mode)); the API which reports the node's
+  connectivity (Functionality [#89](#f-89), [#90](#f-90)). That the node takes
+  part in the network is part of the work
   ([Assumption A3](#a3-following-the-chain-serving-its-history-and-sequencing-are-one-node)).
 - **Decoding other programs' actor states.** The node decodes the native balance
   and builtin token balances (Functionality [#21](#f-21), [#22](#f-22)); any
@@ -4274,7 +4272,8 @@ the Logos Core items are listed so the work can be planned around them.
   The specification authorises each call in the runtime and names a caller by
   its runtime and module instance only
   ([`spec-module-interface.md:3533-3537`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-interface.md#L3533-L3537)).
-  Functionality [#105](#f-105) and [#106](#f-106) cover the gap.
+  Functionality [#105](#f-105) and [#106](#f-106) depend on Logos Core enforcing
+  grants by default.
 - **Callers on another runtime.** Peering is in development
   ([logos-liblogos#230](https://github.com/logos-co/logos-liblogos/pull/230)),
   and serving many users' runtimes from one node through it is in design.
