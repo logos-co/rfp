@@ -3103,34 +3103,32 @@ lez_node.query_network_identity_response = {
     ; node's configuration names it (`channel_id`,
     ; lez/indexer/core/src/config.rs:37); not unique across L1 networks
     zone: lez_node.zone_id,
-    ; the L1 chain the zone settles to, and the identifier derived from the
-    ; two; `unavailable` while the node cannot reach the L1 (#81)
-    chain: lez_node.chain_identity,
+    ; the Logos Blockchain chain identifier from its genesis inscription,
+    ; such as `logos-chain-1`, as the L1 serves it at `GET /chain/id`;
+    ; 1 to 255 bytes (`MAX_CHAIN_ID_SIZE`,
+    ; core/src/mantle/transactions/genesis_tx.rs:252)
+    ? bedrock_chain_id: tstr .size (1..255),
+    ? chain_id: lez_node.chain_id,
+    ; false while the node cannot reach the L1, both identifiers then
+    ; being absent (#81)
+    bedrock_reachable: bool,
 } / {
     error: lez_node.error,
 }
 
 lez_node.chain_identity = {
-    ; the Logos Blockchain chain identifier from its genesis inscription,
-    ; such as `logos-chain-1`, as the L1 serves it at `GET /chain/id`;
-    ; 1 to 255 bytes (`MAX_CHAIN_ID_SIZE`,
-    ; core/src/mantle/transactions/genesis_tx.rs:252)
     id: tstr .size (1..255),
-    ; the LEZ chain identifier, derived from `id` and `zone` (#82), which
-    ; names this zone on this L1 network
-    lez_chain_id: lez_node.lez_chain_id,
+    lez_chain_id: lez_node.chain_id,
 } / {
     unavailable: true,
 }
 
-; 32 lowercase hex characters: the first 16 bytes of a SHA-256 over the L1
-; chain identifier and the zone identifier (Chain identifiers and CAIP); the
-; reference of a CAIP-2 identifier once a LEZ namespace is registered
-lez_node.lez_chain_id = tstr .size 32
+; the chain identifier as per CAIP-2 (Chain identifiers and CAIP)
+lez_node.chain_id = tstr .size 32
 ```
 
 Returns what the node is following: which zone, which Logos Blockchain chain
-that zone settles to, and the LEZ chain identifier derived from the two.
+that zone settles to, and the chain identifier as per CAIP-2.
 
 78. <a id="f-78"></a>The call MUST return the zone identifier the node is
     following, so an application can confirm which zone it is connected to. The
@@ -3157,12 +3155,13 @@ that zone settles to, and the LEZ chain identifier derived from the two.
     L1 node is unreachable, the call MUST report it as unavailable rather than
     omitting it or returning a placeholder, so a caller can tell an unidentified
     chain from an unasked question. **[New]**
-82. <a id="f-82"></a>The call MUST also return the LEZ chain identifier, derived
-    from the L1 chain identifier of [#80](#f-80) and the zone identifier of
-    [#78](#f-78) as [Chain identifiers and CAIP](#chain-identifiers-and-caip)
-    defines it, so a wallet that names chains in CAIP-2 form has a reference for
-    this chain that commits to both. It MUST be reported as unavailable exactly
-    when the L1 chain identifier is ([#81](#f-81)). **[New]**
+82. <a id="f-82"></a>The call MUST also return `chain_id`, the chain identifier
+    as per CAIP-2, derived from the L1 chain identifier of [#80](#f-80) and the
+    zone identifier of [#78](#f-78) as
+    [Chain identifiers and CAIP](#chain-identifiers-and-caip) defines it, so a
+    wallet that names chains in CAIP-2 form has a reference for this chain that
+    commits to both. It MUST be reported as unavailable exactly when the L1
+    chain identifier is ([#81](#f-81)). **[New]**
 
 ##### Chain parameters and programs
 
