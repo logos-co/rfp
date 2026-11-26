@@ -637,11 +637,12 @@ a caller identity to a call it dispatches. The receiving runtime writes that
 identity, it is not a parameter of the method, and a module reads it. It names
 the runtime itself or a named module, a shell and a UI plugin arriving as named
 modules, and work in development adds an operator and a consumer on another
-runtime. The deployer's access policy names, per target module, which callers
-may reach it, and its per method form narrows a caller to a list of methods
+runtime, in today's code. The deployer's access policy names, per target module,
+which callers may reach it, and a grant can name the methods a caller reaches
 ([logos-liblogos#232](https://github.com/logos-co/logos-liblogos/pull/232),
 [logos-capability-module#37](https://github.com/logos-co/logos-capability-module/pull/37)).
-Logos Core defines no user or administrator class.
+Its specification defines no fixed user, operator, or administrator class
+([`spec-module-security-considerations.md:560`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-security-considerations.md#L560)).
 
 This RFP therefore sorts the node's functions into categories rather than
 defining kinds of account; [Function categories](#function-categories) below
@@ -680,13 +681,12 @@ category, or any single function in it, to the callers it chooses
   stopping it, resetting its storage, and changing its configuration or its
   logging. They are for the node's operator alone.
 
-**Operations and administrative functions are closed unless granted.**
-Enforcement of the access policy is off unless the deployer turns it on, and a
-policy in force may admit a caller to every method of the module, so neither
-category can rely on the policy to protect it. [#106](#f-106) requires the
-module to refuse such a call itself, on the caller identity, unless the caller
-is the host runtime, an operator of that runtime, or a caller the node's
-configuration names for that category.
+**Operations and administrative functions are closed unless granted.** Under the
+Logos Core specification the runtime denies what no policy allows. Today's Logos
+Core enforces no policy unless the deployer turns it on, and a policy in force
+may admit a caller to every method of the module, so until it enforces grants as
+specified, [#106](#f-106) requires the module to refuse such a call unless it
+comes from the host.
 
 ### Chain identifiers and CAIP
 
@@ -3669,14 +3669,10 @@ lez_node.node_settings = {
     ? storage_dir: tstr .size (1..4096),
     ? mempool_max_size: uint64,
     ? mempool_expiry_seconds: uint64,
-    ? operations_callers: [* lez_node.caller_name],
-    ? administrative_callers: [* lez_node.caller_name],
     ? start_on_load: bool,
     $$lez_node.node_settings,
 }
 
-; a Logos Core module or operator name, as the caller document carries it
-lez_node.caller_name = tstr .size (1..64)
 ```
 
 Starts the node with the settings it resolves from the request.
@@ -3763,9 +3759,8 @@ name, without restarting it. Exposed by the node module only.
 103. <a id="f-103"></a>The operator settings this RFP requires, the zone
      ([Assumption A10](#a10-each-lez-node-follows-one-zone)), sequencer mode
      ([Assumption A2](#a2-a-sequencer-is-a-lez-node-in-sequencer-mode)), the
-     mempool bounds ([#52](#f-52)), the callers named for each category
-     ([#106](#f-106)), and starting on load ([#106](#f-106)), MUST be settings
-     of `start_node`. Every setting the node's configuration file
+     mempool bounds ([#52](#f-52)), and starting on load ([#106](#f-106)), MUST
+     be settings of `start_node`. Every setting the node's configuration file
      ([`lez/indexer/core/src/config.rs:33-73`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/core/src/config.rs#L33-L73))
      and the sequencer's
      ([`lez/sequencer/core/src/config.rs:66-109`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/core/src/config.rs#L66-L109))
@@ -3776,7 +3771,14 @@ name, without restarting it. Exposed by the node module only.
 ##### Access control and concurrent callers
 
 Who may call which function, and what holds when several wallets call the same
-node.
+node. This subsection is worded as per the Logos Core specification draft at
+logos-lips `6cac8335` (branch `draft/logos-core-module-specs`), under which the
+runtime decides every call: it denies an operation no authority policy allows
+([`spec-module-runtime.md:1598`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-runtime.md#L1598)),
+and checks a method against the caller's grant before any provider code runs
+([`spec-module-runtime.md:815-816`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-runtime.md#L815-L816),
+[`spec-module-runtime.md:1641`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-runtime.md#L1641)).
+Where today's Logos Core falls short of that, the requirement says so.
 
 - **Ethereum**: Geth groups methods into namespaces and exposes them per
   transport. Local IPC serves every namespace, and HTTP serves `eth`, `net`, and
@@ -3791,52 +3793,70 @@ node.
 
 104. <a id="f-104"></a>Every function this RFP defines MUST belong to exactly
      one of the three categories of [Function categories](#function-categories),
-     and the module's contract MUST state which. The user category holds every
+     and the documentation MUST state which. The user category holds every
      function defined under the headings above but `query_peers` and those of
      [Starting and configuring the node](#starting-and-configuring-the-node).
-     The operations category holds `query_peers` ([#90](#f-90)) and
-     `query_settings` ([#102](#f-102)), whose settings name the callers granted
-     each category, and any function the module exposes that reports how the
-     node runs in more detail than its status does, such as `query_metrics`
-     ([#91](#f-91)). The administrative category holds `start_node`,
-     `stop_node`, and `reset_storage`, together with any other function the
-     module exposes that changes how the node runs, such as the FFI's
-     `init_logger` were the module to expose it. A function added to the surface
-     later MUST be assigned to a category when it is added. **[New]**
-105. <a id="f-105"></a>Each function exposed through the node module MUST be
-     individually grantable. Where the deployer's Logos Core access policy
-     grants a caller a list of methods on the module, that caller MUST reach
-     those methods and no others, and the module MUST be built so that such a
-     grant is enforced against it rather than refused as unenforceable.
-     **[New]**
-106. <a id="f-106"></a>An operations or administrative function MUST refuse a
-     call unless the caller is the host runtime, an operator of that runtime, or
-     a caller the node's own configuration names for that category. The module
-     MUST decide this itself, from the caller identity Logos Core gives it: it
-     cannot see which grant admitted a call, since grants are enforced before
-     the module runs and the caller document carries only a kind, a name, and an
-     instance (`logos-protocol`
-     [`cpp/logos_module_impl.h:223-283`](https://github.com/logos-co/logos-protocol/blob/d8389858fe4fc9a91113bc8dd66721bf99699173/cpp/logos_module_impl.h#L223-L283)).
-     The refusal MUST hold when no access policy is in force, when the policy
-     leaves the module open to every caller, and when the runtime cannot
-     identify the caller. Logos Core emits host, module, and unknown callers
-     today, and specifies an operator kind it does not yet emit, so until it
-     does the documentation MUST state which callers can start, stop, and reset
-     the node, and a node MUST be configurable to start on load
-     ([#103](#f-103)). **[New]**
-107. <a id="f-107"></a>A refused call MUST be reported as an outcome distinct
-     from the not-found, invalid-argument, and backend failure outcomes of
-     [#95](#f-95), and MUST have no effect on the node. A caller does not retry
-     it. **[New]**
+     The operations category holds `query_peers` ([#90](#f-90)),
+     `query_settings` ([#102](#f-102)), and any function the module exposes that
+     reports how the node runs in more detail than its status does, such as
+     `query_metrics` ([#91](#f-91)). The administrative category holds
+     `start_node`, `stop_node`, `reset_storage`, and any other function the
+     module exposes that changes how the node runs. The operations and the
+     administrative functions SHOULD each be exposed as an interface contract of
+     their own, so a deployer grants a category as a whole, as the specification
+     requires of a separately visible subset of a contract
+     ([`spec-module-capability-authority.md:271`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-capability-authority.md#L271)).
+     A function added to the surface later MUST be assigned to a category when
+     it is added. **[New]**
+105. <a id="f-105"></a>Each function MUST be a distinct method of the module's
+     contract, so a provider access grant naming it admits a consumer to it and
+     to no other
+     ([`spec-module-capability-authority.md:236-240`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-capability-authority.md#L236-L240),
+     [`spec-module-runtime.md:1641`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-runtime.md#L1641)).
+     The documentation MUST list the functions of each category for a deployer
+     to grant. Until Logos Core enforces method grants
+     ([logos-liblogos#232](https://github.com/logos-co/logos-liblogos/pull/232),
+     [logos-capability-module#37](https://github.com/logos-co/logos-capability-module/pull/37)),
+     the module MUST be built so that such a grant is enforced against it rather
+     than refused as unenforceable. **[New]**
+106. <a id="f-106"></a>The module MUST NOT treat a caller identity as
+     authorisation, and MUST NOT carry grants in its settings: the specification
+     leaves authorisation to the runtime and its capability authority
+     ([`spec-module-capability-authority.md:417-420`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-capability-authority.md#L417-L420))
+     and forbids grants in module configuration
+     ([`spec-module-configuration.md:58`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-configuration.md#L58)).
+     Today's Logos Core enforces no policy unless the deployer turns it on, and
+     a policy in force admits a caller to every method of a module, so until it
+     enforces method grants by default, an operations or administrative function
+     MUST refuse a call whose caller document is not the host's
+     (`logos-protocol`
+     [`cpp/logos_module_impl.h:223-283`](https://github.com/logos-co/logos-protocol/blob/d8389858fe4fc9a91113bc8dd66721bf99699173/cpp/logos_module_impl.h#L223-L283)),
+     whether or not a policy is in force. Every `logosctl` call reaches a module
+     as the host, so the documentation MUST state that any holder of a
+     `logosctl` token reaches these functions, and a node MUST be configurable
+     to start on load ([#103](#f-103)). This transitional rule is withdrawn once
+     Logos Core enforces grants as its specification requires. **[New]**
+107. <a id="f-107"></a>A call Logos Core refuses arrives as `NOT_AUTHORISED` and
+     never reaches the module
+     ([`spec-module-runtime.md:815-816`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-runtime.md#L815-L816)).
+     A call the module refuses under [#106](#f-106) MUST be an outcome of the
+     function's response, distinct from the not-found, invalid-argument, and
+     backend failure outcomes of [#95](#f-95), as the specification requires of
+     an expected failure
+     ([`spec-module-interface.md:345-346`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-interface.md#L345-L346)),
+     and MUST have no effect on the node. A caller does not retry it. **[New]**
 108. <a id="f-108"></a>Calls from different callers MUST be served concurrently,
      up to a documented bound on calls in flight, and a slow call from one
-     caller MUST NOT delay another's before that bound is reached. The module
-     MUST run with Logos Core's concurrent dispatch, where a module dispatches
-     one call at a time by default (`logos-module-builder`
+     caller MUST NOT delay another's before that bound is reached. The
+     specification lets a module's functions be called concurrently and leaves
+     the module to synchronise its own state
+     ([`spec-module-interface.md:1900-1905`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-interface.md#L1900-L1905));
+     today's Logos Core dispatches one call at a time unless the module sets
+     otherwise (`logos-module-builder`
      [`docs/configuration.md`](https://github.com/logos-co/logos-module-builder/blob/c1572d8fab858151e2547c752a856dc96215c290/docs/configuration.md),
-     `concurrency`), and the module wrapping the FFI sets nothing today. A
-     cursor issued to one caller MUST NOT be advanced or invalidated by another
-     caller's calls. **[New]**
+     `concurrency`), and the module wrapping the FFI sets nothing, so the module
+     MUST run with concurrent dispatch. A cursor issued to one caller MUST NOT
+     be advanced or invalidated by another caller's calls. **[New]**
 
 #### Usability
 
@@ -4263,18 +4283,20 @@ Access control and the contract rest on Logos Core in several places.
 - **Caller identities.** The caller document a module receives names a host, a
   module, a derived caller, an operator, or an unknown caller (`logos-protocol`
   [`cpp/logos_module_impl.h:223-283`](https://github.com/logos-co/logos-protocol/blob/d8389858fe4fc9a91113bc8dd66721bf99699173/cpp/logos_module_impl.h#L223-L283)),
-  and only host, module, and unknown are emitted today. A call authorised by an
-  operator token over a plain connection arrives as unknown. Functionality
-  [#106](#f-106) admits the host, an operator, and the callers the node's
-  configuration names, so who can operate the node from elsewhere waits on
-  operator identities.
+  and only host, module, and unknown are emitted today; every `logosctl` call
+  arrives as the host. The specification has no host, operator, or unknown
+  caller: a caller is a module instance or a system service, named by its
+  runtime and module instance identifiers
+  ([`spec-module-interface.md:3533-3537`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-interface.md#L3533-L3537)),
+  so operating the node from elsewhere is a remote module instance holding
+  grants. Functionality [#106](#f-106) admits only the host until Logos Core
+  enforces grants.
 - **Per method grants.** The access policy admits a caller to a module today.
   Narrowing a caller to a list of methods is in development
   ([logos-liblogos#232](https://github.com/logos-co/logos-liblogos/pull/232),
   [logos-capability-module#37](https://github.com/logos-co/logos-capability-module/pull/37))
   and is what Functionality [#105](#f-105) depends on. Functionality
-  [#106](#f-106) does not depend on it, deciding on the caller identity and the
-  node's own configuration instead.
+  [#106](#f-106) covers the gap until then.
 - **Callers on another runtime.** A wallet on another runtime reaches the node
   through Logos Core peering, which is also in development
   ([logos-liblogos#230](https://github.com/logos-co/logos-liblogos/pull/230)),
