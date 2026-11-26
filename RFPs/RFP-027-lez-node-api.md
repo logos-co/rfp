@@ -2702,13 +2702,14 @@ lez_node.head_block_event = {
 }
 
 ; on a conflict the blocks that left the head come first, as LEZ's
-; `ViewChange::Conflict` lists them, and the blocks replacing them then enter
+; `ViewChange::Conflict` lists them, and the blocks replacing them then enter;
+; `blocks` is never empty
 lez_node.head_change = {
     kind: "entered",
     block: lez_node.block_ref,
 } / {
     kind: "orphaned",
-    blocks: [+ lez_node.block_ref],
+    blocks: [* lez_node.block_ref],
 }
 ```
 
@@ -2718,9 +2719,10 @@ resuming from a position the consumer already processed.
 
 57. <a id="f-57"></a>The API MUST expose a subscription to the head, notifying a
     consumer of each block as it enters the head on inscription and, when blocks
-    leave the head, of the blocks that left it, before any block that replaces
-    them enters. The sequencer service already folds each L1 update into its
-    head as an extension or as a conflict listing the entries it orphans
+    leave the head, of the blocks that left it, at least one in each such
+    notification, before any block that replaces them enters. The sequencer
+    service already folds each L1 update into its head as an extension or as a
+    conflict listing the entries it orphans
     ([`lez/sequencer/core/src/lib.rs:350-358`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/core/src/lib.rs#L350-L358),
     [`lez/sequencer/actors/bedrock/src/protocol.rs:68-76`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/actors/bedrock/src/protocol.rs#L68-L76)).
     Finality is not reported here: a consumer that needs it subscribes to
@@ -3672,8 +3674,8 @@ lez_node.start_node_response = {
 lez_node.network_name = tstr .size (1..64)
 
 ; the node's settings, each optional in a request and every one present in a
-; response; the contract defines the full set through the socket, these
-; being the settings this RFP itself requires
+; response; these are the settings this RFP itself requires, and the contract
+; lists the full set (#103)
 lez_node.node_settings = {
     ? zone: lez_node.zone_id,
     ? sequencer: bool,
@@ -3685,7 +3687,6 @@ lez_node.node_settings = {
     ? log_caller_identity: bool,
     ? max_history_bytes: uint64,
     ? max_calls_in_flight: uint64,
-    $$lez_node.node_settings,
 }
 ```
 
