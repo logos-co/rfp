@@ -3458,6 +3458,16 @@ Returns the node's call metrics, per method.
     and the documentation MUST state what each setting records. Bitcoin Core's
     `-debug=rpc` is the precedent. **[New]**
 
+##### Sequencer mode
+
+**TODO.** Sequencer mode is in scope
+([Assumption A2](#a2-a-sequencer-is-a-lez-node-in-sequencer-mode)). The reads
+and actions specific to running a sequencer, such as its committee, approvals,
+slashing, the channel parameter votes, and cross-zone dead letters, are to be
+specified here. The sequencer service serves some of them today, such as
+`getSequencerStatus`, `getChannelId`, and `getCrossZoneDeadLetters`
+([Appendix: Logos API Surfaces](../appendix/logos-api-surfaces.md)).
+
 ##### Surface-wide obligations
 
 These bind every function above rather than adding one
@@ -4124,99 +4134,36 @@ If possible.
 
 The following are explicitly excluded from this RFP:
 
-- **Wallet and key management.** Key handling, derivation, watch-only address
-  derivation, viewing keys, and signing belong to the LEZ wallet API, a separate
-  component outside this RFP. That includes how a viewing key is exported and
-  imported, a view-only mode for the wallet, which LEZ does not have today, and
-  whether a group of controllers should hold a viewing secret of its own rather
-  than a per-account viewing key derived from its master secret. Scanning the
-  chain with a viewing key, recovering a particular account's states, and
-  documenting what a viewing key holder can establish are wallet work too, since
-  each is a process run for an account the caller holds keys for. This RFP
-  requires only that the node serve, for every account alike, what a viewing key
-  consumer decrypts.
-- **Transaction construction and signing.** Building a transaction and signing
-  it run through the wallet path (`core_ffi` and `lez_core`). This RFP requires
-  the node to accept a signed transaction and admit or relay it, and nothing
-  more: it does not construct, sign, or execute one. Verifying a signature, and
-  encoding or decoding transaction bytes, which several surveyed chains offer on
-  the node, belong with construction in the LEZ wallet API.
-- **The protocol between LEZ nodes.** Relaying a submitted transaction to the
-  nodes that sequence, gossiping transactions, any propagation of blocks, and
-  coordinating the sequencers of a zone run over the LEZ peer-to-peer network,
-  and their messages are not part of this API. This API is what a wallet or
-  application calls on one node, and it reports the node's connectivity
-  (Functionality [#89](#f-89), [#90](#f-90)) rather than exposing the protocol.
-  That the node takes part in the network is part of the work (see
-  [Assumption A3](#a3-following-the-chain-serving-its-history-and-sequencing-are-one-node)).
-- **Operating sequencer mode.** The reads and actions specific to running a
-  sequencer, such as its committee, approvals, slashing, and cross-zone dead
-  letters, are not part of this API. A node in sequencer mode serves the API
-  defined here, and how it is operated as a sequencer is outside it.
-- **Decoding the actor states of other programs.** The node decodes the native
-  balance and the balances of builtin token programs (Functionality
-  [#21](#f-21), [#22](#f-22)). Any other program's actor state is returned as
-  bytes, and decoding it from the program's IDL belongs to the SDK, as Solana
-  leaves the accounts of programs its node does not know to the client.
-- **Simulation, and the cost estimate that comes with it.** Executing an
-  unsubmitted transaction to see what it would do belongs to the wallet API, for
-  both public and privacy-preserving transactions, for the reason given in the
-  Design Rationale. Nothing in this RFP executes a transaction a caller
-  supplies. The node serves the fee market a caller prices against
-  (Functionality [#85](#f-85) and [#86](#f-86)), not a fee for a given
-  transaction.
-- **The other node functions the surveyed chains offer that LEZ lacks**
-  ([Appendix: Blockchain API and SDK Ecosystem, section 4.1](../appendix/blockchain-api-sdk-ecosystem.md#41-absent-on-both-targets)).
-  A read-only call executes program code, and is simulation by another name: a
-  caller reads the state through the account reads and executes on its own side.
-  A pre-submission acceptance check is the wallet's own simulation together with
-  the typed rejection of Functionality [#47](#f-47). Waiting for a confirmation
-  status is composed from the status query ([#40](#f-40)) and the block
-  subscription ([#55](#f-55)) rather than offered as a call that blocks. Batch
-  submission is not required: each transaction is submitted on its own.
-- **Hosting Logos Core in an application, and reaching a node on another
-  machine.** The Logos Core host libraries are a separate component outside this
-  RFP, and a node elsewhere is reached through Logos Core peering, which carries
-  the module's contract. This RFP defines the functions, not how a call to them
-  is carried.
-- **The Logos Blockchain node and wallet APIs.** Each is a separate component
-  outside this RFP.
-- **Reaching inside a node.** A consumer reaches a LEZ node only through the API
-  defined here. Whatever a node is made of internally, those interfaces are not
-  an API this RFP or any other in this set defines. Every read an integrator
-  needs is required of the node above, whichever part of it holds the data
-  today.
-- **Pairing, enrolment, and authentication of callers.** Pairing a wallet's
-  runtime with a node on another machine, enrolling the runtimes of many users,
-  and token based access are delivered by the Logos Core framework. This RFP
-  relies on the caller identity Logos Core gives each call, and sorts the node's
-  functions into the categories a deployer grants
-  ([Function categories](#function-categories)).
-- **Identifying wallets or users.** The node identifies a caller as Logos Core
-  does and no finer. It issues no API keys, keeps no user accounts, and applies
-  no quota or billing per user; the per-call and per-caller resource bounds of
-  Reliability [#8](#rel-8) protect the node rather than meter its users. Which
-  callers a deployment admits, and which functions it grants them, is decided in
-  the deployer's Logos Core access policy.
-- **Extending the program event system.** Events exist from program execution
-  through capture by the node to the node RPC's `getEvents` and
-  `subscribeToEvents`. The FFI exports `query_events` and the module does not,
-  and the subscription stops at the RPC. This RFP requires both to reach
+- **Wallet work.** Keys, viewing keys, signing, building and encoding a
+  transaction, simulating one and estimating its cost, and scanning the chain
+  with a viewing key belong to the LEZ wallet API
+  ([Simulation belongs to the wallet, not to the node](#simulation-belongs-to-the-wallet-not-to-the-node)).
+  The node accepts a signed transaction, serves for every account alike what a
+  viewing key consumer decrypts, and executes nothing a caller supplies.
+- **The protocol between LEZ nodes.** Relay, gossip, and the coordination of a
+  zone's sequencers run over the LEZ peer-to-peer network and are not part of
+  this API, which reports the node's connectivity (Functionality [#89](#f-89),
+  [#90](#f-90)). That the node takes part in the network is part of the work
+  ([Assumption A3](#a3-following-the-chain-serving-its-history-and-sequencing-are-one-node)).
+- **Decoding other programs' actor states.** The node decodes the native balance
+  and builtin token balances (Functionality [#21](#f-21), [#22](#f-22)); any
+  other program's actor state is returned as bytes for the SDK to decode.
+- **The other node functions the surveyed chains offer**
+  ([Appendix: Blockchain API and SDK Ecosystem, section 4.1](../appendix/blockchain-api-sdk-ecosystem.md#41-absent-on-both-targets)):
+  a read-only call, which is simulation by another name; a pre-submission check;
+  a call that blocks until a confirmation status, which the status query
+  ([#40](#f-40)) and the block subscription ([#55](#f-55)) compose; and batch
+  submission.
+- **What Logos Core provides.** Hosting Logos Core, carrying calls to a node on
+  another machine, and pairing, enrolling, and authenticating callers are the
+  framework's. The node identifies a caller as Logos Core does and no finer: it
+  issues no API keys and keeps no user accounts.
+- **Changing the program event system.** This RFP requires events to reach
   applications (Functionality [#12](#f-12) to [#15](#f-15), [#61](#f-61),
-  [#62](#f-62), [#94](#f-94)) and does not change what an event is or which
-  events are captured. The other requirements neither depend on events nor
-  duplicate them, for two reasons: events do not cover execution inside a proof,
-  and their availability depends on how an operator configured the event filter.
-- **Tracking deposits into private accounts without a viewing key.** Private
-  post-states are encrypted and readable only by the viewing key holder, so this
-  is foreclosed by the design of the chain rather than by the scope of this RFP.
-  A third party sees the amount and receiving address of a send published clear
-  and nothing after it; a viewing key holder reads the rest, scanning the
-  viewing key walk above on its own side.
-- **Deploying and operating a node.** Mainnet deployment is not part of this
-  RFP: whether, when, where and by whom a node exposing this API is deployed or
-  operated, which callers a deployment admits, and who holds the administrative
-  category are matters for whoever deploys it.
+  [#62](#f-62)) and does not change what an event is or which are captured.
+- **The Logos Blockchain node and wallet APIs**, each a separate component.
+- **Deploying and operating a node**: whether, where, and by whom a node is
+  deployed, which callers it admits, and who holds the administrative category.
 
 ## ⚠ Platform Dependencies
 
