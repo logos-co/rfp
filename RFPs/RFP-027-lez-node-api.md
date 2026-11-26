@@ -807,10 +807,11 @@ What this RFP leaves for the LEZ and Logos Core maintainers to settle:
   reading the seeded accounts before the first block.
 - **A `safe` status** ([open question](#open-safe-status)): whether to add one,
   and by what rule.
-- **Settings at start** ([#98](#f-98),
-  [Settings from the runtime](#dep-settings-from-the-runtime)): whether to reuse
-  the settings the node last started with, and whether Logos Core will supply
-  them.
+- **How a module is started and configured**
+  ([open question](#open-start-and-configure)): the pattern Logos Core sets for
+  every module, which the proposal in
+  [Starting and configuring the node](#starting-and-configuring-the-node) gives
+  way to, including whether a node reuses the settings it last started with.
 - **Call identifiers** ([Call identifiers](#dep-call-identifiers)): whether
   Logos Core will pass a module the identifier of the call it is serving.
 
@@ -3588,6 +3589,16 @@ that callers built before it must tolerate.
     parsing text. **[New]**
 
 ##### Starting and configuring the node
+
+<a id="open-start-and-configure"></a>**Open question: how a module is started
+and configured.** Logos Core is expected to set one pattern for how every module
+is started and receives its settings, whether a host or a caller starts it and
+whether it runs locally or on another machine, and no such pattern exists yet
+([Settings from the runtime](#dep-settings-from-the-runtime)). What follows is
+this RFP's proposal, drawn from the delivery and storage modules. Where Logos
+Core sets a pattern, the node module follows it in place of the functions and
+requirements below, and the design decision log (Supportability [#11](#sup-11))
+records how they map onto it.
 
 How the node gets its settings, and how it is started and stopped. A node on the
 surveyed chains reads a configuration file and command-line flags when its
