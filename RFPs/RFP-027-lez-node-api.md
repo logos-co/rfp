@@ -3156,6 +3156,12 @@ limits and constants it is built against, and the programs it can call. No
 surveyed chain serves either as one read; both follow calls the LEZ sequencer
 service serves today, `getFeeState` and `getProgramIds`, cited below.
 
+- **Solana**: no call lists the programs deployed. A program is an account its
+  loader owns, so `getProgramAccounts` with the loader as owner is the nearest
+  read, a scan over every account the loader owns rather than a list of
+  programs. Its native programs carry fixed, documented identifiers, as LEZ's
+  builtins carry names.
+
 ```cddl
 lez_node.query_chain_parameters_request = {
     ? bedrock_status: lez_node.bedrock_status,
