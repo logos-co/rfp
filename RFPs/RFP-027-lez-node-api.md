@@ -2923,26 +2923,16 @@ indexed tip and an oldest-first walk at the retention floor. Exported today as
     position, so a caller can infer the end only from a short or empty page.
     **[New]**
 
-##### Chain and node metadata
+##### Node version
 
-What an integrator needs to know about the node it is talking to: where the
-chain ends, which network this is, what the fee market currently charges, and
-how far back the data goes
-([Appendix: Blockchain API and SDK Ecosystem, section 1.3](../appendix/blockchain-api-sdk-ecosystem.md#13-identify-the-network-or-chain)
-and
-[section 1.6](../appendix/blockchain-api-sdk-ecosystem.md#16-get-the-current-chain-tip)).
+Which software the node runs, so a caller can tell which build answered it.
 
-- **Ethereum**: `eth_chainId`, added because a client could otherwise connect to
-  the wrong network without knowing it (EIP-695), the case the network identity
-  read guards against.
-- **Logos Blockchain**: `GET /chain/id` serves the chain identifier read off the
-  genesis inscription, which the network identity read returns rather than a
-  configured value.
-- **CAIP-2**: the `bip122` and `solana` namespaces take a truncated genesis hash
-  as a chain's reference, as the LEZ chain identifier is a truncated hash.
-- **Bitcoin**: `getblockchaininfo` reports `pruneheight`, the floor the
-  retention read reports.
-- **Cosmos**: `earliest_block_height`, likewise.
+- **Cosmos**: `GetNodeInfo`, returning the version together with the commit it
+  was built from, the build identity that tells two builds of one version apart.
+- **Logos Blockchain**: `GET /version`, returning the package version and
+  commit.
+- **Ethereum**: `web3_clientVersion`, the version a caller reports alongside a
+  defect.
 
 ```cddl
 lez_node.query_version_request = {}
@@ -2973,6 +2963,20 @@ Ethereum, `getVersion` on Solana, `getnetworkinfo` on Bitcoin and Zcash.
     MAY cache it for the life of a connection and use it to detect that the
     surface it holds a schema for has been replaced. **[New]**
 
+##### Blocks and the chain tip
+
+Reading a block by height or by hash, and where the chain ends
+([Appendix: Blockchain API and SDK Ecosystem, section 1.5](../appendix/blockchain-api-sdk-ecosystem.md#15-get-a-block-by-height-or-hash)
+and
+[section 1.6](../appendix/blockchain-api-sdk-ecosystem.md#16-get-the-current-chain-tip)).
+
+- **Ethereum**: `eth_getBlockByNumber` and `eth_getBlockByHash`, one block
+  record reached by either key, as LEZ's node RPC already serves it with
+  `getBlockById` and `getBlockByHash`.
+- **Logos Blockchain**: `GET /cryptarchia/info`, returning the tip and the last
+  irreversible block in one call, as the chain tip read returns the head and the
+  final tip together.
+
 ```cddl
 lez_node.query_block_request = {
     block_id: lez_node.block_id,
@@ -2987,7 +2991,7 @@ lez_node.query_block_response = {
 lez_node.block = {
     header: lez_node.block_header,
     transactions: [* lez_node.block_transaction],
-    status: "pending" / "finalized",
+    bedrock_status: lez_node.bedrock_status,
 }
 
 lez_node.block_header = {
@@ -3089,6 +3093,20 @@ resolve.
     ([`lez/chain_state/src/apply.rs:38-41`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/chain_state/src/apply.rs#L38-L41)),
     and the timestamp comes from a second read. **[New]**
 
+##### Network identity
+
+Which zone and which network the node follows
+([Appendix: Blockchain API and SDK Ecosystem, section 1.3](../appendix/blockchain-api-sdk-ecosystem.md#13-identify-the-network-or-chain)).
+
+- **Ethereum**: `eth_chainId`, added because a client could otherwise connect to
+  the wrong network without knowing it (EIP-695), the case the network identity
+  read guards against.
+- **Logos Blockchain**: `GET /chain/id` serves the chain identifier read off the
+  genesis inscription, which the network identity read returns rather than a
+  configured value.
+- **CAIP-2**: the `bip122` and `solana` namespaces take a truncated genesis hash
+  as a chain's reference, as the LEZ chain identifier is a truncated hash.
+
 ```cddl
 lez_node.query_network_identity_request = {}
 
@@ -3143,6 +3161,13 @@ that zone settles to, and the LEZ chain identifier derived from the two.
     defines it, so a wallet that names chains in CAIP-2 form has a reference for
     this chain that commits to both. It MUST be reported as unavailable exactly
     when the L1 chain identifier is ([#84](#f-84)). **[New]**
+
+##### Chain parameters and programs
+
+What a caller needs to know about the chain before it builds a transaction: the
+limits and constants it is built against, and the programs it can call. No
+surveyed chain serves either as one read; both follow calls the LEZ sequencer
+service serves today, `getFeeState` and `getProgramIds`, cited below.
 
 ```cddl
 lez_node.query_chain_parameters_request = {
@@ -3238,6 +3263,14 @@ of the privacy-preserving circuit the chain verifies proofs against.
     ([`lez/wallet/src/cli/mod.rs:300-309`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/wallet/src/cli/mod.rs#L300-L309)).
     **[Ready, not exposed]**
 
+##### Fee state
+
+The fee market a transaction is priced against.
+
+- **Ethereum**: the EIP-1559 base fee, which one block can move by at most an
+  eighth, the rule LEZ's fee market follows and the band of the next block's
+  base fees reports.
+
 ```cddl
 lez_node.query_fee_state_request = {
     ? bedrock_status: lez_node.bedrock_status,
@@ -3297,6 +3330,15 @@ transaction paid ([#77](#f-77)). For a proof-committed fee that figure includes
 any surplus kept rather than refunded, so it can exceed the tip the sender
 chose, which the transaction body carries. Soft [#5](#soft-5) covers the case
 where inclusion comes to depend on the tip.
+
+##### Retention
+
+How far back the node can answer
+([Appendix: Blockchain API and SDK Ecosystem, section 1.2](../appendix/blockchain-api-sdk-ecosystem.md#12-health-and-sync-status-check)).
+
+- **Bitcoin**: `getblockchaininfo` reports `pruneheight`, the floor the
+  retention read reports.
+- **Cosmos**: `earliest_block_height`, likewise.
 
 ```cddl
 lez_node.query_retention_floor_request = {}
@@ -3529,7 +3571,7 @@ Every function defined above is further bound by the following.
      `query_events`, `query_transactions_by_account`, and `query_program_ids`),
      take no status: they answer against the head, and whether what they return
      is final is read from the transaction status ([#40](#f-40)) or the block's
-     own status. The two values are LEZ's `BedrockStatus`
+     own `bedrock_status`. The two values are LEZ's `BedrockStatus`
      ([`lez/common/src/block.rs:118-122`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/common/src/block.rs#L118-L122)).
      `BedrockStatus` also declares `Safe`, but LEZ never assigns it: a block is
      created `Pending`, and is only ever set to `Finalized` or reset to
