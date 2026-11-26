@@ -758,10 +758,10 @@ CAIP-10 follows from it: an account is `chain_id:account_address`, and an
 account identifier's existing base58 text form
 ([`lee/state_machine/core/src/account.rs:234`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lee/state_machine/core/src/account.rs#L234),
 [`lee/state_machine/core/src/account.rs:269`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lee/state_machine/core/src/account.rs#L269))
-meets CAIP-10's address rules. That holds for public accounts; whether a private
-address may be written in the clear is a privacy question for the LEZ wallet
-API. CAIP-25, which negotiates a wallet session, belongs to the LEZ wallet API
-too ([Out of Scope](#out-of-scope)).
+meets CAIP-10's address rules. That holds for public accounts; whether a blinded
+alias for private accounts may be written in the clear is a privacy question for
+the LEZ wallet API. CAIP-25, which negotiates a wallet session, belongs to the
+LEZ wallet API too ([Out of Scope](#out-of-scope)).
 
 This RFP defines the identifier and requires the node to serve it
 ([#85](#f-85)). Registering a CAIP namespace for LEZ is not part of the work.
