@@ -2197,8 +2197,8 @@ lez_node.query_status_response = {
     sync: lez_node.sync_state,
     tips: lez_node.tips,
     ? last_error: tstr .size (1..512),
-    ? stall_reason: tstr .size (1..512),
-    ? halt_verdict: tstr .size (1..512),
+    ? stall_reason: lez_node.stall_reason,
+    ? cross_zone_halt: lez_node.cross_zone_halt,
     peer_zones: [* lez_node.peer_zone],
     mode: lez_node.node_mode,
 } / {
@@ -2213,8 +2213,79 @@ lez_node.sync_state =
     "stalled" /
     "halted"
 
+; the first block that broke the chain, as LEZ's `StallReason`; the block
+; fields are absent when the block could not be decoded
+lez_node.stall_reason = {
+    ? block_id: lez_node.block_id,
+    ? block_hash: lez_node.hash,
+    ? prev_block_hash: lez_node.hash,
+    l1_slot: uint64,
+    error: lez_node.block_ingest_error,
+    ? first_seen: lez_node.timestamp,
+    orphans_since: uint64,
+}
+
+; why the node could not apply a block, as LEZ's `BlockIngestError`
+lez_node.block_ingest_error = {
+    kind: "deserialize",
+    reason: tstr .size (1..512),
+} / {
+    kind: "unexpected_block_id",
+    expected: lez_node.block_id,
+    got: lez_node.block_id,
+} / {
+    kind: "broken_chain_link",
+    expected_prev: lez_node.hash,
+    got_prev: lez_node.hash,
+} / {
+    kind: "hash_mismatch",
+    computed: lez_node.hash,
+    header: lez_node.hash,
+} / {
+    kind: "empty_block" / "invalid_clock_transaction" /
+        "invalid_fee_transaction" / "non_public_genesis_transaction" /
+        "undecodable_system_registry",
+} / {
+    kind: "invalid_reward_target",
+    reason: tstr .size (1..512),
+} / {
+    kind: "missed_system_upgrade",
+    name: tstr .size (1..512),
+} / {
+    kind: "misplaced_system_upgrader_transaction" / "missing_fee_declaration",
+    transaction_index: uint64,
+} / {
+    kind: "invalid_fee_class" / "gas_cap_exceeded" /
+        "restricted_account_modification" / "state_transition",
+    transaction_index: uint64,
+    reason: tstr .size (1..512),
+} / {
+    kind: "receipt_mismatch",
+    transaction_index: uint64,
+    ? listed: lez_node.receipt,
+    ? settled: lez_node.receipt,
+} / {
+    kind: "unfinalized_release",
+    transaction_index: uint64,
+    key: tstr .size (1..512),
+}
+
+; a halt on a cross-zone verdict, as LEZ's `CrossZoneHalt`: the local block
+; whose dispatch failed, where the dispatch came from, and the verdict
+lez_node.cross_zone_halt = {
+    block: lez_node.block_ref,
+    source_zone: lez_node.zone_id,
+    source_block_id: lez_node.block_id,
+    source_transaction_index: uint32,
+    verdict: tstr .size (1..512),
+}
+
+; one peer zone's reader, as LEZ's `PeerStatus`
 lez_node.peer_zone = {
     zone: lez_node.zone_id,
+    ? verified_tip_block_id: lez_node.block_id,
+    ? cursor_slot: uint64,
+    stuck_slot_attempts: uint32,
     health: "live" / "lagging" / "holed" / "suspended" / "pin_mismatch" / "halted",
 }
 
@@ -2234,17 +2305,23 @@ chain, its mode, and why it stopped if it has.
     contract like every other return type ([#98](#f-98)), carrying: the sync
     state, one of `starting`, `syncing`, `caught_up`, `error`, `stalled`, or
     `halted`; the tips at the head and on the final chain, each as a block
-    identifier and hash; the last error, the stall reason, and the cross-zone
-    halt verdict when the node stopped; and the health of each peer zone it
-    reads, one of `live`, `lagging`, `holed`, `suspended`, `pin_mismatch`, or
-    `halted`. The node holds this data today
+    identifier and hash; the last error; when the node stopped, the stall reason
+    (the block that broke the chain and why) or the cross-zone halt (the block
+    whose dispatch failed, where the dispatch came from, and the verdict), each
+    as the typed record LEZ keeps; and, for each peer zone it reads, its
+    verified tip, read cursor, stuck slot attempts, and health, one of `live`,
+    `lagging`, `holed`, `suspended`, `pin_mismatch`, or `halted`. The node RPC's
+    `getStatus` serves all of this typed today
+    ([`lez/indexer/service/rpc/src/lib.rs:127-128`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/service/rpc/src/lib.rs#L127-L128),
+    [`lez/indexer/service/protocol/src/lib.rs:543-709`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/service/protocol/src/lib.rs#L543-L709))
+    **[Ready]**, except the tips: it reports the final block's identifier alone,
+    with no hash and no head **[New]**. The node holds this data
     ([`lez/indexer/core/src/status.rs:16-24`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/core/src/status.rs#L16-L24),
     [`:45-98`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/core/src/status.rs#L45-L98),
     [`:159-161`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/core/src/status.rs#L159-L161)),
     but the FFI's `query_status` returns it as a JSON string, untyped by any
     contract, and as a bare null pointer on any failure
     ([`lez/indexer/ffi/src/api/query.rs:120-145`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/ffi/src/api/query.rs#L120-L145)).
-    **[New]**
 45. <a id="f-45"></a>The status query MUST report the node's mode: whether it is
     in sequencer mode and, if it is, whether it is accepting transactions or
     still starting, as the sequencer service's `getSequencerStatus` reports
