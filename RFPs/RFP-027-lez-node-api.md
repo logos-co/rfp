@@ -370,7 +370,7 @@ effects; no confirmation status; and no subscription reaches the node module,
 which is the boundary an integrator can actually call. Some norms this RFP
 declines rather than fills: simulation, for the reason given in the Design
 Rationale, and the functions that go with constructing a transaction rather than
-reading the chain, which [Out of Scope](#out-of-scope) lists one by one. See
+reading the chain, which [Out of Scope](#out-of-scope) lists. See
 [Appendix: Blockchain API and SDK Ecosystem, section 4](../appendix/blockchain-api-sdk-ecosystem.md#4-gap-summary).
 
 Most of the missing capability already exists one layer below the FFI, as the
@@ -3840,53 +3840,74 @@ node.
 
 #### Usability
 
-1. <a id="use-1"></a>The delivery MUST include the LEZ node module and its CDDL
-   contract, covering every function in Functionality, usable to build Logos
-   modules for reading LEZ state, following the chain, and tracking deposits.
-2. <a id="use-2"></a>The delivery MUST include a CLI that covers core
-   functionality: read an account at current and at a pinned block, read a batch
-   of accounts, read a block, read a transaction, read a transaction's effects,
-   receipt, and status, read an account's balances, list an account's
-   transactions with ordering and pagination, follow the head and the final
-   chain, follow a program's events, read the node's status, mode, and peer
-   count, read the chain parameters and the fee market, list the mempool, list
-   publications, and walk the encrypted notes of a block range. Every read that
-   takes a Bedrock status ([#93](#f-93)) MUST accept it. The CLI MAY have fewer
-   features than the module but MUST support all essential operations.
-3. <a id="use-3"></a>The delivery MUST include a worked deposit-tracking
-   example, in the CLI or as a documented reference consumer, that follows the
-   chain from a chosen start block, detects credits to a supplied set of public
-   accounts, and reports each credit with its transaction hash, amount, block,
-   and transaction status.
-4. <a id="use-4"></a>The documentation MUST set out which state is readable and
-   which is not for privacy-preserving transactions, including that a send
-   published clear, from a public or a private sender, reveals its amount, its
-   receiving private address, and its sender as presented, but not who controls
-   that address, and that what a private account holds is not trackable from the
-   node's data without its viewing key.
-5. <a id="use-5"></a>The API MUST return clear, actionable error messages for
-   every failure mode, each carrying the machine-readable value required by
-   Functionality [#96](#f-96) alongside the text.
-6. <a id="use-6"></a>The documentation MUST describe the semantics of every
-   pagination parameter, including the exclusivity of the block bound, what a
-   cursor guarantees across ingestion, and the behaviour when new data lands
-   during a walk.
-7. <a id="use-7"></a>The delivery MUST include a reference Logos Core access
-   policy for each kind of deployment in
-   [Who uses it, and how it is deployed](#who-uses-it-and-how-it-is-deployed): a
-   user's own node, on the same machine as the wallet or another, a node in an
-   integrator's infrastructure serving its users' wallets, and a node an
-   operator offers as a service. Each MUST grant the user category to wallets,
-   the operations category to the operator's monitoring, and the administrative
-   category to no caller beyond those Functionality [#106](#f-106) admits.
-8. <a id="use-8"></a>The documentation MUST describe how a deployer grants a
-   caller a single function or a subset of the user category, such as the reads
-   without `submit_transaction`.
-9. <a id="use-9"></a>The documentation MUST describe the head and the final
-   chain for a caller: what `pending` and `finalized` each guarantee, how long a
-   block takes to become final on testnet, how a read at the head reports that
-   the head was replaced, and which Bedrock status a deposit tracker, a wallet
-   building a transaction, and an explorer should each read at.
+01. <a id="use-1"></a>The delivery MUST include the LEZ node module and its CDDL
+    contract, covering every function in Functionality, usable to build Logos
+    modules for reading LEZ state, following the chain, and tracking deposits.
+02. <a id="use-2"></a>The delivery MUST make every function in Functionality
+    callable from the command line through `logosctl`, the Logos Core CLI,
+    calling the node module, and MUST NOT require a CLI of its own. For each
+    function the documentation MUST give a working `logosctl` invocation, with
+    its request in the form `logosctl` accepts and an example response, covering
+    at least: read an account at current and at a pinned block, read a batch of
+    accounts, read a block, read a transaction, read a transaction's effects,
+    receipt, and status, read an account's balances, list an account's
+    transactions with ordering and pagination, follow the head and the final
+    chain, follow a program's events, read the node's status, mode, and peer
+    count, read the chain parameters and the fee market, list the mempool, list
+    publications, and walk the encrypted notes of a block range. Every
+    invocation of a read that takes a Bedrock status ([#93](#f-93)) MUST show
+    the status passed. The documentation MUST state how a caller passes and
+    reads back the contract's byte values, such as account identifiers and
+    hashes, and how to convert them from and to the text forms LEZ tools print,
+    and MUST show a paginated listing walked to its end. For each subscription
+    it MUST show how to open it, follow its events, and cancel it from
+    `logosctl`, and where `logosctl` cannot deliver a subscription's events to
+    the invocation that opened it, MUST state the workaround used and its
+    limits. The delivery MAY include a companion Logos module, driven by
+    `logosctl`, that accepts and prints those text forms or follows a
+    subscription; such a module MUST call the node module through its contract
+    and MUST NOT be the only way to reach a function.
+03. <a id="use-3"></a>The delivery MUST include a worked deposit-tracking
+    example, as a script driving `logosctl` or as a documented reference
+    consumer module, that follows the chain from a chosen start block, detects
+    credits to a supplied set of public accounts, and reports each credit with
+    its transaction hash, amount, block, and transaction status.
+04. <a id="use-4"></a>The documentation MUST set out which state is readable and
+    which is not for privacy-preserving transactions, including that a send
+    published clear, from a public or a private sender, reveals its amount, its
+    receiving private address, and its sender as presented, but not who controls
+    that address, and that what a private account holds is not trackable from
+    the node's data without its viewing key.
+05. <a id="use-5"></a>The API MUST return clear, actionable error messages for
+    every failure mode, each carrying the machine-readable value required by
+    Functionality [#96](#f-96) alongside the text.
+06. <a id="use-6"></a>The documentation MUST describe the semantics of every
+    pagination parameter, including the exclusivity of the block bound, what a
+    cursor guarantees across ingestion, and the behaviour when new data lands
+    during a walk.
+07. <a id="use-7"></a>The delivery MUST include a reference Logos Core access
+    policy for each kind of deployment in
+    [Who uses it, and how it is deployed](#who-uses-it-and-how-it-is-deployed):
+    a user's own node, on the same machine as the wallet or another, a node in
+    an integrator's infrastructure serving its users' wallets, and a node an
+    operator offers as a service. Each MUST grant the user category to wallets,
+    the operations category to the operator's monitoring, and the administrative
+    category to no caller beyond those Functionality [#106](#f-106) admits. Each
+    reference policy MUST be given as the `access_policy` of a `logosctl` daemon
+    configuration, and MUST state which caller identity a `logosctl` call
+    arrives with and so which categories it reaches.
+08. <a id="use-8"></a>The documentation MUST describe how a deployer grants a
+    caller a single function or a subset of the user category, such as the reads
+    without `submit_transaction`.
+09. <a id="use-9"></a>The documentation MUST describe the head and the final
+    chain for a caller: what `pending` and `finalized` each guarantee, how long
+    a block takes to become final on testnet, how a read at the head reports
+    that the head was replaced, and which Bedrock status a deposit tracker, a
+    wallet building a transaction, and an explorer should each read at.
+10. <a id="use-10"></a>Every `logosctl` invocation in the documentation MUST run
+    as a doctest in CI against the local stack of Supportability [#2](#sup-2),
+    so the documented commands cannot drift from the module, as the delivery and
+    storage modules run theirs.
 
 #### Reliability
 
@@ -4016,12 +4037,18 @@ module" below means the LEZ node module together with its contract.
 06. <a id="sup-6"></a>A README MUST document end-to-end usage: building the
     module, starting the node with its default settings and with each shipped
     network ([#98](#f-98) to [#103](#f-103)), and step-by-step instructions for
-    every operation via the CLI.
+    every operation through `logosctl`, from starting a `logosctl` daemon and
+    installing and loading the node module to calling it.
 07. <a id="sup-7"></a>The delivery MUST include documentation in repo for the
     module and its contract, covering the developer integration journey for
     reading state, tracking deposits, and confirming transactions.
-08. <a id="sup-8"></a>The delivery MUST include documentation in repo for the
-    CLI, covering the core operator journey.
+08. <a id="sup-8"></a>The delivery MUST include an operator guide in repo for
+    running the node through `logosctl`: installing and loading the module;
+    starting, stopping, and resetting the node; reading its status, mode, peers,
+    and settings; following the chain; granting callers through the daemon's
+    access policy; and reaching a daemon on another host. The guide MUST state
+    which callers can start, stop, and reset the node when it is driven from
+    `logosctl`.
 09. <a id="sup-9"></a>The delivery MUST include a get started guide that takes a
     developer from an empty repository to a working Logos Core module calling
     the LEZ node module, covering the client generated from the module's
@@ -4255,6 +4282,16 @@ Access control and the contract rest on Logos Core in several places.
   runtimes from one node through peering is still in design. The documentation
   states how a per method grant is enforced for such a caller where the platform
   does not enforce it.
+- **`logosctl`.** Usability [#2](#use-2) meets the CLI need through `logosctl`,
+  which today calls a module once and returns, streams a module's ordinary
+  events with `watch`, and passes byte values as unpadded base64url
+  (`logos-logoscore-cli` at `5154f41`, `docs/logosctl.md`). Three things are
+  Logos Core's to deliver: `logosctl call` delivering an invocation's events
+  until its response, and cancelling the invocation when the command is
+  interrupted; per-token operator identities, since every `logosctl` call
+  reaches a module today as the host, whichever token was used; and encoding of
+  byte values, and `logos.schema` introspection in `module show`, driven by the
+  module's contract.
 - <a id="dep-settings-from-the-runtime"></a>**Settings from the runtime.** Logos
   Core passes a module no settings when it loads it, only the module's
   per-instance persistence directory
