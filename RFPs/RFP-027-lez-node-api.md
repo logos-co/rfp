@@ -2619,8 +2619,8 @@ the mempool until its inscription is seen.
     ([`lez/mempool/src/lib.rs:30-32`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/mempool/src/lib.rs#L30-L32)),
     and the most it may hold ([#53](#f-53)), both in transactions, which a
     caller retrying on a full mempool reads. Bitcoin's `getmempoolinfo` reports
-    its count and limit the same way, and no surveyed chain reports how long an
-    entry stays
+    both, its limit in bytes of memory, and no surveyed chain reports how long
+    an entry stays
     ([Appendix: Blockchain API and SDK Ecosystem, section 1.26](../appendix/blockchain-api-sdk-ecosystem.md#126-inspect-the-mempool-or-pending-set)).
     **[New]**
 
