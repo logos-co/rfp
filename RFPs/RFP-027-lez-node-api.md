@@ -697,8 +697,7 @@ give wallets one way to name chains and accounts across ecosystems, and many
 web3 wallets support them. CAIP-2 names a chain as `namespace:reference`, the
 namespace matching `[-a-z0-9]{3,8}` and the reference `[-_a-zA-Z0-9]{1,32}`.
 Each ecosystem profiles its namespace in the ChainAgnostic namespaces
-repository, which says how a reference is derived, and none of the 56 namespaces
-there today is for Logos or LEZ.
+repository, which says how a reference is derived.
 
 Where a chain has no short name of its own, the reference is a truncated hash:
 `bip122` takes the first 32 lowercase hex characters (16 bytes) of the genesis
@@ -713,8 +712,8 @@ bytes with no rule on its characters (`logos-blockchain`
 The LEZ chain identifier therefore commits to both, and since the pair does not
 fit in 32 characters, it is a truncated hash of the pair.
 
-**The LEZ chain identifier** is the first 16 bytes of SHA-256(`D || C || Z`),
-written as 32 lowercase hex characters, where:
+**The proposed LEZ chain identifier** is the first 16 bytes of
+SHA-256(`D || C || Z`), written as 32 lowercase hex characters, where:
 
 - `D` is the 32 ASCII bytes `/LEZ/v0.4/ChainId/0000000000000/`;
 - `C` is the L1 chain identifier as the L1 encodes it: one byte holding its
@@ -727,16 +726,33 @@ This follows how LEZ already derives identifiers outside a circuit: SHA-256 over
 a 32-byte domain prefix and then the encoded fields, as for a block hash
 ([`lez/common/src/block.rs:170-186`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/common/src/block.rs#L170-L186))
 and a public account identifier
-([`lee/state_machine/src/signature/public_key.rs:77-86`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lee/state_machine/src/signature/public_key.rs#L77-L86)),
-with the prefix form zone-level derivations use, one of them over a zone
-identifier
-([`lez/programs/cross_zone_inbox/core/src/lib.rs:9`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/programs/cross_zone_inbox/core/src/lib.rs#L9),
-[`lez/programs/cross_zone_inbox/core/src/lib.rs:147-155`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/programs/cross_zone_inbox/core/src/lib.rs#L147-L155)).
+([`lee/state_machine/src/signature/public_key.rs:77-86`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lee/state_machine/src/signature/public_key.rs#L77-L86)).
 The length prefix keeps the input unambiguous, and hex is how LEZ already writes
 a hash
 ([`lez/common/src/lib.rs:34-37`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/common/src/lib.rs#L34-L37)).
 For the L1 chain identifier `logos-chain-1` and a zone identifier of 32 bytes
 `0x01`, the LEZ chain identifier is `d9fa7e660d107c34c4f5f23f791fd74c`.
+
+The domain tag `D` takes the form LEZ gives its own tags, part by part:
+
+- it is a fixed 32 bytes, as every LEZ and LEE tag is, so no tag can read as the
+  start of another followed by data;
+- it opens with `/LEZ/` rather than `/LEE/`, since it names a zone rather than
+  something inside the execution environment: tags under `/LEE/` hash state
+  machine values such as a block
+  ([`lez/common/src/block.rs:175`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/common/src/block.rs#L175)),
+  while tags under `/LEZ/` belong to the zone's own derivations, one of them
+  over a zone identifier
+  ([`lez/programs/cross_zone_inbox/core/src/lib.rs:9`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/programs/cross_zone_inbox/core/src/lib.rs#L9),
+  [`lez/programs/cross_zone_inbox/core/src/lib.rs:147-155`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/programs/cross_zone_inbox/core/src/lib.rs#L147-L155));
+- it carries `v0.4`, the version that introduces it, as a tag keeps the version
+  it was introduced in: the PDA tag still reads `v0.2` while the rest read
+  `v0.3`
+  ([`lee/state_machine/core/src/program/mod.rs:202`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lee/state_machine/core/src/program/mod.rs#L202));
+- it is padded with ASCII `0` and closed with `/`, as the `/LEZ/` tags are,
+  where the trailing digits serve as a revision number if the derivation ever
+  changes
+  ([`lez/programs/cross_zone_inbox/core/src/lib.rs:11-14`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/programs/cross_zone_inbox/core/src/lib.rs#L11-L14)).
 
 CAIP-10 follows from it: an account is `chain_id:account_address`, and an
 account identifier's existing base58 text form
