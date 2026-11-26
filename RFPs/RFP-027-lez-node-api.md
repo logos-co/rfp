@@ -1178,18 +1178,14 @@ lez_node.event_record = {
 The read that says what a transaction did to balances
 ([Appendix: Blockchain API and SDK Ecosystem, section 1.27](../appendix/blockchain-api-sdk-ecosystem.md#127-get-execution-effects-and-state-changes)).
 
-- **Ethereum**: `eth_getTransactionReceipt`, with effects inferred from logs.
-- **Solana**: `getTransaction`, returning pre-balances and post-balances
-  directly.
-- **Bitcoin**: no equivalent; the effect is the UTXO set delta itself.
-- **Zcash**: `z_viewtransaction` for the shielded leg, `getblockdeltas` and
-  `getspentinfo` for the transparent one, the latter two being insight-explorer
-  methods a node must be started and reindexed for. The shielded call is
-  wallet-layer, documented as returning "detailed shielded information about
-  in-wallet transaction", so it reads only what the node holds keys for. A third
-  party sees transparent effects openly and shielded effects not at all, and no
-  parameterisation of the call changes that, the entitlement being cryptographic
-  rather than an access-control setting.
+- **Solana**: `getTransaction`, returning the transaction with its pre-balances
+  and post-balances, the shape of the balance deltas here.
+- **XRPL**: `tx`, returning with the transaction the metadata describing how the
+  ledger changed.
+- **Sui**: `sui_getTransactionBlock`, returning the transaction's effects with
+  it.
+- **Ethereum**: `eth_getTransactionReceipt`, whose receipt carries the
+  transaction's logs, as the effects here carry its events.
 
 ```cddl
 lez_node.query_transaction_request = {
@@ -1527,18 +1523,14 @@ which the FFI's `query_events` does today
 Reading account state, at the tip and at a past block, singly and in batches
 ([Appendix: Blockchain API and SDK Ecosystem, section 1.7](../appendix/blockchain-api-sdk-ecosystem.md#17-get-an-account-or-object)).
 
-- **Solana**: `getAccountInfo` and `getMultipleAccounts`, the closest shape to
-  what is required here.
-- **Ethereum**: split across `eth_getCode` and `eth_getStorageAt`, with no
-  single account object.
-- **Bitcoin**: `gettxout` reads a UTXO; the model has no account record.
-- **Zcash**: `getaddressbalance` for transparent addresses, readable by any
-  party, subject to the node running with the insight-explorer options;
-  `z_getbalanceforviewingkey` for shielded ones, documented as returning the
-  balance "viewable by a full viewing key known to the node's wallet". Two
-  conditions sit on the shielded read: the caller holds the key, and the key was
-  already imported into that node's wallet. There is no shielded read a party
-  without a key can make.
+- **Solana**: `getAccountInfo` and `getMultipleAccounts`, the shape of the
+  account read and the batch read. Its node decodes balances for a fixed set of
+  well-known programs, SPL Token among them, and returns any other program's
+  accounts as raw bytes, as the balances read does.
+- **Ethereum**: `eth_getStorageAt`, which reads one storage slot rather than an
+  account's whole storage, as `query_account_view` reads one program's actor
+  state; and EIP-1898's block pinning, so balances read in separate calls
+  reconcile, which the batch read's shared block gives.
 
 **What an account is.** An account identifier can name any account, a program's
 included: a program is an account written through the program loader, and its
@@ -1883,11 +1875,9 @@ key, to a consumer that scans them on its own side (see
 publication listing above covers received messages; this walk covers every
 encrypted note, account state updates included. Scanning it is the wallet's.
 
-- **Zcash**: `z_importviewingkey` imports the key into the node's wallet, which
-  then answers for it; lightwalletd instead streams compact blocks a light
-  client scans on its own side ([ZIP 307](https://zips.z.cash/zip-0307)).
-- **Ethereum, Solana, Bitcoin**: no equivalent, there being no encrypted state
-  to scan.
+- **Zcash**: lightwalletd streams compact blocks a light client scans on its own
+  side ([ZIP 307](https://zips.z.cash/zip-0307)), rather than the node answering
+  for a key imported into its wallet with `z_importviewingkey`.
 
 ```cddl
 ; `from` is the last block the caller processed
@@ -2074,12 +2064,9 @@ position, together with the commitment set root they are proven against.
 Answering how far a transaction has progressed and whether it succeeded
 ([Appendix: Blockchain API and SDK Ecosystem, section 1.24](../appendix/blockchain-api-sdk-ecosystem.md#124-get-transaction-status)).
 
-- **Ethereum**: `eth_getTransactionReceipt`, whose absence means not yet mined.
-- **Solana**: `getSignatureStatuses`, carrying an explicit commitment level.
-- **Bitcoin**: `gettransaction` reports confirmations but is wallet scoped.
-- **Zcash**: `gettransaction` for confirmations, wallet scoped as on Bitcoin.
-  ZIP 315 specifies the confirmation policy, three confirmations for trusted
-  funds and ten for untrusted, as wallet behaviour rather than as a node call.
+- **Solana**: `getSignatureStatuses`, reporting per transaction an explicit
+  confirmation level, processed, confirmed, or finalized, as the status here
+  names the Bedrock status of the block that holds it.
 
 ```cddl
 lez_node.query_transaction_status_request = {
@@ -2195,12 +2182,6 @@ execution succeeded.
 Reporting whether the node is caught up with the chain, which mode it runs in,
 and why it stopped if it has
 ([Appendix: Blockchain API and SDK Ecosystem, section 1.2](../appendix/blockchain-api-sdk-ecosystem.md#12-health-and-sync-status-check)).
-
-- **Ethereum**: `eth_syncing`.
-- **Solana**: `getHealth`.
-- **Bitcoin**: `getblockchaininfo`, whose `initialblockdownload` and
-  `verificationprogress` report how far the node has caught up.
-- **Zcash**: `getblockchaininfo`, as on Bitcoin.
 
 ```cddl
 lez_node.query_status_request = {}
@@ -2349,10 +2330,12 @@ chain, its mode, and why it stopped if it has.
 Handing a public or privacy-preserving transaction to the network
 ([Appendix: Blockchain API and SDK Ecosystem, section 1.21](../appendix/blockchain-api-sdk-ecosystem.md#121-broadcast-a-signed-transaction)).
 
-- **Ethereum**: `eth_sendRawTransaction`.
-- **Solana**: `sendTransaction`.
-- **Bitcoin**: `sendrawtransaction`.
-- **Zcash**: `sendrawtransaction`, inherited from Bitcoin.
+- **Ethereum**: `eth_sendRawTransaction`, which hands a signed transaction to
+  the node a caller reads from and returns an identifier to track it by.
+- **Bitcoin**: `sendrawtransaction`, likewise.
+- **Solana**: `sendTransaction`, documented as a successful response not
+  guaranteeing that the transaction will be processed, as acceptance outside
+  sequencer mode does not mean a sequencer admitted it.
 
 Every surveyed chain accepts a signed transaction at the same endpoint a caller
 reads from. A wallet that builds and signs a transaction has to hand it
@@ -2459,14 +2442,10 @@ be known by.
 Listing what the network holds but has not yet included in a block
 ([Appendix: Blockchain API and SDK Ecosystem, section 1.26](../appendix/blockchain-api-sdk-ecosystem.md#126-inspect-the-mempool-or-pending-set)).
 
-- **Bitcoin**: `getrawmempool` lists the set, `getmempoolentry` returns one
-  entry's detail, `getmempoolinfo` its size.
-- **Zcash**: `getrawmempool`, `getmempoolinfo`, and `getaddressmempool`, the
-  last insight-explorer gated.
-- **Cosmos**: `/unconfirmed_txs` and `/num_unconfirmed_txs`.
-- **Ethereum**: `eth_newPendingTransactionFilter`, with no direct dump.
-- **Solana, XRPL, Stellar, NEAR, Sui**: no equivalent. Solana has no mempool at
-  all: transactions are forwarded to the upcoming leaders.
+- **Bitcoin**: `getrawmempool` lists the set and `getmempoolinfo` reports how
+  many transactions it holds and its limit, the latter in bytes of memory, as
+  the listing's `size` and `max_size` do; `-maxmempool` bounds it and
+  `-mempoolexpiry` expires its entries, as the two operator settings here do.
 
 A privacy-preserving transaction's proof commits to its private actions, its
 recovery bindings, and the messages crossing between its private and public
@@ -2626,15 +2605,17 @@ the mempool until its inscription is seen.
 Pushing new blocks and events to a consumer instead of making it poll
 ([Appendix: Blockchain API and SDK Ecosystem, section 1.32](../appendix/blockchain-api-sdk-ecosystem.md#132-subscribe-to-new-blocks-and-to-events)).
 
-- **Ethereum**: `eth_subscribe("newHeads")`.
-- **Solana**: `slotSubscribe` and `blockSubscribe`.
-- **Bitcoin**: the ZeroMQ publishers `-zmqpubhashblock` and `-zmqpubrawblock`.
-- **Zcash**: no JSON-RPC subscription; the node's own push surface is ZeroMQ,
-  without the `-zmqpubsequence` publisher Bitcoin offers for loss detection. The
-  streaming interface an integrator uses sits on lightwalletd rather than the
-  node: `GetBlockRange` streams compact blocks over gRPC, taking an explicit
-  height range, so a consumer resumes by asking for the range it has not yet
-  seen.
+- **Starknet**: `starknet_subscribeNewHeads`, with an explicit
+  `starknet_subscriptionReorg` notification carrying the first and last block of
+  the orphaned chain, each as a hash and a number, which the head subscription's
+  `orphaned` change follows.
+- **The Graph**: keeps its position as a block number and hash together, as a
+  resume position here carries both.
+- **Firehose**: a cursor encodes the block number and hash of the position it
+  names, and Substreams sends an undo signal when blocks it delivered leave the
+  chain.
+- **Cardano**: chain sync resumes from intersection points, each a slot and a
+  block hash.
 
 ```cddl
 lez_node.subscribe_to_finalized_blocks_request = {
@@ -2832,17 +2813,14 @@ Walking an account's transaction history in bounded pages
 and
 [section 1.31](../appendix/blockchain-api-sdk-ecosystem.md#131-query-historical-transactions-for-an-address)).
 
-- **Solana**: `getSignaturesForAddress`, taking `before`, `until`, and `limit`.
-- **Bitcoin**: `listtransactions`, using count and skip.
-- **Ethereum**: no cursor scheme on the standard node API; `eth_getLogs` is
-  bounded by block range instead.
-- **Zcash**: `getaddresstxids` for transparent addresses, insight-explorer gated
-  and bounded by an inclusive start and end height rather than a cursor;
-  `z_listreceivedbyaddress` for shielded ones, reachable only for keys the node
-  holds and taking an `asOfHeight` parameter that pins the read to a past
-  height. Height bounding rather than cursoring leaves a caller re-deriving its
-  position from heights it has already scanned, and no method returns a next
-  position.
+- **Solana**: `getSignaturesForAddress`, walking an address's history from a
+  `before` position with a `limit` rather than from an offset.
+- **XRPL**: `account_tx`, paged by a `marker` whose value "is stable even if
+  there is a change in the server's range of available ledgers", as a cursor
+  here stays stable when history is pruned.
+- **Stellar**: Horizon's `cursor`, `limit`, and `order`, with a link to the next
+  page, the parameters the account history and block walks take and the resume
+  position each page carries.
 
 ```cddl
 lez_node.query_transactions_by_account_request = {
@@ -2954,11 +2932,17 @@ how far back the data goes
 and
 [section 1.6](../appendix/blockchain-api-sdk-ecosystem.md#16-get-the-current-chain-tip)).
 
-- **Ethereum**: `eth_blockNumber` and `eth_chainId`.
-- **Solana**: `getSlot` and `getGenesisHash`.
-- **Bitcoin**: `getblockcount` and `getblockchaininfo`.
-- **Zcash**: `getbestblockhash` and `getblockcount` for the tip,
-  `getblockchaininfo` for the network.
+- **Ethereum**: `eth_chainId`, added because a client could otherwise connect to
+  the wrong network without knowing it (EIP-695), the case the network identity
+  read guards against.
+- **Logos Blockchain**: `GET /chain/id` serves the chain identifier read off the
+  genesis inscription, which the network identity read returns rather than a
+  configured value.
+- **CAIP-2**: the `bip122` and `solana` namespaces take a truncated genesis hash
+  as a chain's reference, as the LEZ chain identifier is a truncated hash.
+- **Bitcoin**: `getblockchaininfo` reports `pruneheight`, the floor the
+  retention read reports.
+- **Cosmos**: `earliest_block_height`, likewise.
 
 ```cddl
 lez_node.query_version_request = {}
@@ -3359,11 +3343,10 @@ The protocol between nodes is not part of this API
 ([Out of Scope](#out-of-scope)), but a node's connectivity is: a node with no
 peers relays nothing and observes no mempool transaction.
 
-- **Ethereum**: `net_peerCount` and `net_listening` for any caller; Geth's
-  `admin_peers` and `admin_nodeInfo` for the operator.
-- **Bitcoin**: `getconnectioncount`, `getpeerinfo`, and `getnetworkinfo`.
-- **Cosmos**: CometBFT's `/net_info`.
-- **Solana**: `getClusterNodes`.
+- **Ethereum**: `net_peerCount` for any caller, while Geth keeps `admin_peers`
+  and `admin_nodeInfo` for the operator, the split between the peer count in the
+  user category and the peer list, with the node's own identity, in the
+  operations category.
 
 ```cddl
 lez_node.query_peer_count_request = {}
@@ -3480,12 +3463,14 @@ Returns the node's call metrics, per method.
 These bind every function above rather than adding one
 ([Appendix: Blockchain API and SDK Ecosystem, section 1.34](../appendix/blockchain-api-sdk-ecosystem.md#134-structured-errors-and-a-code-taxonomy)).
 
-- **Ethereum**: JSON-RPC error codes, and OpenRPC as the published contract.
-- **Solana**: JSON-RPC 2.0 error objects with numeric codes.
-- **Bitcoin**: numeric JSON-RPC error codes, with no published machine-readable
-  contract.
-- **Zcash**: the Bitcoin-inherited numeric error codes, with no Zcash-specific
-  taxonomy published.
+- **Ethereum**: EIP-1898's rule that two failures a caller recovers from
+  differently must not share a code.
+- **Solana**: signature verification failure moved out of the transport error
+  channel and into the result body, keeping an execution outcome apart from a
+  transport failure, as an expected failure here is a contract response rather
+  than a `logos.error_code`.
+- **XRPL**: named string error codes, such as `tooBusy`, rather than numeric
+  ones, as `lez_node.error_code` is a string.
 
 The module parity requirement has no ecosystem analogue, because no surveyed
 chain interposes a plugin layer between its API and its consumers.
@@ -3781,12 +3766,9 @@ node.
 - **Solana**: the validator's administrative calls, `exit` among them, are
   served over a local IPC socket in the ledger directory and not on the public
   JSON-RPC port.
-- **Bitcoin**: `stop` sits on the same RPC as the reads. `-rpcauth` defines
-  several users and `-rpcwhitelist` restricts each to a list of methods, which
-  is the closest precedent to a per method grant.
-- **Zcash**: `zcashd` inherits `stop` from Bitcoin on the same RPC. Many wallets
-  reach one node through lightwalletd, which exposes reads and transaction
-  submission and no administrative call.
+- **Bitcoin**: `-rpcauth` defines several users and `-rpcwhitelist` restricts
+  each to a list of methods, which is the closest precedent to a per method
+  grant.
 
 110. <a id="f-110"></a>Every function this RFP defines MUST belong to exactly
      one of the three categories of [Function categories](#function-categories),
