@@ -1244,7 +1244,7 @@ algorithm often returns the head, then ""safe" and "unsafe" would often return
 the same thing. This is semantically unsound and confusion" [[111]](#ref-111).
 The surviving `safe` tag is defined in the schema as "The most recent block that
 is safe from re-orgs under honest majority and certain synchronicity
-assumptions" [[11]](#ref-11).
+assumptions" [[145]](#ref-145).
 
 **Potential gaps.**
 
