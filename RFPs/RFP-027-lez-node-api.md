@@ -3498,7 +3498,16 @@ Every function defined above is further bound by the following.
      Bedrock exposes only its tip and its last immutable block
      (`logos-blockchain`
      [`c-bindings/src/api/cryptarchia.rs:63-70`](https://github.com/logos-blockchain/logos-blockchain/blob/a159f8c155df68d7e2f045a418ae737de246354e/c-bindings/src/api/cryptarchia.rs#L63-L70)),
-     so the API omits `Safe` until a rule defines it. **[New]**
+     so the API omits `Safe` until a rule defines it. The selector is new: no
+     read takes a status today. The node's reads answer at the final chain only,
+     since the node stores each block it accepts as final
+     ([`lez/indexer/core/src/block_store.rs:362`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/core/src/block_store.rs#L362),
+     [`lez/indexer/service/src/service.rs:125-136`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/service/src/service.rs#L125-L136)),
+     and the sequencer's answer at its own head, so a caller chooses between the
+     two by choosing the service it calls
+     ([`lez/indexer/service/rpc/src/lib.rs:63-91`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/service/rpc/src/lib.rs#L63-L91),
+     [`lez/sequencer/service/rpc/src/lib.rs:82-110`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/service/rpc/src/lib.rs#L82-L110)).
+     **[New]**
 100. <a id="f-100"></a>Every read MUST report the tips it was served against:
      the identifier and hash of the last block at the head and on the final
      chain when it answered. A caller detects a stalled or lagging node from any
