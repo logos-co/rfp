@@ -271,7 +271,7 @@ Modules publish LIDL contracts today, and their values travel as JSON.
 
 **Basis:** the integration guide and the draft Logos Core specification. **Rests
 on it:** the module contract ([#98](#f-98)), module parity ([#101](#f-101)),
-access control and concurrent callers ([#105](#f-105) to [#111](#f-111)), and
+access control and concurrent callers ([#111](#f-111) to [#117](#f-117)), and
 Supportability [#9](#sup-9) and [#10](#sup-10).
 
 #### A10. Each LEZ node follows one zone
@@ -666,7 +666,7 @@ against that identity rather than issuing credentials of its own
 
 Every function belongs to one of three categories, and a deployer grants a
 category, or any single function in it, to the callers it chooses
-([#105](#f-105) and [#106](#f-106)).
+([#111](#f-111) and [#112](#f-112)).
 
 - **User**: every function a wallet or an integrator calls to read the chain,
   follow it, and submit a transaction, and to learn whether the node is healthy
@@ -684,7 +684,7 @@ category, or any single function in it, to the callers it chooses
 **Operations and administrative functions are closed unless granted.**
 Enforcement of the access policy is off unless the deployer turns it on, and a
 policy in force may admit a caller to every method of the module, so neither
-category can rely on the policy to protect it. [#107](#f-107) requires the
+category can rely on the policy to protect it. [#113](#f-113) requires the
 module to refuse such a call itself, on the caller identity, unless the caller
 is the host runtime, an operator of that runtime, or a caller the node's
 configuration names for that category.
@@ -1142,7 +1142,7 @@ lez_node.event_record = {
   or an `error` map whose `code` names the failure. Which codes exist is the
   implementer's choice ([#103](#f-103)), provided each expected failure this RFP
   names has a code of its own ([#100](#f-100), [#102](#f-102) to [#104](#f-104),
-  [#109](#f-109), [#111](#f-111)). These are contract responses: the shared
+  [#115](#f-115), [#117](#f-117)). These are contract responses: the shared
   `logos.error_code` values are reserved for failures of the invocation itself,
   such as a request that does not match its schema, and the API MUST NOT use
   them for an expected failure, as the profile forbids
@@ -2585,12 +2585,12 @@ the mempool until its inscription is seen.
     rather than as received. **[New]**
 
 53. <a id="f-53"></a>The mempool a node holds MUST be bounded by an operator
-    setting, with a documented default, that limits its size, and the
-    documentation MUST state the setting's unit. An entry MUST leave the mempool
-    after a time set by a second operator setting, also with a documented
-    default. This holds in either mode, for a sequencer's mempool and for the
-    set a node outside sequencer mode observes on gossip alike. The sequencer's
-    `mempool_max_size`
+    setting ([#110](#f-110)), with a documented default, that limits its size,
+    and the documentation MUST state the setting's unit. An entry MUST leave the
+    mempool after a time set by a second operator setting, also with a
+    documented default. This holds in either mode, for a sequencer's mempool and
+    for the set a node outside sequencer mode observes on gossip alike. The
+    sequencer's `mempool_max_size`
     ([`lez/sequencer/core/src/config.rs:72-73`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/core/src/config.rs#L72-L73))
     is the prior art: a transaction count with no default in code, which the
     shipped devnet and testnet configurations set to 10000
@@ -3430,7 +3430,7 @@ peer.
     listening addresses, and, for each connected peer, its identifier, address,
     direction, the time it connected, and, where known, whether it is in
     sequencer mode. A peer's address is another operator's network identity, so
-    the function is in the operations category ([#105](#f-105)), as Geth keeps
+    the function is in the operations category ([#111](#f-111)), as Geth keeps
     `admin_peers` off its public endpoints. **[New]**
 
 ##### Operating the node
@@ -3480,7 +3480,7 @@ Returns the node's call metrics, per method.
     category, how many calls it served, how many succeeded and failed by outcome
     ([#102](#f-102), [#104](#f-104)), and the distribution of their serving
     times, together with the number of open subscriptions, as Geth reports per
-    method. It is in the operations category ([#105](#f-105)). The node MUST NOT
+    method. It is in the operations category ([#111](#f-111)). The node MUST NOT
     keep figures per caller: who called what is in Logos Core's call audit
     records. **[New]**
 97. <a id="f-97"></a>The node MUST log each call, when the operator turns it on,
@@ -3515,7 +3515,7 @@ sides agree on.
     schema in the profile of
     [Assumption A9](#a9-the-api-defined-here-is-the-lez-node-modules-api),
     covering every method and event the module exposes: its request, its
-    response, its error values, the category it belongs to ([#105](#f-105)), and
+    response, its error values, the category it belongs to ([#111](#f-111)), and
     the node modes it is available in ([#100](#f-100)). The profile carries no
     field for the category or the mode of a method, so the contract MUST express
     them another way the documentation states, such as separate user and
@@ -3586,7 +3586,7 @@ Every function defined above is further bound by the following.
      contract ([#98](#f-98)) marks it, or one of its outcomes, for sequencer
      mode. A node outside sequencer mode MUST answer such a call as not
      available in its mode, an outcome distinct from not found, invalid
-     argument, backend failure, and refusal ([#102](#f-102), [#109](#f-109)), so
+     argument, backend failure, and refusal ([#102](#f-102), [#115](#f-115)), so
      a caller learns to call a node in sequencer mode rather than retrying this
      one. **[New]**
 101. <a id="f-101"></a>Every function above MUST be served by the node module
@@ -3620,6 +3620,171 @@ Every function defined above is further bound by the following.
      backoff. A transient failure MUST be distinguishable from a permanent one
      without parsing text. **[New]**
 
+##### Starting and configuring the node
+
+How the node gets its settings, and how it is started and stopped. A node on the
+surveyed chains reads a configuration file and command-line flags when its
+process starts, and its RPC serves a node already running, so none of them
+offers a precedent. In Logos Core the runtime loads the module, which can run in
+its caller's runtime, sandboxed, or on another machine reached through peering,
+and the settings reach the node through its API. Two Logos modules do this
+today:
+
+- **Delivery module**: `createNode` takes a JSON object whose `preset` names the
+  network, `logos.test` or `logos.dev`, and whose override objects change
+  individual settings; `start` then starts the node
+  ([`src/delivery_module_plugin.h:65-142`](https://github.com/logos-co/logos-delivery-module/blob/3653ba95f532992f1eff1162b27eaa44d8f06151/src/delivery_module_plugin.h#L65-L142)).
+  Its data goes under the per-instance directory Logos Core gives the module
+  unless the configuration names another
+  ([`src/delivery_module_plugin.cpp:626-628`](https://github.com/logos-co/logos-delivery-module/blob/3653ba95f532992f1eff1162b27eaa44d8f06151/src/delivery_module_plugin.cpp#L626-L628)),
+  and `getAvailableConfigs` lists the settings `createNode` accepts
+  ([`src/delivery_module_plugin.h:316-317`](https://github.com/logos-co/logos-delivery-module/blob/3653ba95f532992f1eff1162b27eaa44d8f06151/src/delivery_module_plugin.h#L316-L317)).
+  `createNode` runs once per module instance
+  ([`src/delivery_module_plugin.h:36-37`](https://github.com/logos-co/logos-delivery-module/blob/3653ba95f532992f1eff1162b27eaa44d8f06151/src/delivery_module_plugin.h#L36-L37)),
+  so the first caller to create the node chooses the network for every caller
+  after it.
+- **Storage module**: `init` takes a JSON object overriding its defaults, whose
+  `network` names the network the node joins, and `start` then starts the node.
+  `init` saves the configuration it was given and `loadConfigOrDefault` returns
+  it, or the defaults when none was saved
+  ([`src/storage_module_plugin.h:27-116`](https://github.com/logos-co/logos-storage-module/blob/cc38c91c2cf80db32b9667ca272be40485a070ca/src/storage_module_plugin.h#L27-L116)).
+  `nodeConfig` returns the configuration the node runs with, its network
+  expanded into the settings it stands for
+  ([`:178-185`](https://github.com/logos-co/logos-storage-module/blob/cc38c91c2cf80db32b9667ca272be40485a070ca/src/storage_module_plugin.h#L178-L185)),
+  and restarting with other settings takes `destroy`, `init`, and `start`
+  ([`:117-129`](https://github.com/logos-co/logos-storage-module/blob/cc38c91c2cf80db32b9667ca272be40485a070ca/src/storage_module_plugin.h#L117-L129)).
+
+```cddl
+lez_node.start_node_request = {
+    ? network: lez_node.network_name,
+    ? settings: lez_node.node_settings,
+}
+
+lez_node.start_node_response = {
+    result: "started" / "already_running",
+    network: lez_node.network_name,
+    settings: lez_node.node_settings,
+} / {
+    error: lez_node.error,
+}
+
+; a network the node ships settings for, as the sequencer service ships
+; `local`, `devnet`, and `testnet` (lez/sequencer/service/networks/)
+lez_node.network_name = tstr .size (1..64)
+
+; the node's settings, each optional in a request and every one present in a
+; response; the contract (#98) defines the full set through the socket, these
+; being the settings this RFP itself requires
+lez_node.node_settings = {
+    ? zone: lez_node.zone_id,
+    ? sequencer: bool,
+    ? storage_dir: tstr .size (1..4096),
+    ? mempool_max_size: uint64,
+    ? mempool_expiry_seconds: uint64,
+    ? operations_callers: [* lez_node.caller_name],
+    ? administrative_callers: [* lez_node.caller_name],
+    ? start_on_load: bool,
+    $$lez_node.node_settings,
+}
+
+; a Logos Core module or operator name, as the caller document carries it
+lez_node.caller_name = tstr .size (1..64)
+```
+
+Starts the node with the settings it resolves from the request.
+
+```cddl
+lez_node.stop_node_request = {}
+
+lez_node.stop_node_response = {
+    result: "stopped" / "not_running",
+} / {
+    error: lez_node.error,
+}
+```
+
+Stops the node.
+
+```cddl
+lez_node.query_settings_request = {}
+
+lez_node.query_settings_response = {
+    running: bool,
+    network: lez_node.network_name,
+    settings: lez_node.node_settings,
+} / {
+    error: lez_node.error,
+}
+```
+
+Returns the settings the node runs with, or those its next start would use.
+
+```cddl
+lez_node.reset_storage_request = {
+    ? zone: lez_node.zone_id,
+}
+
+lez_node.reset_storage_response = {
+    result: "reset",
+} / {
+    error: lez_node.error,
+}
+```
+
+Stops the node and deletes the store of a zone, by default the zone its settings
+name, without restarting it. Exposed by the node module only.
+
+105. <a id="f-105"></a>`start_node` MUST start the node when called with no
+     arguments, with the settings it last started with or, on its first start,
+     the defaults. A caller MAY name a network, whose shipped settings replace
+     the defaults, and MAY pass individual settings, each replacing the value of
+     that setting alone; a setting the caller does not pass keeps the value it
+     would otherwise have. The node MUST save the settings it starts with, and
+     `start_node` MUST return them. Logos Core passes a module no settings when
+     it loads it ([Platform Dependencies](#-platform-dependencies)), so a node
+     it loads starts this way. The module wrapping the FFI starts the node from
+     a configuration file path and a storage directory, as `start_indexer` does
+     ([`lez/indexer/ffi/src/api/lifecycle.rs:33-40`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/ffi/src/api/lifecycle.rs#L33-L40)),
+     with no default for either, so a node cannot start without a caller that
+     knows both paths on the machine the node runs on. **[New]**
+106. <a id="f-106"></a>The node's storage MUST default to the per-instance
+     persistence directory Logos Core gives the module
+     ([`docs/spec.md:175-184`](https://github.com/logos-co/logos-liblogos/blob/af19e519c9b579a1dab86e8dc3960925fc28b526/docs/spec.md#L175-L184)),
+     as the delivery module's data does, so two instances of the module never
+     share a store and a caller need not know a path on the machine the module
+     runs on. **[New]**
+107. <a id="f-107"></a>The node MUST ship the settings of each LEZ network it
+     supports, testnet 0.4 among them, under a documented name, and the
+     documentation MUST state which network is the default. A network name the
+     node does not ship MUST be refused with an error of its own. The sequencer
+     service ships `local`, `devnet`, and `testnet` settings today
+     ([`lez/sequencer/service/networks/`](https://github.com/logos-blockchain/logos-execution-zone/tree/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/service/networks))
+     **[Ready, not exposed]**; the node has none **[New]**.
+108. <a id="f-108"></a>Settings take effect when the node starts. A `start_node`
+     call on a running node that names no network and passes no settings MUST
+     report `already_running`. One that names a network or passes settings
+     differing from those in force MUST fail with an error of its own and MUST
+     NOT change the node, so no caller believes the node is on a network or zone
+     it is not on. Changing a setting MUST take stopping the node and starting
+     it with the new value. **[New]**
+109. <a id="f-109"></a>`query_settings` MUST return the network and every
+     setting in force, each with the value it resolved to, or, while the node is
+     stopped, those its next start without arguments would use, as the storage
+     module's `nodeConfig` returns its configuration with its network expanded.
+     **[New]**
+110. <a id="f-110"></a>The operator settings this RFP requires, the zone
+     ([Assumption A10](#a10-each-lez-node-follows-one-zone)), sequencer mode
+     ([Assumption A2](#a2-a-sequencer-is-a-lez-node-in-sequencer-mode)), the
+     mempool bounds ([#53](#f-53)), the callers named for each category
+     ([#113](#f-113)), and starting on load ([#113](#f-113)), MUST be settings
+     of `start_node`. Every setting the node's configuration file
+     ([`lez/indexer/core/src/config.rs:33-73`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/core/src/config.rs#L33-L73))
+     and the sequencer's
+     ([`lez/sequencer/core/src/config.rs:66-109`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/core/src/config.rs#L66-L109))
+     take today MUST be a setting of `start_node` or be documented as dropped.
+     The documentation MUST list every setting with its type, its unit, its
+     default, and the value each shipped network gives it. **[New]**
+
 ##### Access control and concurrent callers
 
 Who may call which function, and what holds when several wallets call the same
@@ -3639,67 +3804,27 @@ node.
   reach one node through lightwalletd, which exposes reads and transaction
   submission and no administrative call.
 
-```cddl
-lez_node.start_node_request = {
-    config_path: tstr .size (1..4096),
-    storage_dir: tstr .size (1..4096),
-}
-
-lez_node.start_node_response = {
-    result: "started" / "already_running",
-} / {
-    error: lez_node.error,
-}
-```
-
-Starts the node against a configuration and a storage directory.
-
-```cddl
-lez_node.stop_node_request = {}
-
-lez_node.stop_node_response = {
-    result: "stopped" / "not_running",
-} / {
-    error: lez_node.error,
-}
-```
-
-Stops the node.
-
-```cddl
-lez_node.reset_storage_request = {
-    config_path: tstr .size (1..4096),
-}
-
-lez_node.reset_storage_response = {
-    result: "reset",
-} / {
-    error: lez_node.error,
-}
-```
-
-Stops the node and deletes the store of the zone the configuration names,
-without restarting it. Exposed by the node module only.
-
-105. <a id="f-105"></a>Every function this RFP defines MUST belong to exactly
+111. <a id="f-111"></a>Every function this RFP defines MUST belong to exactly
      one of the three categories of [Function categories](#function-categories),
      and the contract of [#98](#f-98) MUST state which. The user category holds
-     every function defined under the headings above but `query_peers`. The
-     operations category holds `query_peers` ([#95](#f-95)), and any function
-     the module exposes that reports how the node runs in more detail than its
-     status does, such as `query_metrics` ([#96](#f-96)). The administrative
-     category holds `start_node`, `stop_node`, and `reset_storage`, together
-     with any other function the module exposes that changes how the node runs,
-     such as the FFI's `init_logger` were the module to expose it. A function
-     added to the surface later MUST be assigned to a category when it is added.
-     **[New]**
-106. <a id="f-106"></a>Each function exposed through the node module MUST be
+     every function defined under the headings above but `query_peers` and those
+     of [Starting and configuring the node](#starting-and-configuring-the-node).
+     The operations category holds `query_peers` ([#95](#f-95)) and
+     `query_settings` ([#109](#f-109)), whose settings name the callers granted
+     each category, and any function the module exposes that reports how the
+     node runs in more detail than its status does, such as `query_metrics`
+     ([#96](#f-96)). The administrative category holds `start_node`,
+     `stop_node`, and `reset_storage`, together with any other function the
+     module exposes that changes how the node runs, such as the FFI's
+     `init_logger` were the module to expose it. A function added to the surface
+     later MUST be assigned to a category when it is added. **[New]**
+112. <a id="f-112"></a>Each function exposed through the node module MUST be
      individually grantable. Where the deployer's Logos Core access policy
      grants a caller a list of methods on the module, that caller MUST reach
      those methods and no others, and the module MUST be built so that such a
      grant is enforced against it rather than refused as unenforceable.
      **[New]**
-107. <a id="f-107"></a>An operations or administrative function MUST refuse a
+113. <a id="f-113"></a>An operations or administrative function MUST refuse a
      call unless the caller is the host runtime, an operator of that runtime, or
      a caller the node's own configuration names for that category. The module
      MUST decide this itself, from the caller identity Logos Core gives it: it
@@ -3712,18 +3837,19 @@ without restarting it. Exposed by the node module only.
      identify the caller. Logos Core emits host, module, and unknown callers
      today, and specifies an operator kind it does not yet emit, so until it
      does the documentation MUST state which callers can start, stop, and reset
-     the node, and a node MUST be configurable to start on load. **[New]**
-108. <a id="f-108"></a>A user function MUST require nothing of a caller beyond
+     the node, and a node MUST be configurable to start on load
+     ([#110](#f-110)). **[New]**
+114. <a id="f-114"></a>A user function MUST require nothing of a caller beyond
      admission to the module. A user function MUST NOT require a caller to
      register, to name a wallet, or to have made an earlier call, and the node
      MUST NOT hold state for a caller other than the subscriptions that caller
      opened. A cursor carries the position it resumes from, so a walk part way
      through holds nothing on the node. **[New]**
-109. <a id="f-109"></a>A refused call MUST be reported as an outcome distinct
+115. <a id="f-115"></a>A refused call MUST be reported as an outcome distinct
      from the not-found, invalid-argument, and backend failure outcomes of
      [#102](#f-102), and MUST have no effect on the node. A caller does not
      retry it. **[New]**
-110. <a id="f-110"></a>Calls from different callers MUST be served concurrently,
+116. <a id="f-116"></a>Calls from different callers MUST be served concurrently,
      up to a documented bound on calls in flight, and a slow call from one
      caller MUST NOT delay another's before that bound is reached. The module
      MUST run with Logos Core's concurrent dispatch, where a module dispatches
@@ -3732,10 +3858,11 @@ without restarting it. Exposed by the node module only.
      `concurrency`), and the module wrapping the FFI sets nothing today. A
      cursor issued to one caller MUST NOT be advanced or invalidated by another
      caller's calls. **[New]**
-111. <a id="f-111"></a>Once the node is stopped, every call reaching the module
-     from every caller MUST report the node as stopped, as an error of its own,
-     distinctly from a backend failure, and each open subscription MUST end with
-     a final response saying that delivery has ended. **[New]**
+117. <a id="f-117"></a>Once the node is stopped, every call reaching the module
+     from every caller, but `start_node`, `query_settings`, and `reset_storage`,
+     MUST report the node as stopped, as an error of its own, distinctly from a
+     backend failure, and each open subscription MUST end with a final response
+     saying that delivery has ended. **[New]**
 
 #### Usability
 
@@ -3778,7 +3905,7 @@ without restarting it. Exposed by the node module only.
    integrator's infrastructure serving its users' wallets, and a node an
    operator offers as a service. Each MUST grant the user category to wallets,
    the operations category to the operator's monitoring, and the administrative
-   category to no caller beyond those Functionality [#107](#f-107) admits.
+   category to no caller beyond those Functionality [#113](#f-113) admits.
 8. <a id="use-8"></a>The documentation MUST describe how a deployer grants a
    caller a single function or a subset of the user category, such as the reads
    without `submit_transaction`.
@@ -3915,8 +4042,9 @@ module" below means the LEZ node module together with its contract.
     leaves the module open; and two callers holding subscriptions when one of
     them cancels.
 06. <a id="sup-6"></a>A README MUST document end-to-end usage: building the
-    module, the configuration and storage directory `start_node` requires, and
-    step-by-step instructions for every operation via the CLI.
+    module, starting the node with its default settings and with each shipped
+    network ([#105](#f-105) to [#110](#f-110)), and step-by-step instructions
+    for every operation via the CLI.
 07. <a id="sup-7"></a>The delivery MUST include documentation in repo for the
     module and its contract, covering the developer integration journey for
     reading state, tracking deposits, and confirming transactions.
@@ -4202,15 +4330,15 @@ Access control and the contract rest on Logos Core in several places.
   [`cpp/logos_module_impl.h:223-283`](https://github.com/logos-co/logos-protocol/blob/d8389858fe4fc9a91113bc8dd66721bf99699173/cpp/logos_module_impl.h#L223-L283)),
   and only host, module, and unknown are emitted today. A call authorised by an
   operator token over a plain connection arrives as unknown. Functionality
-  [#107](#f-107) admits the host, an operator, and the callers the node's
+  [#113](#f-113) admits the host, an operator, and the callers the node's
   configuration names, so who can operate the node from elsewhere waits on
   operator identities.
 - **Per method grants.** The access policy admits a caller to a module today.
   Narrowing a caller to a list of methods is in development
   ([logos-liblogos#232](https://github.com/logos-co/logos-liblogos/pull/232),
   [logos-capability-module#37](https://github.com/logos-co/logos-capability-module/pull/37))
-  and is what Functionality [#106](#f-106) depends on. Functionality
-  [#107](#f-107) does not depend on it, deciding on the caller identity and the
+  and is what Functionality [#112](#f-112) depends on. Functionality
+  [#113](#f-113) does not depend on it, deciding on the caller identity and the
   node's own configuration instead.
 - **Callers on another runtime.** A wallet on another runtime reaches the node
   through Logos Core peering, which is also in development
@@ -4219,6 +4347,14 @@ Access control and the contract rest on Logos Core in several places.
   runtimes from one node through peering is still in design. The documentation
   states how a per method grant is enforced for such a caller where the platform
   does not enforce it.
+- **Settings from the runtime.** Logos Core passes a module no settings when it
+  loads it, only the module's per-instance persistence directory
+  ([`docs/spec.md:175-184`](https://github.com/logos-co/logos-liblogos/blob/af19e519c9b579a1dab86e8dc3960925fc28b526/docs/spec.md#L175-L184)),
+  so a node it starts on load runs with the settings it last started with or its
+  defaults (Functionality [#105](#f-105)). A way for the runtime to give every
+  module its settings from one environment, so that the networks a user's
+  modules join agree, is under discussion and not specified. Were it to land,
+  its settings would take the place of the defaults.
 - **Events per caller.** Privacy [#4](#priv-4) requires delivery per caller. A
   Logos Core module event published in the ordinary way reaches every subscriber
   of the module. The draft's invocation-scoped events, on which the
