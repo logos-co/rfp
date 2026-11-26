@@ -3501,6 +3501,33 @@ Every function defined above is further bound by the following.
     ([`lez/indexer/service/rpc/src/lib.rs:63-91`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/service/rpc/src/lib.rs#L63-L91),
     [`lez/sequencer/service/rpc/src/lib.rs:82-110`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/service/rpc/src/lib.rs#L82-L110)).
     **[New]**
+
+**Open question: a `safe` status.** `BedrockStatus` declares `Safe`, but LEZ
+never assigns it and Bedrock reports no block between its tip and its last
+immutable one, so this RFP offers `pending` and `finalized` only. Finality
+trails the head by about an hour on testnet
+([Assumption A7](#a7-lez-blocks-are-not-propagated-over-the-lez-p2p-protocol)),
+and a level between the two would let a deposit tracker or an explorer act on a
+block unlikely to be replaced well before it is final. Ethereum and most of the
+surveyed rollups offer one
+([Appendix: Blockchain API and SDK Ecosystem, section 1.29](../appendix/blockchain-api-sdk-ecosystem.md#129-read-historical-state-at-a-past-version)):
+
+- **Ethereum**: the `safe` block tag, "The most recent block that is safe from
+  re-orgs under honest majority and certain synchronicity assumptions".
+- **OP Stack**: `safe_l2`, the L2 head derived from data the L1 holds, ahead of
+  `finalized_l2`, derived from finalized L1 data only.
+- **Arbitrum**: `safe`, a block whose batch has reached the parent chain's
+  `safe` block.
+- **zkSync Era**: `safe`, an alias of its `precommitted` stage, documented in
+  source as "Real chances of revert are very low".
+- **Polygon zkEVM**: a `safe` tag between `latest` and `finalized`.
+- **Solana**: the `confirmed` commitment, between `processed` and `finalized`.
+
+Should support for `Safe` be added, and by what rule? One needs Bedrock to
+report a block deeper than its tip but short of immutable, or LEZ to define a
+depth of its own. Added later, it is a new value of `lez_node.bedrock_status`
+that callers built before it must tolerate.
+
 94. <a id="f-94"></a>Every function above MUST be served by the node module
     under its contract with the semantics defined here, including the not-found
     and error distinction required by Functionality [#95](#f-95). The module
@@ -3646,7 +3673,7 @@ lez_node.reset_storage_response = {
 Stops the node and deletes the store of a zone, by default the zone its settings
 name, without restarting it. Exposed by the node module only.
 
-098. <a id="f-98"></a>`start_node` MUST start the node when called with no
+98. <a id="f-98"></a>`start_node` MUST start the node when called with no
      arguments, with the settings it last started with or, on its first start,
      the defaults. A caller MAY name a network, whose shipped settings replace
      the defaults, and MAY pass individual settings, each replacing the value of
@@ -3659,7 +3686,7 @@ name, without restarting it. Exposed by the node module only.
      ([`lez/indexer/ffi/src/api/lifecycle.rs:33-40`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/ffi/src/api/lifecycle.rs#L33-L40)),
      with no default for either, so a node cannot start without a caller that
      knows both paths on the machine the node runs on. **[New]**
-099. <a id="f-99"></a>The node's storage MUST default to the per-instance
+99. <a id="f-99"></a>The node's storage MUST default to the per-instance
      persistence directory Logos Core gives the module
      ([`docs/spec.md:175-184`](https://github.com/logos-co/logos-liblogos/blob/af19e519c9b579a1dab86e8dc3960925fc28b526/docs/spec.md#L175-L184)),
      as the delivery module's data does, so two instances of the module never
