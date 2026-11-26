@@ -56,11 +56,12 @@ dependencies: []
 This RFP specifies the LEZ node API, the API the LEZ node module is expected to
 expose: the set of functions an integrator needs to follow the chain, track
 deposits, confirm transactions, and submit a transaction it has already signed.
-Each requirement states what the API provides, and cites the node FFI function
-that backs it today where one exists. It is the equivalent of the `eth`
-namespace on Ethereum's JSON-RPC: it answers what happened and what the current
-state is, and it accepts a signed transaction for the network, holding no keys
-and signing nothing.
+Each requirement states what the API provides. Where it carries a readiness
+marker, it cites the existing LEZ code that backs the marker, and where a node
+FFI function exists for the capability, the citation points to that function. It
+is the equivalent of the `eth` namespace on Ethereum's JSON-RPC: it answers what
+happened and what the current state is, and it accepts a signed transaction for
+the network, holding no keys and signing nothing.
 
 The requirements are drawn from research into how established chains serve their
 integrators and from common practice across the blockchain ecosystem (see
@@ -251,10 +252,11 @@ schema, whether they run in the same runtime as the node or reach it from
 another through Logos Core peering. The CDDL in this document is indicative: it
 fixes what each method carries, and the LEZ maintainers finalise names and
 encodings ([#97](#f-97)). The requirements below state what the API provides;
-the node FFI functions that back each method are cited where they exist today,
-and a capability reaches a caller only once the module carries it
-([#101](#f-101)). How the module is built, including any FFI library it links,
-is the implementation's. See
+each requirement's readiness marker is backed by a citation to the existing LEZ
+code, which is the node FFI function where one exists for the capability, and a
+capability reaches a caller only once the module carries it ([#101](#f-101)).
+How the module is built, including any FFI library it links, is the
+implementation's. See
 [Appendix: Logos API Surfaces](../appendix/logos-api-surfaces.md) for the
 as-built inventory of every layer.
 
@@ -741,17 +743,20 @@ informative.
 #### Functionality
 
 Each requirement carries a readiness marker describing its starting point in the
-current LEZ codebase:
+current LEZ codebase, and cites the existing code that backs the marker. That
+code is not always the node FFI: it may be the node service, its RPC, the store,
+the chain state, or the sequencer. Where a node FFI function exists for the
+capability, the citation points to that function.
 
 - **Ready**: the node FFI already exports the capability, and only a
   specification, test, or documentation obligation remains.
-- **Ready, not exposed**: the capability exists in the node service, RPC, or
-  store, or the sequencer service serves or computes it from state the node also
-  holds, but the node FFI does not export it. The work is exposure.
+- **Ready, not exposed**: the existing code holds or computes the capability, in
+  the node service, RPC, or store, or in the sequencer service from state the
+  node also holds, but the node FFI does not export it. The work is exposure.
 - **Computed, not persisted**: the node derives the data during ingestion but
   neither stores nor exposes it. The work is persistence plus exposure.
 - **New**: the capability does not exist today, whether or not the data it would
-  serve does.
+  serve does. Any citation is to the code nearest to it.
 
 A requirement whose behaviour depends on the node's mode says so. The markers
 indicate effort, not priority: every hard requirement is required regardless of
@@ -761,13 +766,13 @@ fixes what the method carries, while the requirements underneath it state what
 is required. Each CDDL block defines one method: its request and response, and
 its event for a subscription.
 
-The markers describe the FFI on the LEZ `dev` branch, so a marker of **Ready**
-means ready in the FFI. Only the `v0.4.0` release candidates (`v0.4.0-rc1` to
-`v0.4.0-rc3`) are considered at the time of writing. Where a capability landed
-on `dev` after `v0.4.0-rc3`, as transaction receipts did, the marker gives its
-state at the release tags and a note says it is on `dev`. A capability ready in
-the FFI reaches a caller only once the module carries it, which [#101](#f-101)
-requires.
+The markers and citations describe the code on the LEZ `dev` branch, so a marker
+of **Ready** means ready in the node FFI. Only the `v0.4.0` release candidates
+(`v0.4.0-rc1` to `v0.4.0-rc3`) are considered at the time of writing. Where a
+capability landed on `dev` after `v0.4.0-rc3`, as transaction receipts did, the
+marker gives its state at the release tags and a note says it is on `dev`. A
+capability ready in the FFI reaches a caller only once the module carries it,
+which [#101](#f-101) requires.
 
 ##### Shared types
 
