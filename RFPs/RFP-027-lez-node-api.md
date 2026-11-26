@@ -4042,11 +4042,9 @@ module" below means the LEZ node module together with its contract.
 
 #### + Privacy
 
-1. <a id="priv-1"></a>A function added by this RFP MUST NOT return private state
-   in the clear, or a viewing key, or any value from which either can be
-   recovered without the viewing key, and a function MUST NOT accept a viewing
-   key, a nullifier key, or a decrypted note. Private post-states MUST remain
-   readable only by the viewing key holder, who decrypts them on its own side.
+1. <a id="priv-1"></a>A function MUST NOT accept a viewing key, a nullifier key,
+   or a decrypted note. Private post-states MUST remain readable only by the
+   viewing key holder, who decrypts them on its own side.
 2. <a id="priv-2"></a>The effects and status surfaces MUST NOT report, for a
    privacy-preserving transaction, any linkage between its private inputs and
    its private outputs beyond the commitments and nullifiers already published
