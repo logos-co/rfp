@@ -893,7 +893,7 @@ lez_node.tips = {
 
 lez_node.served_at = {
     bedrock_status: lez_node.bedrock_status,
-    ? block: lez_node.block_ref,
+    block: lez_node.block_ref,
     tips: lez_node.tips,
 }
 
@@ -1141,8 +1141,9 @@ lez_node.event_record = {
   `finalized` against the final chain ([#99](#f-99)). Its response carries a
   `lez_node.served_at` with the status it answered at, the block it answered at,
   and both tips ([#100](#f-100)). A read that takes no status carries the tips
-  alone. The API MUST omit a tip, or the block served at, only while the node
-  holds no block there.
+  alone. The API MUST omit a tip only while the node holds no block on that
+  chain; a read of chain state at a status where the node holds no block fails
+  instead ([#99](#f-99)).
 - **Absence and errors.** The API MUST report a record the node does not hold as
   an omitted field, not an error. Every response MUST be either its success map
   or an `error` map whose `code` names the failure. Which codes exist is the
@@ -3478,9 +3479,22 @@ Every function defined above is further bound by the following.
      [`lez/sequencer/core/src/lib.rs:1956`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/core/src/lib.rs#L1956)).
      Each answer MUST name the status and the block, with its hash, it was
      served at, because an answer at the head can be overtaken when the head is
-     replaced. The lookups by transaction hash and by block, and the walks of
-     publications, encrypted notes, events and an account's history
-     (`query_transaction`, `query_transaction_receipt`, `query_block`,
+     replaced. A read at a status where the node holds no block yet, as before
+     it has read the genesis block, or at `finalized` until the first block's
+     inscription is final, MUST fail with an error of its own, which the caller
+     retries later, rather than answer from the state the node starts from
+     before any block
+     ([`lez/testnet_initial_state/src/lib.rs:224-243`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/testnet_initial_state/src/lib.rs#L224-L243)).
+     Today such a read answers from that state, so an account it does not hold
+     reads as absent, as an account that does not exist does
+     ([`lez/indexer/core/src/block_store.rs:36-62`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/core/src/block_store.rs#L36-L62),
+     [`lez/indexer/service/src/service.rs:125-136`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/service/src/service.rs#L125-L136)).
+     **Open question:** does anything rely on reading before the first block,
+     such as a wallet, a tool, or a test reading the seeded accounts as soon as
+     the node starts? The LEZ maintainers are asked to confirm that failing
+     these reads breaks nothing. The lookups by transaction hash and by block,
+     and the walks of publications, encrypted notes, events and an account's
+     history (`query_transaction`, `query_transaction_receipt`, `query_block`,
      `query_block_by_hash`, `query_publications`, `query_private_notes`,
      `query_events`, `query_transactions_by_account`, and `query_program_ids`),
      take no status: they answer against the head and carry the tips alone, and
