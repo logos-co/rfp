@@ -786,6 +786,34 @@ what a node no longer holds
 be exposed, and [#88](#f-88) requires a read below it to be answered as such,
 distinctly from a read for data that never existed.
 
+### Open questions
+
+What this RFP leaves for the LEZ and Logos Core maintainers to settle:
+
+- **Two transactions can share a hash** ([#4](#f-4)): which of options A to D
+  resolves it.
+- **Several zones, one module instance**
+  ([A10](#a10-each-lez-node-follows-one-zone), Supportability [#12](#sup-12)):
+  one node module instance per zone, or one node serving several zones.
+- **A dependency needed in one mode**
+  ([A2](#a2-a-sequencer-is-a-lez-node-in-sequencer-mode)): whether Logos Core's
+  optional dependencies can load the Logos Blockchain wallet module for
+  sequencer mode only, and how a node reports it missing.
+- **Block propagation**
+  ([A7](#a7-lez-blocks-are-not-propagated-over-the-lez-p2p-protocol)): whether
+  LEZ blocks will travel over the LEZ p2p protocol, which would add a
+  transaction status.
+- **Reads before the first block** ([#93](#f-93)): whether anything relies on
+  reading the seeded accounts before the first block.
+- **A `safe` status** ([open question](#open-safe-status)): whether to add one,
+  and by what rule.
+- **Settings at start** ([#98](#f-98),
+  [Settings from the runtime](#dep-settings-from-the-runtime)): whether to reuse
+  the settings the node last started with, and whether Logos Core will supply
+  them.
+- **Call identifiers** ([Call identifiers](#dep-call-identifiers)): whether
+  Logos Core will pass a module the identifier of the call it is serving.
+
 ## ✅ Scope of Work
 
 The key words MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT,
@@ -3502,10 +3530,10 @@ Every function defined above is further bound by the following.
     [`lez/sequencer/service/rpc/src/lib.rs:82-110`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/service/rpc/src/lib.rs#L82-L110)).
     **[New]**
 
-**Open question: a `safe` status.** `BedrockStatus` declares `Safe`, but LEZ
-never assigns it and Bedrock reports no block between its tip and its last
-immutable one, so this RFP offers `pending` and `finalized` only. Finality
-trails the head by about an hour on testnet
+<a id="open-safe-status"></a>**Open question: a `safe` status.** `BedrockStatus`
+declares `Safe`, but LEZ never assigns it and Bedrock reports no block between
+its tip and its last immutable one, so this RFP offers `pending` and `finalized`
+only. Finality trails the head by about an hour on testnet
 ([Assumption A7](#a7-lez-blocks-are-not-propagated-over-the-lez-p2p-protocol)),
 and a level between the two would let a deposit tracker or an explorer act on a
 block unlikely to be replaced well before it is final. Ethereum and most of the
@@ -3673,7 +3701,7 @@ lez_node.reset_storage_response = {
 Stops the node and deletes the store of a zone, by default the zone its settings
 name, without restarting it. Exposed by the node module only.
 
-98. <a id="f-98"></a>`start_node` MUST start the node when called with no
+098. <a id="f-98"></a>`start_node` MUST start the node when called with no
      arguments, with the settings it last started with or, on its first start,
      the defaults. A caller MAY name a network, whose shipped settings replace
      the defaults, and MAY pass individual settings, each replacing the value of
@@ -3686,7 +3714,7 @@ name, without restarting it. Exposed by the node module only.
      ([`lez/indexer/ffi/src/api/lifecycle.rs:33-40`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/ffi/src/api/lifecycle.rs#L33-L40)),
      with no default for either, so a node cannot start without a caller that
      knows both paths on the machine the node runs on. **[New]**
-99. <a id="f-99"></a>The node's storage MUST default to the per-instance
+099. <a id="f-99"></a>The node's storage MUST default to the per-instance
      persistence directory Logos Core gives the module
      ([`docs/spec.md:175-184`](https://github.com/logos-co/logos-liblogos/blob/af19e519c9b579a1dab86e8dc3960925fc28b526/docs/spec.md#L175-L184)),
      as the delivery module's data does, so two instances of the module never
@@ -4230,8 +4258,9 @@ Access control and the contract rest on Logos Core in several places.
   ([Assumption A10](#a10-each-lez-node-follows-one-zone)), so an application
   using several zones restarts the node module to move between them today.
   Supportability [#12](#sup-12) asks for the plan.
-- **Call identifiers.** Logos Core gives each transport request an identifier
-  the callee echoes (`logos-lips` draft at `6cac8335`,
+- <a id="dep-call-identifiers"></a>**Call identifiers.** Logos Core gives each
+  transport request an identifier the callee echoes (`logos-lips` draft at
+  `6cac8335`,
   [`spec-module-transport.md:335-336`](https://github.com/logos-co/logos-lips/blob/6cac8335af8cea0e5d4e2f9ccb2e584c5b27a7c2/docs/logos-core/raw/spec-module-transport.md#L335-L336)),
   records an authority decision identifier, and keeps call audit records naming
   the caller
@@ -4269,8 +4298,9 @@ Access control and the contract rest on Logos Core in several places.
   runtimes from one node through peering is still in design. The documentation
   states how a per method grant is enforced for such a caller where the platform
   does not enforce it.
-- **Settings from the runtime.** Logos Core passes a module no settings when it
-  loads it, only the module's per-instance persistence directory
+- <a id="dep-settings-from-the-runtime"></a>**Settings from the runtime.** Logos
+  Core passes a module no settings when it loads it, only the module's
+  per-instance persistence directory
   ([`docs/spec.md:175-184`](https://github.com/logos-co/logos-liblogos/blob/af19e519c9b579a1dab86e8dc3960925fc28b526/docs/spec.md#L175-L184)),
   so a node it starts on load runs with the settings it last started with or its
   defaults (Functionality [#98](#f-98)). A way for the runtime to give every
