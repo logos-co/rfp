@@ -293,6 +293,22 @@ zone the configuration names, and every read, none of which takes a zone. **If
 invalidated:** every read takes the zone it answers for, and the network
 identity lists the zones the node follows.
 
+#### A11. The LEZ wallet module holds the keys
+
+The LEZ wallet module holds the keys it derives, signs, and proves with, and LEZ
+has no separate keystore module. A keystore module that holds the keys apart
+from the wallet module is planned but not scheduled. The Logos EVM wallet
+already splits it out
+([`logos-evm-keystore-module`](https://github.com/logos-co/logos-evm-keystore-module)).
+
+**Basis:** the integration guide, whose wallet modules handle keys, derivation,
+signing, and proving. **Rests on it:** the split between this RFP and the LEZ
+wallet API
+([Assumption A1](#a1-each-chain-has-a-wallet-module-and-a-node-module)), and
+wallet and key management in [Out of Scope](#out-of-scope). **If invalidated:**
+the node API is unchanged, since the node holds no keys either way; key custody
+moves out of the LEZ wallet module into the keystore module.
+
 ### Who uses it, and how it is deployed
 
 **Integrators.** The
