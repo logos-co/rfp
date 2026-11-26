@@ -2190,6 +2190,18 @@ execution succeeded.
     not known, whether it was never submitted or was submitted elsewhere and
     discarded, no record of a declined transaction being retained. **[New]**
 
+##### Node status
+
+Reporting whether the node is caught up with the chain, which mode it runs in,
+and why it stopped if it has
+([Appendix: Blockchain API and SDK Ecosystem, section 1.2](../appendix/blockchain-api-sdk-ecosystem.md#12-health-and-sync-status-check)).
+
+- **Ethereum**: `eth_syncing`.
+- **Solana**: `getHealth`.
+- **Bitcoin**: `getblockchaininfo`, whose `initialblockdownload` and
+  `verificationprogress` report how far the node has caught up.
+- **Zcash**: `getblockchaininfo`, as on Bitcoin.
+
 ```cddl
 lez_node.query_status_request = {}
 
@@ -2546,9 +2558,9 @@ private addresses it binds.
     transactions the node has observed on the LEZ peer-to-peer network and not
     yet seen inscribed, together with those submitted through it. In either mode
     an entry another node has included MUST leave the listing once the
-    inscription is seen. The API documentation MUST state which a node serves,
-    and that in neither mode does absence from the listing show that a
-    transaction is not in another node's mempool. **[New]**
+    inscription is seen. The API documentation MUST describe the listing in each
+    mode, and MUST state that in neither mode does absence from the listing show
+    that a transaction is not in another node's mempool. **[New]**
 
 **Open problem: blocks produced but not yet inscribed.** A node in sequencer
 mode holds the blocks it has produced and not yet seen inscribed on the Logos
