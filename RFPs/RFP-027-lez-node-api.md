@@ -2521,9 +2521,11 @@ lez_node.query_mempool_digests_request = {
 lez_node.query_mempool_digests_response = {
     digests: [* lez_node.mempool_digest],
     next_cursor: lez_node.cursor,
+    ; transactions the listing holds, those of produced blocks not yet seen
+    ; inscribed among them (#51), and the most it may hold (#53); outside
+    ; sequencer mode both describe the observed set
     size: uint64,
-    bound: uint64,
-    expiry_seconds: uint64,
+    max_size: uint64,
 } / {
     error: lez_node.error,
 }
@@ -2612,11 +2614,15 @@ the mempool until its inscription is seen.
 56. <a id="f-56"></a>The mempool MUST be queryable by transaction hash, through
     `query_mempool_entry` below, so a caller holding the hash
     `submit_transaction` returned asks whether that transaction is still in the
-    mempool without walking the listing. The listing MUST also report the
-    mempool's size
+    mempool without walking the listing. The listing MUST also report how many
+    transactions it holds, counted as the mempool counts its entries
     ([`lez/mempool/src/lib.rs:30-32`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/mempool/src/lib.rs#L30-L32)),
-    the bound it is configured with, and the time after which an entry leaves it
-    ([#53](#f-53)), which a caller retrying on a full mempool reads. **[New]**
+    and the most it may hold ([#53](#f-53)), both in transactions, which a
+    caller retrying on a full mempool reads. Bitcoin's `getmempoolinfo` reports
+    its count and limit the same way, and no surveyed chain reports how long an
+    entry stays
+    ([Appendix: Blockchain API and SDK Ecosystem, section 1.26](../appendix/blockchain-api-sdk-ecosystem.md#126-inspect-the-mempool-or-pending-set)).
+    **[New]**
 
 ```cddl
 lez_node.query_mempool_entry_request = {

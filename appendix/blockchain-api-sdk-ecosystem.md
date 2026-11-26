@@ -1258,23 +1258,44 @@ assumptions" [[145]](#ref-145).
 
 ### 1.26 Inspect the mempool or pending set
 
-Lists transactions the node holds but has not yet included in a block.
+Lists transactions the node holds but has not yet included in a block, and
+reports how full the pending set is.
 
-| Chain    | Method                                                                   |
-| -------- | ------------------------------------------------------------------------ |
-| Ethereum | `eth_newPendingTransactionFilter`; no direct dump [[46]](#ref-46)        |
-| Bitcoin  | `getrawmempool`, `getmempoolentry`, `getmempoolinfo` [[24]](#ref-24)     |
-| Zcash    | `getrawmempool`, `getmempoolinfo`, `getaddressmempool` [[122]](#ref-122) |
-| Solana   | [NOT FOUND]; no mempool, transactions forward to leaders [[25]](#ref-25) |
-| XRPL     | [NOT FOUND] [[26]](#ref-26)                                              |
-| Cosmos   | `/unconfirmed_txs`, `/num_unconfirmed_txs` [[9]](#ref-9)                 |
-| Stellar  | [NOT FOUND] [[27]](#ref-27)                                              |
-| NEAR     | [NOT FOUND] [[13]](#ref-13)                                              |
-| Sui      | [NOT FOUND] [[17]](#ref-17)                                              |
-| Logos L1 | `GET /mempool/view` [[19]](#ref-19)                                      |
-| LEZ      | [NOT FOUND] [[21]](#ref-21)                                              |
+| Chain    | Method                                                                                                                      |
+| -------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Ethereum | `eth_newPendingTransactionFilter`; no direct dump [[46]](#ref-46); Geth `txpool_status`, `txpool_content` [[159]](#ref-159) |
+| Bitcoin  | `getrawmempool`, `getmempoolentry`, `getmempoolinfo` [[24]](#ref-24)                                                        |
+| Zcash    | `getrawmempool`, `getmempoolinfo`, `getaddressmempool` [[122]](#ref-122)                                                    |
+| Solana   | [NOT FOUND]; no mempool, transactions forward to leaders [[25]](#ref-25)                                                    |
+| XRPL     | [NOT FOUND] [[26]](#ref-26)                                                                                                 |
+| Cosmos   | `/unconfirmed_txs`, `/num_unconfirmed_txs` [[9]](#ref-9)                                                                    |
+| Stellar  | [NOT FOUND] [[27]](#ref-27)                                                                                                 |
+| NEAR     | [NOT FOUND] [[13]](#ref-13)                                                                                                 |
+| Sui      | [NOT FOUND] [[17]](#ref-17)                                                                                                 |
+| Logos L1 | `GET /mempool/view` [[19]](#ref-19)                                                                                         |
+| LEZ      | [NOT FOUND] [[21]](#ref-21)                                                                                                 |
 
 **Why it exists.** No specific or relevant context has been found.
+
+**What comes back.** Four chains report a count of what the pending set holds;
+one reports its limit, and none how long an entry stays:
+
+| Chain    | Count                                                                                          | Limit                                                                   | Entry lifetime                                                                   |
+| -------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Bitcoin  | `size` ("Current tx count"), `bytes` (virtual size), `usage` (memory) [[157]](#ref-157)        | `maxmempool` ("Maximum memory usage for the mempool") [[157]](#ref-157) | not reported; `-mempoolexpiry` startup flag, default 336 hours [[158]](#ref-158) |
+| Zcash    | `size`, `bytes`, `usage` [[160]](#ref-160)                                                     | not reported                                                            | not reported                                                                     |
+| Cosmos   | `n_txs`, `total`, `total_bytes` on `/num_unconfirmed_txs` and `/unconfirmed_txs` [[9]](#ref-9) | not reported                                                            | not reported                                                                     |
+| Ethereum | Geth `txpool_status`: `pending` and `queued` counts [[159]](#ref-159)                          | not reported                                                            | not reported                                                                     |
+| Logos L1 | none; `GET /mempool/view` returns hashes [[19]](#ref-19)                                       | not reported                                                            | not reported                                                                     |
+
+Bitcoin's limit is in bytes of memory, set by `-maxmempool` with a default of
+300 MB [[158]](#ref-158), so its count and its limit are in different units. It
+also reports `mempoolminfee`, "Minimum fee rate ... for tx to be accepted. Is
+the maximum of minrelaytxfee and minimum mempool fee" [[157]](#ref-157), which
+rises as the mempool fills and tells a submitter what a full mempool now
+demands. Geth splits its count by whether a transaction can be included now
+(`pending`) or waits on an earlier nonce (`queued`), and its `txpool` namespace
+is Geth's own rather than part of the `eth_` specification [[159]](#ref-159).
 
 **Potential gaps.**
 
@@ -2575,3 +2596,12 @@ and carries no resume anchor [[81]](#ref-81).
 156. <a id="ref-156"></a>Polygon Hermez, "zkevm-node:
      jsonrpc/endpoints_zkevm.go", the `zkevm_` batch and block status methods.
      https://github.com/0xPolygonHermez/zkevm-node/blob/develop/jsonrpc/endpoints_zkevm.go
+157. <a id="ref-157"></a>Bitcoin Core, "src/rpc/mempool.cpp", `getmempoolinfo`.
+     https://raw.githubusercontent.com/bitcoin/bitcoin/master/src/rpc/mempool.cpp
+158. <a id="ref-158"></a>Bitcoin Core, "src/kernel/mempool_options.h",
+     `DEFAULT_MAX_MEMPOOL_SIZE_MB` and `DEFAULT_MEMPOOL_EXPIRY_HOURS`.
+     https://raw.githubusercontent.com/bitcoin/bitcoin/master/src/kernel/mempool_options.h
+159. <a id="ref-159"></a>Go Ethereum, "txpool Namespace" documentation.
+     https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-txpool
+160. <a id="ref-160"></a>Zcash, "getmempoolinfo", Zcash RPC Docs for zcashd
+     6.12.2. https://zcash.github.io/rpc/getmempoolinfo.html
