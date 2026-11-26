@@ -295,8 +295,9 @@ identity lists the zones the node follows.
 
 ### Who uses it, and how it is deployed
 
-**Integrators.** The integration guide names three kinds of integrator, and this
-API serves all three:
+**Integrators.** The
+[integration guide](https://docs.logos.co/build-an-app/integrate-logos) names
+three kinds of integrator, and this API serves all three:
 
 - developers building applications as Logos modules, run in Basecamp or with
   `logosctl`;
