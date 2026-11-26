@@ -851,6 +851,8 @@ _module = "lez_node_module"
 lez_node.hash = bstr .size 32
 lez_node.account_id = bstr .size 32
 lez_node.zone_id = bstr .size 32
+; the chain identifier as per CAIP-2 (Chain identifiers and CAIP)
+lez_node.chain_id = tstr .size 32
 lez_node.commitment = bstr .size 32
 lez_node.nullifier = bstr .size 32
 lez_node.selector = bstr .size 8
@@ -3099,32 +3101,16 @@ Which zone and which network the node follows
 lez_node.query_network_identity_request = {}
 
 lez_node.query_network_identity_response = {
-    ; the zone the node follows: its Bedrock channel identifier, as the
-    ; node's configuration names it (`channel_id`,
-    ; lez/indexer/core/src/config.rs:37); not unique across L1 networks
+    ; the Logos Blockchain (Bedrock) channel identifier
     zone: lez_node.zone_id,
-    ; the Logos Blockchain chain identifier from its genesis inscription,
-    ; such as `logos-chain-1`, as the L1 serves it at `GET /chain/id`;
-    ; 1 to 255 bytes (`MAX_CHAIN_ID_SIZE`,
-    ; core/src/mantle/transactions/genesis_tx.rs:252)
+    ; the Logos Blockchain (Bedrock) chain identifier from its genesis
+    ; inscription
     ? bedrock_chain_id: tstr .size (1..255),
+    ; the chain identifier as per CAIP-2 (Chain identifiers and CAIP)
     ? chain_id: lez_node.chain_id,
-    ; false while the node cannot reach the L1, both identifiers then
-    ; being absent (#81)
-    bedrock_reachable: bool,
 } / {
     error: lez_node.error,
 }
-
-lez_node.chain_identity = {
-    id: tstr .size (1..255),
-    lez_chain_id: lez_node.chain_id,
-} / {
-    unavailable: true,
-}
-
-; the chain identifier as per CAIP-2 (Chain identifiers and CAIP)
-lez_node.chain_id = tstr .size 32
 ```
 
 Returns what the node is following: which zone, which Logos Blockchain chain
@@ -3152,16 +3138,16 @@ that zone settles to, and the chain identifier as per CAIP-2.
     ([`lez/indexer/core/src/lib.rs:112-115`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/indexer/core/src/lib.rs#L112-L115)),
     so the node reads it from there. **[New]**
 81. <a id="f-81"></a>Where the chain identifier cannot be obtained, because the
-    L1 node is unreachable, the call MUST report it as unavailable rather than
-    omitting it or returning a placeholder, so a caller can tell an unidentified
-    chain from an unasked question. **[New]**
+    L1 node is unreachable, the call MUST omit `bedrock_chain_id` and `chain_id`
+    rather than return a placeholder, and MUST omit them in no other case, so a
+    caller reads their absence as an unreachable L1. **[New]**
 82. <a id="f-82"></a>The call MUST also return `chain_id`, the chain identifier
     as per CAIP-2, derived from the L1 chain identifier of [#80](#f-80) and the
     zone identifier of [#78](#f-78) as
     [Chain identifiers and CAIP](#chain-identifiers-and-caip) defines it, so a
     wallet that names chains in CAIP-2 form has a reference for this chain that
-    commits to both. It MUST be reported as unavailable exactly when the L1
-    chain identifier is ([#81](#f-81)). **[New]**
+    commits to both. It MUST be absent exactly when the L1 chain identifier is
+    ([#81](#f-81)). **[New]**
 
 ##### Chain parameters and programs
 
@@ -3177,7 +3163,6 @@ lez_node.query_chain_parameters_request = {
 
 lez_node.query_chain_parameters_response = {
     parameters: lez_node.chain_parameters,
-    chain: lez_node.chain_identity,
     block: lez_node.block_ref,
 } / {
     error: lez_node.error,
@@ -3215,8 +3200,7 @@ they were read at.
     A wallet that learns a transaction is too large only on submitting it has
     already spent tens of seconds proving it. The channel parameters change by
     committee vote, so each value MUST be reported with the block it was read
-    at, and the chain identifier of [#79](#f-79) MUST be returned with them.
-    **[New]**
+    at. **[New]**
 
 ```cddl
 lez_node.query_program_ids_request = {
