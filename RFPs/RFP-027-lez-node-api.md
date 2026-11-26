@@ -857,7 +857,9 @@ lez_node.nullifier = bstr .size 32
 lez_node.selector = bstr .size 8
 lez_node.block_id = uint64
 lez_node.timestamp = uint64
-lez_node.position = uint64
+; a leaf's index in the commitment set, LEZ's `CommitmentPosition`
+; (lee/state_machine/core/src/commitment.rs:108)
+lez_node.commitment_position = uint64
 
 ; u128 values: 16 bytes, little-endian
 lez_node.amount = bstr .size 16
@@ -1084,13 +1086,13 @@ lez_node.recovery_binding = {
 
 lez_node.publication = {
     kind: "clear",
-    position: lez_node.position,
+    position: lez_node.commitment_position,
     from: lez_node.actor,
     to: lez_node.actor,
     message: bstr,
 } / {
     kind: "sealed",
-    position: lez_node.position,
+    position: lez_node.commitment_position,
     commitment: lez_node.commitment,
     note: lez_node.encrypted_note,
 }
@@ -1811,14 +1813,14 @@ and the node holds the data in its own state
 
 ```cddl
 lez_node.query_publications_request = {
-    from_position: lez_node.position,
+    from_position: lez_node.commitment_position,
     limit: lez_node.limit,
 }
 
 lez_node.query_publications_response = {
     publications: [* lez_node.publication],
     recovery_bindings: [* lez_node.recovery_binding],
-    next_position: lez_node.position,
+    next_position: lez_node.commitment_position,
 } / {
     error: lez_node.error,
 }
@@ -1919,12 +1921,12 @@ lez_node.private_note = {
     kind: "private_action" / "fee_fallback",
     nullifier: lez_node.nullifier,
     commitment: lez_node.commitment,
-    position: lez_node.position,
+    position: lez_node.commitment_position,
     encrypted_post_state: lez_node.encrypted_note,
 } / {
     kind: "sealed_message",
     commitment: lez_node.commitment,
-    position: lez_node.position,
+    position: lez_node.commitment_position,
     note: lez_node.encrypted_note,
 } / {
     kind: "recovery_binding",
@@ -2017,7 +2019,7 @@ is this call with one message position and no commitment.
 ```cddl
 lez_node.query_commitment_proofs_request = {
     commitments: [* lez_node.commitment],
-    message_positions: [* lez_node.position],
+    message_positions: [* lez_node.commitment_position],
     ? bedrock_status: lez_node.bedrock_status,
 }
 
@@ -2037,7 +2039,7 @@ lez_node.proof_entry = {
 }
 
 lez_node.membership_proof = {
-    position: lez_node.position,
+    position: lez_node.commitment_position,
     siblings: [* lez_node.hash],
 }
 ```
