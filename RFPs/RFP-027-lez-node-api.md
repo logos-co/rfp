@@ -2554,26 +2554,27 @@ private addresses it binds.
     a caller detects a conflict with a transaction it is about to build without
     fetching bodies. **[New]**
 51. <a id="f-51"></a>In sequencer mode the listing MUST be the mempool the node
-    builds blocks from. Outside sequencer mode, the listing MUST be the
-    transactions the node has observed on the LEZ peer-to-peer network and not
-    yet seen inscribed, together with those submitted through it. In either mode
-    an entry another node has included MUST leave the listing once the
-    inscription is seen. The API documentation MUST describe the listing in each
-    mode, and MUST state that in neither mode does absence from the listing show
-    that a transaction is not in another node's mempool. **[New]**
+    builds blocks from. A transaction in a block the node has produced and not
+    yet seen inscribed MUST be treated as in that mempool until the inscription
+    is seen: the listing includes it and the status query reports it as
+    received. Outside sequencer mode, the listing MUST be the transactions the
+    node has observed on the LEZ peer-to-peer network and not yet seen
+    inscribed, together with those submitted through it. In either mode an entry
+    another node has included MUST leave the listing once the inscription is
+    seen. The API documentation MUST describe the listing in each mode, and MUST
+    state that in neither mode does absence from the listing show that a
+    transaction is not in another node's mempool. **[New]**
 
-**Open problem: blocks produced but not yet inscribed.** A node in sequencer
-mode holds the blocks it has produced and not yet seen inscribed on the Logos
-Blockchain, whose transactions have left its mempool
+**Blocks produced but not yet inscribed count as in the mempool.** A node in
+sequencer mode holds the blocks it has produced and not yet seen inscribed on
+the Logos Blockchain, whose transactions have left its mempool
 ([`lez/sequencer/core/src/lib.rs:1587-1591`](https://github.com/logos-blockchain/logos-execution-zone/blob/dcbd318f0f2ef601fc93e67e0dabc49895d811ef/lez/sequencer/core/src/lib.rs#L1587-L1591)),
 and since LEZ blocks are not propagated over the LEZ p2p protocol
 ([Assumption A7](#a7-lez-blocks-are-not-propagated-over-the-lez-p2p-protocol)),
-no other node knows of them. What the API reports about them is open: whether
-the mempool listing, the status query, or reads at the head of the node that
-produced them show them, and how. Until that is settled, a transaction in such a
-block is neither in the producing node's mempool nor on its head, so no status
-of [#40](#f-40) describes it there, and a caller's conflict check against the
-mempool can miss it.
+no other node knows of them. Counted neither in the mempool nor on the head,
+such a transaction would have no status of [#40](#f-40), and a caller's conflict
+check against the mempool would miss it. [#51](#f-51) therefore counts it as in
+the mempool until its inscription is seen.
 
 52. <a id="f-52"></a>Outside sequencer mode, the observed set MUST admit only a
     transaction that passes the node's validation ([#47](#f-47)), as the gossip
