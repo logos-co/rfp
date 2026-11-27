@@ -15,8 +15,6 @@ dependencies:
     reason: An admin authority capability is required to manage auction parameters (F8); RFP-001 describes such a capability and is an illustrative example.
   - id: RFP-002
     reason: A freeze authority capability is required to pause new debt generation when bad debt exceeds the surplus buffer (F4); RFP-002 describes such a capability and is an illustrative example.
-  - id: LP-0015
-    reason: General cross-program calls via tail calls, used to seize collateral from the host CDP and update auction state in a protected continuation; available in the LEZ core runtime.
 category: Applications & Integrations
 ---
 
@@ -330,18 +328,6 @@ technical capabilities:
    [RFP-001](./RFP-001-admin-authority-lib.md) and
    [RFP-002](./RFP-002-freeze-authority-lib.md), which are illustrative
    examples.
-
-The following capabilities are already available in the LEZ core runtime:
-
-- **General cross-program calls via tail calls**, so that a liquidation can call
-  the host CDP protocol to seize collateral from an undercollateralized position
-  and then continue, in a protected continuation, to initialise auction state
-  and account for the seized collateral
-  ([LP-0015](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0015.md)).
-- **Structured event emission**, so that liquidator bots and indexers can
-  observe positions and react to on-chain state changes without polling every
-  account
-  ([LP-0012](https://github.com/logos-co/lambda-prize/blob/main/prizes/LP-0012.md)).
 
 Proposals must state which implementation of each capability they will build
 against, and how a change to that implementation's interface would be absorbed.
