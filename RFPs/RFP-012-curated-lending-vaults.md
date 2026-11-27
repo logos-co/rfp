@@ -291,14 +291,7 @@ in a single governance body.
    remaining capacity, and the curator's performance fee.
 3. The GUI displays per-user: vault share balance, current value in underlying
    token, and accrued yield since deposit.
-4. When interacting via a private account, the core module must handle the
-   atomic deshield (deposit token + native gas) as a single indivisible user
-   action, consistent with the privacy pattern described in RFP-008.
-5. When interacting via a private account, before each vault operation, the GUI
-   must show the estimated transaction fee and confirm that the user's shielded
-   balance covers both the deposit amount and fees within the single deshield
-   action.
-6. Vault share tokens must be usable as collateral in a lending protocol's
+4. Vault share tokens must be usable as collateral in a lending protocol's
    markets (subject to an oracle being available for the vault share price).
 
 #### Reliability
@@ -389,19 +382,11 @@ in a single governance body.
 
 #### + Privacy
 
-1. The GUI and core module must support both direct public account interaction
-   and the deshield→interact→reshield pattern for private account interaction
-   with vaults. When a user chooses the private account path, the core module
-   must complete the full deshield→interact→reshield pattern for the operation.
-2. When using the private account path, the GUI must display a pre-confirmation
-   summary for each vault operation that clearly identifies what will be visible
-   on-chain (deposit/withdrawal amount, vault address, vault share mint/burn,
-   ephemeral intermediary account) and what will remain private (the originating
-   private account, the destination of re-shielded vault shares or withdrawn
-   tokens, and any link between separate interactions by the same user).
-3. The ephemeral public account (account A) created during the deshield step
-   must never be reused across vault operations. Each interaction from a private
-   account must use a freshly generated account with no prior on-chain history.
+1. Users can interact with vaults from private accounts, through the GUI, CLI
+   and core module.
+2. Where a vault operation or flow cannot be carried out from a private account,
+   the privacy and anonymisation properties document (Supportability 8) states
+   which one and why.
 
 ### Soft Requirements
 
@@ -436,12 +421,10 @@ If possible.
 
 ### Privacy Architecture
 
-This RFP inherits the privacy model defined for the core lending protocol. The
-same deshield, interact, reshield pattern applies to every vault operation
-(deposit, withdraw, vault share transfer). See
+Users can interact with vaults from private accounts (Privacy 1); any vault
+operation or flow for which this is not possible is documented (Privacy 2). See
 [RFP-008 — Privacy Architecture](./RFP-008-lending-borrowing-protocol.md#privacy-architecture)
-for the full interaction flow, the gas constraint, and the public/ private
-observability split.
+for the lending protocol's public and private observability split.
 
 ## ⚠ Platform Dependencies
 
@@ -465,7 +448,7 @@ capabilities:
    [LP-0013](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0013.md)
    is an illustrative example.
 3. **A price oracle** for the vault share price, needed for vault shares to be
-   usable as collateral (Usability #6).
+   usable as collateral (Usability #4).
    [RFP-020](./RFP-020-redstone-oracle-adaptor.md) and
    [RFP-019](./RFP-019-twap-oracle.md) are illustrative examples.
 

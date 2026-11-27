@@ -263,48 +263,39 @@ development deliverables.
 
 #### Usability
 
-01. Build the program using the
-    [SPEL framework](https://github.com/logos-co/spel), which generates the IDL
-    and client code from the program definition.
-02. **Logos app architecture.** Deliver the user-facing application as two
-    composable modules: (a) a **core module** containing all business logic,
-    transaction construction and state querying, with no GUI dependencies; and
-    (b) a **GUI module** in QML + C++ that consumes the core module and is
-    loadable in the Logos app (Basecamp) via the team's own git repo. The core
-    module must be the single source of truth for protocol interaction logic and
-    must be directly reusable by headless consumers (CLI, reference liquidator,
-    reference risk monitor) without any GUI dependency. The two modules must
-    build and ship independently; the GUI must contain no business logic that is
-    not also accessible through the core module.
-03. Provide local build instructions and downloadable assets for the GUI,
-    loadable in the Logos app (Basecamp) via the team's own git repo.
-04. Provide a CLI that covers core functionality of the program. The CLI
-    consumes the same core module as the GUI. The CLI may have fewer features
-    than the GUI but must support all essential operations.
-05. The reference liquidator (F15) and reference risk monitor (F16) are built on
-    the same core module as the GUI and CLI, exposed as headless daemons
-    suitable for third parties to fork and run independently. No GUI dependency.
-06. The GUI supports creating markets, supplying, borrowing, repaying,
-    withdrawing, and viewing position health per market.
-07. Position LTV is displayed per market per borrower, queryable on-chain and
-    surfaced in both CLI and GUI.
-08. Current supply APY, borrow APR, and utilisation are displayed per market in
-    the GUI and CLI.
-09. When interacting via a private account, the core module must handle the
-    atomic deshield (deposit token + native gas) as a single indivisible user
-    action, so the operation is funded entirely from the user's shielded
-    balance.
-10. When interacting via a private account, before each operation the GUI must
-    show the estimated transaction fee and confirm that the user's shielded
-    balance covers both the operation amount and fees within the single deshield
-    action. If the balance is insufficient, a clear, actionable error must be
-    shown before any transaction is submitted.
-11. The GUI must preview the position LTV impact of a borrow or collateral
-    withdrawal before the user confirms: displaying both the current LTV and the
-    projected LTV after the operation. (A health check gates borrows and
-    collateral withdrawals; withdrawing supplied loan tokens per F5 is gated by
-    available market liquidity, not by the borrower's position health, so it
-    does not move position LTV.)
+1. Build the program using the
+   [SPEL framework](https://github.com/logos-co/spel), which generates the IDL
+   and client code from the program definition.
+2. **Logos app architecture.** Deliver the user-facing application as two
+   composable modules: (a) a **core module** containing all business logic,
+   transaction construction and state querying, with no GUI dependencies; and
+   (b) a **GUI module** in QML + C++ that consumes the core module and is
+   loadable in the Logos app (Basecamp) via the team's own git repo. The core
+   module must be the single source of truth for protocol interaction logic and
+   must be directly reusable by headless consumers (CLI, reference liquidator,
+   reference risk monitor) without any GUI dependency. The two modules must
+   build and ship independently; the GUI must contain no business logic that is
+   not also accessible through the core module.
+3. Provide local build instructions and downloadable assets for the GUI,
+   loadable in the Logos app (Basecamp) via the team's own git repo.
+4. Provide a CLI that covers core functionality of the program. The CLI consumes
+   the same core module as the GUI. The CLI may have fewer features than the GUI
+   but must support all essential operations.
+5. The reference liquidator (F15) and reference risk monitor (F16) are built on
+   the same core module as the GUI and CLI, exposed as headless daemons suitable
+   for third parties to fork and run independently. No GUI dependency.
+6. The GUI supports creating markets, supplying, borrowing, repaying,
+   withdrawing, and viewing position health per market.
+7. Position LTV is displayed per market per borrower, queryable on-chain and
+   surfaced in both CLI and GUI.
+8. Current supply APY, borrow APR, and utilisation are displayed per market in
+   the GUI and CLI.
+9. The GUI must preview the position LTV impact of a borrow or collateral
+   withdrawal before the user confirms: displaying both the current LTV and the
+   projected LTV after the operation. (A health check gates borrows and
+   collateral withdrawals; withdrawing supplied loan tokens per F5 is gated by
+   available market liquidity, not by the borrower's position health, so it does
+   not move position LTV.)
 
 #### Reliability
 
@@ -412,31 +403,11 @@ development deliverables.
 
 #### + Privacy
 
-1. The GUI and core module must support both direct public account interaction
-   and the deshield→interact→reshield pattern for private account interaction.
-   When a user chooses the private account path, the core module must complete
-   the full deshield→interact→reshield pattern for the operation.
-2. When using the private account path, the GUI must display a pre-confirmation
-   summary for each operation that clearly identifies what will be visible
-   on-chain (amounts, asset type, market address, ephemeral intermediary
-   account) and what is not recorded in public on-chain state (the originating
-   private account and the destination of re-shielded tokens). The summary must
-   explain that public timing and amounts may still allow observers to correlate
-   interactions.
-3. When using the private account path, the core module must validate that the
-   target account for re-shielding is a private (shielded) account before
-   submitting the transaction, and reject the operation with an explicit error
-   if it is not.
-4. The ephemeral public account (account A) created during the deshield step
-   must never be reused across operations. Each protocol interaction from a
-   private account must use a freshly generated account with no prior on-chain
-   history. Because LEZ accounts are keypair-derived (Solana-style), generating
-   an account with no on-chain history is trivial; preventing reuse, however, is
-   a core module responsibility. Applicants must document how the core module
-   enforces single-use (for example, fresh-keypair-per-operation, a
-   deterministic single-use derivation scheme tied to a nonce, or a local
-   registry of consumed ephemeral keys) and how it survives client restarts and
-   multi-device usage without reuse.
+1. Users can interact with the protocol from private accounts, through the GUI,
+   CLI and core module.
+2. Where an operation or flow cannot be carried out from a private account, the
+   privacy and anonymisation properties document (Supportability 9) states which
+   one and why.
 
 ### Soft Requirements
 
@@ -502,18 +473,8 @@ accounts) lives in **public (on-chain) state**. This is a deliberate
 architectural choice: public state enables permissionless liquidation, oracle
 integration and cross-program composition.
 
-The private account interaction path is implemented by the GUI and core module.
-The GUI and core module must support both direct public account interaction and
-private account interaction via the deshield, interact, reshield pattern: the
-user acts from a private account, the core module deshields to a fresh
-single-use public account that carries out the operation, and any outputs are
-reshielded back to the private account. When a user opts to interact from a
-private account, the core module must complete the full
-deshield-interact-reshield pattern for the operation, including atomic funding
-of gas, so that the operation is funded entirely from the user's shielded
-balance and the ephemeral account carries no prior history. Timing and amounts
-remain public and may be correlated; the pattern does not guarantee that
-separate interactions cannot be linked.
+Users can interact with the protocol from private accounts (Privacy 1); any
+operation or flow for which this is not possible is documented (Privacy 2).
 
 The full privacy and anonymisation properties (the complete observable-on-chain
 versus protected-data breakdown, trust assumptions, and bypass behaviour) are a
@@ -557,7 +518,7 @@ within LEZ's per-transaction execution gas limit, or needs so much of it that it
 competes with other transactions for block space, liquidations will fail or be
 delayed and the protocol risks insolvency. The number of private transactions
 that fit in a block is also limited, which bounds the throughput of the private
-account path (Privacy 1 to 4). These limits may change during testnet.
+account path (Privacy 1). These limits may change during testnet.
 
 **Deliverable.** Applicants must benchmark the execution gas of liquidation on
 LEZ testnet 0.4 once the protocol is integrated and include the figures in the
