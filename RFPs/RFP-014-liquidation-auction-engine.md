@@ -148,12 +148,14 @@ configuration, which requires its own assessment.
 1. Build the program using the SPEL framework, which generates the IDL and
    client code from the program definition.
 
-2. Provide a Logos mini-app GUI with local build instructions, downloadable
-   assets, and loadable in Logos app (Basecamp) via the team's own git repo.
+2. Provide a Logos mini-app GUI built on the core module (U6), with local build
+   instructions, downloadable assets, and loadable in Logos app (Basecamp) via
+   the team's own git repo.
 
-3. Provide a CLI that covers core functionality of the program. The CLI may have
-   fewer features than the GUI mini-app but must support all essential
-   operations.
+3. Provide a CLI using the Logos Core headless framework and the core module
+   (U6). The CLI may have fewer features than the GUI mini-app but must support
+   all essential operations (trigger liquidation, bid, settle, and the position
+   and auction queries in U4 and U5) on both public and private account paths.
 
 4. Tools display undercollateralized positions with estimated liquidator
    incentives and allow users to trigger liquidation, both manually and
@@ -163,9 +165,11 @@ configuration, which requires its own assessment.
    amount vs target, and time remaining. Users can bid with clear previews of
    received collateral and costs.
 
-6. Provide an SDK that can be used to build Logos modules for interacting with
-   the program. The SDK must support private account operations via the
-   deshield-interact-reshield pattern.
+6. Provide a Logos core module for program operations and shared client
+   functionality, reusable by the CLI and the mini-app. It runs headless in
+   Logos Core, without the GUI, and supports public and private account
+   operations, including the deshield-interact-reshield pattern. No separate SDK
+   is required.
 
 #### Reliability
 
@@ -210,18 +214,19 @@ configuration, which requires its own assessment.
 
 5. A README documents end-to-end usage: deployment steps, program addresses, and
    step-by-step instructions for interacting with the program via CLI and
-   mini-app.
+   mini-app. The core module's API is documented for module and UI developers.
 
 #### + Privacy
 
-1. The mini-app and SDK must support both direct public account interaction and
-   the deshield-interact-reshield pattern for private account interaction. When
-   a user chooses the private account path, the SDK must complete the full
-   deshield-interact-reshield pattern for the operation.
+1. The core module, CLI and mini-app must support both direct public account
+   interaction and the deshield-interact-reshield pattern for private account
+   interaction. When a user chooses the private account path, the core module
+   must complete the full deshield-interact-reshield pattern for the operation.
 
-2. When using the private account path, the SDK must validate that the target
-   account for reshielding is a private (shielded) account before submitting the
-   transaction, and reject the operation with an explicit error if it is not.
+2. When using the private account path, the core module must validate that the
+   target account for reshielding is a private (shielded) account before
+   submitting the transaction, and reject the operation with an explicit error
+   if it is not.
 
 3. The ephemeral public account created during the deshield step must never be
    reused across operations. Each protocol interaction from a private account
@@ -241,10 +246,10 @@ If possible.
 
 #### Usability
 
-1. Liquidator bot SDK with position monitoring and automated liquidation
-   triggers, provided as reference software that third parties may fork and run.
-   Liquidation remains permissionless (F1) and does not depend on any particular
-   bot operator.
+1. Liquidator bot built on the core module, with position monitoring and
+   automated liquidation triggers, provided as reference software that third
+   parties may fork and run. Liquidation remains permissionless (F1) and does
+   not depend on any particular bot operator.
 
 ### Out of Scope
 
@@ -267,19 +272,20 @@ All auction and liquidation state lives in public (on-chain) state. This is a
 deliberate architectural choice: public state enables permissionless
 liquidation, price feed integration, and composability.
 
-User privacy is optionally enforced at the UX layer. The mini-app and SDK
-support both direct public account interaction and private account interaction
-via the deshield-interact-reshield pattern. When users opt to interact from a
-private account, the SDK must complete the full pattern as described below.
+User privacy is optionally enforced at the client layer. The core module, CLI
+and mini-app support both direct public account interaction and private account
+interaction via the deshield-interact-reshield pattern. When users opt to
+interact from a private account, the core module must complete the full pattern
+as described below.
 
 #### Interaction flow
 
 For every protocol operation (liquidate, bid, settle):
 
-1. The user initiates the action from their private account. The SDK deshields
-   to a fresh, single-use public account with no prior on-chain history. The
-   deshield atomically transfers both the operation token and enough native
-   token for gas in a single indivisible action.
+1. The user initiates the action from their private account. The core module
+   deshields to a fresh, single-use public account with no prior on-chain
+   history. The deshield atomically transfers both the operation token and
+   enough native token for gas in a single indivisible action.
 2. The ephemeral account executes the protocol operation.
 3. The ephemeral account shields any outputs back to the user's private account.
    The account is never reused.
