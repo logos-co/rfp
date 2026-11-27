@@ -165,9 +165,8 @@ configuration, which requires its own assessment.
 
 6. Provide a Logos core module for program operations and shared client
    functionality, reusable by the CLI and the mini-app. It runs headless in
-   Logos Core, without the GUI, and supports public and private account
-   operations, including the deshield-interact-reshield pattern. No separate SDK
-   is required.
+   Logos Core, without the GUI, and supports direct interaction from both public
+   and private accounts (Privacy 1). No separate SDK is required.
 
 #### Reliability
 
@@ -216,19 +215,14 @@ configuration, which requires its own assessment.
 
 #### + Privacy
 
-1. The core module, CLI and mini-app must support both direct public account
-   interaction and the deshield-interact-reshield pattern for private account
-   interaction. When a user chooses the private account path, the core module
-   must complete the full deshield-interact-reshield pattern for the operation.
+1. The core module, CLI and mini-app support direct interaction with the program
+   from both public and private accounts: on the private path, the operation
+   (liquidate, bid, settle) is performed directly from the user's private
+   account, and its outputs are returned to a private account of the user.
 
-2. When using the private account path, the core module must validate that the
-   target account for reshielding is a private (shielded) account before
-   submitting the transaction, and reject the operation with an explicit error
-   if it is not.
-
-3. The ephemeral public account created during the deshield step must never be
-   reused across operations. Each protocol interaction from a private account
-   must use a freshly generated account with no prior on-chain history.
+2. Where an operation cannot be performed directly from a private account, the
+   documentation states which operation, why, how it is performed instead, and
+   what that path records in public on-chain state.
 
 ### Soft Requirements
 
@@ -270,23 +264,8 @@ All auction and liquidation state lives in public (on-chain) state. This is a
 deliberate architectural choice: public state enables permissionless
 liquidation, price feed integration, and composability.
 
-User privacy is optionally enforced at the client layer. The core module, CLI
-and mini-app support both direct public account interaction and private account
-interaction via the deshield-interact-reshield pattern. When users opt to
-interact from a private account, the core module must complete the full pattern
-as described below.
-
-#### Interaction flow
-
-For every protocol operation (liquidate, bid, settle):
-
-1. The user initiates the action from their private account. The core module
-   deshields to a fresh, single-use public account with no prior on-chain
-   history. The deshield atomically transfers both the operation token and
-   enough native token for gas in a single indivisible action.
-2. The ephemeral account executes the protocol operation.
-3. The ephemeral account shields any outputs back to the user's private account.
-   The account is never reused.
+Users may interact with the program from a public account or directly from a
+private account (Privacy 1).
 
 #### What is public (observable on-chain)
 
@@ -296,11 +275,12 @@ For every protocol operation (liquidate, bid, settle):
 
 #### What is not recorded in public on-chain state
 
+For operations performed directly from a private account:
+
 - The private account that initiated a liquidation or bid.
-- The destination of auction proceeds after reshielding.
-- Any association between the ephemeral accounts used by the same private
-  account. Timing and amounts of operations remain public and may still be
-  correlated.
+- The private account that received auction proceeds.
+- Any association between operations performed from the same private account.
+  Timing and amounts of operations remain public and may still be correlated.
 
 ## Platform Dependencies
 
